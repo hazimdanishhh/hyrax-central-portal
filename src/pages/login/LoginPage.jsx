@@ -11,15 +11,16 @@ import { GoogleLogo } from "phosphor-react";
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { session } = useAuth();
+  const { session, loading } = useAuth();
 
-  const from = location.state?.from?.pathname || "/";
+  const from = location.state?.from?.pathname || "/app";
 
   useEffect(() => {
-    if (session) {
+    if (!loading && session) {
+      // If user is logged in, redirect to intended page or /app
       navigate(from, { replace: true });
     }
-  }, [session, from, navigate]);
+  }, [session, loading, from, navigate]);
 
   // Google Login Function
   const handleGoogleLogin = async () => {
