@@ -20,7 +20,7 @@ export default function ProfileCard({ profile, session }) {
     <div className="profileCard">
       <div className="profilePhoto">
         <img
-          src={avatarUrl ? `/${avatarUrl}` : `/profilePhoto/default.webp`}
+          src={avatarUrl ? `${avatarUrl}` : `/profilePhoto/default.webp`}
           alt={profile?.name}
         />
       </div>
