@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Navigate, BrowserRouter, Route, Routes } from "react-router-dom";
 import "./styles/index.scss";
 import "./styles/fonts.scss";
 import "./styles/sections.scss";
@@ -45,8 +45,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <BrowserRouter>
           <Routes>
             {/* Public */}
-            <Route index element={<Home />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route index element={<Navigate to="/login" replace />} />
 
             {/* Authenticated App */}
             <Route

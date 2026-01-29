@@ -25,28 +25,46 @@ export default function useUserProfile() {
       setError(null);
 
       try {
-        // Supabase query: profiles -> join roles and departments
-        const { data, error: fetchError } = await supabase
+        // 1️⃣ Fetch profile row from profiles table
+        const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select(
             `
             id,
             created_at,
             updated_at,
-            role:roles(name),
-            department:departments(sub, name)
+            role_id,
+            department_id,
+            roles(name),
+            departments(sub, name)
           `,
           )
-          .eq("id", session.user.id) // RLS: will only fetch their own profile
-          .single();
+          .eq("id", session.user.id)
+          .maybeSingle();
 
-        if (fetchError) throw fetchError;
+        if (profileError) throw profileError;
 
+        if (!profileData) {
+          setProfile(null);
+          return;
+        }
+
+        // 2️⃣ Map the data for frontend
         setProfile({
-          ...data,
-          role: data?.role?.name || null,
-          department: data?.department?.name || null,
-          departmentSub: data?.department?.sub || null,
+          id: profileData.id,
+          created_at: profileData.created_at,
+          updated_at: profileData.updated_at,
+          role_id: profileData.role_id,
+          department_id: profileData.department_id,
+          role: profileData.roles?.name || null,
+          department: profileData.departments?.name || null,
+          departmentSub: profileData.departments?.sub || null,
+          // You can add other Google Workspace metadata here if you sync it
+          full_name: session.user.user_metadata?.full_name || null,
+          email: session.user.email,
+          avatar_url:
+            session.user.user_metadata?.avatar_url ||
+            "/profilePhoto/default.webp",
         });
       } catch (err) {
         console.error("Failed to fetch user profile:", err);

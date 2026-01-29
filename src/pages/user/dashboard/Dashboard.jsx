@@ -64,7 +64,7 @@ function Dashboard() {
                         truncate
                       />
                     ))}
-                  <Link to="/user/announcements" className="button buttonType2">
+                  <Link to="/app/announcements" className="button buttonType2">
                     View All
                     <CaretRight weight="bold" />
                   </Link>

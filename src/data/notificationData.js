@@ -1,6 +1,6 @@
 export const notificationData = [
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -11,7 +11,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/employee/claims",
+    to: "/app/employee/claims",
     type: "warning",
     title: "Pending Approval Required",
     message:
@@ -22,7 +22,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/help",
+    to: "/app/help",
     type: "error",
     title: "System Error Detected",
     message:
@@ -33,7 +33,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/employee/claims",
+    to: "/app/employee/claims",
     type: "success",
     title: "Form Submission Successful",
     message:
@@ -44,7 +44,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -55,7 +55,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -66,7 +66,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -77,7 +77,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -88,7 +88,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -99,7 +99,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -110,7 +110,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -121,7 +121,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -132,7 +132,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:
@@ -143,7 +143,7 @@ export const notificationData = [
     user_id: 12,
   },
   {
-    to: "/user/announcements",
+    to: "/app/announcements",
     type: "info",
     title: "New Announcement Posted",
     message:

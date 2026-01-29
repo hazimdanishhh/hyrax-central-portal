@@ -7,22 +7,12 @@ import { CircleNotch } from "phosphor-react";
 export default function ProfileCard({ profile, session }) {
   if (!profile && !session) return null;
 
-  const user = session?.user;
-  const name = user?.user_metadata?.full_name || "Unknown";
-  const email = user?.user_metadata?.email || "No email";
-  const avatarUrl =
-    user?.user_metadata?.avatar_url || "/profilePhoto/default.webp";
-  const lastLoginAt = user?.last_sign_in_at;
-  console.log(user);
   console.log(profile);
 
   return (
     <div className="profileCard">
       <div className="profilePhoto">
-        <img
-          src={avatarUrl ? `${avatarUrl}` : `/profilePhoto/default.webp`}
-          alt={profile?.name}
-        />
+        <img src={profile?.avatar_url} alt={profile?.name} />
       </div>
 
       <div className="profileSection">
@@ -31,10 +21,10 @@ export default function ProfileCard({ profile, session }) {
         <div className="profileDetails">
           <p className="profileLabel textRegular textXXS">
             <strong>Name: </strong>
-            {name}
+            {profile?.full_name}
           </p>
           <p className="profileLabel textRegular textXXS">
-            <strong>Email: </strong> {email}
+            <strong>Email: </strong> {profile?.email}
           </p>
         </div>
       </div>
@@ -97,7 +87,7 @@ export function ProfileCardLoading() {
         }}
         className="loadingIcon"
       >
-        <CircleNotch />
+        <CircleNotch size={40} />
       </motion.div>
     </div>
   );

@@ -8,34 +8,26 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Create profile safely only for new users
-  const createProfileIfNotExists = async (user) => {
+  /**
+   * Sync Google metadata into profiles table on every login
+   * Does NOT overwrite role_id or department_id
+   */
+  const syncProfile = async (user) => {
     if (!user) return;
 
-    // Check if profile already exists
-    const { data: existingProfile, error: fetchError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error("Error fetching profile:", fetchError);
-      return;
-    }
-
-    // Only insert if it doesn't exist
-    if (!existingProfile) {
-      const { error: insertError } = await supabase.from("profiles").insert({
+    const { error } = await supabase.from("profiles").upsert(
+      {
         id: user.id, // FK to auth.users.id
-        // no role_id / department_id here, defaults in table will apply
+        full_name: user.user_metadata.full_name,
+        email: user.email,
+        avatar_url:
+          user.user_metadata.avatar_url || "/profilePhoto/default.webp",
         updated_at: new Date().toISOString(),
-      });
+      },
+      { onConflict: "id" }, // safely updates if exists
+    );
 
-      if (insertError) {
-        console.error("Failed to create profile:", insertError);
-      }
-    }
+    if (error) console.error("Profile sync failed:", error);
   };
 
   useEffect(() => {
@@ -43,10 +35,7 @@ export function AuthProvider({ children }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
-
-      if (session?.user) {
-        createProfileIfNotExists(session.user);
-      }
+      if (session?.user) syncProfile(session.user);
     });
 
     // Auth listener
@@ -54,10 +43,7 @@ export function AuthProvider({ children }) {
       (_event, session) => {
         setSession(session);
         setLoading(false);
-
-        if (session?.user) {
-          createProfileIfNotExists(session.user);
-        }
+        if (session?.user) syncProfile(session.user);
       },
     );
 

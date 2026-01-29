@@ -10,17 +10,17 @@ export const quickActionsHome = [
   {
     icon: SquaresFour,
     name: "Create Project",
-    path: "/user/workspace/projects",
+    path: "/app/workspace/projects",
   },
   {
     icon: ListDashes,
     name: "Create Task",
-    path: "/user/workspace/tasks",
+    path: "/app/workspace/tasks",
   },
   {
     icon: Folders,
     name: "Add Document",
-    path: "/user/workspace/documents",
+    path: "/app/workspace/documents",
   },
   {
     icon: Calendar,
@@ -30,6 +30,6 @@ export const quickActionsHome = [
   {
     icon: Wallet,
     name: "Create Expense Claim",
-    path: "/user/employee/claims",
+    path: "/app/employee/claims",
   },
 ];

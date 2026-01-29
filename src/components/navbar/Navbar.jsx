@@ -1,7 +1,6 @@
 import "./Navbar.scss";
 import { Link } from "react-router";
 import { useRef, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
 import logo from "/src/assets/favicon.svg";
 import { Bell, CaretRight, SidebarSimple, X } from "phosphor-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -11,6 +10,8 @@ import NotificationCard from "../notifications/notificationCard/NotificationCard
 import { notificationData } from "../../data/notificationData";
 import MobileNav from "../mobileNav/MobileNav";
 import useMediaQuery from "../../functions/mediaQuery";
+import useUserProfile from "../../hooks/useUserProfile";
+import { useAuth } from "../../context/AuthContext";
 
 function Navbar() {
   const [mobileNavIsOpen, setMobileNavIsOpen] = useState(false);
@@ -24,12 +25,9 @@ function Navbar() {
   const notifications = [...notificationData].reverse();
 
   // Fetch User Profile Data
+  const { profile, loading } = useUserProfile({ setMessage });
   const { session } = useAuth();
-  const user = session?.user;
-  const name = user?.user_metadata?.full_name || user?.email || "Unknown";
-  const avatarUrl =
-    user?.user_metadata?.avatar_url || "/profilePhoto/default.webp";
-  const lastLoginAt = user?.last_sign_in_at;
+  const last_sign_in_at = session?.user?.last_sign_in_at;
 
   // Close navbar when clicked outside
   useClickOutside(navModalRef, () => setMobileNavIsOpen(false));
@@ -56,11 +54,11 @@ function Navbar() {
         <div className="navbarSegment">
           {/* USER PROFILE */}
           <div className="textOverflow navbarProfile">
-            <p className="textRegular textXS">{name}</p>
+            <p className="textRegular textXS">{profile?.full_name}</p>
             <p className="textLight textXXXS">
               <strong className="textRegular">Last Login:</strong>{" "}
-              {lastLoginAt
-                ? new Date(lastLoginAt).toLocaleString("en-MY", {
+              {last_sign_in_at
+                ? new Date(last_sign_in_at).toLocaleString("en-MY", {
                     dateStyle: "medium",
                     timeStyle: "short",
                   })
@@ -128,7 +126,7 @@ function Navbar() {
 
           {/* User Profile Icon */}
           <Link className="profilePhoto" to="/app/profile">
-            <img src={avatarUrl} alt={name} />
+            <img src={profile?.avatar_url} alt={profile?.name} />
           </Link>
         </div>
 
