@@ -1,0 +1,46 @@
+.notificationCard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: start;
+  border-radius: 15px;
+  border: 1px solid $neutral700;
+  padding: 0.8rem;
+  gap: 0.3rem;
+
+  &:hover {
+    border: 1px solid $neutral300;
+    color: inherit;
+  }
+
+  .notificationTitle {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    width: 100%;
+    gap: 0.5rem;
+
+    // &.info {
+    // }
+
+    &.warning {
+      color: $warning600;
+    }
+
+    &.error {
+      color: $error600;
+    }
+
+    &.success {
+      color: $success600;
+    }
+  }
+
+  .notificationViewButton {
+    align-self: end;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}

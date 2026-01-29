@@ -1,0 +1,69 @@
+name: Deploy to Hostinger via FTP
+
+on: push
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite project
+        run: npm run build
+
+      - name: Deploy dist/ to Hostinger via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: dist/
+          server-dir: ./
+          delete: true
+
+      - name: Notify Discord on success (embed)
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d '{
+                "embeds": [{
+                  "title": "✅ Deploy Hyrax Hub Frontend to Hostinger Succeeded",
+                  "description": "**Commit:** [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})\n**By:** ${{ github.actor }}\n**Branch:** `${{ github.ref_name }}`",
+                  "color": 65280,
+                  "footer": {
+                    "text": "Hyrax Oil • GitHub Actions • hyrax-central-portal"
+                  },
+                  "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+                }]
+              }' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+      - name: Notify Discord on failure (embed)
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+          -X POST \
+          -d '{
+                "embeds": [{
+                  "title": "❌ Deploy Hyrax Hub Frontend to Hostinger Failed",
+                  "description": "**Commit:** [${{ github.event.head_commit.message }}](${{ github.event.head_commit.url }})\n**By:** ${{ github.actor }}\n**Branch:** `${{ github.ref_name }}`",
+                  "color": 16711680,
+                  "footer": {
+                    "text": "Hyrax Oil • GitHub Actions • hyrax-central-portal"
+                  },
+                  "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+                }]
+              }' \
+          ${{ secrets.DISCORD_WEBHOOK_URL }}

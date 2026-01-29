@@ -1,0 +1,17 @@
+// components/pageTransition/PageTransition.scss
+.transition-circle {
+  position: fixed;
+  width: 1000px;
+  height: 1000px;
+  bottom: 2rem;
+  right: 2rem;
+  background-color: $primary;
+  border-radius: 50%;
+  z-index: 9999;
+  pointer-events: none;
+
+  @media screen and (max-width: 1024px) {
+    width: 500px;
+    height: 500px;
+  }
+}

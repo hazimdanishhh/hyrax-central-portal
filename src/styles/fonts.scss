@@ -1,0 +1,208 @@
+// =======================================
+// FONT STYLES
+// This is a standard style for all font sizes in the app. It includes font sizes for headings and paragraphs, and it adjusts the font size based on the screen size.
+// =======================================
+
+// =======================================
+// FONT WEIGHTS
+// These are standardized font weights for text in the app. They can be applied to any text element.
+// =======================================
+
+.textLight {
+  font-weight: 300;
+  transition: font-weight 0.5s;
+}
+
+.textRegular {
+  font-weight: 500;
+  transition: font-weight 0.5s;
+}
+.textBold {
+  font-weight: 700;
+  transition: font-weight 0.5s;
+}
+.textExtraBold {
+  font-weight: 900;
+  transition: font-weight 0.5s;
+}
+
+// =======================================
+// FONT SIZES
+// These are standardized font sizes for headings and paragraphs in the app. They adjust based on the screen size (mobile, tablet, laptop, large desktop).
+// =======================================
+
+/* ---------- MOBILE (≤480px) ---------- */
+@media screen and (max-width: 480px) {
+  h1,
+  .textXXXL {
+    font-size: 28px;
+  }
+  h2,
+  .textXXL {
+    font-size: 24px;
+  }
+  h3,
+  .textXL {
+    font-size: 20px;
+  }
+  h4,
+  blockquote,
+  .textL {
+    font-size: 18px;
+  }
+  h5,
+  .textM {
+    font-size: 16px;
+  }
+  h6,
+  p,
+  li,
+  a,
+  button,
+  .textS {
+    font-size: 14px;
+  }
+  .textXS {
+    font-size: 13px;
+  }
+  small,
+  .textXXS {
+    font-size: 12px;
+  }
+  .textXXXS {
+    font-size: 11px;
+  }
+}
+
+/* ---------- TABLET (481–1024px) ---------- */
+@media screen and (min-width: 481px) and (max-width: 1024px) {
+  h1,
+  .textXXXL {
+    font-size: 32px;
+  }
+  h2,
+  .textXXL {
+    font-size: 26px;
+  }
+  h3,
+  .textXL {
+    font-size: 22px;
+  }
+  h4,
+  blockquote,
+  .textL {
+    font-size: 19px;
+  }
+  h5,
+  .textM {
+    font-size: 17px;
+  }
+  h6,
+  p,
+  li,
+  a,
+  button,
+  .textS {
+    font-size: 15px;
+  }
+  .textXS {
+    font-size: 14px;
+  }
+  small,
+  .textXXS {
+    font-size: 13px;
+  }
+  .textXXXS {
+    font-size: 12px;
+  }
+}
+
+/* ---------- LAPTOP (1025–1680px) ---------- */
+@media screen and (min-width: 1025px) and (max-width: 1680px) {
+  h1,
+  .textXXXL {
+    font-size: 36px;
+  }
+  h2,
+  .textXXL {
+    font-size: 30px;
+  }
+  h3,
+  .textXL {
+    font-size: 24px;
+  }
+  h4,
+  blockquote,
+  .textL {
+    font-size: 20px;
+  }
+  h5,
+  .textM {
+    font-size: 18px;
+  }
+  h6,
+  p,
+  li,
+  a,
+  button,
+  .textS {
+    font-size: 16px;
+  }
+  .textXS {
+    font-size: 15px;
+  }
+  small,
+  .textXXS {
+    font-size: 14px;
+  }
+  .textXXXS {
+    font-size: 12px;
+  }
+}
+
+/* ---------- LARGE DESKTOP (≥1681px) ---------- */
+@media screen and (min-width: 1681px) {
+  h1,
+  .textXXXL {
+    font-size: 40px;
+  }
+  h2,
+  .textXXL {
+    font-size: 34px;
+  }
+  h3,
+  .textXL {
+    font-size: 28px;
+  }
+  h4,
+  blockquote,
+  .textL {
+    font-size: 24px;
+  }
+  h5,
+  .textM {
+    font-size: 22px;
+  }
+  h6,
+  p,
+  li,
+  a,
+  button,
+  .textS {
+    font-size: 16px;
+  }
+  .textXS {
+    font-size: 15px;
+  }
+  small,
+  .textXXS {
+    font-size: 14px;
+  }
+  .textXXXS {
+    font-size: 13px;
+  }
+}
+
+* {
+  line-height: 125%;
+}

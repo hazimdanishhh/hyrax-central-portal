@@ -1,0 +1,138 @@
+// MOBILE NAV
+.mobileNav {
+  position: fixed;
+  top: 70px;
+  left: 0;
+  z-index: 1600;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: calc(100dvh - 70px);
+  width: 100%;
+  padding: 0.5rem;
+  border-right: 1px solid $dark;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  opacity: 1;
+  transition: 0.3s;
+
+  &.close {
+    left: -100vw;
+    opacity: 0;
+    transition: 0.3s;
+  }
+
+  // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba($neutral600, 0.4); // Light minimal color
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgba($neutral600, 0.6);
+  }
+
+  @media screen and (min-width: 769px) {
+    display: none;
+    visibility: hidden;
+  }
+
+  .sideNavLogoContainer {
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    width: 100%;
+    padding: 0.5rem 0;
+    transition: justify-content 0.3s;
+
+    &.isClosed {
+      justify-content: center;
+      transition: justify-content 0.3s;
+    }
+
+    .sideNavLogo {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: max-content;
+    }
+  }
+
+  .sideNavSegment {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 1rem;
+
+    .sideNavButtons {
+      display: flex;
+      justify-content: end;
+      gap: 0.5rem;
+    }
+
+    .sideNavProfile {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      padding-bottom: 1rem;
+
+      border-bottom: 1px solid $dark;
+    }
+
+    .sideNavLinkLayout {
+      padding: 0 0 1rem 0;
+    }
+
+    .sideNavLinkHr {
+      border: 1px solid $light;
+    }
+  }
+
+  .mobileNavButtons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 1rem 0;
+    gap: 0.5rem;
+
+    .button {
+      width: 100%;
+    }
+  }
+}
+
+.sideNavButton {
+  display: flex;
+  align-self: end;
+  background: $dark;
+  color: $light;
+  padding: 0.5em;
+  border-radius: 50%;
+}
+
+.navButtonType1 {
+  border-radius: 10px;
+  display: flex;
+  align-self: end;
+  background: $dark;
+  color: $light;
+  padding: 0.5em;
+  transition: 0.1s;
+  min-width: max-content;
+
+  &:hover {
+    background-color: rgb($dark, 0.8);
+    color: $light;
+    transition: 0.1s;
+  }
+}

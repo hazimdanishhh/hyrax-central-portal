@@ -1,0 +1,156 @@
+export const notificationData = [
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/employee/claims",
+    type: "warning",
+    title: "Pending Approval Required",
+    message:
+      "You have 2 new Purchase Requests pending your approval in the Procurement module. Please review them as soon as possible.",
+    created_at: "10:20am",
+    read_status: false,
+    created_by: "Procurement System",
+    user_id: 12,
+  },
+  {
+    to: "/user/help",
+    type: "error",
+    title: "System Error Detected",
+    message:
+      "An unexpected error occurred while syncing data from the HR Attendance module. IT has been notified.",
+    created_at: "11:45am",
+    read_status: true,
+    created_by: "System Monitor",
+    user_id: 12,
+  },
+  {
+    to: "/user/employee/claims",
+    type: "success",
+    title: "Form Submission Successful",
+    message:
+      "Your expense claim for September 2025 has been successfully submitted and is pending manager approval.",
+    created_at: "12:30pm",
+    read_status: true,
+    created_by: "Finance System",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+  {
+    to: "/user/announcements",
+    type: "info",
+    title: "New Announcement Posted",
+    message:
+      "Intan Munirah has posted a new announcement: 'MEMO - Updated Leave Application Procedures'. Please review the details in the Announcement module.",
+    created_at: "09:15am",
+    read_status: false,
+    created_by: "system",
+    user_id: 12,
+  },
+];

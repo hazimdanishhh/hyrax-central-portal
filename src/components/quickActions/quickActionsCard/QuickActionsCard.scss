@@ -1,0 +1,52 @@
+.quickActionsCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border-radius: 10px;
+  border: 1px solid $neutral500;
+  background-color: rgb($neutral100, 0.1);
+  transition: 0.2s;
+  width: 100%;
+  height: 100%;
+
+  &:hover {
+    color: $primary;
+    border: 1px solid $primary;
+    transition: 0.2s;
+
+    .quickActionsPlusIcon {
+      background-color: $primary;
+      transition: 0.2s;
+    }
+  }
+
+  @media screen and (max-width: 768px) {
+    flex-direction: row;
+  }
+
+  .quickActionsCardTitle {
+    display: flex;
+    justify-content: start;
+    align-items: start;
+    gap: 0.8rem;
+    text-align: start;
+
+    @media screen and (max-width: 768px) {
+      justify-content: start;
+      align-items: center;
+    }
+  }
+
+  .quickActionsPlusIcon {
+    align-self: end;
+    display: flex;
+    background-color: $neutral900;
+    color: $neutral100;
+    border-radius: 50%;
+    width: fit-content;
+    padding: 0.3rem;
+    transition: 0.2s;
+  }
+}

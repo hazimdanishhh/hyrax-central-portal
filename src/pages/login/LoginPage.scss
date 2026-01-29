@@ -1,0 +1,37 @@
+.loginCardWrapper {
+  height: 100vh;
+  align-items: center;
+
+  .loginCardContainer {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 3rem;
+    width: 450px;
+    height: fit-content;
+    padding: 2rem;
+    background-color: $dark;
+    border-radius: 30px;
+
+    @media screen and (max-width: 768px) {
+      padding: 1rem;
+    }
+
+    .loginCardHeader {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+      width: 80%;
+      align-self: center;
+
+      .loginCardLogo {
+        width: 60px;
+        align-self: center;
+        border-radius: 1rem;
+        border: 1px solid $neutral700;
+      }
+    }
+  }
+}

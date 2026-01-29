@@ -1,0 +1,167 @@
+export const announcementData = [
+  {
+    avatarUrl: "/public/profilePhoto/munirah.png",
+    name: "Intan Munirah",
+    position: "Group HR & Administration Director",
+    date: "7 Oct 2025",
+    time: "10:05 am",
+    title: "MEMO: E-Leave Applications",
+    message:
+      "This is a gentle company-wide reminder to kindly submit your e-leave applications accordingly. To ensure our records are accurate and up to date, please apply for all relevant dates at your earliest convenience.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/zul.png",
+    name: "Zul Ariff",
+    position: "IT Manager",
+    date: "6 Oct 2025",
+    time: "3:22 pm",
+    title: "SYSTEM MAINTENANCE NOTICE",
+    message:
+      "Scheduled maintenance will take place on 9 Oct 2025 (Wednesday) from 9:00 PM to 11:30 PM. During this period, certain systems such as SAP and eLeave will be temporarily unavailable.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/anis.png",
+    name: "Anis Syahirah",
+    position: "Corporate Communications Executive",
+    date: "5 Oct 2025",
+    time: "11:45 am",
+    title: "UPCOMING EVENT: 33rd Anniversary Celebration",
+    message:
+      "Mark your calendars! Hyrax Oil’s 33rd Anniversary Celebration will be held on 15 February 2026 at the Meru Factory. All staff are encouraged to attend. Details will follow soon.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/munirah.png",
+    name: "Intan Munirah",
+    position: "Group HR & Administration Director",
+    date: "4 Oct 2025",
+    time: "2:40 pm",
+    title: "REMINDER: Punctuality & Attendance",
+    message:
+      "We appreciate everyone's effort in maintaining punctuality. Please ensure attendance is recorded on time daily. Repeated late arrivals may affect performance reviews.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/ahmad.png",
+    name: "Ahmad Razif",
+    position: "Finance Manager",
+    date: "2 Oct 2025",
+    time: "9:18 am",
+    title: "PAYROLL ANNOUNCEMENT: September Salaries",
+    message:
+      "Please note that September salaries have been successfully credited to all employees' accounts as of 2 October 2025. Kindly verify your bank account balance.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/default.webp",
+    name: "Safety & Compliance Unit",
+    position: "HSSE Department",
+    date: "1 Oct 2025",
+    time: "4:12 pm",
+    title: "FACTORY SAFETY TRAINING SESSION",
+    message:
+      "All production staff are required to attend the upcoming HSSE Safety Training on 10 Oct 2025, 9:00 AM at the Meru Training Hall. Attendance is mandatory.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/zul.png",
+    name: "Zul Ariff",
+    position: "IT Manager",
+    date: "30 Sep 2025",
+    time: "8:50 am",
+    title: "NEW EMAIL SIGNATURE FORMAT",
+    message:
+      "All employees are requested to update their email signatures according to the new Hyrax Oil Corporate Branding Guidelines. Refer to the shared template in the IT Drive.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/sabrina.png",
+    name: "Sabrina Lee",
+    position: "Marketing Manager",
+    date: "28 Sep 2025",
+    time: "1:15 pm",
+    title: "SOCIAL MEDIA PARTICIPATION DRIVE",
+    message:
+      "Join our internal social media challenge this October! Share Hyrax Oil content with the hashtag #HyraxStrong and stand a chance to win exclusive company merchandise.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/default.webp",
+    name: "Maintenance Department",
+    position: "Facilities Team",
+    date: "25 Sep 2025",
+    time: "5:40 pm",
+    title: "OFFICE AIR-CONDITIONING MAINTENANCE",
+    message:
+      "Routine maintenance work for the main building’s air-conditioning system will be carried out on 27–28 Sep 2025. Some areas may experience temporary temperature fluctuations.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/ahmad.png",
+    name: "Ahmad Razif",
+    position: "Finance Manager",
+    date: "23 Sep 2025",
+    time: "10:55 am",
+    title: "TRAVEL CLAIM SUBMISSION DEADLINE",
+    message:
+      "Please submit your travel claims for September by 28 Sep 2025 to ensure timely reimbursement. Late submissions will be processed in the following month.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/anis.png",
+    name: "Anis Syahirah",
+    position: "Corporate Communications Executive",
+    date: "21 Sep 2025",
+    time: "3:30 pm",
+    title: "NEW INTERNAL PORTAL LAUNCH",
+    message:
+      "We are excited to announce the launch of the new Hyrax Internal Portal! It will serve as a one-stop hub for HR updates, policies, and employee engagement materials.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/munirah.png",
+    name: "Intan Munirah",
+    position: "Group HR & Administration Director",
+    date: "20 Sep 2025",
+    time: "9:00 am",
+    title: "PUBLIC HOLIDAY NOTICE: Malaysia Day Replacement",
+    message:
+      "Please be informed that Monday, 22 Sep 2025, will be observed as a replacement public holiday for Malaysia Day. Work resumes on Tuesday, 23 Sep 2025.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/sabrina.png",
+    name: "Sabrina Lee",
+    position: "Marketing Manager",
+    date: "18 Sep 2025",
+    time: "12:45 pm",
+    title: "UPCOMING MARKETING TRAINING",
+    message:
+      "All sales and marketing staff are invited to attend a half-day workshop on Digital Content Strategy this Friday. RSVP via the internal form by 19 Sep 2025.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/default.webp",
+    name: "Hyrax Oil Management",
+    position: "Corporate Office",
+    date: "15 Sep 2025",
+    time: "2:00 pm",
+    title: "INTERNAL SURVEY: Employee Feedback 2025",
+    message:
+      "We value your input! Please complete the Employee Feedback Survey 2025 via the provided link. Your feedback will help us create a better work environment for all.",
+    link: "/user/announcements",
+  },
+  {
+    avatarUrl: "/public/profilePhoto/zul.png",
+    name: "Zul Ariff",
+    position: "IT Manager",
+    date: "12 Sep 2025",
+    time: "9:30 am",
+    title: "PASSWORD POLICY UPDATE",
+    message:
+      "As part of our cybersecurity improvements, all users are required to reset their passwords by 16 Sep 2025. Passwords must contain at least one uppercase letter, one number, and one symbol.",
+    link: "/user/announcements",
+  },
+];

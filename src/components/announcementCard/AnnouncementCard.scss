@@ -1,0 +1,93 @@
+.announcementCard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  border: 1px solid $neutral500;
+  background-color: rgb($neutral100, 0.1);
+  gap: 1rem;
+  padding: 0.8rem;
+  border-radius: 10px;
+
+  &:hover {
+    border: 1px solid $neutral700;
+  }
+
+  .announcementCardHeader {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+
+    .announcementCardProfile {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.8rem;
+
+      .profilePhoto {
+        width: 30px;
+        height: 30px;
+        background-color: $dark;
+        border-radius: 50%;
+        border: 3px solid $neutral800;
+        overflow: hidden; // ensures image stays inside the circle
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: 0.1s;
+
+        img {
+          width: 101%;
+          height: 101%;
+          object-fit: cover; // fills the circle nicely without stretching
+          object-position: center; // centers the subject
+          display: block; // removes default inline spacing
+        }
+      }
+
+      .announcementCardProfileDetails {
+        display: flex;
+        flex-direction: column;
+        justify-content: start;
+        align-items: start;
+      }
+    }
+
+    .announcementCardDate {
+      display: flex;
+      flex-direction: column;
+      justify-content: start;
+      align-items: end;
+    }
+  }
+
+  .announcementCardContent {
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    align-items: start;
+    text-align: start;
+
+    gap: 0.5rem;
+  }
+
+  .announcementCardViewButton {
+    align-self: end;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem 1.2rem;
+    gap: 0.8rem;
+    border-radius: 10px;
+    width: fit-content;
+    border: 1px solid $neutral500;
+    background-color: rgb($neutral100, 0.5);
+    transition: 0.2s;
+
+    &:hover {
+      border: 1px solid $primary;
+      background-color: rgb($neutral100, 0.1);
+      transition: 0.2s;
+    }
+  }
+}

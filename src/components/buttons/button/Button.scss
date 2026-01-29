@@ -1,0 +1,83 @@
+.iconButton {
+  display: flex;
+  align-self: end;
+  background: $dark;
+  color: $light;
+  padding: 0.5em;
+  border-radius: 50%;
+
+  &:hover {
+    background-color: $primary;
+    transition: background-color 0.1s;
+  }
+}
+
+// DEFAULT - Orange Border Hover - Padding Large - Width Fit Content
+.button {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  align-items: center;
+  background-color: rgb($neutral400, 0.1);
+  border-radius: 10px;
+  border: 1px solid $neutral600;
+  padding: 0.8rem 1.2rem;
+  transition: 0.3s;
+  width: fit-content;
+
+  &:hover {
+    background-color: rgb($neutral400, 0.1);
+    color: $primary;
+    border: 1px solid $primary;
+    transition: 0.3s;
+  }
+
+  // TYPE 1 - Orange Background Hover - Padding Large - Width Fit Content
+  &.buttonType1 {
+    background-color: rgb($neutral400, 0.1);
+    border-radius: 10px;
+    border: 1px solid $neutral600;
+    padding: 0.8rem 1.2rem;
+    transition: 0.3s;
+
+    &:hover {
+      background-color: $primary;
+      color: $neutral100;
+      border: 1px solid $primary;
+      transition: 0.3s;
+    }
+  }
+
+  // TYPE 2 - Orange Background Hover - Padding Suitable for Icon Size - Width 100%
+  &.buttonType2 {
+    background-color: rgb($neutral400, 0.1);
+    border-radius: 10px;
+    border: 1px solid $neutral600;
+    padding: 0.5rem;
+    transition: 0.3s;
+    width: 100%;
+
+    &:hover {
+      background-color: $primary;
+      color: $neutral100;
+      border: 1px solid $primary;
+      transition: 0.3s;
+    }
+  }
+
+  // TYPE 2 - Orange Background Hover - Padding Suitable for Icon Size - Width Fit Content
+  &.buttonType3 {
+    background-color: rgb($neutral400, 0.1);
+    border-radius: 10px;
+    border: 1px solid $neutral600;
+    padding: 0.5rem;
+    transition: 0.3s;
+
+    &:hover {
+      background-color: $primary;
+      color: $neutral100;
+      border: 1px solid $primary;
+      transition: 0.3s;
+    }
+  }
+}

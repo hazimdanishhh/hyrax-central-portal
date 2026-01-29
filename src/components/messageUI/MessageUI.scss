@@ -1,0 +1,49 @@
+.messageUI {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  position: fixed;
+  top: 2rem;
+  left: 0;
+  right: 0;
+  margin: auto;
+
+  width: fit-content;
+  background-color: $gray300;
+  color: $dark;
+  padding: 1rem;
+  border-radius: 1rem;
+
+  z-index: 9000;
+
+  &.error {
+    color: $light;
+    background-color: $error400;
+    border: 1px solid $error500;
+  }
+
+  &.success {
+    color: $light;
+    background-color: $success400;
+    border: 1px solid $success500;
+  }
+
+  &.loading {
+    color: $dark;
+    background-color: $warning400;
+    border: 1px solid $warning500;
+  }
+
+  &.info {
+    color: $light;
+    background-color: $info400;
+    border: 1px solid $info500;
+  }
+}
+
+.loadingIcon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

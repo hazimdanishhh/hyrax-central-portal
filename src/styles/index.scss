@@ -1,0 +1,112 @@
+// =======================================
+// GLOBAL STYLES
+// This is a global style for the app. It includes font settings, background color, and other general styles.
+// =======================================
+
+:root {
+  // font-family: "Poppins", sans-serif; // 100 - 900
+  // font-family: "DM Sans", sans-serif; // 100 - 1000
+  font-family: "Plus Jakarta Sans", sans-serif; // 200 - 800
+  // font-family: "DM Serif Display", serif; // 400 only
+  // font-family: "Lexend", sans-serif; // 100 - 900
+  // font-family: "Anton", sans-serif; // 400 only
+  // font-family: "Outfit", sans-serif; // 100 - 900
+  // font-family: "Manrope", sans-serif; // 200 - 800
+  // font-family: "Quicksand", sans-serif; // 300 - 700
+  // font-family: "Playfair Display", serif; // 400 - 900
+  // font-family: "Poiret One", sans-serif; // 400 only
+  // font-family: "Josefin Slab", serif; // 100 - 700
+  // font-family: "Abril Fatface", serif; // 400 only
+  // font-family: "Libertinus Serif Display", system-ui; // 400 only
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  color: $lightbg;
+}
+
+.content {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+main {
+  position: relative;
+  width: 100%;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+
+  &:hover {
+    color: $primary;
+    transition: 0.2s;
+  }
+}
+
+input,
+select,
+textarea,
+option {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid $medium;
+  border-radius: 1rem;
+  color: inherit;
+  background: none;
+  font-size: 16px;
+}
+
+textarea {
+  height: 300px;
+}
+
+input[type="submit"],
+input[type="reset"] {
+  background: $lightbg;
+  color: $dark;
+  border: none;
+  border-radius: 30px;
+  padding: 1rem 2rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+button {
+  background: inherit;
+  color: inherit;
+  border: none;
+  cursor: pointer;
+}
+
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+hr {
+  width: 100%;
+  border: 1px solid $medium;
+}
+
+// Container to make text hidden when overflowing (mostly for animations use)
+.textOverflow {
+  overflow: hidden;
+}
+
+li {
+  list-style-type: none;
+}
+
+// Screen Readers Only
+.sr-only {
+  display: none;
+}

@@ -1,0 +1,176 @@
+// NAVBAR
+.navbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 70px;
+  border-bottom: 1px solid $dark;
+  z-index: 1800;
+
+  .navbarSegment {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1rem;
+
+    &.navbarLogoContainer {
+      justify-content: space-between;
+      align-items: center;
+      height: 100%;
+      gap: 1rem;
+
+      .navButtonType1 {
+        align-self: center;
+        border-radius: 10px;
+        display: flex;
+        background: $dark;
+        color: $light;
+        padding: 0.5em;
+        visibility: visible;
+        transition: 0.1s;
+
+        &.mobileNavIcon {
+          @media screen and (min-width: 769px) {
+            display: none;
+            visibility: hidden;
+          }
+        }
+
+        &:hover {
+          background-color: rgb($dark, 0.8);
+          color: $light;
+          transition: 0.1s;
+        }
+      }
+
+      .navbarLogo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+      }
+    }
+
+    .navbarProfile {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+
+      @media screen and (max-width: 1024px) {
+        display: none;
+      }
+
+      .navbarProfileCardLoading {
+        width: 200px;
+        height: 16px;
+        border-radius: 5px;
+        background-color: $neutral800;
+      }
+    }
+
+    .navButton {
+      display: flex;
+      align-self: end;
+      background: $dark;
+      color: $light;
+      padding: 0.5em;
+      border-radius: 50%;
+
+      &:hover {
+        background-color: $primary;
+        transition: background-color 0.1s;
+      }
+
+      @media screen and (max-width: 768px) {
+        display: none;
+      }
+    }
+
+    .profilePhoto {
+      width: 39px;
+      height: 39px;
+      background-color: $dark;
+      border-radius: 50%;
+      border: 3px solid $neutral800;
+      overflow: hidden; // ensures image stays inside the circle
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.1s;
+
+      &:hover {
+        border: 3px solid $primary;
+        transition: 0.1s;
+      }
+
+      img {
+        width: 101%;
+        height: 101%;
+        object-fit: cover; // fills the circle nicely without stretching
+        object-position: center; // centers the subject
+        display: block; // removes default inline spacing
+      }
+    }
+
+    .notificationSection {
+      position: relative;
+      z-index: 9000;
+
+      .notificationWrapper {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        display: flex;
+        flex-direction: column;
+        width: 300px;
+        padding: 5px;
+        border-radius: 20px;
+        border: 1px solid $neutral700;
+        gap: 0.3rem;
+
+        .notificationHeader {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-left: 0.5rem;
+
+          .notificationCloseButton {
+            width: fit-content;
+            cursor: pointer;
+            transition: 0.3s;
+
+            &:hover {
+              background-color: $primary;
+              transition: 0.3s;
+            }
+          }
+        }
+
+        .notificationViewAllButton {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 0.5rem;
+          width: 100%;
+          text-align: center;
+          padding: 0.5rem;
+          border: 1px solid $neutral700;
+          border-radius: 15px;
+          background-color: $neutral800;
+          color: $neutral100;
+          transition: 0.3s;
+
+          &:hover {
+            background-color: $primary;
+            border: 1px solid $primary;
+            transition: 0.3s;
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+.sideNavLinkSegment {
+  p {
+    min-width: max-content;
+    margin-bottom: 0.5rem;
+  }
+
+  .segmentCode {
+    font-size: 9px;
+    text-align: center;
+  }
+  .sideNavLinkWrapper {
+    .sideNavLink {
+      display: flex;
+      justify-content: start;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.8rem;
+      border-radius: 10px;
+      width: 100%;
+      transition: background-color 0.15s ease;
+      min-width: max-content;
+
+      &:hover {
+        background-color: rgb($dark, 0.8);
+        color: $light;
+      }
+
+      &.active {
+        background-color: rgb($dark, 0.9);
+        color: $light;
+        font-weight: 600;
+      }
+
+      &.isClosed {
+        justify-content: center;
+      }
+    }
+  }
+}
+
+.sideNavTooltip {
+  position: absolute;
+  background-color: $neutral800;
+  color: white;
+  margin-left: 20px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  opacity: 0.95;
+}
