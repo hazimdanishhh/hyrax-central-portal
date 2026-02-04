@@ -9,22 +9,35 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   /**
-   * Sync Google metadata into profiles table on every login
+   * Sync Google metadata into profiles table on first login
    * Does NOT overwrite role_id or department_id
    */
   const syncProfile = async (user) => {
     if (!user) return;
 
+    // 1️⃣ Check if profile already exists
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const avatarAlreadySet =
+      existingProfile?.avatar_url &&
+      !existingProfile.avatar_url.includes("googleusercontent.com");
+
+    // 2️⃣ Upsert WITHOUT touching avatar_url if it already exists
     const { error } = await supabase.from("profiles").upsert(
       {
-        id: user.id, // FK to auth.users.id
-        full_name: user.user_metadata.full_name,
+        id: user.id,
+        full_name: user.user_metadata?.full_name || null,
         email: user.email,
-        avatar_url:
-          user.user_metadata.avatar_url || "/profilePhoto/default.webp",
+        avatar_url: avatarAlreadySet
+          ? existingProfile.avatar_url
+          : "/profilePhoto/default.webp",
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "id" }, // safely updates if exists
+      { onConflict: "id" },
     );
 
     if (error) console.error("Profile sync failed:", error);

@@ -21,8 +21,6 @@ export default function Profile() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <h1 className="textRegular textL">Your Profile</h1>
-
             {loading ? (
               <LoadingIcon />
             ) : profile ? (

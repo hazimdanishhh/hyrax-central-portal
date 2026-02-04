@@ -25,10 +25,6 @@ export default function useEmployee() {
       setError(null);
 
       try {
-        /**
-         * We query employees by profile_id
-         * profile_id === auth.users.id
-         */
         const { data, error } = await supabase
           .from("employees")
           .select(
@@ -54,19 +50,18 @@ export default function useEmployee() {
             emergency_contact_relationship,
             emergency_contact_phone,
 
-            department_id,
-            departments (
+            department:departments (
             id,
             name,
             sub
             ),
 
             position,
-            manager_id,
             manager:employees_manager_id_fkey (
             id,
-            full_name
-            )
+            full_name,
+            email
+            ),
 
             employment_status,
             employment_type,
@@ -105,11 +100,6 @@ export default function useEmployee() {
             data.full_name || session.user.user_metadata?.full_name || null,
 
           email_work: data.email_work || session.user.email || null,
-
-          department_name: data.departments?.name || null,
-          department_sub: data.departments?.sub || null,
-
-          managerName: data.manager?.full_name || null,
         });
       } catch (err) {
         console.error("Failed to fetch employee data:", err);

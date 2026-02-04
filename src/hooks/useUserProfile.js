@@ -31,6 +31,9 @@ export default function useUserProfile() {
           .select(
             `
             id,
+            full_name,
+            email,
+            avatar_url,
             created_at,
             updated_at,
             role_id,
@@ -59,12 +62,9 @@ export default function useUserProfile() {
           role: profileData.roles?.name || null,
           department: profileData.departments?.name || null,
           departmentSub: profileData.departments?.sub || null,
-          // You can add other Google Workspace metadata here if you sync it
-          full_name: session.user.user_metadata?.full_name || null,
-          email: session.user.email,
-          avatar_url:
-            session.user.user_metadata?.avatar_url ||
-            "/profilePhoto/default.webp",
+          full_name: profileData.full_name || null,
+          email: profileData.email || null,
+          avatar_url: profileData.avatar_url || "/profilePhoto/default.webp",
         });
       } catch (err) {
         console.error("Failed to fetch user profile:", err);
