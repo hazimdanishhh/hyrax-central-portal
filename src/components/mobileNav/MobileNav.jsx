@@ -2,7 +2,6 @@ import "./MobileNav.scss";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../context/ThemeContext";
-import { useAuth } from "../../context/AuthContext";
 import { sideNavLinkData } from "../../data/sideNavLinkData";
 import SideNavLink from "../sideNav/sideNavLink/SideNavLink";
 import LogoutButton from "../buttons/logoutButton/LogoutButton";
@@ -12,7 +11,6 @@ import useUserProfile from "../../hooks/useUserProfile";
 export default function MobileNav({ onClick, mobileNavIsOpen }) {
   const [navIsOpen, setNavIsOpen] = useState(true);
   const { darkMode } = useTheme();
-  const { user } = useAuth();
   const navModalRef = useRef(null);
   const [message, setMessage] = useState({ text: "", type: "" });
 

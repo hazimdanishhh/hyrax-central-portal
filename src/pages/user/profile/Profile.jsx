@@ -1,21 +1,18 @@
 import { useState } from "react";
 import MessageUI from "../../../components/messageUI/MessageUI";
-import ProfileCard, {
-  ProfileCardLoading,
-} from "../../../components/profileCard/ProfileCard";
+import ProfileCard from "../../../components/profileCard/ProfileCard";
 import { useTheme } from "../../../context/ThemeContext";
 import useUserProfile from "../../../hooks/useUserProfile";
-import UpdateProfileAsAdminForm from "../../../components/updateProfileAsAdminForm/UpdateProfileAsAdminForm";
-import { useAuth } from "../../../context/AuthContext";
+import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
+import useEmployee from "../../../hooks/useEmployee";
 
 export default function Profile() {
   const [message, setMessage] = useState({ text: "", type: "" });
-  const [isEditing, setIsEditing] = useState(false);
   const { darkMode, toggleMode } = useTheme();
 
   // Fetch user and profile data
-  const { session } = useAuth();
   const { profile, loading } = useUserProfile({ setMessage });
+  const { employee } = useEmployee();
 
   return (
     <>
@@ -27,11 +24,9 @@ export default function Profile() {
             <h1 className="textRegular textL">Your Profile</h1>
 
             {loading ? (
-              // Loading Card UI
-              <ProfileCardLoading />
-            ) : profile && session ? (
-              // Profile Card UI
-              <ProfileCard profile={profile} session={session} />
+              <LoadingIcon />
+            ) : profile ? (
+              <ProfileCard profile={profile} employee={employee} />
             ) : (
               // No Profile UI
               <p>No profile data found.</p>

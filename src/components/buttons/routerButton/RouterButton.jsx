@@ -5,7 +5,7 @@ function RouterButton({ to, name, icon, onClick, style }) {
   const Icon = icon;
 
   return (
-    <Link to={to} style={style} onClick={onClick}>
+    <Link to={to} className={style} onClick={onClick}>
       {name}
       {icon && <Icon />}
     </Link>

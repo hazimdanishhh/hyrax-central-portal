@@ -4,7 +4,6 @@ import { SidebarSimple } from "phosphor-react";
 import { navModalVariant } from "../../functions/motionUtils";
 import { useRef, useState } from "react";
 import { useTheme } from "../../context/ThemeContext";
-import { useAuth } from "../../context/AuthContext";
 import { sideNavLinkData } from "../../data/sideNavLinkData";
 import SideNavLink from "./sideNavLink/SideNavLink";
 import ThemeButton from "../buttons/themeButton/ThemeButton";

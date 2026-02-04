@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import MessageUI from "../../../components/messageUI/MessageUI";
 import PageTransition from "../../../components/pageTransition/PageTransition";
-import { useAuth } from "../../../context/AuthContext";
 import { useTheme } from "../../../context/ThemeContext";
 import QuickActions from "../../../components/quickActions/QuickActions";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
