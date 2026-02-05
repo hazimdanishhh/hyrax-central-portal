@@ -18,7 +18,7 @@ export const profileData = [
     title: "Personal Information",
     source: "employee",
     fields: [
-      { label: "Full Name", value: (d) => d?.managerName },
+      { label: "Full Name", value: (d) => d?.full_name },
       { label: "Preferred Name", value: (d) => d?.preferred_name },
       { label: "Date of Birth", value: (d) => d?.date_of_birth },
       { label: "Gender", value: (d) => d?.gender },
@@ -65,6 +65,7 @@ export const profileData = [
         value: (d) => `${d?.department?.name} (${d?.department?.sub})`,
       },
       { label: "Position", value: (d) => d?.position },
+      { label: "Manager System ID", value: (d) => d?.manager?.id },
       {
         label: "Reporting Manager",
         value: (d) => d?.manager?.full_name,
@@ -85,7 +86,7 @@ export const profileData = [
     source: "employee",
     fields: [
       { label: "Address (Work)", value: (d) => d?.address_work },
-      { label: "Address (Home)", value: (d) => d?.address_home },
+      { label: "Address (Home)", value: (d) => d?.address_personal },
     ],
   },
 ];

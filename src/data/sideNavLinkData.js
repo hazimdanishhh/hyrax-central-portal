@@ -22,6 +22,7 @@ import {
   AddressBook,
   Wallet,
   Files,
+  UsersThree,
 } from "phosphor-react";
 
 // =============================
@@ -37,6 +38,7 @@ const commonSegment = {
     { label: "Announcements", icon: Megaphone, path: "announcements" },
     { label: "Notifications", icon: Bell, path: "notifications" },
     { label: "Profile", icon: UserCircle, path: "profile" },
+    { label: "Department", icon: UsersThree, path: "department" },
   ],
 };
 

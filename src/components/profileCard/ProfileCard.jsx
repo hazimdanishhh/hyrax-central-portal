@@ -8,8 +8,6 @@ import Button from "../buttons/button/Button";
 export default function ProfileCard({ profile, employee }) {
   if (!profile || !employee) return null;
 
-  console.log(profile);
-
   const sources = {
     profile,
     employee,

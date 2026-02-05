@@ -1,0 +1,27 @@
+.statusLight {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+
+  &.inactive {
+    border: 1px solid $error500;
+    background-color: $error500;
+  }
+}
+
+.employeeStatus {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid $neutral800;
+  width: fit-content;
+  padding: 0.2rem 0.5rem;
+  border-radius: 20px;
+
+  &.inactive {
+    border: 1px solid $error500;
+    color: $error500;
+    background-color: rgb($error300, 0.2);
+  }
+}

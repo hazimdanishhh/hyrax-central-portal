@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 
 /**
  * Hook to fetch the current logged-in user's employee record
- * This is HR / employment data, separate from system profile
+ * This is HR / employment data
  */
 export default function useEmployee() {
   const { session } = useAuth();
@@ -57,12 +57,19 @@ export default function useEmployee() {
             ),
 
             position,
-            manager:employees_manager_id_fkey (
-            id,
-            full_name,
-            email
-            ),
 
+            manager:employees_manager_id_fkey (
+              id,
+              full_name,
+              email,
+              avatar_url,
+              department:departments (
+                id,
+                name,
+                sub
+              )
+            )
+              
             employment_status,
             employment_type,
             join_date,

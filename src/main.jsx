@@ -37,6 +37,8 @@ import ClaimsManagement from "./pages/user/finance/claimsManagement/ClaimsManage
 import Claims from "./pages/user/employee/claims/Claims";
 import Home from "./pages/index/Home";
 import ProtectedRoute from "./context/ProtectedRoute";
+import Department from "./pages/user/department/Department";
+import EmployeeProfile from "./pages/user/employee/employeeProfile/EmployeeProfile";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -62,6 +64,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="announcements" element={<Announcements />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="department" element={<Department />} />
 
               {/* Workspace */}
               <Route path="workspace/projects" element={<Projects />} />
@@ -91,6 +94,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
               {/* Employee */}
               <Route path="employee/onboarding" element={<Onboarding />} />
+              <Route
+                path="/app/employee/:profileId"
+                element={<EmployeeProfile />}
+              />
               <Route path="employee/attendance" element={<Attendance />} />
               <Route path="employee/leave-request" element={<LeaveRequest />} />
               <Route path="employee/claims" element={<Claims />} />
