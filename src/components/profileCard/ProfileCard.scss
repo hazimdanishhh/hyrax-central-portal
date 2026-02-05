@@ -92,3 +92,12 @@
     display: block; // removes default inline spacing
   }
 }
+
+.assetCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: 1px solid $neutral400;
+  border-radius: 8px;
+  padding: 0.5rem;
+}

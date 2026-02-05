@@ -5,6 +5,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
 import useEmployee from "../../../hooks/useEmployee";
+import useEmployeeAssets from "../../../hooks/useEmployeeAssets";
 
 export default function Profile() {
   const [message, setMessage] = useState({ text: "", type: "" });
@@ -13,6 +14,11 @@ export default function Profile() {
   // Fetch user and profile data
   const { profile, loading } = useUserProfile({ setMessage });
   const { employee } = useEmployee();
+
+  // Fetch employee assets
+  const { assets, loading: assetsLoading } = useEmployeeAssets(employee?.id, {
+    setMessage,
+  });
 
   return (
     <>
@@ -24,7 +30,11 @@ export default function Profile() {
             {loading ? (
               <LoadingIcon />
             ) : profile ? (
-              <ProfileCard profile={profile} employee={employee} />
+              <ProfileCard
+                profile={profile}
+                employee={employee}
+                assets={assets}
+              />
             ) : (
               // No Profile UI
               <p>No profile data found.</p>

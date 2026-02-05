@@ -6,9 +6,9 @@ import "./ProfileCard.scss";
 import Button from "../buttons/button/Button";
 import EmployeeStatus from "../status/employeeStatus/EmployeeStatus";
 
-export default function ProfileCard({ profile, employee }) {
+export default function ProfileCard({ profile, employee, assets }) {
   if (!profile || !employee) return null;
-  console.log(employee);
+  console.log(assets);
 
   const sources = {
     profile,
@@ -71,6 +71,40 @@ export default function ProfileCard({ profile, employee }) {
           </div>
         );
       })}
+
+      {/* Render Assets separately */}
+      {assets?.length > 0 && (
+        <div className="profileSection">
+          <CardSection>
+            <div className="profileSectionHeader">
+              <h2 className="textBold textS">Asset Information</h2>
+            </div>
+            <CardLayout style="cardLayout3">
+              {assets.map((asset) => (
+                <div key={asset.asset_code} className="assetCard">
+                  <strong className="profileLabel textXXS">
+                    {asset.asset_code} - {asset.asset_name}
+                  </strong>
+                  <p className="textRegular textXXS">
+                    {asset.asset_category?.name}/{asset.asset_subcategory?.name}
+                  </p>
+                  <p className="textRegular textXXS">
+                    Status: {asset.asset_status?.name}
+                  </p>
+                  <p className="textRegular textXXS">
+                    Manufacturer: {asset.manufacturer?.name} | Model:{" "}
+                    {asset.model?.name}
+                  </p>
+                  <p className="textRegular textXXS">
+                    Condition: {asset.asset_condition?.name} | Location:{" "}
+                    {asset.asset_location?.name}
+                  </p>
+                </div>
+              ))}
+            </CardLayout>
+          </CardSection>
+        </div>
+      )}
     </div>
   );
 }
