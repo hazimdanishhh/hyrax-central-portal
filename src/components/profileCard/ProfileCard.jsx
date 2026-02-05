@@ -4,9 +4,11 @@ import CardLayout from "../cardLayout/CardLayout";
 import CardSection from "../cardSection/CardSection";
 import "./ProfileCard.scss";
 import Button from "../buttons/button/Button";
+import EmployeeStatus from "../status/employeeStatus/EmployeeStatus";
 
 export default function ProfileCard({ profile, employee }) {
   if (!profile || !employee) return null;
+  console.log(employee);
 
   const sources = {
     profile,
@@ -29,6 +31,7 @@ export default function ProfileCard({ profile, employee }) {
             <p className="textBold textM">{profile?.full_name}</p>
             <p className="textLight textS">{employee?.department?.name}</p>
             <p className="textLight textXXS">{employee?.position}</p>
+            <EmployeeStatus status={employee?.employment_status?.name} />
           </div>
         </div>
       </CardSection>

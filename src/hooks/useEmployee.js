@@ -37,10 +37,18 @@ export default function useEmployee() {
             preferred_name,
             date_of_birth,
             gender,
-            nationality,
-            identification_type,
             identification_number,
             marital_status,
+
+            identification_type:identification_type_id (
+              id,
+              name
+            ),
+
+            nationality:nationality_id (
+              id,
+              name
+            ),
 
             email_personal,
             email_work,
@@ -68,15 +76,26 @@ export default function useEmployee() {
                 name,
                 sub
               )
-            )
+            ),
               
-            employment_status,
-            employment_type,
+            employment_status:employment_status_id (
+              id,
+              name
+            ),
+
+            employment_type:employment_type_id (
+              id,
+              name
+            ),
+
+            termination_reason:termination_reason_id (
+              id,
+              name
+            ),
             join_date,
             confirmation_date,
             end_date,
             resignation_date,
-            termination_reason,
 
             address_personal,
             address_work,

@@ -22,6 +22,8 @@ export default function EmployeeProfile() {
   const { profileId } = useParams();
   const { employee, loading, error } = useEmployeePublicProfile(profileId);
 
+  console.log(employee);
+
   if (loading) return <LoadingIcon />;
 
   if (error || !employee) {
@@ -60,7 +62,7 @@ export default function EmployeeProfile() {
                     {employee.department_name}
                   </p>
                   <p className="textLight textXXS">{employee.position}</p>
-                  <EmployeeStatus status={employee.employment_status} />
+                  <EmployeeStatus status={employee.employment_status_name} />
                 </div>
               </div>
             </CardSection>
@@ -146,6 +148,9 @@ export default function EmployeeProfile() {
                         ({employee.manager_preferred_name})
                       </span>
                     </p>
+                    <EmployeeStatus
+                      status={employee.manager_employment_status_name}
+                    />
                     <p className="textLight textXXS">
                       <IdentificationBadge /> {employee.manager_employee_id}
                     </p>
