@@ -45,7 +45,8 @@ function EmployeeCard({
 
         <div className="employeeCardHeaderDetails">
           <p className="textBold textS">{full_name}</p>
-          <p className="textLight textXXS">{position}</p>
+          <p className="textRegular textXXS">{department_name}</p>
+          <p className="textLight textXXXS">{position}</p>
           {isMyManager && (
             <p className="managerBadge textXXXS">Reporting Manager</p>
           )}

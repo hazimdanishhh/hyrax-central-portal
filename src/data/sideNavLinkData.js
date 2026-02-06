@@ -24,6 +24,7 @@ import {
   Files,
   UsersThree,
   UsersFour,
+  ComputerTower,
 } from "phosphor-react";
 
 // =============================
@@ -109,6 +110,14 @@ const employeeSegment = {
   ],
 };
 
+// INFORMATION TECHNOLOGY
+const itSegment = {
+  segmentTitle: "IT",
+  segmentCode: "IT",
+  links: [{ label: "IT Assets", icon: ComputerTower, path: "it/assets" }],
+};
+
+// SUPPORT
 const supportSegment = {
   segmentTitle: null,
   segmentCode: null,
@@ -170,6 +179,7 @@ export const sideNavLinkData = {
     commonSegment,
     workspaceSegment,
     adminSegment,
+    itSegment,
     salesSegment,
     financeSegment,
     employeeSegment,

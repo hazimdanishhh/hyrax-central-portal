@@ -1,0 +1,191 @@
+import {
+  CaretRight,
+  Desktop,
+  Laptop,
+  ComputerTower,
+  WindowsLogo,
+  LinuxLogo,
+  DeviceMobileCamera,
+} from "phosphor-react";
+import LinkButton from "../../../../components/buttons/linkButton/LinkButton";
+import CardLayout from "../../../../components/cardLayout/CardLayout";
+import CardSection from "../../../../components/cardSection/CardSection";
+import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
+import { useTheme } from "../../../../context/ThemeContext";
+import useITAssets from "../../../../hooks/useITAssets";
+import EmployeeStatus from "../../../../components/status/employeeStatus/EmployeeStatus";
+import SectionHeader from "../../../../components/sectionHeader/SectionHeader";
+import "./IT_Assets.scss";
+
+function IT_Assets({ setMessage }) {
+  const { darkMode } = useTheme();
+  const { assets, loading, error } = useITAssets({ setMessage });
+
+  if (loading) return <LoadingIcon />;
+  if (error) return <p className="textLight textXXS">Error loading assets</p>;
+  if (!assets.length)
+    return <p className="textLight textXXS">No IT assets found</p>;
+
+  return (
+    <>
+      <section className={darkMode ? "sectionDark" : "sectionLight"}>
+        <div className="sectionWrapper">
+          <div className="sectionContent">
+            <CardSection>
+              <SectionHeader title="IT ASSETS" icon={Desktop} />
+              <CardLayout style="cardLayout2">
+                {assets.map((asset) => (
+                  <div key={asset.id} className="generalCard itAssetCard">
+                    <div className="itAssetCardHeader">
+                      <EmployeeStatus
+                        status={
+                          asset.asset_status?.name ||
+                          asset.asset_status_id ||
+                          "null"
+                        }
+                      />
+                      <div className="itAssetCardHeaderDetails">
+                        {/* ASSET LOGO ICONS */}
+                        <div>
+                          {/* Asset subcategory */}
+                          {asset.asset_subcategory?.name
+                            ?.toLowerCase()
+                            .includes("desktop") && <Desktop size={24} />}
+
+                          {/* Operating system */}
+                          {asset.operating_system?.name
+                            ?.toLowerCase()
+                            .includes("windows") && <WindowsLogo size={24} />}
+
+                          {asset.operating_system?.name
+                            ?.toLowerCase()
+                            .includes("linux") && <LinuxLogo size={24} />}
+                        </div>
+
+                        {/* ASSET CODE AND NAME */}
+                        <div className="itAssetCardHeaderCode">
+                          <p className="textBold textXS">
+                            {asset.asset_name || "null"}
+                          </p>
+                          <p className="textLight textXXS">
+                            ({asset.asset_code || "null"})
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <CardLayout style="cardLayout2">
+                      <p className="textLight textXXXS">
+                        <strong className="textBold">ID:</strong>{" "}
+                        {asset.id || "null"}
+                      </p>
+
+                      {/* Categories */}
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Category:</strong>{" "}
+                        {asset.asset_category?.name ||
+                          asset.asset_category_id ||
+                          "null"}
+                      </p>
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Subcategory:</strong>{" "}
+                        {asset.asset_subcategory?.name ||
+                          asset.asset_subcategory_id ||
+                          "null"}
+                      </p>
+
+                      {/* Assigned User */}
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Assigned User:</strong>{" "}
+                        {asset.asset_user?.full_name ||
+                          asset.asset_user_id ||
+                          "null"}
+                      </p>
+
+                      {/* MDM */}
+                      <p className="textLight textXXS">
+                        <strong className="textBold">MDM Status:</strong>{" "}
+                        {asset.mdm_status || "null"}
+                      </p>
+                      {asset.mdm_link && (
+                        <LinkButton
+                          href={asset.mdm_link}
+                          name="MDM Link"
+                          style="button buttonType2"
+                          icon={CaretRight}
+                        />
+                      )}
+
+                      {/* Manufacturer / Model */}
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Manufacturer:</strong>{" "}
+                        {asset.manufacturer?.name ||
+                          asset.manufacturer_id ||
+                          "null"}
+                      </p>
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Model:</strong>{" "}
+                        {asset.model?.name || asset.model_id || "null"}
+                      </p>
+
+                      {/* Serial / OS / Keys */}
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Serial Number:</strong>{" "}
+                        {asset.serial_number || "null"}
+                      </p>
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Operating System:</strong>{" "}
+                        {asset.operating_system?.name ||
+                          asset.operating_system_id ||
+                          "null"}
+                      </p>
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Product Key:</strong>{" "}
+                        {asset.product_key || "null"}
+                      </p>
+                      <p className="textLight textXXS">
+                        <strong className="textBold">MAC Address:</strong>{" "}
+                        {asset.mac_address || "null"}
+                      </p>
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Management IP:</strong>{" "}
+                        {asset.management_ip || "null"}
+                      </p>
+
+                      {/* Condition / Location / Department */}
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Condition:</strong>{" "}
+                        {asset.asset_condition?.name ||
+                          asset.asset_condition_id ||
+                          "null"}
+                      </p>
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Location:</strong>{" "}
+                        {asset.asset_location?.name ||
+                          asset.asset_location_id ||
+                          "null"}
+                      </p>
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Department:</strong>{" "}
+                        {asset.asset_department?.name ||
+                          asset.asset_department_id ||
+                          "null"}
+                      </p>
+
+                      {/* Retire Date */}
+                      <p className="textLight textXXS">
+                        <strong className="textBold">Retire Date:</strong>{" "}
+                        {asset.retire_date || "null"}
+                      </p>
+                    </CardLayout>
+                  </div>
+                ))}
+              </CardLayout>
+            </CardSection>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+export default IT_Assets;

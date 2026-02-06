@@ -47,21 +47,23 @@ export default function EmployeeProfile() {
                 <div className="profilePhoto">
                   <img
                     src={employee.avatar_url || "/profilePhoto/default.webp"}
-                    alt={employee.full_name}
+                    alt={employee.full_name || "No Name"}
                   />
                 </div>
 
                 <div className="profileOverviewDetails">
                   <p className="textBold textM">
-                    {employee.full_name}
+                    {employee.full_name || "No Name"}
                     <span className="textRegular textXS">
-                      ({employee.preferred_name})
+                      ({employee.preferred_name || "No Name"})
                     </span>
                   </p>
                   <p className="textLight textXXS">
-                    {employee.department_name}
+                    {employee.department_name || "No Department Set"}
                   </p>
-                  <p className="textLight textXXS">{employee.position}</p>
+                  <p className="textLight textXXS">
+                    {employee.position || "No Position Set"}
+                  </p>
                   <EmployeeStatus status={employee.employment_status_name} />
                 </div>
               </div>
@@ -76,38 +78,38 @@ export default function EmployeeProfile() {
                 <div className="profileDetails">
                   <strong className="profileLabel textXXS">Department</strong>
                   <p className="profileData textRegular textXXS">
-                    {employee.department_name || null}
+                    {employee.department_name || "null"}
                   </p>
                 </div>
                 <div className="profileDetails">
                   <strong className="profileLabel textXXS">Position</strong>
                   <p className="profileData textRegular textXXS">
-                    {employee.position || null}
+                    {employee.position || "null"}
                   </p>
                 </div>
                 <div className="profileDetails">
                   <strong className="profileLabel textXXS">Email (Work)</strong>
                   <p className="profileData textRegular textXXS">
-                    {employee.email_work || null}
+                    {employee.email_work || "null"}
                   </p>
                 </div>
                 <div className="profileDetails">
                   <strong className="profileLabel textXXS">Phone (Work)</strong>
                   <p className="profileData textRegular textXXS">
-                    {employee.phone_work || null}
+                    {employee.phone_work || "null"}
                   </p>
                 </div>
 
                 <div className="profileDetails">
                   <strong className="profileLabel textXXS">Employee ID</strong>
                   <p className="profileData textRegular textXXS">
-                    {employee.employee_id || null}
+                    {employee.employee_id || "null"}
                   </p>
                 </div>
                 <div className="profileDetails">
                   <strong className="profileLabel textXXS">System ID</strong>
                   <p className="profileData textRegular textXXS">
-                    {employee.profile_id || null}
+                    {employee.profile_id || "null"}
                   </p>
                 </div>
               </CardLayout>
@@ -117,7 +119,7 @@ export default function EmployeeProfile() {
                     Address (Work)
                   </strong>
                   <p className="profileData textRegular textXXS">
-                    {employee.address_work || null}
+                    {employee.address_work || "null"}
                   </p>
                 </div>
               </CardLayout>

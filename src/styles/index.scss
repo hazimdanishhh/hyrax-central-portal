@@ -110,3 +110,17 @@ li {
 .sr-only {
   display: none;
 }
+
+.generalCard {
+  display: flex;
+  align-items: start;
+  width: 100%;
+  height: 100%t;
+  border: 1px solid $neutral500;
+  background-color: rgb($neutral100, 0.1);
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border-radius: 10px;
+  flex-wrap: wrap;
+  flex-direction: column;
+}

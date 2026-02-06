@@ -40,6 +40,7 @@ import ProtectedRoute from "./context/ProtectedRoute";
 import Department from "./pages/user/department/Department";
 import EmployeeProfile from "./pages/user/employee/employeeProfile/EmployeeProfile";
 import EmployeesList from "./pages/user/employees/Employees";
+import IT_Assets from "./pages/user/it/it_assets/IT_Assets";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -105,6 +106,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="employee/claims" element={<Claims />} />
               <Route path="employee/documents" element={<MyDocuments />} />
               <Route path="employee/policies" element={<Policies />} />
+
+              {/* Information Technology */}
+              <Route path="it/assets" element={<IT_Assets />} />
 
               {/* Help */}
               <Route path="help" element={<Help />} />

@@ -24,7 +24,7 @@ export default function useDepartmentEmployees(
 
       const { data, error } = await supabase
         .from("employees_public")
-        .select("*") // grab all columns from the view
+        .select("*")
         .eq("department_id", departmentId)
         .order("full_name");
 
