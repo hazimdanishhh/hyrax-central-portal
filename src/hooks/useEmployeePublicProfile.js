@@ -2,13 +2,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export default function useEmployeePublicProfile(profileId) {
+export default function useEmployeePublicProfile(employeeId) {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!profileId) {
+    if (!employeeId) {
       setEmployee(null);
       setLoading(false);
       return;
@@ -21,7 +21,7 @@ export default function useEmployeePublicProfile(profileId) {
       const { data, error } = await supabase
         .from("employees_public")
         .select("*")
-        .eq("profile_id", profileId)
+        .eq("id", employeeId) // OR .eq("employee_id", employeeId)
         .single();
 
       if (error) {
@@ -36,7 +36,7 @@ export default function useEmployeePublicProfile(profileId) {
     };
 
     fetchEmployee();
-  }, [profileId]);
+  }, [employeeId]);
 
   return { employee, loading, error };
 }

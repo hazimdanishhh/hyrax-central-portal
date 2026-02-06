@@ -1,94 +1,14 @@
 .departmentHeader {
   display: flex;
   justify-content: space-between;
-  padding: 1rem;
+  align-items: center;
   border-bottom: 1px solid $neutral600;
   flex-wrap: wrap;
 
   @media screen and (max-width: 425px) {
     flex-direction: column;
-  }
-}
-
-.departmentCard {
-  display: flex;
-  align-items: start;
-  width: 100%;
-  height: 100%t;
-  border: 1px solid $neutral500;
-  background-color: rgb($neutral100, 0.1);
-  gap: 0.5rem;
-  padding: 0.8rem;
-  border-radius: 10px;
-  flex-wrap: wrap;
-  cursor: pointer;
-
-  @media screen and (max-width: 425px) {
-    flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 1rem;
-    padding: 0.3rem;
-  }
-
-  .departmentPhoto {
-    width: 80px;
-    height: 80px;
-    background-color: $dark;
-    border-radius: 50%;
-    border: 4px solid $neutral600;
-    overflow: hidden; // ensures image stays inside the circle
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    @media screen and (max-width: 768px) {
-      width: 100px;
-      height: 100px;
-    }
-
-    img {
-      width: 101%;
-      height: 101%;
-      object-fit: cover; // fills the circle nicely without stretching
-      object-position: center; // centers the subject
-      display: block; // removes default inline spacing
-    }
-  }
-
-  .profileOverviewDetails {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.5rem;
-    text-align: start;
-
-    @media screen and (max-width: 425px) {
-      width: 100%;
-    }
-
-    p {
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
-      text-align: start;
-    }
-  }
-}
-
-.managerBadge {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border: 1px solid $success600;
-  border-radius: 1rem;
-  padding: 0.3rem 0.5rem;
-  color: $success600;
-  background-color: rgba($success600, 0.2);
-  text-align: center;
-  width: fit-content;
-
-  @media screen and (max-width: 425px) {
-    width: 100%;
   }
 }

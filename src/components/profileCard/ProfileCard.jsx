@@ -8,7 +8,7 @@ import EmployeeStatus from "../status/employeeStatus/EmployeeStatus";
 
 export default function ProfileCard({ profile, employee, assets }) {
   if (!profile || !employee) return null;
-  console.log(assets);
+  console.log(employee);
 
   const sources = {
     profile,

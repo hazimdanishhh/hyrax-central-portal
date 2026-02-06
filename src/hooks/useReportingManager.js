@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export default function useReportingManager(profileId, { setMessage } = {}) {
+export default function useReportingManager(employeeId, { setMessage } = {}) {
   const [manager, setManager] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!profileId) {
+    if (!employeeId) {
       setManager(null);
       setLoading(false);
       return;
@@ -27,10 +27,11 @@ export default function useReportingManager(profileId, { setMessage } = {}) {
           manager_department_name,
           manager_position,
           manager_employee_id,
-          manager_preferred_name
+          manager_preferred_name,
+          manager_employment_status_name
         `,
         )
-        .eq("profile_id", profileId)
+        .eq("employee_id", employeeId)
         .single();
 
       if (error) {
@@ -51,6 +52,7 @@ export default function useReportingManager(profileId, { setMessage } = {}) {
           position: data.manager_position,
           employee_id: data.manager_employee_id,
           preferred_name: data.manager_preferred_name,
+          employment_status_name: data.manager_employment_status_name,
         });
       }
 
@@ -58,7 +60,7 @@ export default function useReportingManager(profileId, { setMessage } = {}) {
     };
 
     fetchManager();
-  }, [profileId]);
+  }, [employeeId]);
 
   return { manager, loading };
 }

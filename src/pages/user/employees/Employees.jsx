@@ -4,34 +4,24 @@ import { useTheme } from "../../../context/ThemeContext";
 import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
 import useEmployee from "../../../hooks/useEmployee";
-import useDepartmentEmployees from "../../../hooks/useDepartmentEmployees";
 import CardSection from "../../../components/cardSection/CardSection";
 import CardLayout from "../../../components/cardLayout/CardLayout";
-import "./Department.scss";
-import useReportingManager from "../../../hooks/useReportingManager";
 import { useNavigate } from "react-router";
 import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
-import { UserCircle, UsersThree } from "phosphor-react";
+import { UsersFour } from "phosphor-react";
+import useEmployees from "../../../hooks/useEmployees";
 
-export default function Department() {
+export default function EmployeesList() {
   const navigate = useNavigate();
   const [message, setMessage] = useState({ text: "", type: "" });
   const { darkMode } = useTheme();
   const { loading: profileLoading } = useUserProfile({ setMessage });
   const { employee } = useEmployee();
 
-  const { manager: reportingManager, loading: managerLoading } =
-    useReportingManager(employee?.employee_id, { setMessage });
+  const { employees, loading: employeesLoading } = useEmployees({ setMessage });
 
-  const { employees, loading: employeesLoading } = useDepartmentEmployees(
-    employee?.department?.id,
-    { setMessage },
-  );
-
-  console.log(reportingManager);
-
-  if (profileLoading || employeesLoading || managerLoading) {
+  if (profileLoading || employeesLoading) {
     return <LoadingIcon />;
   }
 
@@ -42,38 +32,9 @@ export default function Department() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            {/* MY REPORTING MANAGER SECTION */}
-
             <CardSection>
               <div className="departmentHeader">
-                <SectionHeader title="MY REPORTING MANAGER" icon={UserCircle} />
-              </div>
-
-              <EmployeeCard
-                className="employeeCard"
-                onClick={() =>
-                  navigate(`/app/employee/${reportingManager?.id}`)
-                }
-                src={reportingManager?.avatar_url}
-                full_name={reportingManager?.full_name}
-                position={reportingManager?.position}
-                employee_id={reportingManager?.employee_id}
-                department_name={reportingManager?.department_name}
-                email_work={reportingManager?.email_work}
-                phone_work={reportingManager?.phone_work}
-                employment_status_name={
-                  reportingManager?.employment_status_name
-                }
-              />
-            </CardSection>
-
-            {/* MY DEPARTMENT SECTION */}
-            <CardSection>
-              <div className="departmentHeader">
-                <SectionHeader title="MY DEPARTMENT" icon={UsersThree} />
-                <h3 className="textRegular textXXS">
-                  {employee?.department?.name}
-                </h3>
+                <SectionHeader title="EMPLOYEES" icon={UsersFour} />
               </div>
 
               <CardLayout style="cardLayout2">

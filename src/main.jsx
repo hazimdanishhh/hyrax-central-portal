@@ -39,6 +39,7 @@ import Home from "./pages/index/Home";
 import ProtectedRoute from "./context/ProtectedRoute";
 import Department from "./pages/user/department/Department";
 import EmployeeProfile from "./pages/user/employee/employeeProfile/EmployeeProfile";
+import EmployeesList from "./pages/user/employees/Employees";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -65,6 +66,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <Route path="notifications" element={<Notifications />} />
               <Route path="profile" element={<Profile />} />
               <Route path="department" element={<Department />} />
+              <Route path="employees" element={<EmployeesList />} />
 
               {/* Workspace */}
               <Route path="workspace/projects" element={<Projects />} />
@@ -95,7 +97,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               {/* Employee */}
               <Route path="employee/onboarding" element={<Onboarding />} />
               <Route
-                path="/app/employee/:profileId"
+                path="/app/employee/:employeeId"
                 element={<EmployeeProfile />}
               />
               <Route path="employee/attendance" element={<Attendance />} />

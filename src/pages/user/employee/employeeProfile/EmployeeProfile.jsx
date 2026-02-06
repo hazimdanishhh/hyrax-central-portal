@@ -19,8 +19,8 @@ export default function EmployeeProfile() {
   const [message, setMessage] = useState({ text: "", type: "" });
   const { darkMode } = useTheme();
 
-  const { profileId } = useParams();
-  const { employee, loading, error } = useEmployeePublicProfile(profileId);
+  const { employeeId } = useParams();
+  const { employee, loading, error } = useEmployeePublicProfile(employeeId);
 
   console.log(employee);
 

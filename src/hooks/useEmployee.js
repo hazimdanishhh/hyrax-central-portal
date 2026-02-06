@@ -66,17 +66,21 @@ export default function useEmployee() {
 
             position,
 
-            manager:employees_manager_id_fkey (
+            manager:manager_id (
               id,
+              employee_id,
               full_name,
-              email,
-              avatar_url,
+              preferred_name,
+              email_work,
+              phone_work,
+              position,
               department:departments (
                 id,
                 name,
                 sub
               )
             ),
+
               
             employment_status:employment_status_id (
               id,

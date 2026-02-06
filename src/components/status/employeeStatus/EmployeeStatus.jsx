@@ -6,15 +6,15 @@ function EmployeeStatus({ status }) {
       <span
         className={
           status === "active"
-            ? "textLight textXXS employeeStatus active"
-            : "textLight textXXS employeeStatus inactive"
+            ? "textLight textXXXS employeeStatus active"
+            : "textLight textXXXS employeeStatus inactive"
         }
       >
         <div
           className={
             status === "active"
-              ? "textLight textXXS statusLight active"
-              : "textLight textXXS statusLight inactive"
+              ? "textLight textXXXS statusLight active"
+              : "textLight textXXXS statusLight inactive"
           }
         />
         {status || "Status Undefined"}
