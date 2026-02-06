@@ -1,5 +1,6 @@
 .itAssetTableWrapper {
   width: 100%;
+  height: calc(100vh - 190px);
   overflow-x: auto; // horizontal scroll
   border: 1px solid $neutral300;
   border-radius: 6px;
@@ -12,7 +13,12 @@
   border-collapse: collapse;
 
   thead {
-    // background-color: $neutral100;
+    color: $neutral900;
+    font-size: 14px;
+
+    @media screen and (max-width: 1024px) {
+      font-size: 16px;
+    }
 
     th {
       position: sticky;
@@ -23,6 +29,7 @@
       font-weight: 600;
       border-bottom: 1px solid $neutral300;
       white-space: nowrap;
+      background-color: $neutral300;
     }
   }
 
@@ -55,6 +62,11 @@
   width: 100%;
   border: 1px solid $neutral300;
   border-radius: 4px;
+  font-size: 13px;
+
+  @media screen and (max-width: 1024px) {
+    font-size: 16px;
+  }
 
   &:disabled {
     color: $neutral500;
