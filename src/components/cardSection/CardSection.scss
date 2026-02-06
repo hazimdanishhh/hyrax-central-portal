@@ -2,6 +2,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  max-width: 100%; // 👈 CRITICAL
+  min-width: 0; // 👈 ALSO CRITICAL
+
   height: fit-content;
   border: 1px solid $neutral500;
   background-color: rgb($neutral100, 0.1);

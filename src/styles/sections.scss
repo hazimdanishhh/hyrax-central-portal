@@ -23,7 +23,7 @@
 
 .sectionHalf {
   display: flex;
-  max-width: 1366px;
+  // max-width: 1366px;
   width: 100%;
   justify-self: center;
 
@@ -85,7 +85,7 @@
   justify-content: center;
 
   min-height: fit-content; //This is needed in every section, but should be adjusted to accommodate the content size
-  max-width: 1366px;
+  // max-width: 1366px;
   margin: auto;
   // padding: 5rem 3rem;
   padding: 1rem;

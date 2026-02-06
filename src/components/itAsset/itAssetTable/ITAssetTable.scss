@@ -1,0 +1,72 @@
+.itAssetTableWrapper {
+  width: 100%;
+  overflow-x: auto; // horizontal scroll
+  border: 1px solid $neutral300;
+  border-radius: 6px;
+}
+
+/* TABLE */
+.itAssetTable {
+  width: 100%;
+  min-width: max-content; // ensures scroll on smaller screens
+  border-collapse: collapse;
+
+  thead {
+    // background-color: $neutral100;
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      text-align: left;
+      padding: 10px 12px;
+      font-weight: 600;
+      border-bottom: 1px solid $neutral300;
+      white-space: nowrap;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid $neutral200;
+
+      &:hover {
+        background-color: rgb($neutral400, 0.2);
+      }
+    }
+
+    td {
+      padding: 8px 12px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+  }
+}
+
+/* ICON COLUMN */
+.iconCell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* INPUTS (READ-ONLY LOOK) */
+.itAssetTable input {
+  width: 100%;
+  border: 1px solid $neutral300;
+  border-radius: 4px;
+
+  &:disabled {
+    color: $neutral500;
+    cursor: default;
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+/* STATUS COMPONENT ALIGNMENT */
+.itAssetTable .employeeStatus {
+  min-width: 90px;
+}
