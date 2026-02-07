@@ -5,11 +5,32 @@
   color: $light;
   padding: 0.5em;
   border-radius: 50%;
+  position: relative;
 
   &:hover {
     background-color: $primary;
     transition: background-color 0.1s;
   }
+}
+
+.buttonTooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  white-space: nowrap;
+
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+
+  font-size: 0.65rem;
+  font-weight: 500;
+
+  background-color: $neutral900;
+  color: $neutral100;
+  border: 1px solid $neutral800;
+
+  pointer-events: none;
+  z-index: 20;
 }
 
 // DEFAULT - Orange Border Hover - Padding Large - Width Fit Content

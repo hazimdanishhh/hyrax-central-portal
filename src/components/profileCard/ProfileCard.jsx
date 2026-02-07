@@ -4,7 +4,7 @@ import CardLayout from "../cardLayout/CardLayout";
 import CardSection from "../cardSection/CardSection";
 import "./ProfileCard.scss";
 import Button from "../buttons/button/Button";
-import EmployeeStatus from "../status/employeeStatus/EmployeeStatus";
+import StatusBadge from "../status/statusBadge/StatusBadge";
 
 export default function ProfileCard({ profile, employee, assets }) {
   if (!profile || !employee) return null;
@@ -31,7 +31,7 @@ export default function ProfileCard({ profile, employee, assets }) {
             <p className="textBold textM">{profile?.full_name}</p>
             <p className="textLight textS">{employee?.department?.name}</p>
             <p className="textLight textXXS">{employee?.position}</p>
-            <EmployeeStatus status={employee?.employment_status?.name} />
+            <StatusBadge status={employee?.employment_status?.name} />
           </div>
         </div>
       </CardSection>

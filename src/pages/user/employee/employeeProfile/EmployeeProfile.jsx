@@ -13,7 +13,7 @@ import MessageUI from "../../../../components/messageUI/MessageUI";
 import { useState } from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
-import EmployeeStatus from "../../../../components/status/employeeStatus/EmployeeStatus";
+import StatusBadge from "../../../../components/status/statusBadge/StatusBadge";
 
 export default function EmployeeProfile() {
   const [message, setMessage] = useState({ text: "", type: "" });
@@ -64,7 +64,7 @@ export default function EmployeeProfile() {
                   <p className="textLight textXXS">
                     {employee.position || "No Position Set"}
                   </p>
-                  <EmployeeStatus status={employee.employment_status_name} />
+                  <StatusBadge status={employee.employment_status_name} />
                 </div>
               </div>
             </CardSection>
@@ -150,7 +150,7 @@ export default function EmployeeProfile() {
                         ({employee.manager_preferred_name})
                       </span>
                     </p>
-                    <EmployeeStatus
+                    <StatusBadge
                       status={employee.manager_employment_status_name}
                     />
                     <p className="textLight textXXS">

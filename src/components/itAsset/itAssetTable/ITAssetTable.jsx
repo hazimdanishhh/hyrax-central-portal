@@ -1,7 +1,7 @@
 import "./ITAssetTable.scss";
-import EmployeeStatus from "../../status/employeeStatus/EmployeeStatus";
 import { Desktop, WindowsLogo, LinuxLogo } from "phosphor-react";
 import { itAssetTableColumns } from "../../../data/itAssetTableColumns";
+import StatusBadge from "../../status/statusBadge/StatusBadge";
 
 function ITAssetTable({ assets = [] }) {
   return (
@@ -44,7 +44,7 @@ function ITAssetTable({ assets = [] }) {
               </td>
 
               <td>
-                <EmployeeStatus
+                <StatusBadge
                   status={
                     asset.asset_status?.name || asset.asset_status_id || "null"
                   }

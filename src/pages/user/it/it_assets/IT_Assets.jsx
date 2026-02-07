@@ -32,12 +32,14 @@ function IT_Assets({ setMessage }) {
                 {layout === 1 ? (
                   <Button
                     icon={Table}
+                    tooltipName="Table View"
                     style="iconButton"
                     onClick={() => setLayout(2)}
                   />
                 ) : (
                   <Button
                     icon={SquaresFour}
+                    tooltipName="Cards View"
                     style="iconButton"
                     onClick={() => setLayout(1)}
                   />

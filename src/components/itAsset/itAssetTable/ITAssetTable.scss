@@ -4,6 +4,25 @@
   overflow-x: auto; // horizontal scroll
   border: 1px solid $neutral300;
   border-radius: 6px;
+
+  // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba($neutral600, 0.9); // Light minimal color
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgba($neutral600, 0.6);
+  }
 }
 
 /* TABLE */
@@ -79,6 +98,6 @@
 }
 
 /* STATUS COMPONENT ALIGNMENT */
-.itAssetTable .employeeStatus {
+.itAssetTable .statusBadge {
   min-width: 90px;
 }

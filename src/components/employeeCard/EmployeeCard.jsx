@@ -8,8 +8,7 @@ import {
 import { motion } from "framer-motion";
 import "./EmployeeCard.scss";
 import CardLayout from "../cardLayout/CardLayout";
-import EmployeeStatus from "../status/employeeStatus/EmployeeStatus";
-import Button from "../buttons/button/Button";
+import StatusBadge from "../status/statusBadge/StatusBadge";
 
 function EmployeeCard({
   className,
@@ -32,7 +31,7 @@ function EmployeeCard({
       whileHover={{ y: -3 }}
     >
       <div className="employeeCardStatusContainer">
-        <EmployeeStatus status={employment_status_name} />
+        <StatusBadge status={employment_status_name} />
         <button className="employeeCardArrow">
           <CaretCircleRight size={28} weight="light" />
         </button>

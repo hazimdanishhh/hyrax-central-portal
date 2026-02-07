@@ -2,7 +2,13 @@ import "./Navbar.scss";
 import { Link } from "react-router";
 import { useRef, useState } from "react";
 import logo from "/src/assets/favicon.svg";
-import { Bell, CaretRight, SidebarSimple, X } from "phosphor-react";
+import {
+  ArrowsClockwise,
+  Bell,
+  CaretRight,
+  SidebarSimple,
+  X,
+} from "phosphor-react";
 import { AnimatePresence, motion } from "framer-motion";
 import useClickOutside from "../../hooks/useClickOutside";
 import { useTheme } from "../../context/ThemeContext";
@@ -12,6 +18,7 @@ import MobileNav from "../mobileNav/MobileNav";
 import useMediaQuery from "../../functions/mediaQuery";
 import useUserProfile from "../../hooks/useUserProfile";
 import { useAuth } from "../../context/AuthContext";
+import Button from "../buttons/button/Button";
 
 function Navbar() {
   const [mobileNavIsOpen, setMobileNavIsOpen] = useState(false);
@@ -123,6 +130,13 @@ function Navbar() {
               </AnimatePresence>
             </div>
           )}
+
+          <Button
+            icon={ArrowsClockwise}
+            tooltipName="Refresh"
+            onClick={() => window.location.reload()}
+            style="iconButton"
+          />
 
           {/* User Profile Icon */}
           <Link className="profilePhoto" to="/app/profile">

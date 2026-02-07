@@ -1,6 +1,6 @@
 import LinkButton from "../../buttons/linkButton/LinkButton";
 import CardLayout from "../../cardLayout/CardLayout";
-import EmployeeStatus from "../../status/employeeStatus/EmployeeStatus";
+import StatusBadge from "../../status/statusBadge/StatusBadge";
 import "./ITAssetCard.scss";
 import {
   CaretRight,
@@ -16,7 +16,7 @@ function ITAssetCard({ asset }) {
   return (
     <div className="generalCard itAssetCard">
       <div className="itAssetCardHeader">
-        <EmployeeStatus
+        <StatusBadge
           status={asset.asset_status?.name || asset.asset_status_id || "null"}
         />
         <div className="itAssetCardHeaderDetails">
