@@ -25,6 +25,7 @@ import {
   UsersThree,
   UsersFour,
   ComputerTower,
+  BookBookmark,
 } from "phosphor-react";
 
 // =============================
@@ -89,10 +90,34 @@ const hrSegment = {
   segmentTitle: "HUMAN RESOURCES",
   segmentCode: "HR",
   links: [
-    { label: "Employees", icon: Users, path: "hr/employees" },
+    { label: "Overview", icon: ChartBar, path: "hr/overview" },
+    { label: "Employee Management", icon: UsersFour, path: "hr/employees" },
+    {
+      label: "Department Management",
+      icon: UsersThree,
+      path: "hr/departments",
+    },
+    {
+      label: "Onboarding Management",
+      icon: AddressBook,
+      path: "hr/onboarding",
+    },
+    {
+      label: "Attendance Management",
+      icon: ClipboardText,
+      path: "hr/attendance",
+    },
     { label: "Leave Management", icon: Calendar, path: "hr/leaves" },
     { label: "Recruitment", icon: Briefcase, path: "hr/recruitment" },
-    { label: "Performance", icon: Gauge, path: "hr/performance" },
+    { label: "Claims Management", icon: Wallet, path: "hr/claims" },
+    { label: "Policy Management", icon: Files, path: "hr/policies" },
+    { label: "Forms & Templates", icon: Files, path: "hr/forms" },
+    { label: "Performance Management", icon: Gauge, path: "hr/performance" },
+    {
+      label: "Training & Development",
+      icon: BookBookmark,
+      path: "hr/training",
+    },
   ],
 };
 
@@ -105,8 +130,14 @@ const employeeSegment = {
     { label: "Attendance", icon: ClipboardText, path: "employee/attendance" },
     { label: "Leave Request", icon: Calendar, path: "employee/leave-request" },
     { label: "Claims", icon: Wallet, path: "employee/claims" },
-    { label: "My Documents", icon: Folders, path: "employee/documents" },
-    { label: "Policies & Forms", icon: Files, path: "employee/policies" },
+    { label: "Policies", icon: Files, path: "employee/policies" },
+    { label: "Forms & Templates", icon: Files, path: "employee/forms" },
+    { label: "Performance Review", icon: Gauge, path: "employee/performance" },
+    {
+      label: "Training & Development",
+      icon: BookBookmark,
+      path: "employee/training",
+    },
   ],
 };
 
@@ -126,10 +157,9 @@ const supportSegment = {
 
 // ⚙️ ADMIN — full control over system management
 const adminSegment = {
-  segmentTitle: "ADMIN",
+  segmentTitle: "SYSTEM",
   links: [
-    { label: "All Users", icon: Users, path: "admin/users" },
-    { label: "Create User", icon: UserPlus, path: "admin/create-user" },
+    { label: "Users", icon: Users, path: "system/users" },
     { label: "Roles & Permissions", icon: Gear, path: "admin/roles" },
     { label: "Audit Logs", icon: FileText, path: "admin/audit-logs" },
     { label: "System Settings", icon: Gear, path: "admin/settings" },

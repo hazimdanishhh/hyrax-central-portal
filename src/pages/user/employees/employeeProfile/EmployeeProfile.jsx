@@ -2,10 +2,13 @@ import { useParams } from "react-router-dom";
 import useEmployeePublicProfile from "../../../../hooks/useEmployeePublicProfile";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import {
+  CaretRight,
   Envelope,
   IdentificationBadge,
   Phone,
+  User,
   UserCircle,
+  UsersFour,
   UsersThree,
 } from "phosphor-react";
 import CardSection from "../../../../components/cardSection/CardSection";
@@ -14,6 +17,9 @@ import { useState } from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import StatusBadge from "../../../../components/status/statusBadge/StatusBadge";
+import SectionHeader from "../../../../components/sectionHeader/SectionHeader";
+import RouterButton from "../../../../components/buttons/routerButton/RouterButton";
+import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 
 export default function EmployeeProfile() {
   const [message, setMessage] = useState({ text: "", type: "" });
@@ -36,13 +42,14 @@ export default function EmployeeProfile() {
 
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
-          <div className="sectionContent departmenSectionContent">
+          <div className="sectionContent">
+            <Breadcrumbs
+              icon1={UsersFour}
+              current={`${employee.preferred_name}'s Profile`}
+              to1="/app/employees"
+              name1="EMPLOYEES"
+            />
             <CardSection>
-              <div className="departmentHeader">
-                <h2 className="textRegular textL">
-                  {employee.preferred_name}'s Profile
-                </h2>
-              </div>
               <div className="profileOverview">
                 <div className="profilePhoto">
                   <img

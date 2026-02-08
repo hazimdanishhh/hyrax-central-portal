@@ -8,6 +8,8 @@ import CardLayout from "../../../components/cardLayout/CardLayout";
 import CardSection from "../../../components/cardSection/CardSection";
 import { useState } from "react";
 import Button from "../../../components/buttons/button/Button";
+import CardWrapper from "../../../components/cardWrapper/CardWrapper";
+import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 
 function Announcements() {
   const { darkMode } = useTheme();
@@ -27,8 +29,9 @@ function Announcements() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <CardSection>
-            <SectionHeader icon={Megaphone} title="LATEST ANNOUNCEMENTS" />
+          <Breadcrumbs icon={Megaphone} current="Announcements" />
+
+          <CardWrapper>
             <CardLayout style="cardLayout1">
               {announcements
                 .reverse()
@@ -58,7 +61,7 @@ function Announcements() {
                 <p>You have no more announcements</p>
               )}
             </CardLayout>
-          </CardSection>
+          </CardWrapper>
         </div>
       </div>
     </section>

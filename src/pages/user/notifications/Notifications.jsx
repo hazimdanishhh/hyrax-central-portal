@@ -7,6 +7,8 @@ import NotificationCard from "../../../components/notifications/notificationCard
 import { useState } from "react";
 import Button from "../../../components/buttons/button/Button";
 import { Bell, CaretRight } from "phosphor-react";
+import CardWrapper from "../../../components/cardWrapper/CardWrapper";
+import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 
 function Notifications() {
   const { darkMode } = useTheme();
@@ -26,9 +28,8 @@ function Notifications() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <CardSection>
-            <SectionHeader icon={Bell} title="NOTIFICATIONS" />
-
+          <Breadcrumbs icon={Bell} current="Notifications" />
+          <CardWrapper>
             <CardLayout>
               {notifications
                 .slice(0, visibleCount)
@@ -55,7 +56,7 @@ function Notifications() {
                 <p>You have no more notifications</p>
               )}
             </CardLayout>
-          </CardSection>
+          </CardWrapper>
         </div>
       </div>
     </section>

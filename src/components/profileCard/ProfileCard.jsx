@@ -1,10 +1,11 @@
-import { PencilSimple } from "phosphor-react";
+import { Desktop, PencilSimple, UserCircle } from "phosphor-react";
 import { profileData } from "../../data/profileData";
 import CardLayout from "../cardLayout/CardLayout";
 import CardSection from "../cardSection/CardSection";
 import "./ProfileCard.scss";
 import Button from "../buttons/button/Button";
 import StatusBadge from "../status/statusBadge/StatusBadge";
+import SectionHeader from "../sectionHeader/SectionHeader";
 
 export default function ProfileCard({ profile, employee, assets }) {
   if (!profile || !employee) return null;
@@ -17,8 +18,7 @@ export default function ProfileCard({ profile, employee, assets }) {
 
   return (
     <div className="profileCard">
-      <h1 className="textBold textL">My Profile</h1>
-
+      {/*  */}
       <CardSection>
         <div className="profileOverview">
           <div className="profilePhoto">
@@ -43,7 +43,7 @@ export default function ProfileCard({ profile, employee, assets }) {
           <div key={index} className="profileSection">
             <CardSection>
               <div className="profileSectionHeader">
-                <h2 className="textBold textS">{section.title}</h2>
+                <SectionHeader title={section.title} icon={section.icon} />
                 {index === 0 && profile.role !== "superadmin" ? null : (
                   <Button
                     name="Edit Profile"
@@ -52,7 +52,13 @@ export default function ProfileCard({ profile, employee, assets }) {
                   />
                 )}
               </div>
-              <CardLayout style="cardLayout3">
+              <CardLayout
+                style={
+                  section.title === "Address Information"
+                    ? "cardLayout2"
+                    : "cardLayout3"
+                }
+              >
                 {section.fields.map((field) => (
                   <div key={field.label} className="profileDetails">
                     <strong className="profileLabel textXXS">
@@ -77,7 +83,7 @@ export default function ProfileCard({ profile, employee, assets }) {
         <div className="profileSection">
           <CardSection>
             <div className="profileSectionHeader">
-              <h2 className="textBold textS">Asset Information</h2>
+              <SectionHeader title="Assigned Assets" icon={Desktop} />
             </div>
             <CardLayout style="cardLayout3">
               {assets.map((asset) => (

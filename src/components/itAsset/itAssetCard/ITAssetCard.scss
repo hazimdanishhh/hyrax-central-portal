@@ -1,0 +1,36 @@
+.itAssetCard {
+  .itAssetCardHeader {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: start;
+
+    @media screen and (max-width: 425px) {
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .itAssetCardHeaderDetails {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+
+      @media screen and (max-width: 425px) {
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .itAssetCardHeaderCode {
+        display: flex;
+        flex-direction: column;
+        align-items: end;
+      }
+    }
+  }
+
+  p {
+    text-align: start;
+  }
+}

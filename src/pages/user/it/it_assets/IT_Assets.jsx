@@ -10,6 +10,8 @@ import ITAssetCard from "../../../../components/itAsset/itAssetCard/ITAssetCard"
 import { useState } from "react";
 import Button from "../../../../components/buttons/button/Button";
 import ITAssetTable from "../../../../components/itAsset/itAssetTable/ITAssetTable";
+import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
+import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 
 function IT_Assets({ setMessage }) {
   const { darkMode } = useTheme();
@@ -26,25 +28,26 @@ function IT_Assets({ setMessage }) {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <CardSection>
-              <div className="itAssetsHeader">
-                <SectionHeader title="IT ASSETS" icon={Desktop} />
-                {layout === 1 ? (
-                  <Button
-                    icon={Table}
-                    tooltipName="Table View"
-                    style="iconButton"
-                    onClick={() => setLayout(2)}
-                  />
-                ) : (
-                  <Button
-                    icon={SquaresFour}
-                    tooltipName="Cards View"
-                    style="iconButton"
-                    onClick={() => setLayout(1)}
-                  />
-                )}
-              </div>
+            <div className="itAssetsHeader">
+              <Breadcrumbs icon={Desktop} current="IT Assets" />
+              {layout === 1 ? (
+                <Button
+                  icon={Table}
+                  tooltipName="Table View"
+                  style="iconButton"
+                  onClick={() => setLayout(2)}
+                />
+              ) : (
+                <Button
+                  icon={SquaresFour}
+                  tooltipName="Cards View"
+                  style="iconButton"
+                  onClick={() => setLayout(1)}
+                />
+              )}
+            </div>
+
+            <CardWrapper>
               {layout === 1 ? (
                 <CardLayout style="cardLayout2">
                   {assets.map((asset) => (
@@ -54,7 +57,7 @@ function IT_Assets({ setMessage }) {
               ) : (
                 <ITAssetTable assets={assets} />
               )}
-            </CardSection>
+            </CardWrapper>
           </div>
         </div>
       </section>

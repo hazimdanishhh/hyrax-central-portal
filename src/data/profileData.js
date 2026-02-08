@@ -1,6 +1,16 @@
+import {
+  Briefcase,
+  Envelope,
+  Gear,
+  MapPin,
+  User,
+  UsersFour,
+} from "phosphor-react";
+
 export const profileData = [
   {
     title: "System Settings",
+    icon: Gear,
     source: "profile",
     fields: [
       { label: "Display Name", value: (d) => d?.full_name },
@@ -16,6 +26,7 @@ export const profileData = [
 
   {
     title: "Personal Information",
+    icon: User,
     source: "employee",
     fields: [
       { label: "Full Name", value: (d) => d?.full_name },
@@ -37,6 +48,7 @@ export const profileData = [
 
   {
     title: "Contact Information",
+    icon: Envelope,
     source: "employee",
     fields: [
       { label: "Email (Personal)", value: (d) => d?.email_personal },
@@ -60,6 +72,7 @@ export const profileData = [
 
   {
     title: "Employment Details",
+    icon: Briefcase,
     source: "employee",
     fields: [
       { label: "Employee ID", value: (d) => d?.employee_id },
@@ -68,12 +81,6 @@ export const profileData = [
         value: (d) => `${d?.department?.name} (${d?.department?.sub})`,
       },
       { label: "Position", value: (d) => d?.position },
-      { label: "Manager System ID", value: (d) => d?.manager?.id },
-      {
-        label: "Reporting Manager",
-        value: (d) => d?.manager?.full_name,
-      },
-      { label: "Manager Email", value: (d) => d?.manager?.email },
       { label: "Employment Status", value: (d) => d?.employment_status?.name },
       { label: "Employment Type", value: (d) => d?.employment_type?.name },
       { label: "Join Date", value: (d) => d?.join_date },
@@ -88,7 +95,28 @@ export const profileData = [
   },
 
   {
+    title: "Reporting Manager",
+    icon: UsersFour,
+    source: "employee",
+    fields: [
+      { label: "Manager Employee ID", value: (d) => d?.manager?.employee_id },
+      {
+        label: "Reporting Manager",
+        value: (d) => d?.manager?.full_name,
+      },
+      { label: "Manager Email (Work)", value: (d) => d?.manager?.email_work },
+      { label: "Manager Phone (Work)", value: (d) => d?.manager?.phone_work },
+      {
+        label: "Manager Department",
+        value: (d) => d?.manager?.department?.name,
+      },
+      { label: "Manager Position", value: (d) => d?.manager?.position },
+    ],
+  },
+
+  {
     title: "Address Information",
+    icon: MapPin,
     source: "employee",
     fields: [
       { label: "Address (Work)", value: (d) => d?.address_work },

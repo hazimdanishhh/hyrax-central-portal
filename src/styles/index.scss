@@ -39,6 +39,7 @@ main {
   position: relative;
   width: 100%;
   overflow-x: hidden; // IMPORTANT: app should never scroll horizontally
+  height: 100vh;
 }
 
 a {

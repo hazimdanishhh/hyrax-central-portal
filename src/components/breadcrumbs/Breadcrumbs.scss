@@ -1,0 +1,25 @@
+.breadcrumbsWrapper {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+  width: 100%;
+  flex-wrap: wrap;
+  text-align: start;
+  gap: 0.5rem;
+  padding: 1rem;
+
+  .breadcrumbLink {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: underline;
+  }
+
+  .breadcrumbCurrent {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}

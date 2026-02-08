@@ -88,7 +88,7 @@
   // max-width: 1366px;
   margin: auto;
   // padding: 5rem 3rem;
-  padding: 1rem;
+  // padding: 1rem;
 
   overflow: hidden;
 
@@ -104,5 +104,7 @@
   align-items: center;
   text-align: center;
   width: 100%;
-  gap: 1rem;
+  // gap: 1rem;
+  // padding-top: 1rem;
+  max-height: calc(100vh - 70px);
 }

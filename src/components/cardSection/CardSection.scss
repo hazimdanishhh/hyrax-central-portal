@@ -12,26 +12,26 @@
   padding: 0.8rem;
   border-radius: 10px;
 
-  max-height: calc(100vh - 103px);
-  overflow-x: auto; // horizontal scroll
-  position: relative;
+  // max-height: calc(100vh - 103px);
+  // overflow-x: auto; // horizontal scroll
+  // position: relative;
 
   // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
-  &::-webkit-scrollbar {
-    width: 10px;
-    height: 8px;
-  }
+  // &::-webkit-scrollbar {
+  //   width: 10px;
+  //   height: 8px;
+  // }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  // &::-webkit-scrollbar-track {
+  //   background: transparent;
+  // }
 
-  &::-webkit-scrollbar-thumb {
-    background-color: rgba($neutral600, 0.9); // Light minimal color
-    border-radius: 10px;
-  }
+  // &::-webkit-scrollbar-thumb {
+  //   background-color: rgba($neutral600, 0.9); // Light minimal color
+  //   border-radius: 10px;
+  // }
 
-  &::-webkit-scrollbar-thumb:hover {
-    background-color: rgba($neutral600, 0.6);
-  }
+  // &::-webkit-scrollbar-thumb:hover {
+  //   background-color: rgba($neutral600, 0.6);
+  // }
 }

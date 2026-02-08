@@ -4,13 +4,13 @@ import { useTheme } from "../../../context/ThemeContext";
 import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
 import useEmployee from "../../../hooks/useEmployee";
-import CardSection from "../../../components/cardSection/CardSection";
 import CardLayout from "../../../components/cardLayout/CardLayout";
 import { useNavigate } from "react-router";
 import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
-import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import { UsersFour } from "phosphor-react";
 import useEmployees from "../../../hooks/useEmployees";
+import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
+import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 
 export default function EmployeesList() {
   const navigate = useNavigate();
@@ -32,11 +32,9 @@ export default function EmployeesList() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <CardSection>
-              <div className="departmentHeader">
-                <SectionHeader title="EMPLOYEES" icon={UsersFour} />
-              </div>
+            <Breadcrumbs icon={UsersFour} current="Employees" />
 
+            <CardWrapper>
               <CardLayout style="cardLayout2">
                 {employees.map((emp) => {
                   const isMyManager = emp.id === employee?.manager_id;
@@ -45,7 +43,7 @@ export default function EmployeesList() {
                     <EmployeeCard
                       key={emp.id}
                       className="employeeCard"
-                      onClick={() => navigate(`/app/employee/${emp.id}`)}
+                      onClick={() => navigate(`/app/employees/${emp.id}`)}
                       src={emp.avatar_url}
                       full_name={emp.full_name}
                       position={emp.position}
@@ -59,7 +57,7 @@ export default function EmployeesList() {
                   );
                 })}
               </CardLayout>
-            </CardSection>
+            </CardWrapper>
           </div>
         </div>
       </section>
