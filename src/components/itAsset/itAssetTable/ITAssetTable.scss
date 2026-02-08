@@ -44,7 +44,8 @@
       font-weight: 600;
       border-bottom: 1px solid $neutral300;
       white-space: nowrap;
-      background-color: $neutral300;
+      background-color: rgb($neutral300, 0.8);
+      backdrop-filter: blur(2px);
     }
   }
 
