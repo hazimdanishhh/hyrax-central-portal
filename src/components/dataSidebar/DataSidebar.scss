@@ -1,0 +1,105 @@
+.dataSidebarOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  z-index: 9999;
+
+  @media (max-width: 768px) {
+    justify-content: center;
+  }
+}
+
+.dataSidebar {
+  width: 650px;
+  max-width: 100%;
+  height: 100%;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.dataSidebarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dataSidebarContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.dataSidebarField {
+  display: flex;
+  flex-direction: column;
+
+  label {
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+}
+
+.dataSidebarFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* INPUTS (READ-ONLY LOOK) */
+.dataSidebar input {
+  width: 100%;
+  border: 1px solid $neutral300;
+  border-radius: 4px;
+  font-size: 13px;
+
+  @media screen and (max-width: 1024px) {
+    font-size: 16px;
+  }
+
+  &:disabled {
+    color: $neutral500;
+    cursor: default;
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
+/* INPUTS (READ-ONLY LOOK) */
+.dataSidebar select {
+  width: 100%;
+  border: 1px solid $neutral300;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+
+  @media screen and (max-width: 1024px) {
+    font-size: 16px;
+  }
+
+  &:disabled {
+    color: $neutral500;
+    cursor: default;
+  }
+
+  &:focus {
+    outline: none;
+    background-color: $neutral900;
+    color: $neutral100;
+  }
+}
+
+/* STATUS COMPONENT ALIGNMENT */
+.dataSidebar .statusBadge {
+  min-width: 90px;
+}

@@ -12,9 +12,9 @@ import {
   DeviceMobileCamera,
 } from "phosphor-react";
 
-function ITAssetCard({ asset }) {
+function ITAssetCard({ asset, onClick }) {
   return (
-    <div className="generalCard itAssetCard">
+    <button className="generalCard itAssetCard" onClick={onClick}>
       <div className="itAssetCardHeader">
         <StatusBadge
           status={asset.asset_status?.name || asset.asset_status_id || "null"}
@@ -133,7 +133,7 @@ function ITAssetCard({ asset }) {
           {asset.retire_date || "null"}
         </p>
       </CardLayout>
-    </div>
+    </button>
   );
 }
 

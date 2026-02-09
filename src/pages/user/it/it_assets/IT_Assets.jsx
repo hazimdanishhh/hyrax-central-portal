@@ -21,11 +21,14 @@ import useITAssetCondition from "../../../../hooks/useITAssetCondition";
 import useITAssetOS from "../../../../hooks/useITAssetOS";
 import DataTable from "../../../../components/dataTable/DataTable";
 import { itAssetTableConfig } from "../../../../data/itAssetTableConfig";
+import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 
 function IT_Assets({ setMessage }) {
   const { darkMode } = useTheme();
   const { assets, loading, error } = useITAssets({ setMessage });
   const [layout, setLayout] = useState(1); // 1: Card, 2: Table
+  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Hooks for IT asset filter data
   const { categories, loading: categoriesLoading } = useITAssetCategory();
@@ -106,6 +109,29 @@ function IT_Assets({ setMessage }) {
     setCurrentPage(1);
   }, [filteredAssets]);
 
+  // Sidebar handlers
+  function handleOpenSidebar(asset) {
+    setSelectedAsset(asset);
+    setSidebarOpen(true);
+  }
+
+  function handleCloseSidebar() {
+    setSidebarOpen(false);
+    setSelectedAsset(null);
+  }
+
+  function handleSaveSidebar(updatedData) {
+    console.log("Save this asset:", updatedData);
+    // TODO: call API or update state
+    setSidebarOpen(false);
+  }
+
+  function handleDeleteSidebar(asset) {
+    console.log("Delete this asset:", asset);
+    // TODO: call API to delete
+    setSidebarOpen(false);
+  }
+
   // Wait for all filter data to load
   if (
     loading ||
@@ -169,7 +195,7 @@ function IT_Assets({ setMessage }) {
 
               {layout === 1 ? (
                 <>
-                  <DataTable
+                  {/* <DataTable
                     data={paginatedData}
                     columns={columns}
                     rowKey="id"
@@ -190,12 +216,24 @@ function IT_Assets({ setMessage }) {
                     >
                       Next
                     </button>
-                  </CardLayout>
+                  </CardLayout> */}
+                  <DataTable
+                    data={paginatedData.map((a) => ({
+                      ...a,
+                      onClick: handleOpenSidebar,
+                    }))}
+                    columns={columns}
+                    rowKey="id"
+                  />
                 </>
               ) : (
                 <CardLayout style="cardLayout2">
                   {filteredAssets.map((asset) => (
-                    <ITAssetCard key={asset.id} asset={asset} />
+                    <ITAssetCard
+                      key={asset.id}
+                      asset={asset}
+                      onClick={() => handleOpenSidebar(asset)}
+                    />
                   ))}
                 </CardLayout>
               )}
@@ -203,6 +241,15 @@ function IT_Assets({ setMessage }) {
           </div>
         </div>
       </section>
+
+      <DataSidebar
+        open={sidebarOpen}
+        onClose={handleCloseSidebar}
+        rowData={selectedAsset}
+        columns={columns}
+        onSave={handleSaveSidebar}
+        onDelete={handleDeleteSidebar}
+      />
     </>
   );
 }

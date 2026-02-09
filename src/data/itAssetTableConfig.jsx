@@ -69,9 +69,14 @@ export const itAssetTableConfig = ({
   {
     key: "subcategory",
     label: "Subcategory",
-    getValue: (asset) => asset.asset_subcategory?.name,
+    getValue: (asset) => asset.asset_subcategory?.id,
+    displayValue: (asset) => asset.asset_subcategory?.name,
     editable: true,
-    editor: "text",
+    editor: "select",
+    options: subcategories.map((s) => ({
+      label: s.name,
+      value: s.id,
+    })),
   },
   {
     key: "user",
@@ -92,7 +97,7 @@ export const itAssetTableConfig = ({
     label: "MDM Link",
     getValue: (asset) => asset.mdm_link,
     editable: true,
-    editor: "text",
+    editor: "link",
   },
   {
     key: "serial",
