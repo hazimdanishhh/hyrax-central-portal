@@ -7,7 +7,7 @@ import useITAssets from "../../../../hooks/useITAssets";
 import SectionHeader from "../../../../components/sectionHeader/SectionHeader";
 import "./IT_Assets.scss";
 import ITAssetCard from "../../../../components/itAsset/itAssetCard/ITAssetCard";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Button from "../../../../components/buttons/button/Button";
 import ITAssetTable from "../../../../components/itAsset/itAssetTable/ITAssetTable";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
@@ -41,7 +41,6 @@ function IT_Assets({ setMessage }) {
     statuses,
     conditions,
     operatingSystems,
-    conditions,
   });
 
   // Filter Config
@@ -92,6 +91,21 @@ function IT_Assets({ setMessage }) {
     },
   });
 
+  // parent component or hook
+  const rowsPerPage = 20;
+  const totalPages = Math.ceil(filteredAssets.length / rowsPerPage);
+
+  // slice data for current page
+  const [currentPage, setCurrentPage] = useState(1);
+  const paginatedData = filteredAssets.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage,
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredAssets]);
+
   // Wait for all filter data to load
   if (
     loading ||
@@ -141,21 +155,42 @@ function IT_Assets({ setMessage }) {
               </div>
 
               <div className="itAssetsHeader">
-                {!filteredAssets.length ? (
+                {!paginatedData.length ? (
                   <p className="textRegular textXXS">No results found</p>
                 ) : error ? (
                   <p className="textRegular textXXS">Error loading results</p>
                 ) : (
                   <p className="textRegular textXXS">
                     <strong>Total Result: </strong>
-                    {filteredAssets.length}
+                    {paginatedData.length}
                   </p>
                 )}
               </div>
 
               {layout === 1 ? (
                 <>
-                  <DataTable data={filteredAssets} columns={columns} />
+                  <DataTable
+                    data={paginatedData}
+                    columns={columns}
+                    rowKey="id"
+                  />
+                  <CardLayout style="cardLayout2">
+                    <button
+                      className="button buttonType2"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => p - 1)}
+                    >
+                      Previous
+                    </button>
+
+                    <button
+                      className="button buttonType2"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </CardLayout>
                 </>
               ) : (
                 <CardLayout style="cardLayout2">

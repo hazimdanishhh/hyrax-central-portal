@@ -1,5 +1,8 @@
 .dataTableWrapper {
   width: 100%;
+  max-height: 600px;
+  overflow: auto;
+  border-radius: 10px;
 
   // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
   &::-webkit-scrollbar {
@@ -44,8 +47,8 @@
       font-weight: 600;
       border-bottom: 1px solid $neutral300;
       white-space: nowrap;
-      background-color: rgb($neutral300, 0.8);
-      backdrop-filter: blur(2px);
+      background-color: rgb($neutral300, 0.6);
+      backdrop-filter: blur(4px);
     }
   }
 
@@ -101,6 +104,7 @@
   border: 1px solid $neutral300;
   border-radius: 4px;
   font-size: 13px;
+  cursor: pointer;
 
   @media screen and (max-width: 1024px) {
     font-size: 16px;
@@ -113,6 +117,8 @@
 
   &:focus {
     outline: none;
+    background-color: $neutral900;
+    color: $neutral100;
   }
 }
 
