@@ -23,28 +23,35 @@ function ITAssetTable({ assets = [] }) {
               <td className="iconCell">
                 {asset.asset_subcategory?.name
                   ?.toLowerCase()
-                  .includes("desktop") && <Desktop size={24} />}
+                  .includes("desktop") && <Desktop size={20} />}
 
                 {asset.operating_system?.name
                   ?.toLowerCase()
-                  .includes("windows") && <WindowsLogo size={24} />}
+                  .includes("windows") && <WindowsLogo size={20} />}
 
                 {asset.operating_system?.name
                   ?.toLowerCase()
-                  .includes("linux") && <LinuxLogo size={24} />}
+                  .includes("linux") && <LinuxLogo size={20} />}
               </td>
 
               {/* DATA COLUMNS */}
               <td>
-                <input value={asset.asset_name || ""} />
+                <input
+                  value={asset.asset_name || ""}
+                  size={(asset.asset_name || "").length || 1}
+                />
               </td>
 
               <td>
-                <input disabled value={asset.asset_code || ""} />
+                <input
+                  disabled
+                  value={asset.asset_code || ""}
+                  size={(asset.asset_code || "").length || 1}
+                />
               </td>
 
               <td>
-                <StatusBadge
+                <input
                   status={
                     asset.asset_status?.name || asset.asset_status_id || "null"
                   }
@@ -57,6 +64,7 @@ function ITAssetTable({ assets = [] }) {
                   value={
                     asset.asset_category?.name || asset.asset_category_id || ""
                   }
+                  size={(asset.asset_category?.name || "").length || 1}
                 />
               </td>
 
@@ -68,6 +76,7 @@ function ITAssetTable({ assets = [] }) {
                     asset.asset_subcategory_id ||
                     ""
                   }
+                  size={(asset.asset_subcategory?.name || "").length || 1}
                 />
               </td>
 
@@ -77,6 +86,7 @@ function ITAssetTable({ assets = [] }) {
                   value={
                     asset.asset_user?.full_name || asset.asset_user_id || ""
                   }
+                  size={(asset.asset_user?.full_name || "").length || 1}
                 />
               </td>
 
@@ -86,6 +96,7 @@ function ITAssetTable({ assets = [] }) {
                   value={
                     asset.manufacturer?.name || asset.manufacturer_id || ""
                   }
+                  size={(asset.manufacturer?.name || "").length || 1}
                 />
               </td>
 
@@ -93,11 +104,16 @@ function ITAssetTable({ assets = [] }) {
                 <input
                   disabled
                   value={asset.model?.name || asset.model_id || ""}
+                  size={(asset.model?.name || "").length || 1}
                 />
               </td>
 
               <td>
-                <input disabled value={asset.serial_number || ""} />
+                <input
+                  disabled
+                  value={asset.serial_number || ""}
+                  size={(asset.serial_number || "").length || 1}
+                />
               </td>
 
               <td>
@@ -108,11 +124,16 @@ function ITAssetTable({ assets = [] }) {
                     asset.operating_system_id ||
                     ""
                   }
+                  size={(asset.operating_system?.name || "").length || 1}
                 />
               </td>
 
               <td>
-                <input disabled value={asset.mdm_status || ""} />
+                <input
+                  disabled
+                  value={asset.mdm_status || ""}
+                  size={(asset.mdm_status || "").length || 1}
+                />
               </td>
 
               <td>
@@ -121,6 +142,7 @@ function ITAssetTable({ assets = [] }) {
                   value={
                     asset.asset_location?.name || asset.asset_location_id || ""
                   }
+                  size={(asset.asset_location?.name || "").length || 1}
                 />
               </td>
 
@@ -132,6 +154,7 @@ function ITAssetTable({ assets = [] }) {
                     asset.asset_department_id ||
                     ""
                   }
+                  size={(asset.asset_department?.name || "").length || 1}
                 />
               </td>
 
@@ -143,11 +166,16 @@ function ITAssetTable({ assets = [] }) {
                     asset.asset_condition_id ||
                     ""
                   }
+                  size={(asset.asset_condition?.name || "").length || 1}
                 />
               </td>
 
               <td>
-                <input disabled value={asset.retire_date || ""} />
+                <input
+                  disabled
+                  value={asset.retire_date || ""}
+                  size={(asset.retire_date || "").length || 1}
+                />
               </td>
             </tr>
           ))}

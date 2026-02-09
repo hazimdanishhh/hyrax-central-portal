@@ -1,0 +1,91 @@
+.employeeList {
+  display: flex;
+  align-items: start;
+  width: 100%;
+  height: 100%t;
+  border: 1px solid $neutral500;
+  background-color: rgb($neutral100, 0.1);
+  gap: 0.5rem;
+  padding: 0.3rem;
+  border-radius: 10px;
+  flex-wrap: wrap;
+  cursor: pointer;
+  flex-direction: column;
+
+  .employeeCardHeaderContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+
+    @media screen and (max-width: 425px) {
+      align-items: start;
+    }
+
+    .employeeCardStatusContainer {
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+
+      @media screen and (max-width: 425px) {
+        flex-direction: column;
+        align-items: end;
+      }
+
+      .employeeCardArrow {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    }
+
+    .employeeCardPhoto {
+      width: 40px;
+      height: 40px;
+      background-color: $dark;
+      border-radius: 50%;
+      border: 2px solid $neutral600;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      img {
+        width: 101%;
+        height: 101%;
+        object-fit: cover;
+        object-position: center;
+        display: block;
+      }
+    }
+
+    .employeeCardHeaderDetails {
+      display: flex;
+      justify-content: start;
+      gap: 0.4rem;
+      text-align: start;
+      width: 100%;
+      flex-wrap: wrap;
+
+      @media screen and (max-width: 768px) {
+        gap: 0.2rem;
+        flex-direction: column;
+      }
+    }
+  }
+}
+
+.managerBadge {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid $info500;
+  border-radius: 1rem;
+  padding: 0.1rem 0.3rem;
+  color: $info500;
+  background-color: rgba($info500, 0.2);
+  text-align: center;
+  width: fit-content;
+}

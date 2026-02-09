@@ -1,0 +1,47 @@
+.searchFilterBar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.searchInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid $neutral300;
+  border-radius: 6px;
+
+  @media screen and (max-width: 768px) {
+    width: 100%;
+  }
+
+  input {
+    border: none;
+    border-radius: 0;
+    outline: none;
+    font-size: 16px;
+    background: transparent;
+    padding: 0;
+  }
+}
+
+.searchFilterBar select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid $neutral300;
+  font-size: 14px;
+  width: fit-content;
+
+  @media screen and (max-width: 768px) {
+    width: 100%;
+  }
+
+  &:focus {
+    font-size: 14px;
+    outline: none;
+    background-color: $neutral900;
+    color: $neutral100;
+  }
+}

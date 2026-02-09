@@ -1,16 +1,7 @@
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import useEmployeePublicProfile from "../../../../hooks/useEmployeePublicProfile";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
-import {
-  CaretRight,
-  Envelope,
-  IdentificationBadge,
-  Phone,
-  User,
-  UserCircle,
-  UsersFour,
-  UsersThree,
-} from "phosphor-react";
+import { User, UsersFour, UsersThree } from "phosphor-react";
 import CardSection from "../../../../components/cardSection/CardSection";
 import MessageUI from "../../../../components/messageUI/MessageUI";
 import { useState } from "react";
@@ -21,8 +12,10 @@ import SectionHeader from "../../../../components/sectionHeader/SectionHeader";
 import RouterButton from "../../../../components/buttons/routerButton/RouterButton";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
+import EmployeeCard from "../../../../components/employeeCard/EmployeeCard";
 
 export default function EmployeeProfile() {
+  const navigate = useNavigate();
   const [message, setMessage] = useState({ text: "", type: "" });
   const { darkMode } = useTheme();
 
@@ -46,7 +39,11 @@ export default function EmployeeProfile() {
           <div className="sectionContent">
             <Breadcrumbs
               icon1={UsersFour}
-              current={`${employee.preferred_name}'s Profile`}
+              current={
+                employee.preferred_name
+                  ? `${employee.preferred_name}'s Profile`
+                  : `Employee's Profile`
+              }
               to1="/app/employees"
               name1="Employees"
             />
@@ -82,9 +79,10 @@ export default function EmployeeProfile() {
                 </CardSection>
 
                 <CardSection>
-                  <div className="profileSectionHeader">
-                    <h2 className="textBold textS">Personal Information</h2>
-                  </div>
+                  <SectionHeader
+                    title={`${employee.preferred_name}'s Employee Information`}
+                    icon={User}
+                  />
 
                   <CardLayout style="cardLayout3">
                     <div className="profileDetails">
@@ -149,49 +147,26 @@ export default function EmployeeProfile() {
 
                 {employee.manager_name && (
                   <CardSection>
-                    <div className="departmentHeader">
-                      <h2 className="textRegular textL">
-                        {employee.preferred_name}'s Reporting Manager
-                      </h2>
-                    </div>
-                    <div className="profileOverview">
-                      <div className="profilePhoto">
-                        <img
-                          src={
-                            employee.manager_avatar_url ||
-                            "/profilePhoto/default.webp"
-                          }
-                          alt={employee.manager_name}
-                        />
-                      </div>
-
-                      <div className="profileOverviewDetails">
-                        <p className="textBold textM">
-                          {employee.manager_name}{" "}
-                          <span className="textRegular textXS">
-                            ({employee.manager_preferred_name})
-                          </span>
-                        </p>
-                        <StatusBadge
-                          status={employee.manager_employment_status_name}
-                        />
-                        <p className="textLight textXXS">
-                          <IdentificationBadge /> {employee.manager_employee_id}
-                        </p>
-                        <p className="textLight textXXS">
-                          <UsersThree /> {employee.manager_department_name}
-                        </p>
-                        <p className="textLight textXXS">
-                          <UserCircle /> {employee.manager_position}
-                        </p>
-                        <p className="textLight textXXS">
-                          <Envelope /> {employee.manager_email}
-                        </p>
-                        <p className="textLight textXXS">
-                          <Phone /> {employee.manager_phone}
-                        </p>
-                      </div>
-                    </div>
+                    <SectionHeader
+                      title={`${employee.preferred_name}'s Reporting Manager`}
+                      icon={UsersThree}
+                    />
+                    <EmployeeCard
+                      className="employeeCard"
+                      onClick={() =>
+                        navigate(`/app/employees/${employee.manager_id}`)
+                      }
+                      src={employee.manager_avatar_url}
+                      full_name={employee.manager_name}
+                      position={employee.manager_position}
+                      employee_id={employee.manager_employee_id}
+                      department_name={employee.manager_department_name}
+                      email_work={employee.manager_email}
+                      phone_work={employee.manager_phone}
+                      employment_status_name={
+                        employee.manager_employment_status_name
+                      }
+                    />
                   </CardSection>
                 )}
               </CardLayout>

@@ -6,11 +6,11 @@ import {
   UsersThree,
 } from "phosphor-react";
 import { motion } from "framer-motion";
-import "./EmployeeCard.scss";
+import "./EmployeeList.scss";
 import CardLayout from "../cardLayout/CardLayout";
 import StatusBadge from "../status/statusBadge/StatusBadge";
 
-function EmployeeCard({
+export default function EmployeeList({
   className,
   onClick,
   src,
@@ -30,44 +30,26 @@ function EmployeeCard({
       initial={{ y: 0 }}
       whileHover={{ y: -3 }}
     >
-      <div className="employeeCardStatusContainer">
-        <StatusBadge status={employment_status_name} />
-        <button className="employeeCardArrow">
-          <CaretCircleRight size={28} weight="light" />
-        </button>
-      </div>
-
       <div className="employeeCardHeaderContainer">
         <div className="employeeCardPhoto">
           <img src={src || "/profilePhoto/default.webp"} alt={full_name} />
         </div>
 
         <div className="employeeCardHeaderDetails">
-          <p className="textBold textS">{full_name}</p>
-          <p className="textRegular textXXS">{department_name}</p>
+          <p className="textBold textXXS">{full_name}</p>
+          <p className="textRegular textXXXS">{department_name}</p>
           <p className="textLight textXXXS">{position}</p>
           {isMyManager && (
             <p className="managerBadge textXXXS">Reporting Manager</p>
           )}
         </div>
-      </div>
-
-      <div className="employeeCardDetails">
-        <CardLayout style="cardLayout2">
-          <p className="textLight textXXS">
-            <IdentificationBadge />
-            {employee_id}
-          </p>
-          <p className="textLight textXXS">
-            <Phone /> {phone_work}
-          </p>
-          <p className="textLight textXXS">
-            <Envelope /> {email_work}
-          </p>
-        </CardLayout>
+        <div className="employeeCardStatusContainer">
+          <StatusBadge status={employment_status_name} />
+          <button className="employeeCardArrow">
+            <CaretCircleRight size={28} weight="light" />
+          </button>
+        </div>
       </div>
     </motion.div>
   );
 }
-
-export default EmployeeCard;
