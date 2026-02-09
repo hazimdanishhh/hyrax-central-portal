@@ -27,9 +27,9 @@ export default function EmployeesList() {
   const { employee } = useEmployee();
   const { departments } = useDepartments();
   const { statuses: employmentStatuses } = useEmploymentStatus();
-
   const { employees, loading: employeesLoading } = useEmployees({ setMessage });
 
+  // Filter Config
   const employeeFilterConfig = [
     {
       key: "department",
@@ -43,6 +43,7 @@ export default function EmployeesList() {
     },
   ];
 
+  // Search Filter Bar
   const {
     search,
     setSearch,
@@ -58,6 +59,7 @@ export default function EmployeesList() {
     },
   });
 
+  // Return Loading
   if (profileLoading || employeesLoading) {
     return <LoadingIcon />;
   }
@@ -84,19 +86,27 @@ export default function EmployeesList() {
 
                 {layout === 1 ? (
                   <Button
-                    icon={SquaresFour}
-                    tooltipName="List View"
-                    style="iconButton"
+                    icon2={SquaresFour}
+                    tooltipName="Card View"
+                    style="button buttonType3 textXXS"
+                    name="Card View"
                     onClick={() => setLayout(2)}
                   />
                 ) : (
                   <Button
-                    icon={ListBullets}
-                    tooltipName="Card View"
-                    style="iconButton"
+                    icon2={ListBullets}
+                    tooltipName="List View"
+                    style="button buttonType3 textXXS"
+                    name="List View"
                     onClick={() => setLayout(1)}
                   />
                 )}
+              </div>
+              <div className="itAssetsHeader">
+                <p className="textRegular textXXS">
+                  <strong>Total Result: </strong>
+                  {filteredEmployees.length}
+                </p>
               </div>
               {layout === 1 ? (
                 <CardLayout style="cardLayout1">

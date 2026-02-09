@@ -52,7 +52,7 @@ function ITAssetTable({ assets = [] }) {
 
               <td>
                 <input
-                  status={
+                  value={
                     asset.asset_status?.name || asset.asset_status_id || "null"
                   }
                 />

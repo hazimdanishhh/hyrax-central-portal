@@ -29,7 +29,7 @@ function QuickActions() {
         onClick={() => setQuickActionsIsOpen(!quickActionsIsOpen)}
       >
         <Sparkle size="16" weight="bold" />
-        <p className="textBold textXXS">QUICK ACTIONS</p>
+        <p className="textBold textXXS">Quick Actions</p>
         {quickActionsIsOpen ? (
           <CaretUp size="18" weight="bold" />
         ) : (
