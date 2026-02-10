@@ -5,7 +5,6 @@ export default function LinkEditor({ value, onChange, onBlur }) {
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}
-      autoFocus
     />
   );
 }

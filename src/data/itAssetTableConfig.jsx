@@ -11,6 +11,8 @@ export const itAssetTableConfig = ({
   statuses,
   conditions,
   operatingSystems,
+  employees,
+  departments,
 }) => [
   {
     key: "type",
@@ -83,14 +85,33 @@ export const itAssetTableConfig = ({
     label: "Assigned To",
     getValue: (asset) => asset.asset_user?.full_name,
     editable: true,
-    editor: "text",
+    editor: "select",
+    options: employees.map((e) => ({
+      label: e.full_name,
+      value: e.id,
+    })),
   },
   {
     key: "mdm_status",
     label: "MDM Status",
     getValue: (asset) => asset.mdm_status,
     editable: true,
-    editor: "text",
+    editor: "select",
+    options: [
+      { label: "Enrolled", value: "Enrolled" },
+      {
+        label: "Not Enrolled",
+        value: "Not Enrolled",
+      },
+      {
+        label: "Pending Enrollment",
+        value: "Pending Enrollment",
+      },
+      {
+        label: "Retired",
+        value: "Retired",
+      },
+    ],
   },
   {
     key: "mdm_link",
@@ -125,7 +146,11 @@ export const itAssetTableConfig = ({
     label: "Operating System",
     getValue: (asset) => asset.operating_system?.name,
     editable: true,
-    editor: "text",
+    editor: "select",
+    options: operatingSystems.map((o) => ({
+      label: o.name,
+      value: o.id,
+    })),
   },
   {
     key: "product_key",
@@ -172,14 +197,18 @@ export const itAssetTableConfig = ({
     label: "Department",
     getValue: (asset) => asset.department?.name,
     editable: true,
-    editor: "text",
+    editor: "select",
+    options: departments.map((d) => ({
+      label: d.name,
+      value: d.id,
+    })),
   },
   {
     key: "purchase_date",
     label: "Purchase Date",
     getValue: (asset) => asset.purchase_date,
     editable: true,
-    editor: "text",
+    editor: "date",
   },
   {
     key: "purchase_cost",
@@ -214,7 +243,7 @@ export const itAssetTableConfig = ({
     label: "Retire Date",
     getValue: (asset) => asset.retire_date,
     editable: true,
-    editor: "text",
+    editor: "date",
   },
   {
     key: "notes",

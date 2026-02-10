@@ -6,6 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { PencilSimpleLine, X } from "phosphor-react";
 import CardLayout from "../cardLayout/CardLayout";
 import SectionHeader from "../sectionHeader/SectionHeader";
+import { motion } from "framer-motion";
 
 export default function DataSidebar({
   open,
@@ -56,14 +57,27 @@ export default function DataSidebar({
     }
   }
 
-  if (!open) return null;
-
   return (
-    <div className="dataSidebarOverlay" onClick={onClose}>
-      <div
+    <motion.div
+      className="dataSidebarOverlay"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <motion.div
         className={
           darkMode ? "dataSidebar sectionDark" : "dataSidebar sectionLight"
         }
+        initial={{ x: "100%", opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: "100%", opacity: 0 }}
+        transition={{
+          type: "tween",
+          duration: 0.12,
+          ease: "easeOut",
+        }}
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
       >
         <CardLayout>
@@ -81,7 +95,7 @@ export default function DataSidebar({
 
               return (
                 <div key={col.key} className="dataSidebarField">
-                  <label>{col.label}</label>
+                  <label className="textBold textXXS">{col.label}</label>
                   <Editor
                     value={value}
                     options={col.options}
@@ -105,7 +119,7 @@ export default function DataSidebar({
             />
           </footer>
         </CardLayout>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

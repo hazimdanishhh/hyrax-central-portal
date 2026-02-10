@@ -9,7 +9,6 @@ export default function SelectEditor({
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}
-      autoFocus
     >
       <option value="" />
 

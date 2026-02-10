@@ -5,7 +5,6 @@ export default function NumberEditor({ value, onChange, onBlur }) {
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}
-      autoFocus
     />
   );
 }

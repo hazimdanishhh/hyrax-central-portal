@@ -22,6 +22,9 @@ import useITAssetOS from "../../../../hooks/useITAssetOS";
 import DataTable from "../../../../components/dataTable/DataTable";
 import { itAssetTableConfig } from "../../../../data/itAssetTableConfig";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
+import { AnimatePresence } from "framer-motion";
+import useEmployees from "../../../../hooks/useEmployees";
+import useDepartments from "../../../../hooks/useDepartments";
 
 function IT_Assets({ setMessage }) {
   const { darkMode } = useTheme();
@@ -37,6 +40,8 @@ function IT_Assets({ setMessage }) {
   const { statuses, loading: statusesLoading } = useITAssetStatus();
   const { conditions, loading: conditionsLoading } = useITAssetCondition();
   const { operatingSystems, loading: osLoading } = useITAssetOS();
+  const { employees, loading: employeesLoading } = useEmployees({ setMessage });
+  const { departments, loading: departmentsLoading } = useDepartments();
 
   const columns = itAssetTableConfig({
     categories,
@@ -44,6 +49,8 @@ function IT_Assets({ setMessage }) {
     statuses,
     conditions,
     operatingSystems,
+    employees,
+    departments,
   });
 
   // Filter Config
@@ -139,7 +146,9 @@ function IT_Assets({ setMessage }) {
     subcategoriesLoading ||
     statusesLoading ||
     conditionsLoading ||
-    osLoading
+    osLoading ||
+    employeesLoading ||
+    departmentsLoading
   ) {
     return <LoadingIcon />;
   }
@@ -188,7 +197,7 @@ function IT_Assets({ setMessage }) {
                 ) : (
                   <p className="textRegular textXXS">
                     <strong>Total Result: </strong>
-                    {paginatedData.length}
+                    {paginatedData.length} / {filteredAssets.length}
                   </p>
                 )}
               </div>
@@ -227,29 +236,53 @@ function IT_Assets({ setMessage }) {
                   />
                 </>
               ) : (
-                <CardLayout style="cardLayout2">
-                  {filteredAssets.map((asset) => (
-                    <ITAssetCard
-                      key={asset.id}
-                      asset={asset}
-                      onClick={() => handleOpenSidebar(asset)}
-                    />
-                  ))}
-                </CardLayout>
+                <>
+                  <CardLayout style="cardLayout2">
+                    {paginatedData.map((asset) => (
+                      <ITAssetCard
+                        key={asset.id}
+                        asset={asset}
+                        onClick={() => handleOpenSidebar(asset)}
+                      />
+                    ))}
+                  </CardLayout>
+                  <CardLayout style="cardLayout2">
+                    <button
+                      className="button buttonType2"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => p - 1)}
+                    >
+                      Previous
+                    </button>
+
+                    <button
+                      className="button buttonType2"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </CardLayout>
+                </>
               )}
             </CardWrapper>
           </div>
         </div>
       </section>
 
-      <DataSidebar
-        open={sidebarOpen}
-        onClose={handleCloseSidebar}
-        rowData={selectedAsset}
-        columns={columns}
-        onSave={handleSaveSidebar}
-        onDelete={handleDeleteSidebar}
-      />
+      {/* DATA SIDEBAR */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <DataSidebar
+            open={sidebarOpen}
+            onClose={handleCloseSidebar}
+            rowData={selectedAsset}
+            columns={columns}
+            onSave={handleSaveSidebar}
+            onDelete={handleDeleteSidebar}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }
