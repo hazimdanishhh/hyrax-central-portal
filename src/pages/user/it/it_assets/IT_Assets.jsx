@@ -25,6 +25,7 @@ import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
 import useEmployees from "../../../../hooks/useEmployees";
 import useDepartments from "../../../../hooks/useDepartments";
+import ITAssetList from "../../../../components/itAsset/itAssetList/ITAssetList";
 
 function IT_Assets({ setMessage }) {
   const { darkMode } = useTheme();
@@ -237,9 +238,9 @@ function IT_Assets({ setMessage }) {
                 </>
               ) : (
                 <>
-                  <CardLayout style="cardLayout2">
+                  <CardLayout style="cardLayout1">
                     {paginatedData.map((asset) => (
-                      <ITAssetCard
+                      <ITAssetList
                         key={asset.id}
                         asset={asset}
                         onClick={() => handleOpenSidebar(asset)}

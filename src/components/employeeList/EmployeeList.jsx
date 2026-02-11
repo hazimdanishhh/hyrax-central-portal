@@ -45,7 +45,7 @@ export default function EmployeeList({
         </div>
         <div className="employeeCardStatusContainer">
           <StatusBadge status={employment_status_name} />
-          <button className="employeeCardArrow">
+          <button className="listArrow">
             <CaretCircleRight size={28} weight="light" />
           </button>
         </div>

@@ -27,10 +27,18 @@ export default function useITAssets({ setMessage, filters = {} } = {}) {
             asset_category:asset_category_id (id, name),
             asset_subcategory:asset_subcategory_id (id, name),
             asset_status:asset_status_id (id, name),
-            asset_user:asset_user_id (id, full_name, employee_id),
+            asset_user:asset_user_id (
+              id,
+              full_name,
+              employee_id,
+              profile:profile_id (
+                id,
+                avatar_url
+              )
+            ),
             operating_system:operating_system_id (id, name),
             asset_condition:asset_condition_id (id, name),
-            asset_department:asset_department_id (id, name)
+            asset_department:asset_department_id (id, name, sub)
           `,
           )
           .order("asset_code", { ascending: true });
