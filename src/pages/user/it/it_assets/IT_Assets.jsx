@@ -26,6 +26,7 @@ import { AnimatePresence } from "framer-motion";
 import useEmployees from "../../../../hooks/useEmployees";
 import useDepartments from "../../../../hooks/useDepartments";
 import ITAssetList from "../../../../components/itAsset/itAssetList/ITAssetList";
+import useITAssetMutations from "../../../../hooks/useITAssetMutations";
 
 function IT_Assets({ setMessage }) {
   const { darkMode } = useTheme();
@@ -117,6 +118,11 @@ function IT_Assets({ setMessage }) {
     setCurrentPage(1);
   }, [filteredAssets]);
 
+  // IT Asset Update and Delete Hook Function
+  const { updateAsset, deleteAsset, saving, deleting } = useITAssetMutations({
+    setMessage,
+  });
+
   // Sidebar handlers
   function handleOpenSidebar(asset) {
     setSelectedAsset(asset);
@@ -128,16 +134,22 @@ function IT_Assets({ setMessage }) {
     setSelectedAsset(null);
   }
 
-  function handleSaveSidebar(updatedData) {
-    console.log("Save this asset:", updatedData);
-    // TODO: call API or update state
-    setSidebarOpen(false);
+  async function handleSaveSidebar(updatedData) {
+    try {
+      await updateAsset(updatedData);
+      setSidebarOpen(false);
+    } catch (err) {
+      // error already handled in hook
+    }
   }
 
-  function handleDeleteSidebar(asset) {
-    console.log("Delete this asset:", asset);
-    // TODO: call API to delete
-    setSidebarOpen(false);
+  async function handleDeleteSidebar(asset) {
+    try {
+      await deleteAsset(asset.id);
+      setSidebarOpen(false);
+    } catch (err) {
+      // error already handled in hook
+    }
   }
 
   // Wait for all filter data to load
@@ -205,10 +217,11 @@ function IT_Assets({ setMessage }) {
 
               {layout === 1 ? (
                 <>
-                  {/* <DataTable
+                  <DataTable
                     data={paginatedData}
                     columns={columns}
                     rowKey="id"
+                    onRowClick={handleOpenSidebar}
                   />
                   <CardLayout style="cardLayout2">
                     <button
@@ -226,15 +239,7 @@ function IT_Assets({ setMessage }) {
                     >
                       Next
                     </button>
-                  </CardLayout> */}
-                  <DataTable
-                    data={paginatedData.map((a) => ({
-                      ...a,
-                      onClick: handleOpenSidebar,
-                    }))}
-                    columns={columns}
-                    rowKey="id"
-                  />
+                  </CardLayout>
                 </>
               ) : (
                 <>

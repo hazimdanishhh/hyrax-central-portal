@@ -14,25 +14,32 @@ export const itAssetTableConfig = ({
   employees,
   departments,
 }) => [
+  // {
+  //   key: "type",
+  //   label: "Type / OS",
+  //   editable: false,
+  //   render: (_, asset) => (
+  //     <div style={{ display: "flex", gap: 6 }}>
+  //       {asset.asset_subcategory?.name?.toLowerCase().includes("desktop") && (
+  //         <Desktop size={20} />
+  //       )}
+
+  //       {asset.operating_system?.name?.toLowerCase().includes("windows") && (
+  //         <WindowsLogo size={20} />
+  //       )}
+
+  //       {asset.operating_system?.name?.toLowerCase().includes("linux") && (
+  //         <LinuxLogo size={20} />
+  //       )}
+  //     </div>
+  //   ),
+  // },
   {
-    key: "type",
-    label: "Type / OS",
-    getValue: () => null,
-    render: (_, asset) => (
-      <div style={{ display: "flex", gap: 6 }}>
-        {asset.asset_subcategory?.name?.toLowerCase().includes("desktop") && (
-          <Desktop size={20} />
-        )}
-
-        {asset.operating_system?.name?.toLowerCase().includes("windows") && (
-          <WindowsLogo size={20} />
-        )}
-
-        {asset.operating_system?.name?.toLowerCase().includes("linux") && (
-          <LinuxLogo size={20} />
-        )}
-      </div>
-    ),
+    key: "id",
+    label: "ID",
+    getValue: "id",
+    editable: false,
+    editor: "text",
   },
   {
     key: "asset_name",
@@ -49,15 +56,16 @@ export const itAssetTableConfig = ({
     editor: "text",
   },
   {
-    key: "status",
+    key: "asset_status_id",
     label: "Status",
-    getValue: (asset) => asset.asset_status?.name,
+    getValue: (asset) => asset.asset_status?.id,
+    displayValue: (asset) => asset.asset_status?.name,
     render: (value) => <StatusBadge status={value} />,
     editable: true,
-    editor: "text",
+    editor: "number",
   },
   {
-    key: "category",
+    key: "asset_category_id",
     label: "Category",
     getValue: (asset) => asset.asset_category?.id,
     displayValue: (asset) => asset.asset_category?.name,
@@ -69,7 +77,7 @@ export const itAssetTableConfig = ({
     })),
   },
   {
-    key: "subcategory",
+    key: "asset_subcategory_id",
     label: "Subcategory",
     getValue: (asset) => asset.asset_subcategory?.id,
     displayValue: (asset) => asset.asset_subcategory?.name,
@@ -80,17 +88,18 @@ export const itAssetTableConfig = ({
       value: s.id,
     })),
   },
-  {
-    key: "user",
-    label: "Assigned To",
-    getValue: (asset) => asset.asset_user?.full_name,
-    editable: true,
-    editor: "select",
-    options: employees.map((e) => ({
-      label: e.full_name,
-      value: e.id,
-    })),
-  },
+  // {
+  //   key: "asset_user_id",
+  //   label: "Assigned To",
+  //   getValue: (asset) => asset.asset_user?.id,
+  //   displayValue: (asset) => asset.asset_user?.full_name,
+  //   editable: true,
+  //   editor: "select",
+  //   options: employees.map((e) => ({
+  //     label: e.full_name,
+  //     value: e.id,
+  //   })),
+  // },
   {
     key: "mdm_status",
     label: "MDM Status",
@@ -121,30 +130,31 @@ export const itAssetTableConfig = ({
     editor: "link",
   },
   {
-    key: "serial",
+    key: "serial_number",
     label: "Serial Number",
     getValue: "serial_number",
     editable: true,
     editor: "text",
   },
   {
-    key: "manufacturer",
+    key: "manufacturer_id",
     label: "Manufacturer",
     getValue: (asset) => asset.manufacturer,
     editable: true,
     editor: "text",
   },
   {
-    key: "model",
+    key: "model_id",
     label: "Model",
     getValue: (asset) => asset.model,
     editable: true,
     editor: "text",
   },
   {
-    key: "os",
+    key: "operating_system_id",
     label: "Operating System",
-    getValue: (asset) => asset.operating_system?.name,
+    getValue: (asset) => asset.operating_system?.id,
+    displayValue: (asset) => asset.operating_system?.name,
     editable: true,
     editor: "select",
     options: operatingSystems.map((o) => ({
@@ -160,21 +170,21 @@ export const itAssetTableConfig = ({
     editor: "text",
   },
   {
-    key: "mac",
+    key: "mac_address",
     label: "MAC Address",
     getValue: (asset) => asset.mac_address,
     editable: true,
     editor: "text",
   },
   {
-    key: "ip",
+    key: "management_ip",
     label: "IP Address",
     getValue: (asset) => asset.management_ip,
     editable: true,
     editor: "text",
   },
   {
-    key: "condition",
+    key: "asset_condition_id",
     label: "Condition",
     getValue: (asset) => asset.asset_condition?.id,
     displayValue: (asset) => asset.asset_condition?.name,
@@ -186,14 +196,14 @@ export const itAssetTableConfig = ({
     })),
   },
   {
-    key: "location",
+    key: "asset_location_id",
     label: "Location",
     getValue: (asset) => asset.location?.name,
     editable: true,
     editor: "text",
   },
   {
-    key: "department",
+    key: "asset_department_id",
     label: "Department",
     getValue: (asset) => asset.department?.name,
     editable: true,
@@ -215,10 +225,10 @@ export const itAssetTableConfig = ({
     label: "Purchase Cost",
     getValue: (asset) => asset.purchase_cost,
     editable: true,
-    editor: "text",
+    editor: "number",
   },
   {
-    key: "vendor",
+    key: "vendor_id",
     label: "Vendor",
     getValue: (asset) => asset.vendor?.name,
     editable: true,
@@ -236,7 +246,7 @@ export const itAssetTableConfig = ({
     label: "Warranty Expiry",
     getValue: (asset) => asset.warranty_expiry,
     editable: true,
-    editor: "text",
+    editor: "date",
   },
   {
     key: "retire_date",

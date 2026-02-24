@@ -2,7 +2,12 @@ import "./DataTable.scss";
 import { useState } from "react";
 import DataTableCell from "./DataTableCell";
 
-export default function DataTable({ data = [], columns = [], rowKey = "id" }) {
+export default function DataTable({
+  data = [],
+  columns = [],
+  rowKey = "id",
+  onRowClick,
+}) {
   const [editingCell, setEditingCell] = useState(null);
 
   function getRawValue(row, col) {
@@ -83,7 +88,11 @@ export default function DataTable({ data = [], columns = [], rowKey = "id" }) {
             const rowId = row[rowKey];
 
             return (
-              <tr key={rowId}>
+              <tr
+                key={rowId}
+                onClick={() => onRowClick?.(row)}
+                className={onRowClick ? "clickableRow" : ""}
+              >
                 {columns.map((col) => {
                   const rawValue = getRawValue(row, col);
                   const displayValue = getDisplayValue(row, col, rawValue);
