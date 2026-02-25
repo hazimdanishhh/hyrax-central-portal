@@ -4,7 +4,11 @@ import PageTransition from "../../../components/pageTransition/PageTransition";
 import { useTheme } from "../../../context/ThemeContext";
 import QuickActions from "../../../components/quickActions/QuickActions";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
-import { CaretRight, House, Megaphone } from "phosphor-react";
+import {
+  CaretRightIcon,
+  HouseIcon,
+  MegaphoneIcon,
+} from "@phosphor-icons/react";
 import CardSection from "../../../components/cardSection/CardSection";
 import AnnouncementCard from "../../../components/announcementCard/AnnouncementCard";
 import { announcementData } from "../../../data/announcementData";
@@ -36,7 +40,7 @@ function Dashboard() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={House} current="Dashboard" />
+            <Breadcrumbs icon={HouseIcon} current="Dashboard" />
 
             <CardWrapper>
               <QuickActions />
@@ -44,7 +48,7 @@ function Dashboard() {
               <CardLayout style="cardLayout2">
                 <div className="sectionContent">
                   <SectionHeader
-                    icon={Megaphone}
+                    icon={MegaphoneIcon}
                     title="Latest Announcements"
                   />
                   <CardLayout style="cardLayout1">
@@ -70,14 +74,14 @@ function Dashboard() {
                       className="button buttonType2"
                     >
                       View All
-                      <CaretRight weight="bold" />
+                      <CaretRightIcon weight="bold" />
                     </Link>
                   </CardLayout>
                 </div>
 
                 <div className="sectionContent">
                   <SectionHeader
-                    icon={Megaphone}
+                    icon={MegaphoneIcon}
                     title="Latest Announcements"
                   />
                   <CardLayout style="cardLayout1">
@@ -103,7 +107,7 @@ function Dashboard() {
                       className="button buttonType2"
                     >
                       View All
-                      <CaretRight weight="bold" />
+                      <CaretRightIcon weight="bold" />
                     </Link>
                   </CardLayout>
                 </div>

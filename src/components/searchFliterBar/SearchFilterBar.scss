@@ -3,7 +3,7 @@
   align-items: start;
   gap: 0.8rem;
   width: 100%;
-  flex-direction: column;
+  // flex-direction: column;
 
   @media screen and (max-width: 768px) {
     width: 100%;
@@ -57,7 +57,7 @@
 }
 
 .filterSection {
-  width: 100%;
+  // width: 100%;
   display: flex;
   justify-content: start;
   align-items: start;
@@ -73,7 +73,6 @@
   justify-content: start;
   align-items: center;
   width: 100%;
-  z-index: 9999;
   gap: 0.4rem;
   flex-wrap: wrap;
 }

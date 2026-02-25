@@ -1,16 +1,16 @@
 import {
-  Briefcase,
-  Envelope,
-  Gear,
-  MapPin,
-  User,
-  UsersFour,
-} from "phosphor-react";
+  BriefcaseIcon,
+  EnvelopeIcon,
+  GearIcon,
+  MapPinIcon,
+  UserIcon,
+  UsersFourIcon,
+} from "@phosphor-icons/react";
 
 export const profileData = [
   {
     title: "System Settings",
-    icon: Gear,
+    icon: GearIcon,
     source: "profile",
     fields: [
       { label: "Display Name", value: (d) => d?.full_name },
@@ -20,13 +20,13 @@ export const profileData = [
         label: "Module Access",
         value: (d) => `${d?.department} (${d?.departmentSub})`,
       },
-      { label: "User ID", value: (d) => d?.id },
+      { label: "UserIcon ID", value: (d) => d?.id },
     ],
   },
 
   {
     title: "Personal Information",
-    icon: User,
+    icon: UserIcon,
     source: "employee",
     fields: [
       { label: "Full Name", value: (d) => d?.full_name },
@@ -48,7 +48,7 @@ export const profileData = [
 
   {
     title: "Contact Information",
-    icon: Envelope,
+    icon: EnvelopeIcon,
     source: "employee",
     fields: [
       { label: "Email (Personal)", value: (d) => d?.email_personal },
@@ -72,7 +72,7 @@ export const profileData = [
 
   {
     title: "Employment Details",
-    icon: Briefcase,
+    icon: BriefcaseIcon,
     source: "employee",
     fields: [
       { label: "Employee ID", value: (d) => d?.employee_id },
@@ -96,7 +96,7 @@ export const profileData = [
 
   {
     title: "Reporting Manager",
-    icon: UsersFour,
+    icon: UsersFourIcon,
     source: "employee",
     fields: [
       { label: "Manager Employee ID", value: (d) => d?.manager?.employee_id },
@@ -116,7 +116,7 @@ export const profileData = [
 
   {
     title: "Address Information",
-    icon: MapPin,
+    icon: MapPinIcon,
     source: "employee",
     fields: [
       { label: "Address (Work)", value: (d) => d?.address_work },

@@ -1,7 +1,7 @@
 import "../button/Button.scss";
 import { useNavigate } from "react-router";
 import { useState } from "react";
-import { SignOut } from "phosphor-react";
+import { SignOutIcon } from "@phosphor-icons/react";
 import { useAuth } from "../../../context/AuthContext";
 
 function LogoutButton({ setMessage, navIsOpen, style }) {
@@ -29,7 +29,7 @@ function LogoutButton({ setMessage, navIsOpen, style }) {
   return (
     <button onClick={handleLogout} className={style} disabled={loading}>
       {navIsOpen ? "Logout" : null}
-      <SignOut size={navIsOpen ? "20" : "24"} />
+      <SignOutIcon size={navIsOpen ? "20" : "24"} />
     </button>
   );
 }

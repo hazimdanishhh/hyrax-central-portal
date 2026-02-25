@@ -1,5 +1,9 @@
 // data/itAssetTableConfig.jsx
-import { Desktop, WindowsLogo, LinuxLogo } from "phosphor-react";
+import {
+  DesktopIcon,
+  WindowsLogoIcon,
+  LinuxLogoIcon,
+} from "@phosphor-icons/react";
 import StatusBadge from "../components/status/statusBadge/StatusBadge";
 // getValue - data name
 // editor - data type
@@ -21,15 +25,15 @@ export const itAssetTableConfig = ({
   //   render: (_, asset) => (
   //     <div style={{ display: "flex", gap: 6 }}>
   //       {asset.asset_subcategory?.name?.toLowerCase().includes("desktop") && (
-  //         <Desktop size={20} />
+  //         <DesktopIcon size={20} />
   //       )}
 
   //       {asset.operating_system?.name?.toLowerCase().includes("windows") && (
-  //         <WindowsLogo size={20} />
+  //         <WindowsLogoIcon size={20} />
   //       )}
 
   //       {asset.operating_system?.name?.toLowerCase().includes("linux") && (
-  //         <LinuxLogo size={20} />
+  //         <LinuxLogoIcon size={20} />
   //       )}
   //     </div>
   //   ),
@@ -60,9 +64,13 @@ export const itAssetTableConfig = ({
     label: "Status",
     getValue: (asset) => asset.asset_status?.id,
     displayValue: (asset) => asset.asset_status?.name,
-    render: (value) => <StatusBadge status={value} />,
+    // render: (value) => <StatusBadge status={value} />,
     editable: true,
-    editor: "number",
+    editor: "select",
+    options: statuses.map((s) => ({
+      label: s.name,
+      value: s.id,
+    })),
   },
   {
     key: "asset_category_id",
@@ -88,18 +96,18 @@ export const itAssetTableConfig = ({
       value: s.id,
     })),
   },
-  // {
-  //   key: "asset_user_id",
-  //   label: "Assigned To",
-  //   getValue: (asset) => asset.asset_user?.id,
-  //   displayValue: (asset) => asset.asset_user?.full_name,
-  //   editable: true,
-  //   editor: "select",
-  //   options: employees.map((e) => ({
-  //     label: e.full_name,
-  //     value: e.id,
-  //   })),
-  // },
+  {
+    key: "asset_user_id",
+    label: "Assigned To",
+    getValue: (asset) => asset.asset_user?.id,
+    displayValue: (asset) => asset.asset_user?.full_name,
+    editable: true,
+    editor: "select",
+    options: employees.map((e) => ({
+      label: e.full_name,
+      value: e.id,
+    })),
+  },
   {
     key: "mdm_status",
     label: "MDM Status",
@@ -205,7 +213,8 @@ export const itAssetTableConfig = ({
   {
     key: "asset_department_id",
     label: "Department",
-    getValue: (asset) => asset.department?.name,
+    getValue: (asset) => asset.department?.id,
+    displayValue: (asset) => asset.department?.name,
     editable: true,
     editor: "select",
     options: departments.map((d) => ({

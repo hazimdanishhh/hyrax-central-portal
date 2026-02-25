@@ -1,34 +1,34 @@
 import {
-  Calendar,
-  Folders,
-  ListDashes,
-  SquaresFour,
-  Wallet,
-} from "phosphor-react";
+  CalendarIcon,
+  FoldersIcon,
+  ListDashesIcon,
+  SquaresFourIcon,
+  WalletIcon,
+} from "@phosphor-icons/react";
 
 export const quickActionsHome = [
   {
-    icon: SquaresFour,
+    icon: SquaresFourIcon,
     name: "Create Project",
     path: "/app/workspace/projects",
   },
   {
-    icon: ListDashes,
+    icon: ListDashesIcon,
     name: "Create Task",
     path: "/app/workspace/tasks",
   },
   {
-    icon: Folders,
+    icon: FoldersIcon,
     name: "Add Document",
     path: "/app/workspace/documents",
   },
   {
-    icon: Calendar,
+    icon: CalendarIcon,
     name: "Create Leave Request",
     path: "https://www.iloginhr.com/loginbs.aspx",
   },
   {
-    icon: Wallet,
+    icon: WalletIcon,
     name: "Create Expense Claim",
     path: "/app/employee/claims",
   },

@@ -117,4 +117,20 @@
       transition: 0.3s;
     }
   }
+
+  // TYPE DELETE 2 - Red Background Hover - Padding Small - Width Fit Content
+  &.buttonTypeDelete2 {
+    background-color: rgb($error600, 0.1);
+    border-radius: 10px;
+    border: 1px solid $error600;
+    padding: 0.4rem;
+    transition: 0.3s;
+
+    &:hover {
+      background-color: $error600;
+      color: $neutral100;
+      border: 1px solid $error600;
+      transition: 0.3s;
+    }
+  }
 }

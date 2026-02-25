@@ -1,32 +1,32 @@
 // src/data/sideNavLinkData.js
 import {
-  House,
-  UserCircle,
-  SquaresFour,
-  ListDashes,
-  Folders,
-  Users,
-  UserPlus,
-  ChartBar,
-  Handshake,
-  Coins,
-  FileText,
-  ClipboardText,
-  Gear,
-  Bell,
-  Calendar,
-  Briefcase,
-  Gauge,
-  Megaphone,
-  Question,
-  AddressBook,
-  Wallet,
-  Files,
-  UsersThree,
-  UsersFour,
-  ComputerTower,
-  BookBookmark,
-} from "phosphor-react";
+  HouseIcon,
+  UserCircleIcon,
+  SquaresFourIcon,
+  ListDashesIcon,
+  FoldersIcon,
+  UsersIcon,
+  UserPlusIcon,
+  ChartBarIcon,
+  HandshakeIcon,
+  CoinsIcon,
+  FileTextIcon,
+  ClipboardTextIcon,
+  GearIcon,
+  BellIcon,
+  CalendarIcon,
+  BriefcaseIcon,
+  GaugeIcon,
+  MegaphoneIcon,
+  QuestionIcon,
+  AddressBookIcon,
+  WalletIcon,
+  FilesIcon,
+  UsersThreeIcon,
+  UsersFourIcon,
+  ComputerTowerIcon,
+  BookBookmarkIcon,
+} from "@phosphor-icons/react";
 
 // =============================
 // Reusable Segment Templates
@@ -37,12 +37,12 @@ const commonSegment = {
   segmentTitle: null,
   segmentCode: null,
   links: [
-    { label: "Dashboard", icon: House, path: "" },
-    { label: "Announcements", icon: Megaphone, path: "announcements" },
-    { label: "Notifications", icon: Bell, path: "notifications" },
-    { label: "Profile", icon: UserCircle, path: "profile" },
-    { label: "Department", icon: UsersThree, path: "department" },
-    { label: "Employees", icon: UsersFour, path: "employees" },
+    { label: "Dashboard", icon: HouseIcon, path: "" },
+    { label: "Announcements", icon: MegaphoneIcon, path: "announcements" },
+    { label: "Notifications", icon: BellIcon, path: "notifications" },
+    { label: "Profile", icon: UserCircleIcon, path: "profile" },
+    { label: "Department", icon: UsersThreeIcon, path: "department" },
+    { label: "Employees", icon: UsersFourIcon, path: "employees" },
   ],
 };
 
@@ -51,9 +51,9 @@ const workspaceSegment = {
   segmentTitle: "WORKSPACE",
   segmentCode: "SPACE",
   links: [
-    { label: "Projects", icon: SquaresFour, path: "workspace/projects" },
-    { label: "Tasks", icon: ListDashes, path: "workspace/tasks" },
-    { label: "Documents", icon: Folders, path: "workspace/documents" },
+    { label: "Projects", icon: SquaresFourIcon, path: "workspace/projects" },
+    { label: "Tasks", icon: ListDashesIcon, path: "workspace/tasks" },
+    { label: "Documents", icon: FoldersIcon, path: "workspace/documents" },
   ],
 };
 
@@ -62,10 +62,14 @@ const salesSegment = {
   segmentTitle: "SALES",
   segmentCode: "SALES",
   links: [
-    { label: "Opportunities", icon: Handshake, path: "sales/opportunities" },
-    { label: "Clients", icon: Users, path: "sales/clients" },
-    { label: "Quotations", icon: FileText, path: "sales/quotations" },
-    { label: "Reports", icon: ChartBar, path: "sales/reports" },
+    {
+      label: "Opportunities",
+      icon: HandshakeIcon,
+      path: "sales/opportunities",
+    },
+    { label: "Clients", icon: UsersIcon, path: "sales/clients" },
+    { label: "Quotations", icon: FileTextIcon, path: "sales/quotations" },
+    { label: "Reports", icon: ChartBarIcon, path: "sales/reports" },
   ],
 };
 
@@ -74,14 +78,14 @@ const financeSegment = {
   segmentTitle: "FINANCE",
   segmentCode: "FINANCE",
   links: [
-    { label: "Invoices", icon: FileText, path: "finance/invoices" },
-    // { label: "Payments", icon: Coins, path: "finance/payments" },
+    { label: "Invoices", icon: FileTextIcon, path: "finance/invoices" },
+    // { label: "Payments", icon: CoinsIcon, path: "finance/payments" },
     {
       label: "Claims Management",
-      icon: ClipboardText,
+      icon: ClipboardTextIcon,
       path: "finance/claims-management",
     },
-    { label: "Reports", icon: ChartBar, path: "finance/reports" },
+    { label: "Reports", icon: ChartBarIcon, path: "finance/reports" },
   ],
 };
 
@@ -90,32 +94,36 @@ const hrSegment = {
   segmentTitle: "HUMAN RESOURCES",
   segmentCode: "HR",
   links: [
-    { label: "Overview", icon: ChartBar, path: "hr/overview" },
-    { label: "Employee Management", icon: UsersFour, path: "hr/employees" },
+    { label: "Overview", icon: ChartBarIcon, path: "hr/overview" },
+    { label: "Employee Management", icon: UsersFourIcon, path: "hr/employees" },
     {
       label: "Department Management",
-      icon: UsersThree,
+      icon: UsersThreeIcon,
       path: "hr/departments",
     },
     {
       label: "Onboarding Management",
-      icon: AddressBook,
+      icon: AddressBookIcon,
       path: "hr/onboarding",
     },
     {
       label: "Attendance Management",
-      icon: ClipboardText,
+      icon: ClipboardTextIcon,
       path: "hr/attendance",
     },
-    { label: "Leave Management", icon: Calendar, path: "hr/leaves" },
-    { label: "Recruitment", icon: Briefcase, path: "hr/recruitment" },
-    { label: "Claims Management", icon: Wallet, path: "hr/claims" },
-    { label: "Policy Management", icon: Files, path: "hr/policies" },
-    { label: "Forms & Templates", icon: Files, path: "hr/forms" },
-    { label: "Performance Management", icon: Gauge, path: "hr/performance" },
+    { label: "Leave Management", icon: CalendarIcon, path: "hr/leaves" },
+    { label: "Recruitment", icon: BriefcaseIcon, path: "hr/recruitment" },
+    { label: "Claims Management", icon: WalletIcon, path: "hr/claims" },
+    { label: "Policy Management", icon: FilesIcon, path: "hr/policies" },
+    { label: "Forms & Templates", icon: FilesIcon, path: "hr/forms" },
+    {
+      label: "Performance Management",
+      icon: GaugeIcon,
+      path: "hr/performance",
+    },
     {
       label: "Training & Development",
-      icon: BookBookmark,
+      icon: BookBookmarkIcon,
       path: "hr/training",
     },
   ],
@@ -126,16 +134,28 @@ const employeeSegment = {
   segmentTitle: "EMPLOYEE",
   segmentCode: "EMPLOYEE",
   links: [
-    { label: "Onboarding", icon: AddressBook, path: "employee/onboarding" },
-    { label: "Attendance", icon: ClipboardText, path: "employee/attendance" },
-    { label: "Leave Request", icon: Calendar, path: "employee/leave-request" },
-    { label: "Claims", icon: Wallet, path: "employee/claims" },
-    { label: "Policies", icon: Files, path: "employee/policies" },
-    { label: "Forms & Templates", icon: Files, path: "employee/forms" },
-    { label: "Performance Review", icon: Gauge, path: "employee/performance" },
+    { label: "Onboarding", icon: AddressBookIcon, path: "employee/onboarding" },
+    {
+      label: "Attendance",
+      icon: ClipboardTextIcon,
+      path: "employee/attendance",
+    },
+    {
+      label: "Leave Request",
+      icon: CalendarIcon,
+      path: "employee/leave-request",
+    },
+    { label: "Claims", icon: WalletIcon, path: "employee/claims" },
+    { label: "Policies", icon: FilesIcon, path: "employee/policies" },
+    { label: "Forms & Templates", icon: FilesIcon, path: "employee/forms" },
+    {
+      label: "Performance Review",
+      icon: GaugeIcon,
+      path: "employee/performance",
+    },
     {
       label: "Training & Development",
-      icon: BookBookmark,
+      icon: BookBookmarkIcon,
       path: "employee/training",
     },
   ],
@@ -145,24 +165,24 @@ const employeeSegment = {
 const itSegment = {
   segmentTitle: "IT",
   segmentCode: "IT",
-  links: [{ label: "IT Assets", icon: ComputerTower, path: "it/assets" }],
+  links: [{ label: "IT Assets", icon: ComputerTowerIcon, path: "it/assets" }],
 };
 
 // SUPPORT
 const supportSegment = {
   segmentTitle: null,
   segmentCode: null,
-  links: [{ label: "Help & Support", icon: Question, path: "help" }],
+  links: [{ label: "Help & Support", icon: QuestionIcon, path: "help" }],
 };
 
 // ⚙️ ADMIN — full control over system management
 const adminSegment = {
   segmentTitle: "SYSTEM",
   links: [
-    { label: "Users", icon: Users, path: "system/users" },
-    { label: "Roles & Permissions", icon: Gear, path: "admin/roles" },
-    { label: "Audit Logs", icon: FileText, path: "admin/audit-logs" },
-    { label: "System Settings", icon: Gear, path: "admin/settings" },
+    { label: "Users", icon: UsersIcon, path: "system/users" },
+    { label: "Roles & Permissions", icon: GearIcon, path: "admin/roles" },
+    { label: "Audit Logs", icon: FileTextIcon, path: "admin/audit-logs" },
+    { label: "System Settings", icon: GearIcon, path: "admin/settings" },
   ],
 };
 

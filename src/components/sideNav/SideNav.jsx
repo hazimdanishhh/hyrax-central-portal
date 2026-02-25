@@ -1,6 +1,6 @@
 import "./SideNav.scss";
 import { motion } from "framer-motion";
-import { SidebarSimple } from "phosphor-react";
+import { SidebarSimpleIcon } from "@phosphor-icons/react";
 import { navModalVariant } from "../../functions/motionUtils";
 import { useRef, useState } from "react";
 import { useTheme } from "../../context/ThemeContext";
@@ -51,7 +51,7 @@ export default function SideNav() {
             onClick={() => setNavIsOpen(!navIsOpen)}
             className="navButtonType1"
           >
-            <SidebarSimple size="24" />
+            <SidebarSimpleIcon size="24" />
           </button>
         </div>
 

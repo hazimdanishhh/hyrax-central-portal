@@ -9,7 +9,7 @@ import CardLayout from "../../../components/cardLayout/CardLayout";
 import { useNavigate } from "react-router";
 import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
-import { UsersFour } from "phosphor-react";
+import { UsersFourIcon } from "@phosphor-icons/react";
 import useEmployees from "../../../hooks/useEmployees";
 
 export default function Users() {
@@ -34,7 +34,7 @@ export default function Users() {
           <div className="sectionContent">
             <CardSection>
               <div className="departmentHeader">
-                <SectionHeader title="EMPLOYEES" icon={UsersFour} />
+                <SectionHeader title="EMPLOYEES" icon={UsersFourIcon} />
               </div>
 
               <CardLayout style="cardLayout2">

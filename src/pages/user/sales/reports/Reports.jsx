@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./Reports.scss";
 import { motion } from "framer-motion";
-import { CircleNotch } from "phosphor-react";
+import { CircleNotchIcon } from "@phosphor-icons/react";
 
 function Reports() {
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ function Reports() {
               zIndex: 10,
             }}
           >
-            <CircleNotch size={40} />
+            <CircleNotchIcon size={40} />
           </motion.div>
         </div>
       )}

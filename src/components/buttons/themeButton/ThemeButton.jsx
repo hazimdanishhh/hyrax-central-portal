@@ -1,6 +1,6 @@
 import "../button/Button.scss";
 import { useTheme } from "../../../context/ThemeContext";
-import { Moon, Sun } from "phosphor-react";
+import { MoonIcon, SunIcon } from "@phosphor-icons/react";
 
 function ThemeButton({ name, style }) {
   const { darkMode, toggleMode } = useTheme();
@@ -10,9 +10,9 @@ function ThemeButton({ name, style }) {
       {name && (darkMode ? "Light Mode" : "Dark Mode")}
 
       {darkMode ? (
-        <Sun size={style === "iconButton" ? "24" : "20"} />
+        <SunIcon size={style === "iconButton" ? "24" : "20"} />
       ) : (
-        <Moon size={style === "iconButton" ? "24" : "20"} />
+        <MoonIcon size={style === "iconButton" ? "24" : "20"} />
       )}
     </button>
   );

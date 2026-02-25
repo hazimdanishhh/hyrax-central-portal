@@ -50,7 +50,7 @@ export default function SideNavLink({ segment, navIsOpen, role, onClick }) {
           >
             <Link
               to={to}
-              className={`sideNavLink textXXS ${isActive ? "active" : ""} ${
+              className={`sideNavLink textXXXS ${isActive ? "active" : ""} ${
                 !navIsOpen ? "isClosed" : ""
               }`}
               ref={(el) => (linkRefs.current[index] = el)}

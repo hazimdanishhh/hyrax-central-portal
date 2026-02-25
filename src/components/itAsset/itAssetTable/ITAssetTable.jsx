@@ -1,5 +1,9 @@
 import "./ITAssetTable.scss";
-import { Desktop, WindowsLogo, LinuxLogo } from "phosphor-react";
+import {
+  DesktopIcon,
+  WindowsLogoIcon,
+  LinuxLogoIcon,
+} from "@phosphor-icons/react";
 import { itAssetTableColumns } from "../../../data/itAssetTableColumns";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 
@@ -23,15 +27,15 @@ function ITAssetTable({ assets = [] }) {
               <td className="iconCell">
                 {asset.asset_subcategory?.name
                   ?.toLowerCase()
-                  .includes("desktop") && <Desktop size={20} />}
+                  .includes("desktop") && <DesktopIcon size={20} />}
 
                 {asset.operating_system?.name
                   ?.toLowerCase()
-                  .includes("windows") && <WindowsLogo size={20} />}
+                  .includes("windows") && <WindowsLogoIcon size={20} />}
 
                 {asset.operating_system?.name
                   ?.toLowerCase()
-                  .includes("linux") && <LinuxLogo size={20} />}
+                  .includes("linux") && <LinuxLogoIcon size={20} />}
               </td>
 
               {/* DATA COLUMNS */}

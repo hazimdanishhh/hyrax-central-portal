@@ -3,12 +3,14 @@ import { editors } from "../dataTable/editors/Editors";
 import "./DataSidebar.scss";
 import Button from "../buttons/button/Button";
 import { useTheme } from "../../context/ThemeContext";
-import { PencilSimpleLine, X } from "phosphor-react";
+import { CheckIcon, TrashSimpleIcon, XIcon } from "@phosphor-icons/react";
 import CardLayout from "../cardLayout/CardLayout";
 import SectionHeader from "../sectionHeader/SectionHeader";
 import { motion } from "framer-motion";
 
 export default function DataSidebar({
+  title,
+  icon,
   open,
   onClose,
   rowData = {},
@@ -78,12 +80,12 @@ export default function DataSidebar({
           duration: 0.12,
           ease: "easeOut",
         }}
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+        onClick={(e) => e.stopPropagation()}
       >
         <CardLayout>
           <header className="dataSidebarHeader">
-            <SectionHeader title="Edit IT Asset" icon={PencilSimpleLine} />
-            <Button icon={X} style="iconButton" onClick={onClose} />
+            <SectionHeader title={title} icon={icon} />
+            <Button icon={XIcon} style="iconButton" onClick={onClose} />
           </header>
 
           <div className="dataSidebarContent">
@@ -109,12 +111,14 @@ export default function DataSidebar({
           <footer className="dataSidebarFooter">
             <Button
               name="Delete"
+              icon={TrashSimpleIcon}
               style="button buttonTypeDelete"
               onClick={handleDelete}
             />
             <Button
               name="Save"
-              style="button buttonType1"
+              icon={CheckIcon}
+              style="button buttonType2"
               onClick={handleSave}
             />
           </footer>

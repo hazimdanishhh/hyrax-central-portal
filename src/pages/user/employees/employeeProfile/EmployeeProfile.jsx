@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import useEmployeePublicProfile from "../../../../hooks/useEmployeePublicProfile";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
-import { User, UsersFour, UsersThree } from "phosphor-react";
+import { UserIcon, UsersFourIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import CardSection from "../../../../components/cardSection/CardSection";
 import MessageUI from "../../../../components/messageUI/MessageUI";
 import { useState } from "react";
@@ -38,7 +38,7 @@ export default function EmployeeProfile() {
         <div className="sectionWrapper">
           <div className="sectionContent">
             <Breadcrumbs
-              icon1={UsersFour}
+              icon1={UsersFourIcon}
               current={
                 employee.preferred_name
                   ? `${employee.preferred_name}'s Profile`
@@ -81,7 +81,7 @@ export default function EmployeeProfile() {
                 <CardSection>
                   <SectionHeader
                     title={`${employee.preferred_name}'s Employee Information`}
-                    icon={User}
+                    icon={UserIcon}
                   />
 
                   <CardLayout style="cardLayout3">
@@ -149,7 +149,7 @@ export default function EmployeeProfile() {
                   <CardSection>
                     <SectionHeader
                       title={`${employee.preferred_name}'s Reporting Manager`}
-                      icon={UsersThree}
+                      icon={UsersThreeIcon}
                     />
                     <EmployeeCard
                       className="employeeCard"

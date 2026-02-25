@@ -3,12 +3,12 @@ import { Link } from "react-router";
 import { useRef, useState } from "react";
 import logo from "/src/assets/favicon.svg";
 import {
-  ArrowsClockwise,
-  Bell,
-  CaretRight,
-  SidebarSimple,
-  X,
-} from "phosphor-react";
+  ArrowsClockwiseIcon,
+  BellIcon,
+  CaretRightIcon,
+  SidebarSimpleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import useClickOutside from "../../hooks/useClickOutside";
 import { useTheme } from "../../context/ThemeContext";
@@ -48,7 +48,7 @@ function Navbar() {
             onClick={() => setMobileNavIsOpen(!mobileNavIsOpen)}
             className="navButtonType1 mobileNavIcon"
           >
-            <SidebarSimple size="24" />
+            <SidebarSimpleIcon size="24" />
           </button>
 
           <Link to="/app" className="textRegular textXS navbarLogo">
@@ -80,7 +80,7 @@ function Navbar() {
                 onClick={() => setNotificationIsOpen(!notificationIsOpen)}
                 className="navButton"
               >
-                <Bell size="24" />
+                <BellIcon size="24" />
               </button>
               <AnimatePresence mode="wait">
                 {notificationIsOpen && (
@@ -93,13 +93,13 @@ function Navbar() {
                     ref={notificationRef}
                   >
                     <div className="notificationHeader">
-                      <Bell size="24" />
+                      <BellIcon size="24" />
                       <p className="textS textBold">Notifications</p>
                       <div
                         className="navButton notificationCloseButton"
                         onClick={() => setNotificationIsOpen(false)}
                       >
-                        <X size="24" />
+                        <XIcon size="24" />
                       </div>
                     </div>
                     {notifications.slice(0, 4).map((notification, index) => (
@@ -123,7 +123,7 @@ function Navbar() {
                       className="notificationViewAllButton textXS"
                     >
                       View All
-                      <CaretRight size="20" />
+                      <CaretRightIcon size="20" />
                     </Link>
                   </motion.div>
                 )}
@@ -132,7 +132,7 @@ function Navbar() {
           )}
 
           <Button
-            icon={ArrowsClockwise}
+            icon={ArrowsClockwiseIcon}
             tooltipName="Refresh"
             onClick={() => window.location.reload()}
             style="iconButton"

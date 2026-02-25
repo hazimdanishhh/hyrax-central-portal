@@ -1,10 +1,4 @@
-import {
-  CaretCircleRight,
-  Envelope,
-  IdentificationBadge,
-  Phone,
-  UsersThree,
-} from "phosphor-react";
+import { CaretCircleRightIcon } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import "./EmployeeList.scss";
 import CardLayout from "../cardLayout/CardLayout";
@@ -46,7 +40,7 @@ export default function EmployeeList({
         <div className="employeeCardStatusContainer">
           <StatusBadge status={employment_status_name} />
           <button className="listArrow">
-            <CaretCircleRight size={28} weight="light" />
+            <CaretCircleRightIcon size={28} weight="light" />
           </button>
         </div>
       </div>

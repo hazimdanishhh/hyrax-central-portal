@@ -1,10 +1,10 @@
 import {
-  CaretCircleRight,
-  Envelope,
-  IdentificationBadge,
-  Phone,
-  UsersThree,
-} from "phosphor-react";
+  CaretCircleRightIcon,
+  EnvelopeIcon,
+  IdentificationBadgeIcon,
+  PhoneIcon,
+  UsersThreeIcon,
+} from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import "./EmployeeCard.scss";
 import CardLayout from "../cardLayout/CardLayout";
@@ -33,7 +33,7 @@ function EmployeeCard({
       <div className="employeeCardStatusContainer">
         <StatusBadge status={employment_status_name} />
         <button className="employeeCardArrow">
-          <CaretCircleRight size={28} weight="light" />
+          <CaretCircleRightIcon size={28} weight="light" />
         </button>
       </div>
 
@@ -55,14 +55,14 @@ function EmployeeCard({
       <div className="employeeCardDetails">
         <CardLayout style="cardLayout2">
           <p className="textLight textXXS">
-            <IdentificationBadge />
+            <IdentificationBadgeIcon />
             {employee_id}
           </p>
           <p className="textLight textXXS">
-            <Phone /> {phone_work}
+            <PhoneIcon /> {phone_work}
           </p>
           <p className="textLight textXXS">
-            <Envelope /> {email_work}
+            <EnvelopeIcon /> {email_work}
           </p>
         </CardLayout>
       </div>

@@ -16,7 +16,12 @@
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 import "./MessageUI.scss";
-import { Check, CircleNotch, Info, X } from "phosphor-react";
+import {
+  CheckIcon,
+  CircleNotchIcon,
+  InfoIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { useClearMessage } from "../../functions/clearMessage";
 
 // Animation
@@ -46,10 +51,10 @@ export default function MessageUI({ message, setMessage, timeout }) {
             type === "error"
               ? "error"
               : type === "success"
-              ? "success"
-              : type === "info"
-              ? "info"
-              : "loading"
+                ? "success"
+                : type === "info"
+                  ? "info"
+                  : "loading"
           }`}
           onClick={() => setMessage(null)}
         >
@@ -67,19 +72,19 @@ export default function MessageUI({ message, setMessage, timeout }) {
                 }}
                 className="loadingIcon"
               >
-                <CircleNotch />
+                <CircleNotchIcon />
               </motion.div>
             </div>
           ) : null}
 
           {/* ERROR ICON */}
-          {type === "error" ? <X /> : null}
+          {type === "error" ? <XIcon /> : null}
 
           {/* SUCCESS ICON */}
-          {type === "success" ? <Check /> : null}
+          {type === "success" ? <CheckIcon /> : null}
 
           {/* INFO ICON */}
-          {type === "info" ? <Info /> : null}
+          {type === "info" ? <InfoIcon /> : null}
 
           {/* MESSAGE */}
           {text}

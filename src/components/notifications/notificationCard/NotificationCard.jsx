@@ -1,12 +1,12 @@
 import "./NotificationsCard.scss";
 import { motion } from "framer-motion";
 import {
-  CaretRight,
-  Check,
-  Info,
-  Warning,
-  WarningOctagon,
-} from "phosphor-react";
+  CaretRightIcon,
+  CheckIcon,
+  InfoIcon,
+  WarningIcon,
+  WarningOctagonIcon,
+} from "@phosphor-icons/react";
 import { Link } from "react-router";
 
 function NotificationCard({
@@ -34,22 +34,22 @@ function NotificationCard({
             type === "info"
               ? "notificationTitle info"
               : type === "warning"
-              ? "notificationTitle warning"
-              : type === "error"
-              ? "notificationTitle error"
-              : type === "success"
-              ? "notificationTitle success"
-              : null
+                ? "notificationTitle warning"
+                : type === "error"
+                  ? "notificationTitle error"
+                  : type === "success"
+                    ? "notificationTitle success"
+                    : null
           }
         >
           {type === "info" ? (
-            <Info size="20" />
+            <InfoIcon size="20" />
           ) : type === "warning" ? (
-            <WarningOctagon size="20" />
+            <WarningOctagonIcon size="20" />
           ) : type === "error" ? (
-            <Warning size="20" />
+            <WarningIcon size="20" />
           ) : type === "success" ? (
-            <Check size="20" />
+            <CheckIcon size="20" />
           ) : null}
           <div className="textRegular textXS">{title}</div>
         </div>
@@ -59,7 +59,7 @@ function NotificationCard({
         <div className="textBold textXXXS">{created_at}</div>
         <div className="notificationViewButton textXXS">
           View
-          <CaretRight weight="bold" />
+          <CaretRightIcon weight="bold" />
         </div>
       </Link>
     </motion.div>

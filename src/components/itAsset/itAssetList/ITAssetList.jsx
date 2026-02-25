@@ -1,23 +1,34 @@
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import LinkButton from "../../buttons/linkButton/LinkButton";
 import CardLayout from "../../cardLayout/CardLayout";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import "./ITAssetList.scss";
 import {
-  CaretRight,
-  Desktop,
-  Laptop,
-  ComputerTower,
-  WindowsLogo,
-  LinuxLogo,
-  DeviceMobileCamera,
-  CaretCircleRight,
-  AppleLogo,
-  Package,
-  HardDrive,
-} from "phosphor-react";
+  CaretRightIcon,
+  DesktopIcon,
+  LaptopIcon,
+  ComputerTowerIcon,
+  WindowsLogoIcon,
+  LinuxLogoIcon,
+  CaretCircleRightIcon,
+  AppleLogoIcon,
+  PackageIcon,
+  HardDriveIcon,
+  SecurityCameraIcon,
+  WifiHighIcon,
+  NetworkIcon,
+  DatabaseIcon,
+  PrinterIcon,
+  FingerprintIcon,
+  TelevisionSimpleIcon,
+} from "@phosphor-icons/react";
+import { useState } from "react";
+import { useTheme } from "../../../context/ThemeContext";
 
 export default function ITAssetList({ asset, onClick }) {
+  const [showName, setShowName] = useState(false);
+  const { darkMode } = useTheme();
+
   return (
     <motion.div
       className="generalCard ITAssetList"
@@ -32,24 +43,36 @@ export default function ITAssetList({ asset, onClick }) {
           {(() => {
             const name = asset.asset_subcategory?.name?.toLowerCase() || "";
 
-            if (name.includes("desktop")) return <ComputerTower size={18} />;
-            if (name.includes("laptop")) return <Laptop size={18} />;
+            if (name.includes("desktop"))
+              return <ComputerTowerIcon size={18} />;
+            if (name.includes("laptop")) return <LaptopIcon size={18} />;
+            if (name.includes("monitor")) return <DesktopIcon size={18} />;
+            if (name.includes("cctv")) return <SecurityCameraIcon size={18} />;
+            if (/modem|router|mesh|combo box|access point/i.test(name)) {
+              return <WifiHighIcon size={18} />;
+            }
+            if (name.includes("switch")) return <NetworkIcon size={18} />;
+            if (name.includes("nas")) return <DatabaseIcon size={18} />;
+            if (name.includes("printer")) return <PrinterIcon size={18} />;
+            if (name.includes("fingerprint"))
+              return <FingerprintIcon size={18} />;
+            if (name.includes("tv")) return <TelevisionSimpleIcon size={18} />;
 
             // fallback
-            return <Package size={18} />;
+            return <PackageIcon size={18} />;
           })()}
 
           {/* OPERATING SYSTEM */}
           {(() => {
             const os = asset.operating_system?.name?.toLowerCase() || "";
 
-            if (os.includes("windows")) return <WindowsLogo size={18} />;
+            if (os.includes("windows")) return <WindowsLogoIcon size={18} />;
             if (os.includes("ios") || os.includes("mac"))
-              return <AppleLogo size={18} />;
-            if (os.includes("linux")) return <LinuxLogo size={18} />;
+              return <AppleLogoIcon size={18} />;
+            if (os.includes("linux")) return <LinuxLogoIcon size={18} />;
 
             // fallback
-            return <HardDrive size={18} />;
+            return <HardDriveIcon size={18} />;
           })()}
         </div>
 
@@ -57,6 +80,14 @@ export default function ITAssetList({ asset, onClick }) {
         <div className="listSegment">
           <p className="textBold textXXS">{asset.asset_name || "No Name"}</p>
           <p className="textLight textXXXS">{asset.asset_code || "No Code"}</p>
+        </div>
+
+        <div className="listSegment listSegmentStatus">
+          <StatusBadge
+            status={
+              asset.asset_status?.name || asset.asset_status_id || "No Status"
+            }
+          />
         </div>
       </div>
 
@@ -76,38 +107,52 @@ export default function ITAssetList({ asset, onClick }) {
         <p className="textLight textXXXS">{asset.model?.name || "No Model"}</p>
       </div>
 
-      {asset.mdm_link ? (
-        <LinkButton
-          style="textLight textXXXS button buttonType3"
-          href={asset.mdm_link}
-          name={asset.mdm_status}
-          icon={CaretRight}
-        ></LinkButton>
-      ) : (
-        <LinkButton
-          style="textLight textXXXS "
-          name={asset.mdm_status}
-        ></LinkButton>
-      )}
-
-      <div className="listStatusContainer">
-        <StatusBadge
-          status={
-            asset.asset_status?.name || asset.asset_status_id || "No Status"
-          }
-        />
-        <div className="listEmployeePhoto">
-          <img
-            src={
-              asset.asset_user
-                ? `${asset.asset_user?.profile?.avatar_url}`
-                : "/profilePhoto/default.webp"
-            }
-            alt={asset.asset_user?.full_name}
+      <div className="listSegment listSegmentStatusContainer">
+        {asset.mdm_link && (
+          <LinkButton
+            style="textLight textXXXS button buttonType3"
+            href={asset.mdm_link}
+            name={asset.mdm_status}
+            icon={CaretRightIcon}
+            onClick={(e) => e.stopPropagation()}
           />
-        </div>
+        )}
+
+        {asset.asset_user && (
+          <a
+            className="listEmployeePhoto"
+            href={`/app/employees/${asset.asset_user?.id}`}
+            onMouseEnter={() => setShowName(true)}
+            onMouseLeave={() => setShowName(false)}
+          >
+            <img
+              src={
+                asset.asset_user?.profile?.avatar_url
+                  ? `${asset.asset_user?.profile?.avatar_url}`
+                  : "/profilePhoto/default.webp"
+              }
+              alt={asset.asset_user?.full_name}
+            />
+            <AnimatePresence mode="wait">
+              {showName && (
+                <motion.div
+                  className={
+                    darkMode
+                      ? "textRegular textXXXS listEmployeePhotoName sectionDark"
+                      : "textRegular textXXXS listEmployeePhotoName sectionLight"
+                  }
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {asset.asset_user?.full_name}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </a>
+        )}
         <div className="listArrow">
-          <CaretCircleRight size={28} weight="light" />
+          <CaretCircleRightIcon size={28} weight="light" />
         </div>
       </div>
     </motion.div>

@@ -7,7 +7,11 @@ import useEmployee from "../../../hooks/useEmployee";
 import CardLayout from "../../../components/cardLayout/CardLayout";
 import { useNavigate } from "react-router";
 import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
-import { ListBullets, SquaresFour, UsersFour } from "phosphor-react";
+import {
+  ListBulletsIcon,
+  SquaresFourIcon,
+  UsersFourIcon,
+} from "@phosphor-icons/react";
 import useEmployees from "../../../hooks/useEmployees";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
@@ -71,7 +75,7 @@ export default function EmployeesList() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={UsersFour} current="Employees" />
+            <Breadcrumbs icon={UsersFourIcon} current="Employees" />
 
             <CardWrapper>
               <div className="itAssetsHeader">
@@ -86,7 +90,7 @@ export default function EmployeesList() {
 
                 {layout === 1 ? (
                   <Button
-                    icon2={SquaresFour}
+                    icon2={SquaresFourIcon}
                     tooltipName="Card View"
                     style="button buttonType3 textXXS"
                     name="Card View"
@@ -94,7 +98,7 @@ export default function EmployeesList() {
                   />
                 ) : (
                   <Button
-                    icon2={ListBullets}
+                    icon2={ListBulletsIcon}
                     tooltipName="List View"
                     style="button buttonType3 textXXS"
                     name="List View"

@@ -1,4 +1,12 @@
-import { Desktop, SquaresFour, Table } from "phosphor-react";
+// IT_Assets.jsx
+import {
+  DesktopIcon,
+  PencilSimpleLineIcon,
+  PlusCircleIcon,
+  SquaresFourIcon,
+  TableIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import CardSection from "../../../../components/cardSection/CardSection";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
@@ -27,10 +35,13 @@ import useEmployees from "../../../../hooks/useEmployees";
 import useDepartments from "../../../../hooks/useDepartments";
 import ITAssetList from "../../../../components/itAsset/itAssetList/ITAssetList";
 import useITAssetMutations from "../../../../hooks/useITAssetMutations";
+import MessageUI from "../../../../components/messageUI/MessageUI";
 
 function IT_Assets({ setMessage }) {
   const { darkMode } = useTheme();
-  const { assets, loading, error } = useITAssets({ setMessage });
+  const { assets, setAssets, loading, error, refetch } = useITAssets({
+    setMessage,
+  });
   const [layout, setLayout] = useState(1); // 1: Card, 2: Table
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -45,6 +56,7 @@ function IT_Assets({ setMessage }) {
   const { employees, loading: employeesLoading } = useEmployees({ setMessage });
   const { departments, loading: departmentsLoading } = useDepartments();
 
+  // IT Asset Table Config
   const columns = itAssetTableConfig({
     categories,
     subcategories,
@@ -82,6 +94,16 @@ function IT_Assets({ setMessage }) {
       label: "OS",
       options: operatingSystems.map((o) => o.name),
     },
+    {
+      key: "department",
+      label: "Department",
+      options: departments.map((d) => d.name),
+    },
+    {
+      key: "employees",
+      label: "Employee",
+      options: employees.map((e) => e.full_name),
+    },
   ];
 
   // Search + Filter logic for IT assets
@@ -93,18 +115,26 @@ function IT_Assets({ setMessage }) {
     data: filteredAssets,
   } = useSearchFilter({
     data: assets, // `assets` is your ITAssetTable data
-    searchFields: ["asset_name", "asset_code", "serial_number"], // searchable fields
+    searchFields: ["asset_name", "asset_code", "serial_number", "employees"], // searchable fields
     filterMap: {
       category: (asset, value) => asset.asset_category?.name === value,
       subcategory: (asset, value) => asset.asset_subcategory?.name === value,
       status: (asset, value) => asset.asset_status?.name === value,
       condition: (asset, value) => asset.asset_condition?.name === value,
       os: (asset, value) => asset.operating_system?.name === value,
+      department: (asset, value) => asset.asset_department?.name === value,
+      employees: (asset, value) => asset.asset_user?.full_name === value,
     },
   });
 
+  const activeFilters = Object.entries(filters).filter(
+    ([_, value]) => value && value !== "",
+  );
+
+  const hasActiveFilters = search || activeFilters.length > 0;
+
   // parent component or hook
-  const rowsPerPage = 20;
+  const rowsPerPage = 150;
   const totalPages = Math.ceil(filteredAssets.length / rowsPerPage);
 
   // slice data for current page
@@ -119,9 +149,10 @@ function IT_Assets({ setMessage }) {
   }, [filteredAssets]);
 
   // IT Asset Update and Delete Hook Function
-  const { updateAsset, deleteAsset, saving, deleting } = useITAssetMutations({
-    setMessage,
-  });
+  const { createAsset, updateAsset, deleteAsset, saving, deleting } =
+    useITAssetMutations({
+      setMessage,
+    });
 
   // Sidebar handlers
   function handleOpenSidebar(asset) {
@@ -134,22 +165,39 @@ function IT_Assets({ setMessage }) {
     setSelectedAsset(null);
   }
 
-  async function handleSaveSidebar(updatedData) {
+  // ==============
+  // SAVE
+  // ==============
+  async function handleSaveSidebar(data) {
     try {
-      await updateAsset(updatedData);
+      let savedRow;
+
+      if (data.id) {
+        // UPDATE
+        const updatedRows = await updateAsset(data);
+        savedRow = updatedRows?.[0];
+        setAssets((prev) =>
+          prev.map((a) => (a.id === savedRow.id ? savedRow : a)),
+        );
+      } else {
+        // CREATE
+        savedRow = await createAsset(data);
+        setAssets((prev) => [savedRow, ...prev]); // add to top
+      }
+
       setSidebarOpen(false);
-    } catch (err) {
-      // error already handled in hook
-    }
+    } catch (err) {}
   }
 
+  // ==============
+  // DELETE
+  // ==============
   async function handleDeleteSidebar(asset) {
     try {
       await deleteAsset(asset.id);
+      setAssets((prev) => prev.filter((a) => a.id !== asset.id));
       setSidebarOpen(false);
-    } catch (err) {
-      // error already handled in hook
-    }
+    } catch (err) {}
   }
 
   // Wait for all filter data to load
@@ -168,10 +216,12 @@ function IT_Assets({ setMessage }) {
 
   return (
     <>
+      <MessageUI setMessage={setMessage} />
+
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={Desktop} current="IT Assets" />
+            <Breadcrumbs icon={DesktopIcon} current="IT Assets" />
 
             <CardWrapper>
               <div className="itAssetsHeader">
@@ -185,7 +235,7 @@ function IT_Assets({ setMessage }) {
                 />
                 {layout === 1 ? (
                   <Button
-                    icon2={SquaresFour}
+                    icon2={SquaresFourIcon}
                     tooltipName="Card View"
                     style="button buttonType3 textXXS"
                     name="Card View"
@@ -193,12 +243,65 @@ function IT_Assets({ setMessage }) {
                   />
                 ) : (
                   <Button
-                    icon2={Table}
+                    icon2={TableIcon}
                     tooltipName="Table View"
                     style="button buttonType3 textXXS"
                     name="Table View"
                     onClick={() => setLayout(1)}
                   />
+                )}
+                <Button
+                  name="Add Asset"
+                  icon2={PlusCircleIcon}
+                  style="button buttonType3 textXXS"
+                  onClick={() => {
+                    setSelectedAsset({}); // empty object = new mode
+                    setSidebarOpen(true);
+                  }}
+                />
+              </div>
+
+              <div className="itAssetsHeader">
+                {hasActiveFilters && (
+                  <div className="activeFiltersBar">
+                    {search && (
+                      <div className="filterTag textXXXS">
+                        <span>
+                          <strong>Search: </strong>
+                          {search}
+                        </span>
+                        <Button onClick={() => setSearch("")} icon={XIcon} />
+                      </div>
+                    )}
+
+                    {activeFilters.map(([key, value]) => (
+                      <div key={key} className="filterTag textXXXS">
+                        <span>
+                          <strong>{key}: </strong>
+                          {value}
+                        </span>
+                        <Button
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              [key]: "",
+                            }))
+                          }
+                          icon={XIcon}
+                        />
+                      </div>
+                    ))}
+
+                    <Button
+                      name="Clear All"
+                      icon={XIcon}
+                      style="button buttonTypeDelete2 textXXXS"
+                      onClick={() => {
+                        setSearch("");
+                        setFilters({});
+                      }}
+                    />
+                  </div>
                 )}
               </div>
 
@@ -223,23 +326,25 @@ function IT_Assets({ setMessage }) {
                     rowKey="id"
                     onRowClick={handleOpenSidebar}
                   />
-                  <CardLayout style="cardLayout2">
-                    <button
-                      className="button buttonType2"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => p - 1)}
-                    >
-                      Previous
-                    </button>
+                  {totalPages > 1 && (
+                    <CardLayout style="cardLayout2">
+                      <button
+                        className="button buttonType2"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage((p) => p - 1)}
+                      >
+                        Previous
+                      </button>
 
-                    <button
-                      className="button buttonType2"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => p + 1)}
-                    >
-                      Next
-                    </button>
-                  </CardLayout>
+                      <button
+                        className="button buttonType2"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                      >
+                        Next
+                      </button>
+                    </CardLayout>
+                  )}
                 </>
               ) : (
                 <>
@@ -252,23 +357,25 @@ function IT_Assets({ setMessage }) {
                       />
                     ))}
                   </CardLayout>
-                  <CardLayout style="cardLayout2">
-                    <button
-                      className="button buttonType2"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => p - 1)}
-                    >
-                      Previous
-                    </button>
+                  {totalPages > 1 && (
+                    <CardLayout style="cardLayout2">
+                      <button
+                        className="button buttonType2"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage((p) => p - 1)}
+                      >
+                        Previous
+                      </button>
 
-                    <button
-                      className="button buttonType2"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => p + 1)}
-                    >
-                      Next
-                    </button>
-                  </CardLayout>
+                      <button
+                        className="button buttonType2"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                      >
+                        Next
+                      </button>
+                    </CardLayout>
+                  )}
                 </>
               )}
             </CardWrapper>
@@ -280,6 +387,8 @@ function IT_Assets({ setMessage }) {
       <AnimatePresence>
         {sidebarOpen && (
           <DataSidebar
+            title="Edit IT Asset"
+            icon={PencilSimpleLineIcon}
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             rowData={selectedAsset}

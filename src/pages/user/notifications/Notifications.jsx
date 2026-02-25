@@ -6,7 +6,7 @@ import { notificationData } from "../../../data/notificationData";
 import NotificationCard from "../../../components/notifications/notificationCard/NotificationCard";
 import { useState } from "react";
 import Button from "../../../components/buttons/button/Button";
-import { Bell, CaretRight } from "phosphor-react";
+import { BellIcon, CaretRightIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 
@@ -28,7 +28,7 @@ function Notifications() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <Breadcrumbs icon={Bell} current="Notifications" />
+          <Breadcrumbs icon={BellIcon} current="Notifications" />
           <CardWrapper>
             <CardLayout>
               {notifications
@@ -49,7 +49,7 @@ function Notifications() {
                 <Button
                   name="Load More"
                   style="button buttonType2"
-                  icon={CaretRight}
+                  icon={CaretRightIcon}
                   onClick={handleLoadMore}
                 />
               ) : (

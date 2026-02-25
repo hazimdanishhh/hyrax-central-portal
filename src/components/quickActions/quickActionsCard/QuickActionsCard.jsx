@@ -1,4 +1,4 @@
-import { Plus } from "phosphor-react";
+import { PlusIcon } from "@phosphor-icons/react";
 import "./QuickActionsCard.scss";
 import { Link } from "react-router";
 import { motion } from "framer-motion";
@@ -18,7 +18,7 @@ function QuickActionsCard({ icon, name, path }) {
           <p className="textRegular textXXXS">{name}</p>
         </div>
         <div className="quickActionsPlusIcon">
-          <Plus />
+          <PlusIcon />
         </div>
       </Link>
     </motion.div>

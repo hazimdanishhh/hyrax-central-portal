@@ -6,7 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { fadeInWithEase, staggerContainer } from "../../functions/motionUtils";
 import { motion } from "framer-motion";
 import Button from "../../components/buttons/button/Button";
-import { GoogleLogo } from "phosphor-react";
+import { GoogleLogoIcon } from "@phosphor-icons/react";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -57,7 +57,7 @@ export default function LoginPage() {
               name="Log in with Google"
               onClick={handleGoogleLogin}
               style="button buttonType2"
-              icon={GoogleLogo}
+              icon={GoogleLogoIcon}
             />
           </motion.div>
         </motion.div>

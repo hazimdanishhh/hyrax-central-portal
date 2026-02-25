@@ -1,4 +1,4 @@
-import { Desktop, PencilSimple, UserCircle } from "phosphor-react";
+import { DesktopIcon, PencilSimpleIcon } from "@phosphor-icons/react";
 import { profileData } from "../../data/profileData";
 import CardLayout from "../cardLayout/CardLayout";
 import CardSection from "../cardSection/CardSection";
@@ -47,7 +47,7 @@ export default function ProfileCard({ profile, employee, assets }) {
                 {index === 0 && profile.role !== "superadmin" ? null : (
                   <Button
                     name="Edit Profile"
-                    icon2={PencilSimple}
+                    icon2={PencilSimpleIcon}
                     style="button buttonType3"
                   />
                 )}
@@ -83,7 +83,7 @@ export default function ProfileCard({ profile, employee, assets }) {
         <div className="profileSection">
           <CardSection>
             <div className="profileSectionHeader">
-              <SectionHeader title="Assigned Assets" icon={Desktop} />
+              <SectionHeader title="Assigned Assets" icon={DesktopIcon} />
             </div>
             <CardLayout style="cardLayout3">
               {assets.map((asset) => (

@@ -1,5 +1,11 @@
 import "./QuickActions.scss";
-import { CaretDown, CaretUp, Megaphone, Plus, Sparkle } from "phosphor-react";
+import {
+  CaretDownIcon,
+  CaretUpIcon,
+  MegaphoneIcon,
+  PlusIcon,
+  SparkleIcon,
+} from "@phosphor-icons/react";
 import { Link } from "react-router";
 import QuickActionsCard from "./quickActionsCard/QuickActionsCard";
 import { useTheme } from "../../context/ThemeContext";
@@ -28,12 +34,12 @@ function QuickActions() {
         className="quickActionsHeader"
         onClick={() => setQuickActionsIsOpen(!quickActionsIsOpen)}
       >
-        <Sparkle size="16" weight="bold" />
+        <SparkleIcon size="16" weight="bold" />
         <p className="textBold textXXS">Quick Actions</p>
         {quickActionsIsOpen ? (
-          <CaretUp size="18" weight="bold" />
+          <CaretUpIcon size="18" weight="bold" />
         ) : (
-          <CaretDown size="18" weight="bold" />
+          <CaretDownIcon size="18" weight="bold" />
         )}
       </button>
 

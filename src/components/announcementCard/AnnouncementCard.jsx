@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import "./AnnouncementCard.scss";
-import { CaretRight } from "phosphor-react";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 
 function AnnouncementCard({
@@ -51,7 +51,7 @@ function AnnouncementCard({
       {truncate && (
         <Link className="announcementCardViewButton textXXS" to={link}>
           View
-          <CaretRight weight="bold" />
+          <CaretRightIcon weight="bold" />
         </Link>
       )}
     </motion.div>

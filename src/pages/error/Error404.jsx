@@ -1,4 +1,4 @@
-import { House } from "phosphor-react";
+import { HouseIcon } from "@phosphor-icons/react";
 import RouterButton from "../../components/buttons/routerButton/RouterButton";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -14,7 +14,7 @@ export default function Error404() {
           <RouterButton
             name="Go Back"
             to="/app"
-            icon={House}
+            icon={HouseIcon}
             style="button buttonType2"
           />
         </div>

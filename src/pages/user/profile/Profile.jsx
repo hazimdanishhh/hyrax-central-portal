@@ -8,7 +8,7 @@ import useEmployee from "../../../hooks/useEmployee";
 import useEmployeeAssets from "../../../hooks/useEmployeeAssets";
 import CardSection from "../../../components/cardSection/CardSection";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
-import { UserCircle } from "phosphor-react";
+import { UserCircleIcon } from "@phosphor-icons/react";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 
@@ -32,7 +32,7 @@ export default function Profile() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={UserCircle} current="My Profile" />
+            <Breadcrumbs icon={UserCircleIcon} current="My Profile" />
 
             <CardWrapper>
               {loading ? (

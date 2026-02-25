@@ -3,14 +3,14 @@ import CardLayout from "../../cardLayout/CardLayout";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import "./ITAssetCard.scss";
 import {
-  CaretRight,
-  Desktop,
-  Laptop,
-  ComputerTower,
-  WindowsLogo,
-  LinuxLogo,
-  DeviceMobileCamera,
-} from "phosphor-react";
+  CaretRightIcon,
+  DesktopIcon,
+  LaptopIcon,
+  ComputerTowerIcon,
+  WindowsLogoIcon,
+  LinuxLogoIcon,
+  DeviceMobileCameraIcon,
+} from "@phosphor-icons/react";
 
 function ITAssetCard({ asset, onClick }) {
   return (
@@ -25,15 +25,15 @@ function ITAssetCard({ asset, onClick }) {
             {/* Asset subcategory */}
             {asset.asset_subcategory?.name
               ?.toLowerCase()
-              .includes("desktop") && <Desktop size={24} />}
+              .includes("desktop") && <DesktopIcon size={24} />}
 
             {/* Operating system */}
             {asset.operating_system?.name
               ?.toLowerCase()
-              .includes("windows") && <WindowsLogo size={24} />}
+              .includes("windows") && <WindowsLogoIcon size={24} />}
 
             {asset.operating_system?.name?.toLowerCase().includes("linux") && (
-              <LinuxLogo size={24} />
+              <LinuxLogoIcon size={24} />
             )}
           </div>
 
@@ -77,7 +77,7 @@ function ITAssetCard({ asset, onClick }) {
             href={asset.mdm_link}
             name="MDM Link"
             style="button buttonType2"
-            icon={CaretRight}
+            icon={CaretRightIcon}
           />
         )}
 

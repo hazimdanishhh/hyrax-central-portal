@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import "./LoadingIcon.scss";
-import { CircleNotch } from "phosphor-react";
+import { CircleNotchIcon } from "@phosphor-icons/react";
 
 function LoadingIcon() {
   return (
@@ -14,7 +14,7 @@ function LoadingIcon() {
         }}
         className="loadingIcon"
       >
-        <CircleNotch size={40} />
+        <CircleNotchIcon size={40} />
       </motion.div>
     </div>
   );

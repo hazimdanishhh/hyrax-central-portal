@@ -1,4 +1,4 @@
-import { CaretRight } from "phosphor-react";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import "./Breadcrumbs.scss";
 import { Link } from "react-router";
 import SectionHeader from "../sectionHeader/SectionHeader";
@@ -15,7 +15,7 @@ function Breadcrumbs({ icon, current, icon1, to1, name1 }) {
             {Icon1 && <Icon1 size="16" weight="fill" />}
             <p className="textBold textXS">{name1}</p>
           </Link>
-          <CaretRight size={16} />
+          <CaretRightIcon size={16} />
         </>
       )}
 

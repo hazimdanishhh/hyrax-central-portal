@@ -12,7 +12,7 @@ import useReportingManager from "../../../hooks/useReportingManager";
 import { useNavigate } from "react-router";
 import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
-import { UserCircle, UsersThree } from "phosphor-react";
+import { UserCircleIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 
@@ -45,12 +45,15 @@ export default function Department() {
         <div className="sectionWrapper">
           <div className="sectionContent">
             <Breadcrumbs
-              icon={UsersThree}
+              icon={UsersThreeIcon}
               current={`My Department: ${employee?.department?.name}`}
             />
             {/* MY REPORTING MANAGER SECTION */}
             <CardWrapper>
-              <Breadcrumbs icon={UserCircle} current="My Reporting Manager" />
+              <Breadcrumbs
+                icon={UserCircleIcon}
+                current="My Reporting Manager"
+              />
               <CardLayout style="cardLayout2">
                 <EmployeeCard
                   className="employeeCard"
@@ -70,7 +73,7 @@ export default function Department() {
                 />
               </CardLayout>
 
-              <Breadcrumbs icon={UsersThree} current="My Department" />
+              <Breadcrumbs icon={UsersThreeIcon} current="My Department" />
               {/* MY DEPARTMENT SECTION */}
               <CardLayout style="cardLayout2">
                 {employees.map((emp) => {

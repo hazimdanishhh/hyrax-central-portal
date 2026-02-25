@@ -2,7 +2,7 @@ import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import { useTheme } from "../../../context/ThemeContext";
 import { announcementData } from "../../../data/announcementData";
 import AnnouncementCard from "../../../components/announcementCard/AnnouncementCard";
-import { CaretRight, Megaphone } from "phosphor-react";
+import { CaretRightIcon, MegaphoneIcon } from "@phosphor-icons/react";
 import { Link } from "react-router";
 import CardLayout from "../../../components/cardLayout/CardLayout";
 import CardSection from "../../../components/cardSection/CardSection";
@@ -29,7 +29,7 @@ function Announcements() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <Breadcrumbs icon={Megaphone} current="Announcements" />
+          <Breadcrumbs icon={MegaphoneIcon} current="Announcements" />
 
           <CardWrapper>
             <CardLayout style="cardLayout1">
@@ -54,7 +54,7 @@ function Announcements() {
                 <Button
                   name="Load More"
                   style="button buttonType2"
-                  icon={CaretRight}
+                  icon={CaretRightIcon}
                   onClick={handleLoadMore}
                 />
               ) : (
