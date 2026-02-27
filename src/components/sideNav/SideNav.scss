@@ -16,8 +16,8 @@
   transition: 0.5s;
 
   &.close {
-    min-width: 66px;
-    max-width: 66px;
+    min-width: 70px;
+    max-width: 70px;
     transition: 0.5s;
   }
 
@@ -131,5 +131,15 @@
     background-color: rgb($dark, 0.8);
     color: $light;
     transition: 0.1s;
+  }
+}
+
+.attendanceActivityLatestContainer {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: space-between;
+
+  p {
+    flex: 1;
   }
 }

@@ -21,7 +21,7 @@ export default function StatusBadge({ status }) {
     terminatednotice: "terminated notice",
   };
 
-  const normalizedStatus = status.toLowerCase();
+  const normalizedStatus = status?.toLowerCase();
   const dynamicClass = statusMap[normalizedStatus];
 
   return (

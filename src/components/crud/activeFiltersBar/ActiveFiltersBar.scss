@@ -1,0 +1,30 @@
+.activeFiltersBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.filterTag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  border: 1px solid $neutral500;
+}
+
+.filterTag button {
+  display: flex;
+  flex-basis: 1;
+  cursor: pointer;
+  font-weight: bold;
+
+  &:hover {
+    color: $primary;
+  }
+}
+
+.clearAllBtn {
+  color: $error600;
+}

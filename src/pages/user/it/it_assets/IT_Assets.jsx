@@ -12,12 +12,9 @@ import CardSection from "../../../../components/cardSection/CardSection";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import { useTheme } from "../../../../context/ThemeContext";
 import useITAssets from "../../../../hooks/useITAssets";
-import SectionHeader from "../../../../components/sectionHeader/SectionHeader";
 import "./IT_Assets.scss";
-import ITAssetCard from "../../../../components/itAsset/itAssetCard/ITAssetCard";
 import { useEffect, useState } from "react";
 import Button from "../../../../components/buttons/button/Button";
-import ITAssetTable from "../../../../components/itAsset/itAssetTable/ITAssetTable";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFliterBar/SearchFilterBar";
@@ -36,13 +33,16 @@ import useDepartments from "../../../../hooks/useDepartments";
 import ITAssetList from "../../../../components/itAsset/itAssetList/ITAssetList";
 import useITAssetMutations from "../../../../hooks/useITAssetMutations";
 import MessageUI from "../../../../components/messageUI/MessageUI";
+import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
+import { getITAssetsFilterConfig } from "./filterConfig";
 
 function IT_Assets({ setMessage }) {
   const { darkMode } = useTheme();
   const { assets, setAssets, loading, error, refetch } = useITAssets({
     setMessage,
   });
-  const [layout, setLayout] = useState(1); // 1: Card, 2: Table
+  const [layout, setLayout] = useState(2); // 1: Card, 2: Table
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -56,7 +56,7 @@ function IT_Assets({ setMessage }) {
   const { employees, loading: employeesLoading } = useEmployees({ setMessage });
   const { departments, loading: departmentsLoading } = useDepartments();
 
-  // IT Asset Table Config
+  // Table Config
   const columns = itAssetTableConfig({
     categories,
     subcategories,
@@ -68,43 +68,15 @@ function IT_Assets({ setMessage }) {
   });
 
   // Filter Config
-  const itAssetsFilterConfig = [
-    {
-      key: "category",
-      label: "Category",
-      options: categories.map((c) => c.name),
-    },
-    {
-      key: "subcategory",
-      label: "Subcategory",
-      options: subcategories.map((s) => s.name),
-    },
-    {
-      key: "status",
-      label: "Status",
-      options: statuses.map((s) => s.name),
-    },
-    {
-      key: "condition",
-      label: "Condition",
-      options: conditions.map((c) => c.name),
-    },
-    {
-      key: "os",
-      label: "OS",
-      options: operatingSystems.map((o) => o.name),
-    },
-    {
-      key: "department",
-      label: "Department",
-      options: departments.map((d) => d.name),
-    },
-    {
-      key: "employees",
-      label: "Employee",
-      options: employees.map((e) => e.full_name),
-    },
-  ];
+  const filterConfig = getITAssetsFilterConfig({
+    categories,
+    subcategories,
+    statuses,
+    conditions,
+    operatingSystems,
+    departments,
+    employees,
+  });
 
   // Search + Filter logic for IT assets
   const {
@@ -124,13 +96,14 @@ function IT_Assets({ setMessage }) {
       os: (asset, value) => asset.operating_system?.name === value,
       department: (asset, value) => asset.asset_department?.name === value,
       employees: (asset, value) => asset.asset_user?.full_name === value,
+      mdm: (asset, value) => asset.mdm_status === value,
     },
   });
 
+  // Active Filters
   const activeFilters = Object.entries(filters).filter(
     ([_, value]) => value && value !== "",
   );
-
   const hasActiveFilters = search || activeFilters.length > 0;
 
   // parent component or hook
@@ -224,15 +197,20 @@ function IT_Assets({ setMessage }) {
             <Breadcrumbs icon={DesktopIcon} current="IT Assets" />
 
             <CardWrapper>
-              <div className="itAssetsHeader">
+              {/* SEARCH AND FILTER BAR */}
+              <PageHeader>
                 <SearchFilterBar
                   search={search}
                   onSearchChange={setSearch}
                   filters={filters}
                   onFilterChange={setFilters}
-                  filterConfig={itAssetsFilterConfig}
+                  filterConfig={filterConfig}
                   placeholder="Search assets..."
                 />
+              </PageHeader>
+
+              {/* LAYOUT UI + ADD */}
+              <PageHeader>
                 {layout === 1 ? (
                   <Button
                     icon2={SquaresFourIcon}
@@ -259,53 +237,23 @@ function IT_Assets({ setMessage }) {
                     setSidebarOpen(true);
                   }}
                 />
-              </div>
+              </PageHeader>
 
-              <div className="itAssetsHeader">
+              {/* ACTIVE FILTERS */}
+              <PageHeader>
                 {hasActiveFilters && (
-                  <div className="activeFiltersBar">
-                    {search && (
-                      <div className="filterTag textXXXS">
-                        <span>
-                          <strong>Search: </strong>
-                          {search}
-                        </span>
-                        <Button onClick={() => setSearch("")} icon={XIcon} />
-                      </div>
-                    )}
-
-                    {activeFilters.map(([key, value]) => (
-                      <div key={key} className="filterTag textXXXS">
-                        <span>
-                          <strong>{key}: </strong>
-                          {value}
-                        </span>
-                        <Button
-                          onClick={() =>
-                            setFilters((prev) => ({
-                              ...prev,
-                              [key]: "",
-                            }))
-                          }
-                          icon={XIcon}
-                        />
-                      </div>
-                    ))}
-
-                    <Button
-                      name="Clear All"
-                      icon={XIcon}
-                      style="button buttonTypeDelete2 textXXXS"
-                      onClick={() => {
-                        setSearch("");
-                        setFilters({});
-                      }}
-                    />
-                  </div>
+                  <ActiveFiltersBar
+                    search={search}
+                    setSearch={setSearch}
+                    filters={activeFilters}
+                    setFilters={setFilters}
+                    filterConfig={filterConfig}
+                  />
                 )}
-              </div>
+              </PageHeader>
 
-              <div className="itAssetsHeader">
+              {/* RESULT NUMBER */}
+              <PageHeader>
                 {!paginatedData.length ? (
                   <p className="textRegular textXXS">No results found</p>
                 ) : error ? (
@@ -316,8 +264,9 @@ function IT_Assets({ setMessage }) {
                     {paginatedData.length} / {filteredAssets.length}
                   </p>
                 )}
-              </div>
+              </PageHeader>
 
+              {/* TABLE DISPLAY UI */}
               {layout === 1 ? (
                 <>
                   <DataTable
@@ -387,7 +336,7 @@ function IT_Assets({ setMessage }) {
       <AnimatePresence>
         {sidebarOpen && (
           <DataSidebar
-            title="Edit IT Asset"
+            title={selectedAsset?.id ? "Edit IT Asset" : "Add IT Asset"}
             icon={PencilSimpleLineIcon}
             open={sidebarOpen}
             onClose={handleCloseSidebar}

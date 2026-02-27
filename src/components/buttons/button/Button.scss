@@ -109,6 +109,7 @@
     border: 1px solid $error600;
     padding: 0.8rem 1.2rem;
     transition: 0.3s;
+    color: $error600;
 
     &:hover {
       background-color: $error600;
@@ -125,11 +126,84 @@
     border: 1px solid $error600;
     padding: 0.4rem;
     transition: 0.3s;
+    color: $error600;
 
     &:hover {
       background-color: $error600;
       color: $neutral100;
       border: 1px solid $error600;
+      transition: 0.3s;
+    }
+  }
+
+  // CHECKIN BUTTON - Green Background Hover - Padding Suitable for Icon Size - Width 100%
+  &.buttonTypeClockin {
+    background-color: rgb($success600, 0.1);
+    border-radius: 50%;
+    border: 1px solid $success600;
+    padding: 0.5rem;
+    transition: 0.3s;
+    width: fit-content;
+    color: $success600;
+
+    &:hover {
+      background-color: $success600;
+      color: $neutral100;
+      border: 1px solid $success600;
+      transition: 0.3s;
+    }
+  }
+
+  // CHECKIN BUTTON - Green Background Hover - Padding Suitable for Icon Size - Width 100%
+  &.buttonType2Clockin {
+    background-color: rgb($success600, 0.1);
+    border-radius: 10px;
+    border: 1px solid $success600;
+    padding: 0.5rem;
+    transition: 0.3s;
+    width: 100%;
+    color: $success600;
+
+    &:hover {
+      background-color: $success600;
+      color: $neutral100;
+      border: 1px solid $success600;
+      transition: 0.3s;
+    }
+  }
+
+  // CHECKOUT BUTTON - Yellow Background Hover - Padding Suitable for Icon Size - Width 100%
+  &.buttonType2Clockout {
+    background-color: rgb($warning600, 0.1);
+    border-radius: 10px;
+    border: 1px solid $warning600;
+    padding: 0.5rem;
+    transition: 0.3s;
+    width: 100%;
+    color: $warning600;
+
+    &:hover {
+      background-color: $warning600;
+      color: $neutral100;
+      border: 1px solid $warning600;
+      transition: 0.3s;
+    }
+  }
+
+  // CHECKOUT BUTTON - Yellow Background Hover - Padding Suitable for Icon Size - Width 100%
+  &.buttonTypeClockout {
+    background-color: rgb($warning600, 0.1);
+    border-radius: 50%;
+    border: 1px solid $warning600;
+    padding: 0.5rem;
+    transition: 0.3s;
+    width: fit-content;
+    color: $warning600;
+
+    &:hover {
+      background-color: $warning600;
+      color: $neutral100;
+      border: 1px solid $warning600;
       transition: 0.3s;
     }
   }

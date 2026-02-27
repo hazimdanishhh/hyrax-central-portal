@@ -21,6 +21,8 @@ import useSearchFilter from "../../../hooks/useSearchFliter";
 import useDepartments from "../../../hooks/useDepartments";
 import useEmploymentStatus from "../../../hooks/useEmploymentStatus";
 import SearchFilterBar from "../../../components/searchFliterBar/SearchFilterBar";
+import PageHeader from "../../../components/crud/pageHeader/PageHeader";
+import ActiveFiltersBar from "../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 
 export default function EmployeesList() {
   const navigate = useNavigate();
@@ -63,6 +65,12 @@ export default function EmployeesList() {
     },
   });
 
+  // Active Filters
+  const activeFilters = Object.entries(filters).filter(
+    ([_, value]) => value && value !== "",
+  );
+  const hasActiveFilters = search || activeFilters.length > 0;
+
   // Return Loading
   if (profileLoading || employeesLoading) {
     return <LoadingIcon />;
@@ -78,7 +86,8 @@ export default function EmployeesList() {
             <Breadcrumbs icon={UsersFourIcon} current="Employees" />
 
             <CardWrapper>
-              <div className="itAssetsHeader">
+              <PageHeader>
+                {/* SEARCH AND FILTER BAR */}
                 <SearchFilterBar
                   search={search}
                   onSearchChange={setSearch}
@@ -87,7 +96,10 @@ export default function EmployeesList() {
                   filterConfig={employeeFilterConfig}
                   placeholder="Search employees..."
                 />
+              </PageHeader>
 
+              {/* LAYOUT UI */}
+              <PageHeader>
                 {layout === 1 ? (
                   <Button
                     icon2={SquaresFourIcon}
@@ -105,13 +117,32 @@ export default function EmployeesList() {
                     onClick={() => setLayout(1)}
                   />
                 )}
-              </div>
-              <div className="itAssetsHeader">
-                <p className="textRegular textXXS">
-                  <strong>Total Result: </strong>
-                  {filteredEmployees.length}
-                </p>
-              </div>
+              </PageHeader>
+
+              {/* ACTIVE FILTERS */}
+              {hasActiveFilters && (
+                <PageHeader>
+                  <ActiveFiltersBar
+                    search={search}
+                    setSearch={setSearch}
+                    filters={activeFilters}
+                    setFilters={setFilters}
+                    filterConfig={employeeFilterConfig}
+                  />
+                </PageHeader>
+              )}
+
+              {/* RESULT NUMBER */}
+              <PageHeader>
+                {!filteredEmployees.length ? (
+                  <p className="textRegular textXXS">No results found</p>
+                ) : (
+                  <p className="textRegular textXXS">
+                    <strong>Total Result: </strong>
+                    {filteredEmployees.length}
+                  </p>
+                )}
+              </PageHeader>
               {layout === 1 ? (
                 <CardLayout style="cardLayout1">
                   {filteredEmployees.map((emp) => {

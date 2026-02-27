@@ -5,6 +5,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import QuickActions from "../../../components/quickActions/QuickActions";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import {
+  CalendarDotsIcon,
   CaretRightIcon,
   HouseIcon,
   MegaphoneIcon,
@@ -16,6 +17,8 @@ import CardLayout from "../../../components/cardLayout/CardLayout";
 import { Link } from "react-router";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
+import AttendanceActivity from "../../../components/attendanceActivity/AttendanceActivity";
+import AttendanceActivityClockin from "../../../components/attendanceActivityClockin/AttendanceActivityClockin";
 
 function Dashboard() {
   const { darkMode, toggleMode } = useTheme();
@@ -43,7 +46,11 @@ function Dashboard() {
             <Breadcrumbs icon={HouseIcon} current="Dashboard" />
 
             <CardWrapper>
-              <QuickActions />
+              {/* ATTENDANCE SYSTEM */}
+              <CardLayout style="cardLayout1">
+                <AttendanceActivityClockin />
+                {/* <AttendanceActivity /> */}
+              </CardLayout>
 
               <CardLayout style="cardLayout2">
                 <div className="sectionContent">

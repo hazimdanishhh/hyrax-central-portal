@@ -17,6 +17,8 @@ export default function DataSidebar({
   columns = [],
   onSave,
   onDelete,
+  creating,
+  children,
 }) {
   const { darkMode } = useTheme();
 
@@ -88,6 +90,8 @@ export default function DataSidebar({
             <Button icon={XIcon} style="iconButton" onClick={onClose} />
           </header>
 
+          {children}
+
           <div className="dataSidebarContent">
             {columns.map((col) => {
               if (!col.editable) return null;
@@ -109,12 +113,14 @@ export default function DataSidebar({
           </div>
 
           <footer className="dataSidebarFooter">
-            <Button
-              name="Delete"
-              icon={TrashSimpleIcon}
-              style="button buttonTypeDelete"
-              onClick={handleDelete}
-            />
+            {!creating && (
+              <Button
+                name="Delete"
+                icon={TrashSimpleIcon}
+                style="button buttonTypeDelete"
+                onClick={handleDelete}
+              />
+            )}
             <Button
               name="Save"
               icon={CheckIcon}
