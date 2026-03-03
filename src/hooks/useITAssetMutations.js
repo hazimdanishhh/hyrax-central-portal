@@ -1,7 +1,14 @@
+// src/hooks/useITAssetMutations.js
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { useMessage } from "../context/MessageContext";
 
-export default function useITAssetMutations({ setMessage } = {}) {
+/**
+ * Hook to Create, Update and Delete IT assets for IT department
+ */
+
+export default function useITAssetMutations() {
+  const { showMessage } = useMessage();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
@@ -13,6 +20,7 @@ export default function useITAssetMutations({ setMessage } = {}) {
     try {
       setSaving(true);
       setError(null);
+      showMessage("Updating asset", "loading");
 
       const { id, ...rawFields } = updatedData;
 
@@ -36,8 +44,6 @@ export default function useITAssetMutations({ setMessage } = {}) {
           }),
       );
 
-      console.log("Updating IT asset:", { id, updateFields });
-
       // Update +
       const { data, error } = await supabase
         .from("it_assets")
@@ -45,7 +51,7 @@ export default function useITAssetMutations({ setMessage } = {}) {
         .eq("id", id).select(`
           *,
           asset_category:asset_category_id (id, name),
-          asset_subcategory:asset_subcategory_id (id, name),
+          asset_subcategory:asset_subcategory_id (id, name, sub, icon),
           asset_status:asset_status_id (id, name),
           asset_user:asset_user_id (
             id,
@@ -53,28 +59,23 @@ export default function useITAssetMutations({ setMessage } = {}) {
             employee_id,
             profile:profile_id (id, avatar_url)
           ),
-          operating_system:operating_system_id (id, name),
+          operating_system:operating_system_id (id, name, icon),
           asset_condition:asset_condition_id (id, name),
-          asset_department:asset_department_id (id, name, sub)
+          asset_department:asset_department_id (id, name, sub),
+          asset_manufacturer:asset_manufacturer_id (id, name)
         `);
 
       console.log("Supabase response:", { data, error });
 
       if (error) throw error;
-      console.log("About to set success message");
-      setMessage?.({
-        type: "success",
-        text: "Asset updated successfully.",
-      });
+      showMessage("Asset updated", "success");
 
       return data;
     } catch (err) {
-      console.error("Failed to update asset:", err);
+      console.error("Failed to update asset, please try again", err);
       setError(err);
-      setMessage?.({
-        type: "error",
-        text: "Failed to update asset.",
-      });
+      showMessage("Failed to update asset, please try again", "error");
+
       throw err;
     } finally {
       setSaving(false);
@@ -88,6 +89,7 @@ export default function useITAssetMutations({ setMessage } = {}) {
     try {
       setSaving(true);
       setError(null);
+      showMessage("Creating asset", "loading");
 
       const { id, ...rawFields } = newData; // ignore id if accidentally passed
 
@@ -132,19 +134,14 @@ export default function useITAssetMutations({ setMessage } = {}) {
 
       if (error) throw error;
 
-      setMessage?.({
-        type: "success",
-        text: "Asset created successfully.",
-      });
+      showMessage("Asset created", "success");
 
       return data;
     } catch (err) {
-      console.error("Failed to create asset:", err);
+      console.error("Failed to create asset, please try again:", err);
       setError(err);
-      setMessage?.({
-        type: "error",
-        text: "Failed to create asset.",
-      });
+      showMessage("Failed to create asset, please try again", "error");
+
       throw err;
     } finally {
       setSaving(false);
@@ -158,6 +155,7 @@ export default function useITAssetMutations({ setMessage } = {}) {
     try {
       setDeleting(true);
       setError(null);
+      showMessage("Deleting asset", "loading");
 
       const { error } = await supabase
         .from("it_assets")
@@ -166,19 +164,15 @@ export default function useITAssetMutations({ setMessage } = {}) {
 
       if (error) throw error;
 
-      setMessage?.({
-        type: "success",
-        text: "Asset deleted successfully.",
-      });
+      showMessage("Asset deleted", "success");
 
       return true;
     } catch (err) {
-      console.error("Failed to delete asset:", err);
+      console.error("Failed to delete asset, please try again:", err);
       setError(err);
-      setMessage?.({
-        type: "error",
-        text: "Failed to delete asset.",
-      });
+
+      showMessage("Failed to delete asset, please try again", "error");
+
       throw err;
     } finally {
       setDeleting(false);

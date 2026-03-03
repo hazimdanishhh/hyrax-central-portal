@@ -1,5 +1,4 @@
 import { useState } from "react";
-import MessageUI from "../../../components/messageUI/MessageUI";
 import { useTheme } from "../../../context/ThemeContext";
 import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
@@ -14,12 +13,11 @@ import useEmployees from "../../../hooks/useEmployees";
 
 export default function Users() {
   const navigate = useNavigate();
-  const [message, setMessage] = useState({ text: "", type: "" });
   const { darkMode } = useTheme();
-  const { loading: profileLoading } = useUserProfile({ setMessage });
+  const { loading: profileLoading } = useUserProfile();
   const { employee } = useEmployee();
 
-  const { employees, loading: employeesLoading } = useEmployees({ setMessage });
+  const { employees, loading: employeesLoading } = useEmployees();
 
   if (profileLoading || employeesLoading) {
     return <LoadingIcon />;
@@ -27,8 +25,6 @@ export default function Users() {
 
   return (
     <>
-      <MessageUI message={message} setMessage={setMessage} />
-
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">

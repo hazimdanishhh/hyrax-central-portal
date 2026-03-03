@@ -5,9 +5,13 @@ import {
   LinuxLogoIcon,
 } from "@phosphor-icons/react";
 import StatusBadge from "../components/status/statusBadge/StatusBadge";
-// getValue - data name
-// editor - data type
-// options - for option input
+
+// key = actual database field name
+// label = UI name
+// getValue = data name
+// editor = data type
+// options = for option input
+// editable = boolean
 
 export const itAssetTableConfig = ({
   categories,
@@ -17,6 +21,7 @@ export const itAssetTableConfig = ({
   operatingSystems,
   employees,
   departments,
+  manufacturers,
 }) => [
   // {
   //   key: "type",
@@ -145,16 +150,21 @@ export const itAssetTableConfig = ({
     editor: "text",
   },
   {
-    key: "manufacturer_id",
+    key: "asset_manufacturer_id",
     label: "Manufacturer",
-    getValue: (asset) => asset.manufacturer,
+    getValue: (asset) => asset.asset_manufacturer?.id,
+    displayValue: (asset) => asset.asset_manufacturer?.name,
     editable: true,
-    editor: "text",
+    editor: "select",
+    options: manufacturers.map((m) => ({
+      label: m.name,
+      value: m.id,
+    })),
   },
   {
-    key: "model_id",
+    key: "asset_model",
     label: "Model",
-    getValue: (asset) => asset.model,
+    getValue: (asset) => asset.asset_model,
     editable: true,
     editor: "text",
   },
@@ -213,8 +223,8 @@ export const itAssetTableConfig = ({
   {
     key: "asset_department_id",
     label: "Department",
-    getValue: (asset) => asset.department?.id,
-    displayValue: (asset) => asset.department?.name,
+    getValue: (asset) => asset.asset_department?.id,
+    displayValue: (asset) => asset.asset_department?.name,
     editable: true,
     editor: "select",
     options: departments.map((d) => ({

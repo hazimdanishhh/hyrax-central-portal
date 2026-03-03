@@ -11,14 +11,14 @@ export default function ActiveFiltersBar({
 }) {
   return (
     <div className="activeFiltersBar">
+      <p className="textRegular textXXS">Filters: </p>
       {search && (
-        <div className="filterTag textXXXS">
-          <span>
-            <strong>Search: </strong>
-            {search}
-          </span>
-          <Button onClick={() => setSearch("")} icon={XIcon} />
-        </div>
+        <Button
+          style="button filterTag textXXXS"
+          name={`Search: ${search}`}
+          icon={XIcon}
+          onClick={() => setSearch("")}
+        />
       )}
 
       {filters.map(([key, value]) => {
@@ -26,28 +26,25 @@ export default function ActiveFiltersBar({
         const label = filter?.label || key;
 
         return (
-          <div key={key} className="filterTag textXXXS">
-            <span>
-              <strong>{label}: </strong>
-              {value}
-            </span>
-            <Button
-              onClick={() =>
-                setFilters((prev) => ({
-                  ...prev,
-                  [key]: "",
-                }))
-              }
-              icon={XIcon}
-            />
-          </div>
+          <Button
+            key={key}
+            style="button filterTag textXXXS"
+            name={`${label}: ${value}`}
+            icon={XIcon}
+            onClick={() =>
+              setFilters((prev) => ({
+                ...prev,
+                [key]: "",
+              }))
+            }
+          />
         );
       })}
 
       <Button
         name="Clear All"
         icon={XIcon}
-        style="button buttonTypeDelete2 textXXXS clearAllBtn"
+        style="button textXXXS clearAllBtn"
         onClick={() => {
           setSearch("");
           setFilters({});

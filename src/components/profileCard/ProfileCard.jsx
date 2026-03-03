@@ -98,8 +98,8 @@ export default function ProfileCard({ profile, employee, assets }) {
                     Status: {asset.asset_status?.name}
                   </p>
                   <p className="textRegular textXXS">
-                    Manufacturer: {asset.manufacturer?.name} | Model:{" "}
-                    {asset.model?.name}
+                    Manufacturer: {asset.asset_manufacturer?.name} | Model:{" "}
+                    {asset.asset_model}
                   </p>
                   <p className="textRegular textXXS">
                     Condition: {asset.asset_condition?.name} | Location:{" "}

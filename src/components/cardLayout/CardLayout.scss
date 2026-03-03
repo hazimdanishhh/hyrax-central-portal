@@ -68,3 +68,17 @@
   width: 100%;
   padding: 0.8rem;
 }
+
+.cardLayoutFlexWrap {
+  flex-wrap: wrap;
+}
+
+.cardLayoutMobileColumn {
+  @media screen and (max-width: 425px) {
+    flex-direction: column;
+  }
+}
+
+.cardLayoutNoPadding {
+  padding: 0;
+}

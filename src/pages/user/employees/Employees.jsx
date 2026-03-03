@@ -1,5 +1,4 @@
 import { useState } from "react";
-import MessageUI from "../../../components/messageUI/MessageUI";
 import { useTheme } from "../../../context/ThemeContext";
 import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
@@ -27,13 +26,12 @@ import ActiveFiltersBar from "../../../components/crud/activeFiltersBar/ActiveFi
 export default function EmployeesList() {
   const navigate = useNavigate();
   const [layout, setLayout] = useState(1); // 1: List, 2: Card
-  const [message, setMessage] = useState({ text: "", type: "" });
   const { darkMode } = useTheme();
-  const { loading: profileLoading } = useUserProfile({ setMessage });
+  const { loading: profileLoading } = useUserProfile();
   const { employee } = useEmployee();
   const { departments } = useDepartments();
   const { statuses: employmentStatuses } = useEmploymentStatus();
-  const { employees, loading: employeesLoading } = useEmployees({ setMessage });
+  const { employees, loading: employeesLoading } = useEmployees();
 
   // Filter Config
   const employeeFilterConfig = [
@@ -78,8 +76,6 @@ export default function EmployeesList() {
 
   return (
     <>
-      <MessageUI message={message} setMessage={setMessage} />
-
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">

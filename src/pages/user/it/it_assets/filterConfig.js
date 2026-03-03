@@ -6,6 +6,7 @@ export function getITAssetsFilterConfig({
   operatingSystems,
   departments,
   employees,
+  manufacturers,
 }) {
   return [
     {
@@ -42,6 +43,11 @@ export function getITAssetsFilterConfig({
       key: "employees",
       label: "Employee",
       options: employees.map((e) => e.full_name),
+    },
+    {
+      key: "manufacturer",
+      label: "Manufacturer",
+      options: manufacturers.map((m) => m.name),
     },
     {
       key: "mdm",

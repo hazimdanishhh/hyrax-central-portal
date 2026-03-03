@@ -1,5 +1,4 @@
 import { useState } from "react";
-import MessageUI from "../../../components/messageUI/MessageUI";
 import { useTheme } from "../../../context/ThemeContext";
 import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
@@ -18,17 +17,15 @@ import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 
 export default function Department() {
   const navigate = useNavigate();
-  const [message, setMessage] = useState({ text: "", type: "" });
   const { darkMode } = useTheme();
-  const { loading: profileLoading } = useUserProfile({ setMessage });
+  const { loading: profileLoading } = useUserProfile();
   const { employee } = useEmployee();
 
   const { manager: reportingManager, loading: managerLoading } =
-    useReportingManager(employee?.employee_id, { setMessage });
+    useReportingManager(employee?.employee_id);
 
   const { employees, loading: employeesLoading } = useDepartmentEmployees(
     employee?.department?.id,
-    { setMessage },
   );
 
   console.log(reportingManager);
@@ -39,8 +36,6 @@ export default function Department() {
 
   return (
     <>
-      <MessageUI message={message} setMessage={setMessage} />
-
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">

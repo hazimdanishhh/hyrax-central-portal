@@ -41,83 +41,89 @@ import Department from "./pages/user/department/Department";
 import EmployeesList from "./pages/user/employees/Employees";
 import IT_Assets from "./pages/user/it/it_assets/IT_Assets";
 import EmployeeProfile from "./pages/user/employees/employeeProfile/EmployeeProfile";
+import { MessageProvider } from "./context/MessageContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
       <ThemeProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route index element={<Navigate to="/login" replace />} />
+        <MessageProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route index element={<Navigate to="/login" replace />} />
 
-            {/* Authenticated App */}
-            <Route
-              path="/app"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Dashboard />} />
-
-              <Route path="announcements" element={<Announcements />} />
-              <Route path="notifications" element={<Notifications />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="department" element={<Department />} />
-              <Route path="employees" element={<EmployeesList />} />
+              {/* Authenticated App */}
               <Route
-                path="/app/employees/:employeeId"
-                element={<EmployeeProfile />}
-              />
+                path="/app"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Dashboard />} />
 
-              {/* Workspace */}
-              <Route path="workspace/projects" element={<Projects />} />
-              <Route path="workspace/tasks" element={<Tasks />} />
-              <Route path="workspace/documents" element={<Documents />} />
+                <Route path="announcements" element={<Announcements />} />
+                <Route path="notifications" element={<Notifications />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="department" element={<Department />} />
+                <Route path="employees" element={<EmployeesList />} />
+                <Route
+                  path="/app/employees/:employeeId"
+                  element={<EmployeeProfile />}
+                />
 
-              {/* Sales */}
-              <Route path="sales/opportunities" element={<Opportunities />} />
-              <Route path="sales/clients" element={<Clients />} />
-              <Route path="sales/quotations" element={<Quotations />} />
-              <Route path="sales/reports" element={<Reports />} />
+                {/* Workspace */}
+                <Route path="workspace/projects" element={<Projects />} />
+                <Route path="workspace/tasks" element={<Tasks />} />
+                <Route path="workspace/documents" element={<Documents />} />
 
-              {/* HR */}
-              <Route path="hr/employees" element={<Employees />} />
-              <Route path="hr/leaves" element={<LeaveManagement />} />
-              <Route path="hr/recruitment" element={<Recruitment />} />
-              <Route path="hr/performance" element={<Performance />} />
+                {/* Sales */}
+                <Route path="sales/opportunities" element={<Opportunities />} />
+                <Route path="sales/clients" element={<Clients />} />
+                <Route path="sales/quotations" element={<Quotations />} />
+                <Route path="sales/reports" element={<Reports />} />
 
-              {/* Finance */}
-              <Route path="finance/invoices" element={<Invoices />} />
-              <Route path="finance/payments" element={<Payments />} />
-              <Route
-                path="finance/claims-management"
-                element={<ClaimsManagement />}
-              />
-              <Route path="finance/reports" element={<FinancialReports />} />
+                {/* HR */}
+                <Route path="hr/employees" element={<Employees />} />
+                <Route path="hr/leaves" element={<LeaveManagement />} />
+                <Route path="hr/recruitment" element={<Recruitment />} />
+                <Route path="hr/performance" element={<Performance />} />
 
-              {/* Employee */}
-              <Route path="employee/onboarding" element={<Onboarding />} />
-              <Route path="employee/attendance" element={<Attendance />} />
-              <Route path="employee/leave-request" element={<LeaveRequest />} />
-              <Route path="employee/claims" element={<Claims />} />
-              <Route path="employee/documents" element={<MyDocuments />} />
-              <Route path="employee/policies" element={<Policies />} />
+                {/* Finance */}
+                <Route path="finance/invoices" element={<Invoices />} />
+                <Route path="finance/payments" element={<Payments />} />
+                <Route
+                  path="finance/claims-management"
+                  element={<ClaimsManagement />}
+                />
+                <Route path="finance/reports" element={<FinancialReports />} />
 
-              {/* Information Technology */}
-              <Route path="it/assets" element={<IT_Assets />} />
+                {/* Employee */}
+                <Route path="employee/onboarding" element={<Onboarding />} />
+                <Route path="employee/attendance" element={<Attendance />} />
+                <Route
+                  path="employee/leave-request"
+                  element={<LeaveRequest />}
+                />
+                <Route path="employee/claims" element={<Claims />} />
+                <Route path="employee/documents" element={<MyDocuments />} />
+                <Route path="employee/policies" element={<Policies />} />
 
-              {/* Help */}
-              <Route path="help" element={<Help />} />
-            </Route>
+                {/* Information Technology */}
+                <Route path="it/assets" element={<IT_Assets />} />
 
-            {/* Fallback */}
-            <Route path="*" element={<Error404 />} />
-          </Routes>
-        </BrowserRouter>
+                {/* Help */}
+                <Route path="help" element={<Help />} />
+              </Route>
+
+              {/* Fallback */}
+              <Route path="*" element={<Error404 />} />
+            </Routes>
+          </BrowserRouter>
+        </MessageProvider>
       </ThemeProvider>
     </AuthProvider>
   </React.StrictMode>,

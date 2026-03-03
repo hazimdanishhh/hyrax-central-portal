@@ -1,3 +1,5 @@
+// components/attendanceActivityClockin/AttendanceActivityClockin.jsx
+
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BuildingOfficeIcon,
@@ -21,10 +23,11 @@ import CardLayout from "../cardLayout/CardLayout";
 import useCurrentAttendanceActivity from "../../hooks/useCurrentAttendanceActivity";
 import SectionHeader from "../sectionHeader/SectionHeader";
 import "./AttendanceActivityClockin.scss";
+import { useMessage } from "../../context/MessageContext";
 
 export default function AttendanceActivityClockin() {
   const { darkMode, toggleMode } = useTheme();
-  const [message, setMessage] = useState({ text: "", type: "" });
+  const { showMessage } = useMessage;
 
   const [selectedAttendanceActivity, setSelectedAttendanceActivity] =
     useState(null);
@@ -54,30 +57,22 @@ export default function AttendanceActivityClockin() {
     saving,
     deleting,
     error,
-  } = useAttendanceActivityMutations({
-    setMessage,
-  });
+  } = useAttendanceActivityMutations();
 
   async function handleSaveSidebar(data) {
     if (!employee?.id) {
-      setMessage({ type: "error", text: "Employee not found" });
+      showMessage("Employee not found", "error");
       return;
     }
 
-    try {
-      // Attach employee_id here
-      await createAttendanceActivity({
-        ...data,
-        employee_id: employee.id, // <-- attach current employee
-      });
+    // Attach employee_id here
+    await createAttendanceActivity({
+      ...data,
+      employee_id: employee.id, // <-- attach current employee
+    });
 
-      setMessage({ type: "success", text: "Attendance saved successfully." });
-      setAttendanceSidebarOpen(false);
-      refetchCurrent();
-    } catch (err) {
-      console.error("Error saving attendance:", err);
-      setMessage({ type: "error", text: "Failed to save attendance." });
-    }
+    setAttendanceSidebarOpen(false);
+    refetchCurrent();
   }
 
   return (

@@ -117,14 +117,14 @@ export default function DataSidebar({
               <Button
                 name="Delete"
                 icon={TrashSimpleIcon}
-                style="button buttonTypeDelete"
+                style="button buttonTypeDelete textXS"
                 onClick={handleDelete}
               />
             )}
             <Button
               name="Save"
               icon={CheckIcon}
-              style="button buttonType2"
+              style="button buttonType2 textXS"
               onClick={handleSave}
             />
           </footer>

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import MessageUI from "../../../components/messageUI/MessageUI";
 import ProfileCard from "../../../components/profileCard/ProfileCard";
 import { useTheme } from "../../../context/ThemeContext";
 import useUserProfile from "../../../hooks/useUserProfile";
@@ -13,22 +12,17 @@ import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 
 export default function Profile() {
-  const [message, setMessage] = useState({ text: "", type: "" });
   const { darkMode, toggleMode } = useTheme();
 
   // Fetch user and profile data
-  const { profile, loading } = useUserProfile({ setMessage });
+  const { profile, loading } = useUserProfile();
   const { employee } = useEmployee();
 
   // Fetch employee assets
-  const { assets, loading: assetsLoading } = useEmployeeAssets(employee?.id, {
-    setMessage,
-  });
+  const { assets, loading: assetsLoading } = useEmployeeAssets(employee?.id);
 
   return (
     <>
-      <MessageUI message={message} setMessage={setMessage} />
-
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">

@@ -1,6 +1,6 @@
 import "../button/Button.scss";
 
-export default function LinkButton({ href, name, icon, onClick, style }) {
+export default function LinkButton({ href, name, icon, onClick, style, size }) {
   const Icon = icon;
 
   return (
@@ -12,7 +12,7 @@ export default function LinkButton({ href, name, icon, onClick, style }) {
       rel="noopener noreferrer"
     >
       {name}
-      {icon && <Icon />}
+      {icon && <Icon size={name ? "20" : size ? size : "24"} />}
     </a>
   );
 }

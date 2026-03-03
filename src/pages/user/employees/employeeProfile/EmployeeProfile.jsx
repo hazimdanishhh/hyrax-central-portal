@@ -3,7 +3,6 @@ import useEmployeePublicProfile from "../../../../hooks/useEmployeePublicProfile
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import { UserIcon, UsersFourIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import CardSection from "../../../../components/cardSection/CardSection";
-import MessageUI from "../../../../components/messageUI/MessageUI";
 import { useState } from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -16,7 +15,6 @@ import EmployeeCard from "../../../../components/employeeCard/EmployeeCard";
 
 export default function EmployeeProfile() {
   const navigate = useNavigate();
-  const [message, setMessage] = useState({ text: "", type: "" });
   const { darkMode } = useTheme();
 
   const { employeeId } = useParams();
@@ -32,8 +30,6 @@ export default function EmployeeProfile() {
 
   return (
     <>
-      <MessageUI message={message} setMessage={setMessage} />
-
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">

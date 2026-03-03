@@ -53,6 +53,19 @@
     transition: 0.3s;
   }
 
+  &:disabled {
+    color: $neutral600;
+
+    &:hover {
+      border: 1px solid $neutral600;
+      cursor: not-allowed;
+    }
+  }
+
+  &.iconButton2 {
+    padding: 0.6rem;
+  }
+
   // TYPE 1 - Orange Background Hover - Padding Large - Width Fit Content
   &.buttonType1 {
     background-color: rgb($neutral400, 0.1);

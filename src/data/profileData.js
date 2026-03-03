@@ -20,7 +20,7 @@ export const profileData = [
         label: "Module Access",
         value: (d) => `${d?.department} (${d?.departmentSub})`,
       },
-      { label: "UserIcon ID", value: (d) => d?.id },
+      { label: "System ID", value: (d) => d?.id },
     ],
   },
 

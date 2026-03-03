@@ -3,36 +3,35 @@ import LinkButton from "../../buttons/linkButton/LinkButton";
 import CardLayout from "../../cardLayout/CardLayout";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import "./ITAssetList.scss";
-import {
-  CaretRightIcon,
-  DesktopIcon,
-  LaptopIcon,
-  ComputerTowerIcon,
-  WindowsLogoIcon,
-  LinuxLogoIcon,
-  CaretCircleRightIcon,
-  AppleLogoIcon,
-  PackageIcon,
-  HardDriveIcon,
-  SecurityCameraIcon,
-  WifiHighIcon,
-  NetworkIcon,
-  DatabaseIcon,
-  PrinterIcon,
-  FingerprintIcon,
-  TelevisionSimpleIcon,
-} from "@phosphor-icons/react";
+import { CaretRightIcon, CaretCircleRightIcon } from "@phosphor-icons/react";
+import * as Icons from "@phosphor-icons/react";
 import { useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
 
-export default function ITAssetList({ asset, onClick }) {
+export default function ITAssetList({ asset, onClick, saving, deleting }) {
   const [showName, setShowName] = useState(false);
   const { darkMode } = useTheme();
+
+  // Icon Helper
+  const getIcon = (iconName, fallback) => {
+    // Check if the iconName exists in the Phosphor Icons object
+    const IconComponent = Icons[iconName];
+
+    // If it exists, return it; otherwise, return the fallback component
+    return IconComponent || fallback;
+  };
+
+  // 2. Resolve the icon components
+  const SubcategoryIcon = getIcon(
+    asset.asset_subcategory?.icon,
+    Icons.PackageIcon,
+  );
+  const OSIcon = getIcon(asset.operating_system?.icon, Icons.HardDriveIcon);
 
   return (
     <motion.div
       className="generalCard ITAssetList"
-      onClick={onClick}
+      onClick={saving ? null : deleting ? null : onClick}
       initial={{ y: 0 }}
       whileHover={{ y: -3 }}
     >
@@ -40,40 +39,10 @@ export default function ITAssetList({ asset, onClick }) {
         {/* ASSET LOGO ICONS */}
         <div className="ITAssetListIconContainer">
           {/* SUBCATEGORY */}
-          {(() => {
-            const name = asset.asset_subcategory?.name?.toLowerCase() || "";
-
-            if (name.includes("desktop"))
-              return <ComputerTowerIcon size={18} />;
-            if (name.includes("laptop")) return <LaptopIcon size={18} />;
-            if (name.includes("monitor")) return <DesktopIcon size={18} />;
-            if (name.includes("cctv")) return <SecurityCameraIcon size={18} />;
-            if (/modem|router|mesh|combo box|access point/i.test(name)) {
-              return <WifiHighIcon size={18} />;
-            }
-            if (name.includes("switch")) return <NetworkIcon size={18} />;
-            if (name.includes("nas")) return <DatabaseIcon size={18} />;
-            if (name.includes("printer")) return <PrinterIcon size={18} />;
-            if (name.includes("fingerprint"))
-              return <FingerprintIcon size={18} />;
-            if (name.includes("tv")) return <TelevisionSimpleIcon size={18} />;
-
-            // fallback
-            return <PackageIcon size={18} />;
-          })()}
+          <SubcategoryIcon size={18} />
 
           {/* OPERATING SYSTEM */}
-          {(() => {
-            const os = asset.operating_system?.name?.toLowerCase() || "";
-
-            if (os.includes("windows")) return <WindowsLogoIcon size={18} />;
-            if (os.includes("ios") || os.includes("mac"))
-              return <AppleLogoIcon size={18} />;
-            if (os.includes("linux")) return <LinuxLogoIcon size={18} />;
-
-            // fallback
-            return <HardDriveIcon size={18} />;
-          })()}
+          <OSIcon size={18} />
         </div>
 
         {/* ASSET CODE AND NAME */}
@@ -102,9 +71,9 @@ export default function ITAssetList({ asset, onClick }) {
 
       <div className="listSegment listSegmentMobile">
         <p className="textLight textXXXS">
-          {asset.manufacturer?.name || "No Manufacturer"}
+          {asset.asset_manufacturer?.name || "No Manufacturer"}
         </p>
-        <p className="textLight textXXXS">{asset.model?.name || "No Model"}</p>
+        <p className="textLight textXXXS">{asset.asset_model || "No Model"}</p>
       </div>
 
       <div className="listSegment listSegmentStatusContainer">

@@ -6,25 +6,29 @@
 }
 
 .filterTag {
-  display: flex;
-  align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 16px;
   border: 1px solid $neutral500;
-}
-
-.filterTag button {
-  display: flex;
-  flex-basis: 1;
-  cursor: pointer;
-  font-weight: bold;
 
   &:hover {
-    color: $primary;
+    background-color: $error600;
+    color: $neutral100;
+    border: 1px solid $error600;
+    transition: 0.3s;
   }
 }
 
 .clearAllBtn {
+  gap: 6px;
+  padding: 4px 10px;
   color: $error600;
+  background-color: rgb($error600, 0.1);
+  border: 1px solid $error600;
+
+  &:hover {
+    background-color: $error600;
+    color: $neutral100;
+    border: 1px solid $error600;
+    transition: 0.3s;
+  }
 }

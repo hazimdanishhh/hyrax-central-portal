@@ -84,11 +84,11 @@ function ITAssetCard({ asset, onClick }) {
         {/* Manufacturer / Model */}
         <p className="textLight textXXS">
           <strong className="textBold">Manufacturer:</strong>{" "}
-          {asset.manufacturer?.name || asset.manufacturer_id || "null"}
+          {asset.asset_manufacturer?.name || asset.manufacturer_id || "null"}
         </p>
         <p className="textLight textXXS">
           <strong className="textBold">Model:</strong>{" "}
-          {asset.model?.name || asset.model_id || "null"}
+          {asset.asset_model || "null"}
         </p>
 
         {/* Serial / OS / Keys */}

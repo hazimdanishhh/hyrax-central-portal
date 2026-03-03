@@ -28,53 +28,23 @@ export default function useEmployeeAssets(employeeId, { setMessage } = {}) {
         .from("it_assets")
         .select(
           `
-          asset_code,
-          asset_name,
-          asset_status:asset_status_id (
+          *,
+          asset_category:asset_category_id (id, name),
+          asset_subcategory:asset_subcategory_id (id, name, sub, icon),
+          asset_status:asset_status_id (id, name),
+          asset_user:asset_user_id (
             id,
-            name
+            full_name,
+            employee_id,
+            profile:profile_id (
+              id,
+              avatar_url
+            )
           ),
-          asset_category:asset_category_id (
-            id,
-            name
-          ),
-          asset_subcategory:asset_subcategory_id (
-            id,
-            name
-          ),
-
-          manufacturer_id,
-
-          model_id,
-
-          serial_number,
-          operating_system:operating_system_id (
-            id,
-            name
-          ),
-          product_key,
-          mac_address,
-          management_ip,
-          asset_condition:asset_condition_id (
-            id,
-            name
-          ),
-
-          asset_location_id,
-
-          asset_department:asset_department_id (
-            id,
-            name
-          ),
-          purchase_date,
-          purchase_cost,
-
-          vendor_id,
-
-          purchase_order,
-          warranty_expiry,
-          retire_date,
-          notes
+          operating_system:operating_system_id (id, name, icon),
+          asset_condition:asset_condition_id (id, name),
+          asset_department:asset_department_id (id, name, sub),
+          asset_manufacturer:asset_manufacturer_id (id, name)
         `,
         )
         .eq("asset_user_id", employeeId)

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { useMessage } from "../context/MessageContext";
 
-export default function useAttendanceActivityMutations({ setMessage } = {}) {
+export default function useAttendanceActivityMutations() {
+  const { showMessage } = useMessage();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
@@ -13,6 +15,7 @@ export default function useAttendanceActivityMutations({ setMessage } = {}) {
     try {
       setSaving(true);
       setError(null);
+      showMessage("Creating Attendance...", "loading");
 
       const { id, ...rawFields } = newData; // ignore id if accidentally passed
 
@@ -46,20 +49,14 @@ export default function useAttendanceActivityMutations({ setMessage } = {}) {
 
       if (error) throw error;
 
-      setMessage?.({
-        type: "success",
-        text: "Attendance activity created successfully.",
-      });
-      console.log("successfully created attendance");
+      showMessage("Attendance created", "success");
 
       return data;
     } catch (err) {
-      console.error("Failed to create asset:", err);
+      console.error("Failed to create attendance:", err);
       setError(err);
-      setMessage?.({
-        type: "error",
-        text: "Failed to create asset.",
-      });
+      showMessage("Failed to create attendance", "error");
+
       throw err;
     } finally {
       setSaving(false);
@@ -72,6 +69,7 @@ export default function useAttendanceActivityMutations({ setMessage } = {}) {
   const clockOutAttendanceActivity = async (id) => {
     try {
       setSaving(true);
+      showMessage("Clocking Out...", "loading");
 
       const { data, error } = await supabase
         .from("attendance_activities")
@@ -84,7 +82,11 @@ export default function useAttendanceActivityMutations({ setMessage } = {}) {
 
       if (error) throw error;
 
+      showMessage("Attendance Clocked Out", "success");
       return data;
+    } catch (err) {
+      console.error("Failed to clock out attendance:", err);
+      showMessage("Failed to clock out attendance", "error");
     } finally {
       setSaving(false);
     }

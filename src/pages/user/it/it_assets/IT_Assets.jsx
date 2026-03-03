@@ -1,5 +1,7 @@
-// IT_Assets.jsx
+// pages/user/it/it_assets/IT_Assets.jsx
 import {
+  CaretLeftIcon,
+  CaretRightIcon,
   DesktopIcon,
   PencilSimpleLineIcon,
   PlusCircleIcon,
@@ -32,31 +34,37 @@ import useEmployees from "../../../../hooks/useEmployees";
 import useDepartments from "../../../../hooks/useDepartments";
 import ITAssetList from "../../../../components/itAsset/itAssetList/ITAssetList";
 import useITAssetMutations from "../../../../hooks/useITAssetMutations";
-import MessageUI from "../../../../components/messageUI/MessageUI";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
 import { getITAssetsFilterConfig } from "./filterConfig";
+import useITAssetManufacturer from "../../../../hooks/useITAssetManufacturer";
 
-function IT_Assets({ setMessage }) {
+function IT_Assets() {
   const { darkMode } = useTheme();
-  const { assets, setAssets, loading, error, refetch } = useITAssets({
-    setMessage,
-  });
+  const { assets, setAssets, loading, error, refetch } = useITAssets();
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // ==============
   // Hooks for IT asset filter data
+  // ==============
   const { categories, loading: categoriesLoading } = useITAssetCategory();
   const { subcategories, loading: subcategoriesLoading } =
     useITAssetSubcategory();
   const { statuses, loading: statusesLoading } = useITAssetStatus();
   const { conditions, loading: conditionsLoading } = useITAssetCondition();
   const { operatingSystems, loading: osLoading } = useITAssetOS();
-  const { employees, loading: employeesLoading } = useEmployees({ setMessage });
+  const { employees, loading: employeesLoading } = useEmployees();
   const { departments, loading: departmentsLoading } = useDepartments();
+  const { manufacturers, loading: manufacturersLoading } =
+    useITAssetManufacturer();
+  const { createAsset, updateAsset, deleteAsset, saving, deleting } =
+    useITAssetMutations();
 
+  // ==============
   // Table Config
+  // ==============
   const columns = itAssetTableConfig({
     categories,
     subcategories,
@@ -65,9 +73,12 @@ function IT_Assets({ setMessage }) {
     operatingSystems,
     employees,
     departments,
+    manufacturers,
   });
 
+  // ==============
   // Filter Config
+  // ==============
   const filterConfig = getITAssetsFilterConfig({
     categories,
     subcategories,
@@ -76,9 +87,12 @@ function IT_Assets({ setMessage }) {
     operatingSystems,
     departments,
     employees,
+    manufacturers,
   });
 
+  // ==============
   // Search + Filter logic for IT assets
+  // ==============
   const {
     search,
     setSearch,
@@ -87,7 +101,7 @@ function IT_Assets({ setMessage }) {
     data: filteredAssets,
   } = useSearchFilter({
     data: assets, // `assets` is your ITAssetTable data
-    searchFields: ["asset_name", "asset_code", "serial_number", "employees"], // searchable fields
+    searchFields: ["asset_name", "asset_code", "serial_number", "asset_model"], // searchable fields
     filterMap: {
       category: (asset, value) => asset.asset_category?.name === value,
       subcategory: (asset, value) => asset.asset_subcategory?.name === value,
@@ -97,17 +111,20 @@ function IT_Assets({ setMessage }) {
       department: (asset, value) => asset.asset_department?.name === value,
       employees: (asset, value) => asset.asset_user?.full_name === value,
       mdm: (asset, value) => asset.mdm_status === value,
+      manufacturer: (asset, value) => asset.asset_manufacturer?.name === value,
     },
   });
 
-  // Active Filters
+  // ==============
+  // ACTIVE FILTERS
+  // ==============
   const activeFilters = Object.entries(filters).filter(
     ([_, value]) => value && value !== "",
   );
   const hasActiveFilters = search || activeFilters.length > 0;
 
   // parent component or hook
-  const rowsPerPage = 150;
+  const rowsPerPage = 20;
   const totalPages = Math.ceil(filteredAssets.length / rowsPerPage);
 
   // slice data for current page
@@ -121,13 +138,9 @@ function IT_Assets({ setMessage }) {
     setCurrentPage(1);
   }, [filteredAssets]);
 
-  // IT Asset Update and Delete Hook Function
-  const { createAsset, updateAsset, deleteAsset, saving, deleting } =
-    useITAssetMutations({
-      setMessage,
-    });
-
-  // Sidebar handlers
+  // ==============
+  // SIDEBAR OPEN & CLOSE
+  // ==============
   function handleOpenSidebar(asset) {
     setSelectedAsset(asset);
     setSidebarOpen(true);
@@ -173,24 +186,12 @@ function IT_Assets({ setMessage }) {
     } catch (err) {}
   }
 
-  // Wait for all filter data to load
-  if (
-    loading ||
-    categoriesLoading ||
-    subcategoriesLoading ||
-    statusesLoading ||
-    conditionsLoading ||
-    osLoading ||
-    employeesLoading ||
-    departmentsLoading
-  ) {
-    return <LoadingIcon />;
-  }
+  // ==============
+  // LOADING
+  // ==============
 
   return (
     <>
-      <MessageUI setMessage={setMessage} />
-
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
@@ -264,10 +265,42 @@ function IT_Assets({ setMessage }) {
                     {paginatedData.length} / {filteredAssets.length}
                   </p>
                 )}
+
+                {totalPages > 1 && (
+                  <CardLayout style="cardLayoutNoPadding cardLayoutFlexFull cardGapLarge cardLayoutFlexWrap">
+                    <Button
+                      icon={CaretLeftIcon}
+                      style="button iconButton2 textXXS"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => p - 1)}
+                    />
+
+                    <p className="textRegular textXXS">
+                      Page: {currentPage}/{totalPages}
+                    </p>
+
+                    <Button
+                      icon={CaretRightIcon}
+                      style="button iconButton2 textXXS"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                    />
+                  </CardLayout>
+                )}
               </PageHeader>
 
               {/* TABLE DISPLAY UI */}
-              {layout === 1 ? (
+              {loading ||
+              categoriesLoading ||
+              subcategoriesLoading ||
+              statusesLoading ||
+              conditionsLoading ||
+              osLoading ||
+              employeesLoading ||
+              departmentsLoading ||
+              manufacturersLoading ? (
+                <LoadingIcon />
+              ) : layout === 1 ? (
                 <>
                   <DataTable
                     data={paginatedData}
@@ -276,22 +309,24 @@ function IT_Assets({ setMessage }) {
                     onRowClick={handleOpenSidebar}
                   />
                   {totalPages > 1 && (
-                    <CardLayout style="cardLayout2">
-                      <button
-                        className="button buttonType2"
+                    <CardLayout style="cardLayoutNoPadding cardLayoutFlexFull cardGapLarge cardLayoutFlexWrap">
+                      <Button
+                        icon={CaretLeftIcon}
+                        style="button iconButton2 textXXS"
                         disabled={currentPage === 1}
                         onClick={() => setCurrentPage((p) => p - 1)}
-                      >
-                        Previous
-                      </button>
+                      />
 
-                      <button
-                        className="button buttonType2"
+                      <p className="textRegular textXXS">
+                        Page: {currentPage}/{totalPages}
+                      </p>
+
+                      <Button
+                        icon={CaretRightIcon}
+                        style="button iconButton2 textXXS"
                         disabled={currentPage === totalPages}
                         onClick={() => setCurrentPage((p) => p + 1)}
-                      >
-                        Next
-                      </button>
+                      />
                     </CardLayout>
                   )}
                 </>
@@ -303,26 +338,30 @@ function IT_Assets({ setMessage }) {
                         key={asset.id}
                         asset={asset}
                         onClick={() => handleOpenSidebar(asset)}
+                        saving={saving}
+                        deleting={deleting}
                       />
                     ))}
                   </CardLayout>
                   {totalPages > 1 && (
-                    <CardLayout style="cardLayout2">
-                      <button
-                        className="button buttonType2"
+                    <CardLayout style="cardLayoutNoPadding cardLayoutFlexFull cardGapLarge cardLayoutFlexWrap">
+                      <Button
+                        icon={CaretLeftIcon}
+                        style="button iconButton2 textXXS"
                         disabled={currentPage === 1}
                         onClick={() => setCurrentPage((p) => p - 1)}
-                      >
-                        Previous
-                      </button>
+                      />
 
-                      <button
-                        className="button buttonType2"
+                      <p className="textRegular textXXS">
+                        Page: {currentPage}/{totalPages}
+                      </p>
+
+                      <Button
+                        icon={CaretRightIcon}
+                        style="button iconButton2 textXXS"
                         disabled={currentPage === totalPages}
                         onClick={() => setCurrentPage((p) => p + 1)}
-                      >
-                        Next
-                      </button>
+                      />
                     </CardLayout>
                   )}
                 </>

@@ -1,5 +1,6 @@
+// pages/user/dashboard/Dashboard.jsx
+
 import { useEffect, useState } from "react";
-import MessageUI from "../../../components/messageUI/MessageUI";
 import PageTransition from "../../../components/pageTransition/PageTransition";
 import { useTheme } from "../../../context/ThemeContext";
 import QuickActions from "../../../components/quickActions/QuickActions";
@@ -19,10 +20,12 @@ import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import AttendanceActivity from "../../../components/attendanceActivity/AttendanceActivity";
 import AttendanceActivityClockin from "../../../components/attendanceActivityClockin/AttendanceActivityClockin";
+import { useMessage } from "../../../context/MessageContext";
+import useUserProfile from "../../../hooks/useUserProfile";
 
 function Dashboard() {
-  const { darkMode, toggleMode } = useTheme();
-  const [message, setMessage] = useState({ text: "", type: "" });
+  const { darkMode } = useTheme();
+  const { showMessage } = useMessage();
   const [showExitTransition, setShowExitTransition] = useState(true);
 
   // Page Transition Animation + Message
@@ -31,14 +34,13 @@ function Dashboard() {
       setShowExitTransition(false);
     }, 800); // Shorter duration to hide the circle
 
-    setMessage({ text: `Welcome back `, type: "success" });
+    showMessage(`Welcome back!`, "success");
 
     return () => clearTimeout(timer);
   }, []);
   return (
     <>
       <PageTransition isVisible={showExitTransition} mode="exit" />
-      <MessageUI message={message} setMessage={setMessage} />
 
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
