@@ -24,6 +24,7 @@ import useCurrentAttendanceActivity from "../../hooks/useCurrentAttendanceActivi
 import SectionHeader from "../sectionHeader/SectionHeader";
 import "./AttendanceActivityClockin.scss";
 import { useMessage } from "../../context/MessageContext";
+import { useAttendance } from "../../context/AttendanceProvider";
 
 export default function AttendanceActivityClockin() {
   const { darkMode, toggleMode } = useTheme();
@@ -41,9 +42,7 @@ export default function AttendanceActivityClockin() {
   const { attendanceTypes, loading: attendanceTypesLoading } =
     useAttendanceTypes();
 
-  const { currentActivity, refetchCurrent } = useCurrentAttendanceActivity(
-    employee?.id,
-  );
+  const { currentActivity, refetchCurrent } = useAttendance();
 
   // Attendance Activity Config
   const columns = attendanceActivityConfig({

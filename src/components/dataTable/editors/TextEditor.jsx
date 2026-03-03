@@ -1,33 +1,37 @@
 import { CopyIcon } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
+import { useMessage } from "../../../context/MessageContext";
 
 export default function TextEditor({ value, onChange, onBlur }) {
+  const { showMessage } = useMessage();
   const handleCopy = async () => {
     if (!value) return;
 
     try {
       await navigator.clipboard.writeText(value);
-      console.log("Copied to clipboard:", value);
-      // Optional: trigger message/toast here
+      showMessage("Copied to Clipboard", "success");
     } catch (err) {
       console.error("Failed to copy:", err);
+      showMessage(`Failed to copy: ${err}`, "error");
     }
   };
 
   return (
-    <div className="linkEditorContainer">
+    <div className="editorContainer">
       <input
         type="text"
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
       />
-      <Button
-        onClick={handleCopy}
-        icon={CopyIcon}
-        style="button iconButton2"
-        size={16}
-      />
+      {value && (
+        <Button
+          onClick={handleCopy}
+          icon={CopyIcon}
+          style="button iconButton2"
+          size={16}
+        />
+      )}
     </div>
   );
 }

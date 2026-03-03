@@ -1,9 +1,18 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import useEmployee from "../hooks/useEmployee";
 
-export default function useCurrentAttendanceActivity(employeeId) {
+/**
+ * Attendance Activity Context
+ */
+
+const AttendanceContext = createContext();
+
+export function AttendanceProvider({ children }) {
+  const { employee } = useEmployee();
   const [currentActivity, setCurrentActivity] = useState(null);
   const [loading, setLoading] = useState(true);
+  const employeeId = employee?.id;
 
   async function fetchCurrent() {
     if (!employeeId) {
@@ -75,7 +84,6 @@ export default function useCurrentAttendanceActivity(employeeId) {
       : null;
 
     setCurrentActivity(normalizedData);
-
     setLoading(false);
   }
 
@@ -83,9 +91,23 @@ export default function useCurrentAttendanceActivity(employeeId) {
     fetchCurrent();
   }, [employeeId]);
 
-  return {
-    currentActivity,
-    loading,
-    refetchCurrent: fetchCurrent,
-  };
+  return (
+    <AttendanceContext.Provider
+      value={{
+        currentActivity,
+        loading,
+        refetchCurrent: fetchCurrent,
+      }}
+    >
+      {children}
+    </AttendanceContext.Provider>
+  );
+}
+
+export function useAttendance() {
+  const context = useContext(AttendanceContext);
+  if (!context) {
+    throw new Error("useAttendance must be used inside AttendanceProvider");
+  }
+  return context;
 }

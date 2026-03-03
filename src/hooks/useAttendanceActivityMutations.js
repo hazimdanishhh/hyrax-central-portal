@@ -15,7 +15,7 @@ export default function useAttendanceActivityMutations() {
     try {
       setSaving(true);
       setError(null);
-      showMessage("Creating Attendance...", "loading");
+      showMessage("Clocking in...", "loading");
 
       const { id, ...rawFields } = newData; // ignore id if accidentally passed
 
@@ -49,13 +49,13 @@ export default function useAttendanceActivityMutations() {
 
       if (error) throw error;
 
-      showMessage("Attendance created", "success");
+      showMessage("Clocked in!", "success");
 
       return data;
     } catch (err) {
-      console.error("Failed to create attendance:", err);
+      console.error("Clock in failed:", err);
       setError(err);
-      showMessage("Failed to create attendance", "error");
+      showMessage("Clock in failed", "error");
 
       throw err;
     } finally {
@@ -69,7 +69,7 @@ export default function useAttendanceActivityMutations() {
   const clockOutAttendanceActivity = async (id) => {
     try {
       setSaving(true);
-      showMessage("Clocking Out...", "loading");
+      showMessage("Clocking out...", "loading");
 
       const { data, error } = await supabase
         .from("attendance_activities")
@@ -82,11 +82,11 @@ export default function useAttendanceActivityMutations() {
 
       if (error) throw error;
 
-      showMessage("Attendance Clocked Out", "success");
+      showMessage("Clocked out!", "success");
       return data;
     } catch (err) {
-      console.error("Failed to clock out attendance:", err);
-      showMessage("Failed to clock out attendance", "error");
+      console.error("Clock out failed:", err);
+      showMessage("Clock out failed", "error");
     } finally {
       setSaving(false);
     }

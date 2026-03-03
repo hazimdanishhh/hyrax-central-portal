@@ -7,6 +7,7 @@ import SideNavLink from "../sideNav/sideNavLink/SideNavLink";
 import LogoutButton from "../buttons/logoutButton/LogoutButton";
 import ThemeButton from "../buttons/themeButton/ThemeButton";
 import useUserProfile from "../../hooks/useUserProfile";
+import ClockinMini from "../attendanceActivityClockin/clockinMini/ClockinMini";
 
 export default function MobileNav({ onClick, mobileNavIsOpen }) {
   const [navIsOpen, setNavIsOpen] = useState(true);
@@ -63,6 +64,8 @@ export default function MobileNav({ onClick, mobileNavIsOpen }) {
     >
       {/* HEADER */}
       <div className="sideNavSegment">
+        <ClockinMini navIsOpen={navIsOpen} />
+
         {/* NAV SEGMENTS */}
         {userNavSegments.map((segment, index) => (
           <div key={index}>

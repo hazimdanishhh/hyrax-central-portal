@@ -4,6 +4,7 @@ import DateEditor from "./DateEditor";
 import SelectEditor from "./SelectEditor";
 import TextareaEditor from "./TextareaEditor";
 import LinkEditor from "./LinkEditor";
+import "./Editors.scss";
 
 export const editors = {
   text: TextEditor,

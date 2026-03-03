@@ -13,32 +13,17 @@ import { useTheme } from "../../context/ThemeContext";
 import { sideNavLinkData } from "../../data/sideNavLinkData";
 import SideNavLink from "./sideNavLink/SideNavLink";
 import ThemeButton from "../buttons/themeButton/ThemeButton";
-import useMediaQuery from "../../functions/mediaQuery";
 import LogoutButton from "../buttons/logoutButton/LogoutButton";
 import useUserProfile from "../../hooks/useUserProfile";
-import Button from "../buttons/button/Button";
-import DataSidebar from "../dataSidebar/DataSidebar";
 import useAttendanceTypes from "../../hooks/useAttendanceTypes";
-import { attendanceActivityConfig } from "../../data/attendanceActivityConfig";
-import LoadingIcon from "../loadingIcon/LoadingIcon";
-import useAttendanceActivityMutations from "../../hooks/useAttendanceActivityMutations";
 import useEmployee from "../../hooks/useEmployee";
-import SectionHeader from "../sectionHeader/SectionHeader";
-import CardLayout from "../cardLayout/CardLayout";
-import useCurrentAttendanceActivity from "../../hooks/useCurrentAttendanceActivity";
+import { useAttendance } from "../../context/AttendanceProvider";
+import ClockinMini from "../attendanceActivityClockin/clockinMini/ClockinMini";
 
 export default function SideNav() {
   const [navIsOpen, setNavIsOpen] = useState(true);
   const { darkMode, toggleMode } = useTheme();
   const navModalRef = useRef(null);
-  const [message, setMessage] = useState({ text: "", type: "" });
-  const isDesktop = useMediaQuery("(min-width: 1025px)");
-  const [selectedAttendanceActivity, setSelectedAttendanceActivity] =
-    useState(null);
-  const [attendanceSidebarOpen, setAttendanceSidebarOpen] = useState(false);
-  const [selectedAttendanceType, setSelectedAttendanceType] = useState(null);
-  const [creatingAttendanceActivity, setCreatingAttendanceActivity] =
-    useState(false);
 
   // Fetch Data
   const { profile, loading: profileLoading } = useUserProfile();
@@ -46,9 +31,7 @@ export default function SideNav() {
   const { attendanceTypes, loading: attendanceTypesLoading } =
     useAttendanceTypes();
 
-  const { currentActivity, refetchCurrent } = useCurrentAttendanceActivity(
-    employee?.id,
-  );
+  const { currentActivity, refetchCurrent } = useAttendance();
 
   // Determine user’s accessible navigation
   const userRole = profile?.role?.toLowerCase() || "staff";
@@ -59,44 +42,6 @@ export default function SideNav() {
     userRole === "superadmin"
       ? sideNavLinkData.superadmin
       : sideNavLinkData[userDepartment] || sideNavLinkData.GEN;
-
-  // Attendance Activity Config
-  const columns = attendanceActivityConfig({
-    attendanceTypes,
-  });
-
-  // IT Asset Update and Delete Hook Function
-  const {
-    createAttendanceActivity,
-    clockOutAttendanceActivity,
-    saving,
-    deleting,
-    error,
-  } = useAttendanceActivityMutations({
-    setMessage,
-  });
-
-  async function handleSaveSidebar(data) {
-    if (!employee?.id) {
-      setMessage({ type: "error", text: "Employee not found" });
-      return;
-    }
-
-    try {
-      // Attach employee_id here
-      await createAttendanceActivity({
-        ...data,
-        employee_id: employee.id, // <-- attach current employee
-      });
-
-      setMessage({ type: "success", text: "Attendance saved successfully." });
-      setAttendanceSidebarOpen(false);
-      refetchCurrent();
-    } catch (err) {
-      console.error("Error saving attendance:", err);
-      setMessage({ type: "error", text: "Failed to save attendance." });
-    }
-  }
 
   return (
     <>
@@ -125,50 +70,7 @@ export default function SideNav() {
           </div>
 
           {/* ATTENDANCE ACTIVITY BUTTON */}
-          {navIsOpen &&
-            (currentActivity ? (
-              <Button
-                style="button buttonType2Clockout textBold textXXS"
-                icon={ClockUserIcon}
-                name="Clock Out"
-                onClick={async () => {
-                  if (!currentActivity?.id) return;
-                  console.log("Current:", currentActivity);
-                  await clockOutAttendanceActivity(currentActivity.id);
-                  await refetchCurrent();
-                }}
-              />
-            ) : (
-              <Button
-                style="button buttonType2Clockin textBold textXXS"
-                icon={ClockUserIcon}
-                name="Clock In"
-                onClick={() => {
-                  setSelectedAttendanceActivity({});
-                  setAttendanceSidebarOpen(true);
-                  setCreatingAttendanceActivity(true);
-                }}
-              />
-            ))}
-
-          {currentActivity && navIsOpen ? (
-            <CardLayout key={currentActivity.id} style="cardLayout1">
-              <CardLayout style="cardLayout1 generalCard">
-                <p>
-                  {currentActivity.attendance_type?.name} <ClockUserIcon />
-                </p>
-                <p>{currentActivity.clocked_in_at}</p>
-              </CardLayout>
-
-              <CardLayout style="cardLayout1 generalCard">
-                <p>
-                  Clock Out
-                  <SignOutIcon />
-                </p>
-                <p>{currentActivity.clocked_out_at}</p>
-              </CardLayout>
-            </CardLayout>
-          ) : null}
+          <ClockinMini navIsOpen={navIsOpen} />
 
           {/* NAV SEGMENTS */}
           {userNavSegments.map((segment, index) => (
@@ -186,34 +88,9 @@ export default function SideNav() {
         </div>
 
         <div className="sideNavButtons">
-          <LogoutButton
-            setMessage={setMessage}
-            navIsOpen={navIsOpen}
-            style="button buttonType2"
-          />
+          <LogoutButton navIsOpen={navIsOpen} style="button buttonType2" />
         </div>
       </motion.div>
-
-      <AnimatePresence>
-        {attendanceSidebarOpen &&
-          (attendanceTypesLoading ? (
-            <LoadingIcon />
-          ) : (
-            <DataSidebar
-              title="Attendance Activity"
-              icon={CalendarDotsIcon}
-              open={attendanceSidebarOpen}
-              onClose={() => {
-                setAttendanceSidebarOpen(false);
-                setSelectedAttendanceType(null);
-              }}
-              rowData={selectedAttendanceType}
-              columns={columns}
-              onSave={handleSaveSidebar}
-              creating={creatingAttendanceActivity}
-            ></DataSidebar>
-          ))}
-      </AnimatePresence>
     </>
   );
 }

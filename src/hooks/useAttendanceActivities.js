@@ -1,12 +1,14 @@
 // src/hooks/useAttendanceActivities.js
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { useMessage } from "../context/MessageContext";
 
 /**
  * Hook to fetch the attendance activity types
  * This is HR / IT data
  */
 export default function useAttendanceActivities() {
+  const { showMessage } = useMessage();
   const [attendanceActivities, setAttendanceActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -15,6 +17,7 @@ export default function useAttendanceActivities() {
     const fetchAttendanceTypes = async () => {
       setLoading(true);
       setError(null);
+      showMessage("Loading Attendance", "loading");
 
       try {
         const { data, error } = await supabase
@@ -45,10 +48,12 @@ export default function useAttendanceActivities() {
               })
             : null,
         }));
+        showMessage("Attendance loaded", "success");
 
         setAttendanceActivities(normalizedData);
       } catch (err) {
         console.error("Failed to fetch attendance activities data:", err);
+        showMessage("Failed to load attendance", "error");
         setError(err);
         setAttendanceActivities([]);
       } finally {

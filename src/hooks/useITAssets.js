@@ -19,7 +19,7 @@ export default function useITAssets({ filters = {} } = {}) {
   const fetchAssets = async () => {
     setLoading(true);
     setError(null);
-    showMessage("Loading IT assets", "loading");
+    showMessage("Loading assets", "loading");
 
     try {
       let query = supabase
@@ -55,11 +55,11 @@ export default function useITAssets({ filters = {} } = {}) {
       if (error) throw error;
 
       setAssets(data || []);
-      showMessage("IT assets loaded successfully", "success");
+      showMessage("Assets loaded", "success");
     } catch (err) {
       setError(err);
       setAssets([]);
-      showMessage("Failed to load IT assets", "error");
+      showMessage("Failed to load assets", "error");
     } finally {
       setLoading(false);
     }
