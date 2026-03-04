@@ -350,7 +350,7 @@ function IT_Assets() {
                 <LoadingIcon />
               ) : layout === 1 ? (
                 <>
-                  {totalPages > 1 && (
+                  {paginatedData.length > 0 && (
                     <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutEnd cardLayoutNoPadding">
                       {!paginatedData.length ? (
                         <p className="textRegular textXXS">No results found</p>
@@ -395,7 +395,7 @@ function IT_Assets() {
                 </>
               ) : (
                 <>
-                  {totalPages > 1 && (
+                  {paginatedData.length > 0 && (
                     <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutEnd cardLayoutNoPadding">
                       {!paginatedData.length ? (
                         <p className="textRegular textXXS">No results found</p>

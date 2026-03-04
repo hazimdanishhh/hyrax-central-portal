@@ -46,22 +46,6 @@
   transition: 0.3s;
   width: fit-content;
 
-  &:hover {
-    background-color: rgb($neutral400, 0.1);
-    color: $primary;
-    border: 1px solid $primary;
-    transition: 0.3s;
-  }
-
-  &:disabled {
-    color: $neutral600;
-
-    &:hover {
-      border: 1px solid $neutral600;
-      cursor: not-allowed;
-    }
-  }
-
   &.iconButton2 {
     padding: 0.4rem;
   }
@@ -219,5 +203,27 @@
       border: 1px solid $warning600;
       transition: 0.3s;
     }
+  }
+
+  // MAIN HOVER, DISABLED AND ACTIVE STYLES
+  &:hover {
+    background-color: rgb($neutral400, 0.1);
+    color: $primary;
+    border: 1px solid $primary;
+    transition: 0.3s;
+  }
+
+  &:disabled {
+    color: $neutral600;
+
+    &:hover {
+      border: 1px solid $neutral600;
+      cursor: not-allowed;
+    }
+  }
+
+  &.active {
+    border: 1px solid $primary;
+    color: $primary;
   }
 }
