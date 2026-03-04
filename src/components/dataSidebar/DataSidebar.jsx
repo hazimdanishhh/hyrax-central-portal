@@ -50,8 +50,15 @@ export default function DataSidebar({
   }
 
   function handleSave() {
+    for (const col of columns) {
+      if (col.required && !localData[col.key]) {
+        alert(`${col.label} is required`);
+        return;
+      }
+    }
+
     onSave?.(localData);
-    onClose?.();
+    // onClose?.();
   }
 
   function handleDelete() {
@@ -92,7 +99,13 @@ export default function DataSidebar({
 
           {children}
 
-          <div className="dataSidebarContent">
+          <form
+            className="dataSidebarContent"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
             {columns.map((col) => {
               if (!col.editable) return null;
 
@@ -101,33 +114,40 @@ export default function DataSidebar({
 
               return (
                 <div key={col.key} className="dataSidebarField">
-                  <label className="textBold textXXS">{col.label}</label>
+                  <label className="textBold textXXS">
+                    {col.label}
+                    <span className="dataSidebarRequired">
+                      {col.required && "*"}
+                    </span>
+                  </label>
                   <Editor
                     value={value}
                     options={col.options}
                     onChange={(v) => handleChange(col.key, v)}
+                    required={col.required}
                   />
                 </div>
               );
             })}
-          </div>
 
-          <footer className="dataSidebarFooter">
-            {!creating && (
+            <footer className="dataSidebarFooter">
+              {!creating && (
+                <Button
+                  name="Delete"
+                  icon={TrashSimpleIcon}
+                  style="button buttonTypeDelete textXS"
+                  onClick={handleDelete}
+                />
+              )}
               <Button
-                name="Delete"
-                icon={TrashSimpleIcon}
-                style="button buttonTypeDelete textXS"
-                onClick={handleDelete}
+                name="Save"
+                icon={CheckIcon}
+                style="button buttonType2 textXS"
+                onClick={handleSave}
+                type="submit"
               />
-            )}
-            <Button
-              name="Save"
-              icon={CheckIcon}
-              style="button buttonType2 textXS"
-              onClick={handleSave}
-            />
-          </footer>
+            </footer>
+          </form>
         </CardLayout>
       </motion.div>
     </motion.div>

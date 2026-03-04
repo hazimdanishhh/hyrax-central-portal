@@ -3,12 +3,14 @@ export default function SelectEditor({
   options = [],
   onChange,
   onBlur,
+  required,
 }) {
   return (
     <select
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}
+      required={required}
     >
       <option value="" />
 

@@ -14,14 +14,16 @@ export function attendanceActivityConfig({
         label: a.name,
         value: a.id,
       })),
+      required: true,
     },
     {
       key: "photo_url",
       label: "Photo URL",
       editable: true,
       editor: "text", // Placeholder for now
-      required: selectedType?.requires_photo || false,
-      visible: selectedType?.requires_photo !== false,
+      // required: selectedType?.requires_photo || false,
+      // visible: selectedType?.requires_photo !== false,
+      required: true,
     },
     {
       key: "location",

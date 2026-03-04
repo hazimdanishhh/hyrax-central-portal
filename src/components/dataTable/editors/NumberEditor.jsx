@@ -2,7 +2,7 @@ import { CopyIcon } from "@phosphor-icons/react";
 import { useMessage } from "../../../context/MessageContext";
 import Button from "../../buttons/button/Button";
 
-export default function NumberEditor({ value, onChange, onBlur }) {
+export default function NumberEditor({ value, onChange, onBlur, required }) {
   const { showMessage } = useMessage();
 
   const handleCopy = async () => {
@@ -24,6 +24,7 @@ export default function NumberEditor({ value, onChange, onBlur }) {
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
+        required={required}
       />
       {value && (
         <Button

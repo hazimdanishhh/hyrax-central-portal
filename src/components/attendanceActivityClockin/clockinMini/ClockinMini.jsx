@@ -103,11 +103,25 @@ export default function ClockinMini({ navIsOpen }) {
 
       {currentActivity && navIsOpen ? (
         <CardLayout key={currentActivity.id} style="cardLayout1">
-          <CardLayout style="cardLayout1 generalCard">
-            <p className="textBold textXXS">
-              {currentActivity.attendance_type?.name} <ClockUserIcon />
+          <CardLayout style="cardLayoutFlexFull generalCard">
+            <div className="attendanceTypeHeader">
+              {currentActivity?.attendance_type?.name === "Office" ? (
+                <BuildingOfficeIcon size={20} />
+              ) : currentActivity?.attendance_type?.name === "Site Visit" ? (
+                <FactoryIcon size={20} />
+              ) : currentActivity?.attendance_type?.name ===
+                "Work From Home" ? (
+                <HouseIcon size={20} />
+              ) : (
+                <BuildingOfficeIcon size={20} />
+              )}
+              <p className="textBold">
+                {currentActivity?.attendance_type?.name}
+              </p>
+            </div>
+            <p className="textLight textXXS">
+              {currentActivity.clocked_in_time}
             </p>
-            <p className="textLight textXXS">{currentActivity.clocked_in_at}</p>
           </CardLayout>
         </CardLayout>
       ) : null}
@@ -129,7 +143,7 @@ export default function ClockinMini({ navIsOpen }) {
               columns={columns}
               onSave={handleSaveSidebar}
               creating={creatingAttendanceActivity}
-            ></DataSidebar>
+            />
           ))}
       </AnimatePresence>
     </>

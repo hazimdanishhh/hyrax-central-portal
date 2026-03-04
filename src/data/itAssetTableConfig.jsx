@@ -56,6 +56,7 @@ export const itAssetTableConfig = ({
     getValue: "asset_name",
     editable: true,
     editor: "text",
+    required: true,
   },
   {
     key: "asset_code",
@@ -63,6 +64,7 @@ export const itAssetTableConfig = ({
     getValue: "asset_code",
     editable: true,
     editor: "text",
+    required: true,
   },
   {
     key: "asset_status_id",

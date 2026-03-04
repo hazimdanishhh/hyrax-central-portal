@@ -3,10 +3,14 @@ import {
   CaretLeftIcon,
   CaretRightIcon,
   DesktopIcon,
+  LaptopIcon,
+  MonitorIcon,
   PencilSimpleLineIcon,
+  PercentIcon,
   PlusCircleIcon,
   SquaresFourIcon,
   TableIcon,
+  UsersThreeIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -115,6 +119,32 @@ function IT_Assets() {
     },
   });
 
+  // =====================
+  // OVERVIEW METRICS
+  // =====================
+  const totalAssets = assets.length;
+
+  const activeAssets = assets.filter(
+    (a) => a.asset_status?.name === "Active",
+  ).length;
+
+  const endpointAssets = assets.filter(
+    (a) => a.asset_category?.name === "Endpoint",
+  ).length;
+
+  const faultyAssets = assets.filter(
+    (a) => a.asset_condition?.name === "Faulty",
+  ).length;
+
+  const unassignedAssets = assets.filter((a) => !a.asset_user).length;
+
+  const assignedAssets = assets.filter((a) => a.asset_user).length;
+
+  const utilizationRate =
+    totalAssets > 0 ? Math.round((activeAssets / totalAssets) * 100) : 0;
+
+  const inactiveAssets = totalAssets > 0 ? totalAssets - activeAssets : 0;
+
   // ==============
   // ACTIVE FILTERS
   // ==============
@@ -152,7 +182,7 @@ function IT_Assets() {
   }
 
   // ==============
-  // SAVE
+  // SAVE + UPDATE
   // ==============
   async function handleSaveSidebar(data) {
     try {
@@ -186,10 +216,6 @@ function IT_Assets() {
     } catch (err) {}
   }
 
-  // ==============
-  // LOADING
-  // ==============
-
   return (
     <>
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -198,6 +224,64 @@ function IT_Assets() {
             <Breadcrumbs icon={DesktopIcon} current="IT Assets" />
 
             <CardWrapper>
+              {/* OVERVIEW */}
+              <CardLayout style="cardLayout4">
+                <CardLayout style="generalCard">
+                  <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+                    <MonitorIcon />
+                    <h3 className="textRegular textS">Total Assets</h3>
+                  </CardLayout>
+                  <h2 className="textXL">{totalAssets}</h2>
+                </CardLayout>
+
+                <CardLayout style="generalCard greenCard">
+                  <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+                    <UsersThreeIcon />
+                    <h3 className="textRegular textS">Active Assets</h3>
+                  </CardLayout>
+                  <h2 className="textXL">{activeAssets}</h2>
+                </CardLayout>
+
+                <CardLayout style="generalCard redCard">
+                  <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+                    <UsersThreeIcon />
+                    <h3 className="textRegular textS">Inactive Assets</h3>
+                  </CardLayout>
+                  <h2 className="textXL">{inactiveAssets}</h2>
+                </CardLayout>
+
+                <CardLayout
+                  style={
+                    utilizationRate >= 80
+                      ? "generalCard greenCard"
+                      : utilizationRate >= 30 && utilizationRate < 80
+                        ? "generalCard yellowCard"
+                        : utilizationRate < 30
+                          ? "generalCard redCard"
+                          : "generalCard"
+                  }
+                >
+                  <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+                    <PercentIcon />
+                    <h3 className="textRegular textS">Asset Utilization</h3>
+                  </CardLayout>
+                  <h2 className="textXL">{utilizationRate}%</h2>
+                </CardLayout>
+
+                <CardLayout style="generalCard">
+                  <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+                    <LaptopIcon />
+                    <h3 className="textRegular textS">Endpoints</h3>
+                  </CardLayout>
+                  <h2 className="textXL">{endpointAssets}</h2>
+                </CardLayout>
+
+                <CardLayout style="generalCard">
+                  <h3 className="textRegular textS">Unassigned (In Stock)</h3>
+                  <h2 className="textXL">{unassignedAssets}</h2>
+                </CardLayout>
+              </CardLayout>
+
               {/* SEARCH AND FILTER BAR */}
               <PageHeader>
                 <SearchFilterBar
@@ -253,42 +337,6 @@ function IT_Assets() {
                 )}
               </PageHeader>
 
-              {/* RESULT NUMBER */}
-              <PageHeader>
-                {!paginatedData.length ? (
-                  <p className="textRegular textXXS">No results found</p>
-                ) : error ? (
-                  <p className="textRegular textXXS">Error loading results</p>
-                ) : (
-                  <p className="textRegular textXXS">
-                    <strong>Total Result: </strong>
-                    {paginatedData.length} / {filteredAssets.length}
-                  </p>
-                )}
-
-                {totalPages > 1 && (
-                  <CardLayout style="cardLayoutNoPadding cardLayoutFlexFull cardGapLarge cardLayoutFlexWrap">
-                    <Button
-                      icon={CaretLeftIcon}
-                      style="button iconButton2 textXXS"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => p - 1)}
-                    />
-
-                    <p className="textRegular textXXS">
-                      Page: {currentPage}/{totalPages}
-                    </p>
-
-                    <Button
-                      icon={CaretRightIcon}
-                      style="button iconButton2 textXXS"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => p + 1)}
-                    />
-                  </CardLayout>
-                )}
-              </PageHeader>
-
               {/* TABLE DISPLAY UI */}
               {loading ||
               categoriesLoading ||
@@ -302,68 +350,100 @@ function IT_Assets() {
                 <LoadingIcon />
               ) : layout === 1 ? (
                 <>
+                  {totalPages > 1 && (
+                    <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutEnd cardLayoutNoPadding">
+                      {!paginatedData.length ? (
+                        <p className="textRegular textXXS">No results found</p>
+                      ) : error ? (
+                        <p className="textRegular textXXS">
+                          Error loading results
+                        </p>
+                      ) : (
+                        <p className="textRegular textXXS">
+                          <strong>Total Result: </strong>
+                          {paginatedData.length} / {filteredAssets.length}
+                        </p>
+                      )}
+
+                      <CardLayout style="cardLayoutFlex cardGapLarge cardLayoutNoPadding">
+                        <p className="textRegular textXXS">
+                          Page: {currentPage}/{totalPages}
+                        </p>
+
+                        <Button
+                          icon={CaretLeftIcon}
+                          style="button iconButton2 textXXS"
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage((p) => p - 1)}
+                        />
+
+                        <Button
+                          icon={CaretRightIcon}
+                          style="button iconButton2 textXXS"
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage((p) => p + 1)}
+                        />
+                      </CardLayout>
+                    </CardLayout>
+                  )}
                   <DataTable
                     data={paginatedData}
                     columns={columns}
                     rowKey="id"
                     onRowClick={handleOpenSidebar}
                   />
-                  {totalPages > 1 && (
-                    <CardLayout style="cardLayoutNoPadding cardLayoutFlexFull cardGapLarge cardLayoutFlexWrap">
-                      <Button
-                        icon={CaretLeftIcon}
-                        style="button iconButton2 textXXS"
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage((p) => p - 1)}
-                      />
-
-                      <p className="textRegular textXXS">
-                        Page: {currentPage}/{totalPages}
-                      </p>
-
-                      <Button
-                        icon={CaretRightIcon}
-                        style="button iconButton2 textXXS"
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage((p) => p + 1)}
-                      />
-                    </CardLayout>
-                  )}
                 </>
               ) : (
                 <>
-                  <CardLayout style="cardLayout1">
-                    {paginatedData.map((asset) => (
-                      <ITAssetList
-                        key={asset.id}
-                        asset={asset}
-                        onClick={() => handleOpenSidebar(asset)}
-                        saving={saving}
-                        deleting={deleting}
-                      />
-                    ))}
-                  </CardLayout>
                   {totalPages > 1 && (
-                    <CardLayout style="cardLayoutNoPadding cardLayoutFlexFull cardGapLarge cardLayoutFlexWrap">
-                      <Button
-                        icon={CaretLeftIcon}
-                        style="button iconButton2 textXXS"
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage((p) => p - 1)}
-                      />
+                    <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutEnd cardLayoutNoPadding">
+                      {!paginatedData.length ? (
+                        <p className="textRegular textXXS">No results found</p>
+                      ) : error ? (
+                        <p className="textRegular textXXS">
+                          Error loading results
+                        </p>
+                      ) : (
+                        <p className="textRegular textXXS">
+                          <strong>Total Result: </strong>
+                          {paginatedData.length} / {filteredAssets.length}
+                        </p>
+                      )}
 
-                      <p className="textRegular textXXS">
-                        Page: {currentPage}/{totalPages}
-                      </p>
+                      <CardLayout style="cardLayoutFlex cardGapLarge cardLayoutNoPadding">
+                        <p className="textRegular textXXS">
+                          Page: {currentPage}/{totalPages}
+                        </p>
 
-                      <Button
-                        icon={CaretRightIcon}
-                        style="button iconButton2 textXXS"
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage((p) => p + 1)}
-                      />
+                        <Button
+                          icon={CaretLeftIcon}
+                          style="button iconButton2 textXXS"
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage((p) => p - 1)}
+                        />
+
+                        <Button
+                          icon={CaretRightIcon}
+                          style="button iconButton2 textXXS"
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage((p) => p + 1)}
+                        />
+                      </CardLayout>
                     </CardLayout>
                   )}
+                  <div className="cardWrapperScroll generalCard">
+                    <CardLayout style="cardLayout1 cardPadding">
+                      {paginatedData.map((asset) => (
+                        <ITAssetList
+                          key={asset.id}
+                          asset={asset}
+                          onClick={() => handleOpenSidebar(asset)}
+                          saving={saving}
+                          deleting={deleting}
+                        />
+                      ))}
+                    </CardLayout>
+                  </div>
                 </>
               )}
             </CardWrapper>

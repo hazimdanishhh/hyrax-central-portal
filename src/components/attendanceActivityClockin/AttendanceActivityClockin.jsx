@@ -117,32 +117,6 @@ export default function AttendanceActivityClockin() {
         )}
 
         {/* ATTENDANCE ACTIVITY BUTTON */}
-        {/* {currentActivity ? (
-          <Button
-            style="button buttonType2Clockout textBold textXXS"
-            icon={ClockUserIcon}
-            name="Clock Out"
-            onClick={async () => {
-              if (!currentActivity?.id) return;
-              console.log("Current:", currentActivity);
-              await clockOutAttendanceActivity(currentActivity.id);
-              await refetchCurrent();
-            }}
-          />
-        ) : (
-          <Button
-            style="button buttonType2Clockin textBold textXXS"
-            icon={ClockUserIcon}
-            name="Clock In"
-            onClick={() => {
-              setSelectedAttendanceActivity({});
-              setAttendanceSidebarOpen(true);
-              setCreatingAttendanceActivity(true);
-            }}
-          />
-        )} */}
-
-        {/* BUTTON V2 */}
         <CardLayout style="cardLayoutFlexFull">
           {currentActivity ? (
             <Button
@@ -169,29 +143,6 @@ export default function AttendanceActivityClockin() {
             />
           )}
         </CardLayout>
-
-        {/* {currentActivity ? (
-          <CardLayout key={currentActivity.id} style="cardLayout3">
-            <CardLayout style="cardLayout1 generalCard">
-              <p className="textBold textXXS">
-                {currentActivity.attendance_type?.name} <ClockUserIcon />
-              </p>
-              <p className="textLight textXXS">
-                {currentActivity.clocked_in_at}
-              </p>
-            </CardLayout>
-
-            <CardLayout style="cardLayout1 generalCard">
-              <p className="textBold textXXS">
-                Clock Out
-                <SignOutIcon />
-              </p>
-              <p className="textLight textXXS">
-                {currentActivity.clocked_out_at}
-              </p>
-            </CardLayout>
-          </CardLayout>
-        ) : null} */}
       </CardLayout>
 
       <AnimatePresence>
