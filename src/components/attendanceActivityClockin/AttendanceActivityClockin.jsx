@@ -25,7 +25,7 @@ import SectionHeader from "../sectionHeader/SectionHeader";
 import "./AttendanceActivityClockin.scss";
 import { useMessage } from "../../context/MessageContext";
 import { useAttendance } from "../../context/AttendanceProvider";
-import useAttendanceActivities from "../../hooks/useAttendanceActivities";
+import useEmployeeAttendanceActivities from "../../hooks/useEmployeeAttendanceActivities";
 
 export default function AttendanceActivityClockin() {
   const { darkMode, toggleMode } = useTheme();
@@ -48,7 +48,7 @@ export default function AttendanceActivityClockin() {
     attendanceActivities,
     loading: loadingAttendanceActivities,
     error: errorAttendanceActivities,
-  } = useAttendanceActivities();
+  } = useEmployeeAttendanceActivities();
 
   // GET WORKING DAYS BASED ON THE PERIOD (MONTH OR YEAR)
   function getWorkingDays(period) {
