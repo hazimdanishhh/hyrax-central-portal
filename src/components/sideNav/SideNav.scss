@@ -52,11 +52,11 @@
     align-items: center;
     width: 100%;
     padding: 1rem 0;
-    transition: 0.3s;
+    // transition: 0.3s;
 
     &.isClosed {
       justify-content: center;
-      transition: 0.3s;
+      // transition: 0.3s;
     }
 
     .sideNavLogo {

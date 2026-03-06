@@ -1,0 +1,21 @@
+.employeeCardPhotoSidebar {
+  width: 30%;
+  aspect-ratio: 1/1;
+  background-color: $dark;
+  border-radius: 50%;
+  border: 2px solid $neutral600;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  flex-shrink: 0;
+
+  img {
+    width: 101%;
+    height: 101%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+}

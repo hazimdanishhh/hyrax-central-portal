@@ -14,6 +14,14 @@ export default function useEmployeesPublic({ setMessage } = {}) {
       const { data, error } = await supabase
         .from("employees_public")
         .select("*")
+        .in("employment_status_name", [
+          "Active",
+          "Intern",
+          "Probation",
+          "Contract",
+          "Freelance",
+          "Terminated Notice",
+        ])
         .order("full_name", { ascending: true });
 
       if (!isMounted) return;
@@ -21,13 +29,6 @@ export default function useEmployeesPublic({ setMessage } = {}) {
       if (error) {
         console.error("Failed to fetch employees:", error);
         setEmployees([]);
-
-        if (setMessage) {
-          setMessage({
-            text: "Failed to load employees.",
-            type: "error",
-          });
-        }
       } else {
         setEmployees(data || []);
       }

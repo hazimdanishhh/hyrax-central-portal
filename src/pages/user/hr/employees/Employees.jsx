@@ -1,4 +1,5 @@
 // pages/user/hr/employees/Employees.jsx
+import "./Employees.scss";
 import {
   CaretLeftIcon,
   CaretRightIcon,
@@ -132,12 +133,26 @@ export default function Employees() {
     (e) => e.employment_status?.name === "Active",
   ).length;
 
-  const inactiveEmployees = employees.filter(
-    (e) => e.employment_status?.name === "Inactive",
+  const inactiveStatuses = [
+    "Terminated",
+    "Resigned",
+    "Retired",
+    "Inactive",
+    "Suspended",
+    "Sabbatical",
+    "On Leave",
+  ];
+
+  const inactiveEmployees = employees.filter((e) =>
+    inactiveStatuses.includes(e.employment_status?.name),
   ).length;
 
   const probationEmployees = employees.filter(
     (e) => e.employment_status?.name === "Probation",
+  ).length;
+
+  const internEmployees = employees.filter(
+    (e) => e.employment_status?.name === "Intern",
   ).length;
 
   const newHires = employees.filter((e) => {
@@ -300,6 +315,14 @@ export default function Employees() {
 
                 <CardLayout style="generalCard">
                   <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+                    <UsersThreeIcon />
+                    <h3 className="textRegular textS">Total Departments</h3>
+                  </CardLayout>
+                  <h2 className="textXL">{totalDepartments}</h2>
+                </CardLayout>
+
+                <CardLayout style="generalCard">
+                  <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
                     <UserFocusIcon />
                     <h3 className="textRegular textS">On Probation</h3>
                   </CardLayout>
@@ -308,10 +331,10 @@ export default function Employees() {
 
                 <CardLayout style="generalCard">
                   <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
-                    <UsersThreeIcon />
-                    <h3 className="textRegular textS">Total Departments</h3>
+                    <UserFocusIcon />
+                    <h3 className="textRegular textS">Interns</h3>
                   </CardLayout>
-                  <h2 className="textXL">{totalDepartments}</h2>
+                  <h2 className="textXL">{internEmployees}</h2>
                 </CardLayout>
               </CardLayout>
 
@@ -490,7 +513,17 @@ export default function Employees() {
             saving={saving}
             deleting={deleting}
             creating={!selectedEmployee?.id}
-          />
+          >
+            <div className="employeeCardPhotoSidebar">
+              <img
+                src={
+                  selectedEmployee.profile?.avatar_url ||
+                  "/profilePhoto/default.webp"
+                }
+                alt={selectedEmployee.full_name}
+              />
+            </div>
+          </DataSidebar>
         )}
       </AnimatePresence>
     </>
