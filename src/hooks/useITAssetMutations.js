@@ -48,7 +48,9 @@ export default function useITAssetMutations() {
       const { data, error } = await supabase
         .from("it_assets")
         .update(updateFields)
-        .eq("id", id).select(`
+        .eq("id", id)
+        .select(
+          `
           *,
           asset_category:asset_category_id (id, name),
           asset_subcategory:asset_subcategory_id (id, name, sub, icon),
@@ -63,7 +65,9 @@ export default function useITAssetMutations() {
           asset_condition:asset_condition_id (id, name),
           asset_department:asset_department_id (id, name, sub),
           asset_manufacturer:asset_manufacturer_id (id, name)
-        `);
+        `,
+        )
+        .maybeSingle();
 
       console.log("Supabase response:", { data, error });
 
@@ -130,7 +134,7 @@ export default function useITAssetMutations() {
         asset_department:asset_department_id (id, name, sub)
       `,
         )
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

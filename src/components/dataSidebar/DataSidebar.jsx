@@ -19,6 +19,8 @@ export default function DataSidebar({
   onDelete,
   creating,
   children,
+  saving,
+  deleting,
 }) {
   const { darkMode } = useTheme();
 
@@ -137,6 +139,7 @@ export default function DataSidebar({
                   icon={TrashSimpleIcon}
                   style="button buttonTypeDelete textXS"
                   onClick={handleDelete}
+                  disabled={deleting}
                 />
               )}
               <Button
@@ -145,6 +148,7 @@ export default function DataSidebar({
                 style="button buttonType2 textXS"
                 onClick={handleSave}
                 type="submit"
+                disabled={saving}
               />
             </footer>
           </form>

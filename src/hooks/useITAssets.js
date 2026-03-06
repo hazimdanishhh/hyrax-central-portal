@@ -74,6 +74,6 @@ export default function useITAssets({ filters = {} } = {}) {
     setAssets,
     loading,
     error,
-    refetch: fetchAssets, // 👈 ADD THIS
+    refetch: fetchAssets,
   };
 }

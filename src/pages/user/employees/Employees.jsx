@@ -11,7 +11,7 @@ import {
   SquaresFourIcon,
   UsersFourIcon,
 } from "@phosphor-icons/react";
-import useEmployees from "../../../hooks/useEmployees";
+import useEmployeesPublic from "../../../hooks/useEmployeesPublic";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Button from "../../../components/buttons/button/Button";
@@ -31,7 +31,7 @@ export default function EmployeesList() {
   const { employee } = useEmployee();
   const { departments } = useDepartments();
   const { statuses: employmentStatuses } = useEmploymentStatus();
-  const { employees, loading: employeesLoading } = useEmployees();
+  const { employees, loading: employeesLoading } = useEmployeesPublic();
 
   // Filter Config
   const employeeFilterConfig = [

@@ -34,7 +34,7 @@ import DataTable from "../../../../components/dataTable/DataTable";
 import { itAssetTableConfig } from "../../../../data/itAssetTableConfig";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
-import useEmployees from "../../../../hooks/useEmployees";
+import useEmployeesPublic from "../../../../hooks/useEmployeesPublic";
 import useDepartments from "../../../../hooks/useDepartments";
 import ITAssetList from "../../../../components/itAsset/itAssetList/ITAssetList";
 import useITAssetMutations from "../../../../hooks/useITAssetMutations";
@@ -59,7 +59,7 @@ function IT_Assets() {
   const { statuses, loading: statusesLoading } = useITAssetStatus();
   const { conditions, loading: conditionsLoading } = useITAssetCondition();
   const { operatingSystems, loading: osLoading } = useITAssetOS();
-  const { employees, loading: employeesLoading } = useEmployees();
+  const { employees, loading: employeesLoading } = useEmployeesPublic();
   const { departments, loading: departmentsLoading } = useDepartments();
   const { manufacturers, loading: manufacturersLoading } =
     useITAssetManufacturer();
@@ -184,25 +184,45 @@ function IT_Assets() {
   // ==============
   // SAVE + UPDATE
   // ==============
+  // async function handleSaveSidebar(data) {
+  //   try {
+  //     let savedRow;
+
+  //     if (data.id) {
+  //       // UPDATE
+  //       savedRow = await updateAsset(data);
+  //       setAssets((prev) =>
+  //         prev.map((a) => (a.id === savedRow.id ? savedRow : a)),
+  //       );
+  //     } else {
+  //       // CREATE
+  //       savedRow = await createAsset(data);
+  //       setAssets((prev) => [savedRow, ...prev]); // add to top
+  //     }
+
+  //     setSidebarOpen(false);
+  //     setSelectedAsset(null);
+  //   } catch (err) {
+  //     console.error(err);
+  //   }
+  // }
+
   async function handleSaveSidebar(data) {
     try {
-      let savedRow;
-
       if (data.id) {
         // UPDATE
-        const updatedRows = await updateAsset(data);
-        savedRow = updatedRows?.[0];
-        setAssets((prev) =>
-          prev.map((a) => (a.id === savedRow.id ? savedRow : a)),
-        );
+        await updateAsset(data);
       } else {
         // CREATE
-        savedRow = await createAsset(data);
-        setAssets((prev) => [savedRow, ...prev]); // add to top
+        await createAsset(data);
       }
 
+      await refetch();
       setSidebarOpen(false);
-    } catch (err) {}
+      setSelectedAsset(null);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   // ==============
@@ -211,9 +231,12 @@ function IT_Assets() {
   async function handleDeleteSidebar(asset) {
     try {
       await deleteAsset(asset.id);
-      setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+      await refetch();
       setSidebarOpen(false);
-    } catch (err) {}
+      setSelectedAsset(null);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   return (
@@ -352,18 +375,10 @@ function IT_Assets() {
                 <>
                   {paginatedData.length > 0 && (
                     <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutEnd cardLayoutNoPadding">
-                      {!paginatedData.length ? (
-                        <p className="textRegular textXXS">No results found</p>
-                      ) : error ? (
-                        <p className="textRegular textXXS">
-                          Error loading results
-                        </p>
-                      ) : (
-                        <p className="textRegular textXXS">
-                          <strong>Total Result: </strong>
-                          {paginatedData.length} / {filteredAssets.length}
-                        </p>
-                      )}
+                      <p className="textRegular textXXS">
+                        <strong>Total Result: </strong>
+                        {paginatedData.length} / {filteredAssets.length}
+                      </p>
 
                       <CardLayout style="cardLayoutFlex cardGapLarge cardLayoutNoPadding">
                         <p className="textRegular textXXS">
@@ -463,6 +478,9 @@ function IT_Assets() {
             columns={columns}
             onSave={handleSaveSidebar}
             onDelete={handleDeleteSidebar}
+            saving={saving}
+            deleting={deleting}
+            creating={!selectedAsset?.id}
           />
         )}
       </AnimatePresence>

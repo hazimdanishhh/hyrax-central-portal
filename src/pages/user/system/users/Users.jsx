@@ -9,7 +9,7 @@ import { useNavigate } from "react-router";
 import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import { UsersFourIcon } from "@phosphor-icons/react";
-import useEmployees from "../../../hooks/useEmployees";
+import useEmployeesPublic from "../../../hooks/useEmployeesPublic";
 
 export default function Users() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ export default function Users() {
   const { loading: profileLoading } = useUserProfile();
   const { employee } = useEmployee();
 
-  const { employees, loading: employeesLoading } = useEmployees();
+  const { employees, loading: employeesLoading } = useEmployeesPublic();
 
   if (profileLoading || employeesLoading) {
     return <LoadingIcon />;

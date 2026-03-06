@@ -1,0 +1,317 @@
+// employeesTableConfig.jsx
+
+// key = actual database field name
+// label = UI name
+// getValue = data name
+// editor = data type
+// options = for option input
+// editable = boolean
+
+export const employeesTableConfig = ({
+  employees,
+  profiles,
+  departments,
+  nationalities,
+  identificationTypes,
+  employmentTypes,
+  terminationReasons,
+  employmentStatuses,
+}) => [
+  {
+    key: "id",
+    label: "ID",
+    getValue: (employee) => employee.id,
+    editable: false,
+    editor: "text",
+  },
+  {
+    key: "profile_id",
+    label: "Profile",
+    getValue: (employee) => employee.profile?.id,
+    displayValue: (employee) => employee.profile?.full_name,
+    editable: true,
+    editor: "select",
+    options: profiles.map((p) => ({
+      label: p.email,
+      value: p.id,
+    })),
+  },
+  {
+    key: "marital_status",
+    label: "Marital Status",
+    getValue: (employee) => employee.marital_status,
+    editable: true,
+    editor: "select",
+    options: [
+      { label: "Single", value: "Single" },
+      {
+        label: "Married (Spouse Not Working)",
+        value: "Married (Spouse Not Working)",
+      },
+      {
+        label: "Married (Spouse Working)",
+        value: "Married (Spouse Working)",
+      },
+      {
+        label: "Divorced",
+        value: "Divorced",
+      },
+      {
+        label: "Widowed",
+        value: "Widowed",
+      },
+    ],
+  },
+  {
+    key: "employee_id",
+    label: "Employee ID",
+    getValue: (employee) => employee.employee_id,
+    editable: true,
+    editor: "text",
+  },
+  {
+    key: "full_name",
+    label: "Full Name",
+    getValue: (employee) => employee.full_name,
+    editable: true,
+    editor: "text",
+    required: true,
+  },
+  {
+    key: "preferred_name",
+    label: "Preferred Name",
+    getValue: (employee) => employee.preferred_name,
+    editable: true,
+    editor: "text",
+  },
+  {
+    key: "date_of_birth",
+    label: "Date of Birth",
+    getValue: (employee) => employee.date_of_birth,
+    editable: true,
+    editor: "date",
+  },
+  {
+    key: "gender",
+    label: "Gender",
+    getValue: (employee) => employee.gender,
+    editable: true,
+    editor: "select",
+    options: [
+      {
+        label: "Male",
+        value: "Male",
+      },
+      {
+        label: "Female",
+        value: "Female",
+      },
+      { label: "Not Specified", value: "Not Specified" },
+    ],
+  },
+
+  {
+    key: "nationality_id",
+    label: "Nationality",
+    getValue: (employee) => employee.nationality?.id,
+    displayValue: (employee) => employee.nationality?.name,
+    editable: true,
+    editor: "select",
+    options: nationalities.map((n) => ({
+      label: n.name,
+      value: n.id,
+    })),
+  },
+  {
+    key: "identification_type_id",
+    label: "Identification Type",
+    getValue: (employee) => employee.identification_type?.id,
+    displayValue: (employee) => employee.identification_type?.name,
+    editable: true,
+    editor: "select",
+    options: identificationTypes.map((i) => ({
+      label: i.name,
+      value: i.id,
+    })),
+  },
+  {
+    key: "identification_number",
+    label: "Identification Number",
+    getValue: (employee) => employee.identification_number,
+    editable: true,
+    editor: "text",
+  },
+  {
+    key: "email_personal",
+    label: "Email (Personal)",
+    getValue: (employee) => employee.email_personal,
+    editable: true,
+    editor: "text",
+  },
+  {
+    key: "email_work",
+    label: "Email (Work)",
+    getValue: (employee) => employee.email_work,
+    editable: true,
+    editor: "text",
+  },
+  {
+    key: "phone_personal",
+    label: "Phone (Personal)",
+    getValue: (employee) => employee.phone_personal,
+    editable: true,
+    editor: "number",
+  },
+  {
+    key: "phone_work",
+    label: "Phone (Work)",
+    getValue: (employee) => employee.phone_work,
+    editable: true,
+    editor: "number",
+  },
+  {
+    key: "emergency_contact_name",
+    label: "Emergency Contact Name",
+    getValue: (employee) => employee.emergency_contact_name,
+    editable: true,
+    editor: "text",
+  },
+  {
+    key: "emergency_contact_relationship",
+    label: "Emergency Contact Relationship",
+    getValue: (employee) => employee.emergency_contact_relationship,
+    editable: true,
+    editor: "select",
+    options: [
+      {
+        label: "Parent",
+        value: "Parent",
+      },
+      {
+        label: "Spouse",
+        value: "Spouse",
+      },
+      { label: "Sibling", value: "Sibling" },
+      { label: "Child", value: "Child" },
+      { label: "Friend", value: "Friend" },
+      { label: "Other", value: "Other" },
+    ],
+  },
+  {
+    key: "emergency_contact_phone",
+    label: "Emergency Contact Phone",
+    getValue: (employee) => employee.emergency_contact_phone,
+    editable: true,
+    editor: "number",
+  },
+  {
+    key: "department_id",
+    label: "Department",
+    getValue: (employee) => employee.department?.id,
+    displayValue: (employee) => employee.department?.name,
+    editable: true,
+    editor: "select",
+    options: departments.map((d) => ({
+      label: d.name,
+      value: d.id,
+    })),
+  },
+  {
+    key: "position",
+    label: "Position",
+    getValue: (employee) => employee.position,
+    editable: true,
+    editor: "text",
+  },
+  {
+    key: "manager_id",
+    label: "Manager",
+    getValue: (employee) => employee.manager?.id,
+    displayValue: (employee) => employee.manager?.full_name,
+    editable: true,
+    editor: "select",
+    options: employees.map((e) => ({
+      label: e.full_name,
+      value: e.id,
+    })),
+  },
+  {
+    key: "employment_status_id",
+    label: "Employment Status",
+    getValue: (employee) => employee.employment_status?.id,
+    displayValue: (employee) => employee.employment_status?.name,
+    editable: true,
+    editor: "select",
+    options: employmentStatuses.map((e) => ({
+      label: e.name,
+      value: e.id,
+    })),
+    required: true,
+  },
+  {
+    key: "employment_type_id",
+    label: "Employment Type",
+    getValue: (employee) => employee.employment_type?.id,
+    displayValue: (employee) => employee.employment_type?.name,
+    editable: true,
+    editor: "select",
+    options: employmentTypes.map((e) => ({
+      label: e.name,
+      value: e.id,
+    })),
+  },
+  {
+    key: "join_date",
+    label: "Join Date",
+    getValue: (employee) => employee.join_date,
+    editable: true,
+    editor: "date",
+  },
+  {
+    key: "confirmation_date",
+    label: "Confirmation Date",
+    getValue: (employee) => employee.confirmation_date,
+    editable: true,
+    editor: "date",
+  },
+  {
+    key: "end_date",
+    label: "End Date",
+    getValue: (employee) => employee.end_date,
+    editable: true,
+    editor: "date",
+  },
+  {
+    key: "resignation_date",
+    label: "Resignation Date",
+    getValue: (employee) => employee.resignation_date,
+    editable: true,
+    editor: "date",
+  },
+  {
+    key: "termination_reason_id",
+    label: "Termination Reason",
+    getValue: (employee) => employee.termination_reason?.id,
+    displayValue: (employee) => employee.termination_reason?.name,
+    editable: true,
+    editor: "select",
+    options: terminationReasons.map((t) => ({
+      label: t.name,
+      value: t.id,
+    })),
+  },
+  {
+    key: "address_work",
+    label: "Address (Work)",
+    getValue: (employee) => employee.address_work,
+    editable: true,
+    editor: "text",
+  },
+  {
+    key: "address_personal",
+    label: "Address (Personal)",
+    getValue: (employee) => employee.address_personal,
+    editable: true,
+    editor: "text",
+  },
+];
