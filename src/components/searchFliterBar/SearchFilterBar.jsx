@@ -1,3 +1,5 @@
+// components/searchFilterBar/SearchFilterBar.jsx
+
 import { useState } from "react";
 import "./SearchFilterBar.scss";
 import { FunnelIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
@@ -12,6 +14,8 @@ export default function SearchFilterBar({
   onFilterChange,
   filterConfig = [],
   placeholder = "Search...",
+  enableDateRange,
+  disableSearch,
 }) {
   const { darkMode } = useTheme();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -20,15 +24,17 @@ export default function SearchFilterBar({
     <>
       <div className="searchFilterBar">
         {/* SEARCH */}
-        <div className="searchInputWrapper">
-          <MagnifyingGlassIcon size={18} />
-          <input
-            type="text"
-            value={search}
-            placeholder={placeholder}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
-        </div>
+        {disableSearch ? null : (
+          <div className="searchInputWrapper">
+            <MagnifyingGlassIcon size={18} />
+            <input
+              type="text"
+              value={search}
+              placeholder={placeholder}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+          </div>
+        )}
 
         {/* FILTERS */}
         <div className="filterSection">
@@ -39,6 +45,35 @@ export default function SearchFilterBar({
             style="button buttonType3 textLight textXXS"
           />
         </div>
+
+        {/* DATE RANGE */}
+        {enableDateRange && (
+          <div className="dateRangeWrapper">
+            <input
+              type="date"
+              value={filters.startDate || ""}
+              onChange={(e) =>
+                onFilterChange((prev) => ({
+                  ...prev,
+                  startDate: e.target.value,
+                }))
+              }
+            />
+
+            <span className="textXXS">to</span>
+
+            <input
+              type="date"
+              value={filters.endDate || ""}
+              onChange={(e) =>
+                onFilterChange((prev) => ({
+                  ...prev,
+                  endDate: e.target.value,
+                }))
+              }
+            />
+          </div>
+        )}
       </div>
 
       <AnimatePresence mode="wait">

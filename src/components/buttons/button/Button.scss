@@ -11,6 +11,57 @@
     background-color: $primary;
     transition: background-color 0.1s;
   }
+
+  &.rejection {
+    background-color: rgba($error600, 0.8);
+
+    &:hover {
+      background-color: $error600;
+      transition: background-color 0.1s;
+    }
+  }
+
+  &.approval {
+    background-color: rgba($success600, 0.8);
+
+    &:hover {
+      background-color: $success600;
+      transition: background-color 0.1s;
+    }
+  }
+}
+
+.iconButton2 {
+  display: flex;
+  // align-self: end;
+  background: $neutral800;
+  color: $neutral100;
+  padding: 0.5em;
+  border-radius: 0.5rem;
+  position: relative;
+
+  &:hover {
+    background-color: $primary;
+    transition: background-color 0.1s;
+  }
+
+  &.rejection {
+    background-color: rgba($error600, 0.8);
+
+    &:hover {
+      background-color: $error600;
+      transition: background-color 0.1s;
+    }
+  }
+
+  &.approval {
+    background-color: rgba($success600, 0.8);
+
+    &:hover {
+      background-color: $success600;
+      transition: background-color 0.1s;
+    }
+  }
 }
 
 .buttonTooltip {
@@ -95,6 +146,41 @@
       background-color: $primary;
       color: $neutral100;
       border: 1px solid $primary;
+      transition: 0.3s;
+    }
+  }
+
+  // TYPE 4 - Orange Background Hover - Padding Suitable for Icon Size - Width 100%
+  &.buttonType4 {
+    background-color: $neutral900;
+    color: $neutral100;
+    border-radius: 10px;
+    border: 1px solid $neutral600;
+    padding: 0.5rem;
+    transition: 0.3s;
+    width: 100%;
+
+    &:hover {
+      background-color: $primary;
+      color: $neutral100;
+      border: 1px solid $primary;
+      transition: 0.3s;
+    }
+  }
+
+  // TYPE APPROVE - Green Background Hover - Padding Large - Width Fit Content
+  &.buttonTypeApprove {
+    background-color: rgb($success600, 0.1);
+    border-radius: 10px;
+    border: 1px solid $success600;
+    padding: 0.8rem 1.2rem;
+    transition: 0.3s;
+    color: $success600;
+
+    &:hover {
+      background-color: $success600;
+      color: $neutral100;
+      border: 1px solid $success600;
       transition: 0.3s;
     }
   }
@@ -202,6 +288,18 @@
       color: $neutral100;
       border: 1px solid $warning600;
       transition: 0.3s;
+    }
+  }
+
+  // TAB BUTTON
+  &.buttonTypeTab {
+    padding: 0.3rem 0.8rem;
+    border-radius: 30px;
+
+    &.active {
+      background-color: $neutral900;
+      color: $neutral100;
+      border: 1px solid $neutral700;
     }
   }
 

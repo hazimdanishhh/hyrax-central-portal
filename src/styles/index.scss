@@ -82,6 +82,16 @@ input[type="reset"] {
   cursor: pointer;
 }
 
+input[type="date"] {
+  background: $lightbg;
+  color: $dark;
+  border: 1px solid $neutral900;
+  border-radius: 30px;
+  padding: 1rem 2rem;
+  font: inherit;
+  cursor: pointer;
+}
+
 button {
   background: inherit;
   color: inherit;

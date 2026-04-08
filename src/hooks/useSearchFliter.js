@@ -21,12 +21,12 @@ export default function useSearchFilter({
       const matchesFilters = Object.entries(filters).every(([key, value]) => {
         if (!value) return true;
         const filterFn = filterMap[key];
-        return filterFn ? filterFn(item, value) : true;
+        return filterFn ? filterFn(item, value, filters) : true;
       });
 
       return matchesSearch && matchesFilters;
     });
-  }, [data, search, filters]);
+  }, [data, search, filters, filterMap]);
 
   return {
     search,

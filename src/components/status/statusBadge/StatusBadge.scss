@@ -28,6 +28,24 @@
     background-color: rgb($neutral600, 0.2);
   }
 
+  &.approved {
+    border: 1px solid $success600;
+    color: $success600;
+    background-color: rgb($success300, 0.2);
+  }
+
+  &.pending {
+    border: 1px solid $warning600;
+    color: $warning600;
+    background-color: rgb($warning600, 0.2);
+  }
+
+  &.rejected {
+    border: 1px solid $error600;
+    color: $error600;
+    background-color: rgb($error600, 0.2);
+  }
+
   .statusLight {
     width: 10px;
     height: 10px;
@@ -49,6 +67,21 @@
     &.retired {
       border: 1px solid $neutral600;
       background-color: $neutral600;
+    }
+
+    &.approved {
+      border: 1px solid $success600;
+      background-color: $success600;
+    }
+
+    &.pending {
+      border: 1px solid $warning600;
+      background-color: $warning600;
+    }
+
+    &.rejected {
+      border: 1px solid $error600;
+      background-color: $error600;
     }
   }
 

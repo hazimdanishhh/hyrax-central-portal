@@ -118,6 +118,14 @@
   padding: 0.8rem;
 }
 
+.cardLayoutFlexStart {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+  width: 100%;
+  padding: 0.8rem;
+}
+
 .cardLayoutFlexWrap {
   flex-wrap: wrap;
 }
@@ -141,4 +149,12 @@
 
 .cardLayoutEnd {
   justify-content: space-between;
+}
+
+.cardLayoutFlexRow {
+  flex-direction: row;
+}
+
+.cardPaddingSmall {
+  padding: 0.4rem;
 }

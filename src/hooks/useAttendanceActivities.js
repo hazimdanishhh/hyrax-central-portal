@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useMessage } from "../context/MessageContext";
 
 /**
- * Hook to fetch the attendance activity types
+ * Hook to fetch all attendance activities
  * This is HR / IT data
  */
 export default function useAttendanceActivities() {
@@ -14,7 +14,7 @@ export default function useAttendanceActivities() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchAttendanceTypes = async () => {
+    const fetchAttendanceActivities = async () => {
       setLoading(true);
       setError(null);
       showMessage("Loading Attendance", "loading");
@@ -61,7 +61,7 @@ export default function useAttendanceActivities() {
       }
     };
 
-    fetchAttendanceTypes();
+    fetchAttendanceActivities();
   }, []);
 
   return { attendanceActivities, setAttendanceActivities, loading, error };

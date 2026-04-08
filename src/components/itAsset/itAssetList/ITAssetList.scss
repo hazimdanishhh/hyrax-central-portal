@@ -75,37 +75,6 @@
       }
     }
 
-    .listEmployeePhoto {
-      width: 30px;
-      height: 30px;
-      background-color: $dark;
-      border-radius: 50%;
-      border: 2px solid $neutral600;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-
-      img {
-        width: 101%;
-        height: 101%;
-        object-fit: cover;
-        object-position: center;
-        display: block;
-      }
-
-      .listEmployeePhotoName {
-        position: absolute;
-        bottom: 40px;
-        // right: 0;
-        width: fit-content;
-        padding: 0.4rem;
-        border: 1px solid $neutral600;
-        border-radius: 8px;
-      }
-    }
-
     .listArrow {
       display: flex;
       justify-content: center;
@@ -115,5 +84,36 @@
 
   p {
     text-align: start;
+  }
+}
+
+.listEmployeePhoto {
+  width: 30px;
+  height: 30px;
+  background-color: $dark;
+  border-radius: 50%;
+  border: 2px solid $neutral600;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img {
+    width: 101%;
+    height: 101%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+
+  .listEmployeePhotoName {
+    position: absolute;
+    bottom: 40px;
+    // right: 0;
+    width: fit-content;
+    padding: 0.4rem;
+    border: 1px solid $neutral600;
+    border-radius: 8px;
   }
 }

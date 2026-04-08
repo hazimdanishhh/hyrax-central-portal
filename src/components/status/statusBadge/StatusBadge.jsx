@@ -19,6 +19,11 @@ export default function StatusBadge({ status }) {
     intern: "intern",
     onleave: "on leave",
     terminatednotice: "terminated notice",
+
+    // Attendance Approval Status
+    approved: "approved",
+    pending: "pending",
+    rejected: "rejected",
   };
 
   const normalizedStatus = status?.toLowerCase();

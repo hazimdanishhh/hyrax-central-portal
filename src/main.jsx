@@ -43,6 +43,7 @@ import IT_Assets from "./pages/user/it/it_assets/IT_Assets";
 import EmployeeProfile from "./pages/user/employees/employeeProfile/EmployeeProfile";
 import { MessageProvider } from "./context/MessageContext";
 import { AttendanceProvider } from "./context/AttendanceProvider";
+import Departments from "./pages/user/hr/departments/Departments";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -93,6 +94,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
                   {/* HR */}
                   <Route path="hr/employees" element={<Employees />} />
+                  <Route path="hr/departments" element={<Departments />} />
                   <Route path="hr/leaves" element={<LeaveManagement />} />
                   <Route path="hr/recruitment" element={<Recruitment />} />
                   <Route path="hr/performance" element={<Performance />} />

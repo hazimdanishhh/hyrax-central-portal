@@ -129,8 +129,17 @@ export default function Employees() {
   // =====================
   const totalEmployees = employees.length;
 
-  const activeEmployees = employees.filter(
-    (e) => e.employment_status?.name === "Active",
+  const activeStatuses = [
+    "Active",
+    "Intern",
+    "Probation",
+    "Contract",
+    "Freelance",
+    "Terminated Notice",
+  ];
+
+  const activeEmployees = employees.filter((e) =>
+    activeStatuses.includes(e.employment_status?.name),
   ).length;
 
   const inactiveStatuses = [
