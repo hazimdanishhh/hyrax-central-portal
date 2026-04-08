@@ -374,7 +374,7 @@ function IT_Assets() {
               ) : layout === 1 ? (
                 <>
                   {paginatedData.length > 0 && (
-                    <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutEnd cardLayoutNoPadding">
+                    <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutSpaceBetween cardLayoutNoPadding">
                       <p className="textRegular textXXS">
                         <strong>Total Result: </strong>
                         {paginatedData.length} / {filteredAssets.length}
@@ -411,7 +411,7 @@ function IT_Assets() {
               ) : (
                 <>
                   {paginatedData.length > 0 && (
-                    <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutEnd cardLayoutNoPadding">
+                    <CardLayout style=" cardLayoutFlexFull cardGapLarge cardLayoutSpaceBetween cardLayoutNoPadding">
                       {!paginatedData.length ? (
                         <p className="textRegular textXXS">No results found</p>
                       ) : error ? (

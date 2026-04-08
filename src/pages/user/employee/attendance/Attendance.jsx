@@ -43,6 +43,7 @@ import StatusBadge from "../../../../components/status/statusBadge/StatusBadge";
 import ActionModal from "../../../../components/modals/actionModal/ActionModal";
 import useSubordinatesAttendanceActivities from "../../../../hooks/useSubordinatesAttendanceActivities";
 import useSubordinates from "../../../../hooks/useSubordinates";
+import "./Attendance.scss";
 
 export default function Attendance() {
   const { darkMode } = useTheme();
@@ -414,7 +415,7 @@ export default function Attendance() {
                         {/* Activities for that date */}
                         {activities.map((attendanceActivity) => (
                           <CardLayout
-                            style="generalCard cardLayoutFlex cardLayoutFlexRow cardLayoutEnd cardPaddingSmall"
+                            style="generalCard cardLayoutFlex cardLayoutFlexRow cardLayoutSpaceBetween cardPaddingSmall"
                             key={attendanceActivity.id}
                           >
                             {tab === 2 && (
@@ -458,19 +459,16 @@ export default function Attendance() {
                               </>
                             )}
 
-                            <p className="textXXS">
-                              {attendanceActivity.clocked_in_date}
-                            </p>
                             <p className="textXXS textBold">
                               {attendanceActivity.attendance_type?.name}
                             </p>
-                            <CardLayout style="cardLayoutFlex cardLayoutNoPadding cardGapSmall">
+                            <CardLayout style="cardLayoutFlex cardLayoutNoPadding cardGapSmall clockInPill">
                               <SignInIcon />
                               <p className="textXXS">
                                 {attendanceActivity.clocked_in_time}
                               </p>
                             </CardLayout>
-                            <CardLayout style="cardLayoutFlex cardLayoutNoPadding cardGapSmall">
+                            <CardLayout style="cardLayoutFlex cardLayoutNoPadding cardGapSmall clockOutPill">
                               <SignOutIcon />
                               <p className="textXXS">
                                 {attendanceActivity.clocked_out_time}

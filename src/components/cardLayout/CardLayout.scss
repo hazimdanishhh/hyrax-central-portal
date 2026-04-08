@@ -147,7 +147,7 @@
   backdrop-filter: blur(5px);
 }
 
-.cardLayoutEnd {
+.cardLayoutSpaceBetween {
   justify-content: space-between;
 }
 
@@ -157,4 +157,12 @@
 
 .cardPaddingSmall {
   padding: 0.4rem;
+}
+
+.cardLayoutEnd {
+  justify-content: end;
+}
+
+.cardLayoutStart {
+  justify-content: start;
 }
