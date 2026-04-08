@@ -42,6 +42,7 @@ import useEmployeeAttendanceActivities from "../../../../hooks/useEmployeeAttend
 import StatusBadge from "../../../../components/status/statusBadge/StatusBadge";
 import ActionModal from "../../../../components/modals/actionModal/ActionModal";
 import useSubordinatesAttendanceActivities from "../../../../hooks/useSubordinatesAttendanceActivities";
+import useSubordinates from "../../../../hooks/useSubordinates";
 
 export default function Attendance() {
   const { darkMode } = useTheme();
@@ -74,6 +75,7 @@ export default function Attendance() {
   // ==============
   const { attendanceTypes, loading: attendanceTypesLoading } =
     useAttendanceTypes();
+  const { subordinates, loading: subordinatesLoading } = useSubordinates();
 
   // ==============
   // Table Config
@@ -83,7 +85,7 @@ export default function Attendance() {
   // ==============
   // Filter Config
   // ==============
-  const filterConfig = getAttendanceActivitiesFilterConfig();
+  const filterConfig = getAttendanceActivitiesFilterConfig({ subordinates });
 
   // ==============
   // Search + Filter logic for IT attendanceActivities
@@ -96,10 +98,12 @@ export default function Attendance() {
     data: filteredData,
   } = useSearchFilter({
     data: attendanceActivities, // `attendanceActivities` is your ITAssetTable data
-    searchFields: ["approval_status"], // searchable fields
+    searchFields: ["employee_full_name"], // searchable fields
     filterMap: {
       approval_status: (attendanceActivity, value) =>
         attendanceActivity.approval_status === value,
+      subordinates: (attendanceActivity, value) =>
+        attendanceActivity.employee?.full_name === value,
 
       startDate: (attendanceActivity, value, filters) => {
         if (!filters.endDate) return true;
@@ -141,6 +145,18 @@ export default function Attendance() {
   useEffect(() => {
     setCurrentPage(1);
   }, [filteredData]);
+
+  console.log(activeFilters);
+
+  // ==============
+  // GROUP BY DATE
+  // ==============
+  const groupedByDate = filteredData.reduce((acc, activity) => {
+    const date = activity.clocked_in_date || "Unknown Date";
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(activity);
+    return acc;
+  }, {});
 
   // ==============
   // SIDEBAR OPEN & CLOSE
@@ -275,9 +291,9 @@ export default function Attendance() {
                   filters={filters}
                   onFilterChange={setFilters}
                   filterConfig={filterConfig}
-                  placeholder="Search Attendance Activities..."
+                  placeholder="Search Employee..."
                   enableDateRange
-                  disableSearch
+                  disableSearch={tab === 1}
                 />
               </PageHeader>
 
@@ -389,101 +405,108 @@ export default function Attendance() {
                       />
                     </CardLayout>
                   </CardLayout>
-                  <div className="cardWrapperScroll generalCard">
-                    <CardLayout style="cardLayout1 cardPadding">
-                      {paginatedData.map((attendanceActivity, index) => (
-                        <CardLayout
-                          style="generalCard cardLayoutFlex cardLayoutFlexRow cardLayoutEnd cardPaddingSmall"
-                          key={attendanceActivity.id}
-                        >
-                          {tab === 2 && (
-                            <>
-                              <a
-                                className="listEmployeePhoto"
-                                href={`/app/employees/${attendanceActivity.employee?.id}`}
-                                onMouseEnter={() => setShowName(true)}
-                                onMouseLeave={() => setShowName(false)}
-                              >
-                                <img
-                                  src={
-                                    attendanceActivity.employee?.profile
-                                      ?.avatar_url
-                                      ? `${attendanceActivity.employee?.profile?.avatar_url}`
-                                      : "/profilePhoto/default.webp"
-                                  }
-                                  alt={attendanceActivity.employee?.full_name}
-                                />
-                                <AnimatePresence mode="wait">
-                                  {showName && (
-                                    <motion.div
-                                      className={
-                                        darkMode
-                                          ? "textRegular textXXXS listEmployeePhotoName sectionDark"
-                                          : "textRegular textXXXS listEmployeePhotoName sectionLight"
-                                      }
-                                      initial={{ opacity: 0 }}
-                                      animate={{ opacity: 1 }}
-                                      exit={{ opacity: 0 }}
-                                    >
-                                      {attendanceActivity.employee?.full_name}
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </a>
-                            </>
-                          )}
-                          <p className="textXXS">
-                            {attendanceActivity.employee?.preferred_name}
-                          </p>
-                          <p className="textXXS">
-                            {attendanceActivity.clocked_in_date}
-                          </p>
-                          <p className="textXXS">
-                            {attendanceActivity.attendance_type?.name}
-                          </p>
-                          <CardLayout style="cardLayoutFlex cardLayoutNoPadding cardGapSmall">
-                            <SignInIcon />
-                            <p className="textXXS">
-                              {attendanceActivity.clocked_in_time}
-                            </p>
-                          </CardLayout>
-                          <CardLayout style="cardLayoutFlex cardLayoutNoPadding cardGapSmall">
-                            <SignOutIcon />
-                            <p className="textXXS">
-                              {attendanceActivity.clocked_out_time}
-                            </p>
-                          </CardLayout>
-                          <StatusBadge
-                            status={attendanceActivity.approval_status}
-                          />
-                          {attendanceActivity.approval_status === "Pending" &&
-                            tab === 2 &&
-                            attendanceActivity.clocked_out_time && (
-                              <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
-                                <Button
-                                  onClick={() => {
-                                    setSelectedId(attendanceActivity.id);
-                                    setModalType("approve");
-                                    setModalOpen(true);
-                                  }}
-                                  icon={CheckIcon}
-                                  style="iconButton2 approval"
-                                />
+                  <div className="cardWrapperScroll generalCard cardPaddingSmall">
+                    {Object.entries(groupedByDate).map(([date, activities]) => (
+                      <CardLayout key={date} style="cardLayout1 generalCard">
+                        {/* Date Header */}
+                        <h4 className="textXS cardDateHeader">{date}</h4>
 
-                                <Button
-                                  onClick={() => {
-                                    setSelectedId(attendanceActivity.id);
-                                    setModalType("reject");
-                                    setModalOpen(true);
-                                  }}
-                                  icon={XIcon}
-                                  style="iconButton2 rejection"
-                                />
-                              </CardLayout>
+                        {/* Activities for that date */}
+                        {activities.map((attendanceActivity) => (
+                          <CardLayout
+                            style="generalCard cardLayoutFlex cardLayoutFlexRow cardLayoutEnd cardPaddingSmall"
+                            key={attendanceActivity.id}
+                          >
+                            {tab === 2 && (
+                              <>
+                                <a
+                                  className="listEmployeePhoto"
+                                  href={`/app/employees/${attendanceActivity.employee?.id}`}
+                                  onMouseEnter={() => setShowName(true)}
+                                  onMouseLeave={() => setShowName(false)}
+                                >
+                                  <img
+                                    src={
+                                      attendanceActivity.employee?.profile
+                                        ?.avatar_url
+                                        ? attendanceActivity.employee?.profile
+                                            .avatar_url
+                                        : "/profilePhoto/default.webp"
+                                    }
+                                    alt={attendanceActivity.employee?.full_name}
+                                  />
+                                  <AnimatePresence mode="wait">
+                                    {showName && (
+                                      <motion.div
+                                        className={
+                                          darkMode
+                                            ? "textRegular textXXXS listEmployeePhotoName sectionDark"
+                                            : "textRegular textXXXS listEmployeePhotoName sectionLight"
+                                        }
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                      >
+                                        {attendanceActivity.employee?.full_name}
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </a>
+                                <p className="textXXS">
+                                  {attendanceActivity.employee?.preferred_name}
+                                </p>
+                              </>
                             )}
-                        </CardLayout>
-                      ))}
-                    </CardLayout>
+
+                            <p className="textXXS">
+                              {attendanceActivity.clocked_in_date}
+                            </p>
+                            <p className="textXXS textBold">
+                              {attendanceActivity.attendance_type?.name}
+                            </p>
+                            <CardLayout style="cardLayoutFlex cardLayoutNoPadding cardGapSmall">
+                              <SignInIcon />
+                              <p className="textXXS">
+                                {attendanceActivity.clocked_in_time}
+                              </p>
+                            </CardLayout>
+                            <CardLayout style="cardLayoutFlex cardLayoutNoPadding cardGapSmall">
+                              <SignOutIcon />
+                              <p className="textXXS">
+                                {attendanceActivity.clocked_out_time}
+                              </p>
+                            </CardLayout>
+                            <StatusBadge
+                              status={attendanceActivity.approval_status}
+                            />
+                            {attendanceActivity.approval_status === "Pending" &&
+                              tab === 2 &&
+                              attendanceActivity.clocked_out_time && (
+                                <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+                                  <Button
+                                    onClick={() => {
+                                      setSelectedId(attendanceActivity.id);
+                                      setModalType("approve");
+                                      setModalOpen(true);
+                                    }}
+                                    icon={CheckIcon}
+                                    style="iconButton2 approval"
+                                  />
+                                  <Button
+                                    onClick={() => {
+                                      setSelectedId(attendanceActivity.id);
+                                      setModalType("reject");
+                                      setModalOpen(true);
+                                    }}
+                                    icon={XIcon}
+                                    style="iconButton2 rejection"
+                                  />
+                                </CardLayout>
+                              )}
+                          </CardLayout>
+                        ))}
+                      </CardLayout>
+                    ))}
                   </div>
                 </>
               )}

@@ -58,6 +58,7 @@ export default function useSubordinatesAttendanceActivities() {
           `,
         )
         .in("employee_id", subordinateIds)
+        .order("approval_status", { ascending: true, foreignTable: null }) // optional, we’ll override with case
         .order("clocked_in_at", { ascending: false });
 
       if (error) throw error;
@@ -112,6 +113,7 @@ export default function useSubordinatesAttendanceActivities() {
               timeStyle: "short",
             })
           : null,
+        employee_full_name: activity.employee?.full_name || "",
       }));
 
       console.log(normalizedData);

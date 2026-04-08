@@ -45,36 +45,36 @@ export default function SearchFilterBar({
             style="button buttonType3 textLight textXXS"
           />
         </div>
-
-        {/* DATE RANGE */}
-        {enableDateRange && (
-          <div className="dateRangeWrapper">
-            <input
-              type="date"
-              value={filters.startDate || ""}
-              onChange={(e) =>
-                onFilterChange((prev) => ({
-                  ...prev,
-                  startDate: e.target.value,
-                }))
-              }
-            />
-
-            <span className="textXXS">to</span>
-
-            <input
-              type="date"
-              value={filters.endDate || ""}
-              onChange={(e) =>
-                onFilterChange((prev) => ({
-                  ...prev,
-                  endDate: e.target.value,
-                }))
-              }
-            />
-          </div>
-        )}
       </div>
+
+      {/* DATE RANGE */}
+      {enableDateRange && (
+        <div className="dateRangeWrapper">
+          <input
+            type="date"
+            value={filters.startDate || ""}
+            onChange={(e) =>
+              onFilterChange((prev) => ({
+                ...prev,
+                startDate: e.target.value,
+              }))
+            }
+          />
+
+          <span className="textXXS">to</span>
+
+          <input
+            type="date"
+            value={filters.endDate || ""}
+            onChange={(e) =>
+              onFilterChange((prev) => ({
+                ...prev,
+                endDate: e.target.value,
+              }))
+            }
+          />
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {filterOpen && (
