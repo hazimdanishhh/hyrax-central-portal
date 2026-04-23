@@ -29,8 +29,9 @@ export default function TextEditor({ value, onChange, onBlur, required }) {
         <Button
           onClick={handleCopy}
           icon={CopyIcon}
-          style="button iconButton2"
+          style="iconButton2"
           size={16}
+          type="button"
         />
       )}
     </div>

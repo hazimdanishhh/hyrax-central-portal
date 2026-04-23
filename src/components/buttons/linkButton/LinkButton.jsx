@@ -12,7 +12,7 @@ export default function LinkButton({ href, name, icon, onClick, style, size }) {
       rel="noopener noreferrer"
     >
       {name}
-      {icon && <Icon size={name ? "20" : size ? size : "24"} />}
+      {icon && <Icon size={size ?? (name ? "20" : "24")} />}
     </a>
   );
 }

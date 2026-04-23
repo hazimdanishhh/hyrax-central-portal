@@ -22,8 +22,6 @@ export default function useEmployeeMutations() {
       setError(null);
       showMessage("Updating employee", "loading");
 
-      console.log("Updated Data ID:", updatedData);
-
       const { id, ...rawFields } = updatedData;
 
       // Clean and normalize data before sending to Supabase
@@ -46,8 +44,6 @@ export default function useEmployeeMutations() {
           }),
       );
 
-      console.log("Cleaned Data:", updateFields);
-
       // Update +
       const { data, error } = await supabase
         .from("employees")
@@ -55,52 +51,19 @@ export default function useEmployeeMutations() {
         .eq("id", id)
         .select(
           `
-            *,
-            profile:profile_id (*),
-            identification_type:identification_type_id (
-                id,
-                name
-            ),
-            nationality:nationality_id (
-                id,
-                name
-            ),
-            department:departments (
-            id,
-            name,
-            sub
-            ),
-            manager:manager_id (
-                id,
-                employee_id,
-                full_name,
-                preferred_name,
-                email_work,
-                phone_work,
-                position,
-                department:departments (
-                id,
-                name,
-                sub
-                )
-            ),
-            employment_status:employment_status_id (
-                id,
-                name
-            ),
-            employment_type:employment_type_id (
-                id,
-                name
-            ),
-            termination_reason:termination_reason_id (
-                id,
-                name
-            )
-        `,
+          *,
+          profile:profile_id (*),
+          identification_type:identification_type_id (id,name),
+          nationality:nationality_id (id,name),
+          department:departments (id,name,sub),
+          manager:manager_id (id,employee_id,full_name,preferred_name,email_work,phone_work,position,
+            department:departments (id,name,sub)),
+          employment_status:employment_status_id (id,name),
+          employment_type:employment_type_id (id,name),
+          termination_reason:termination_reason_id (id,name)
+          `,
         )
         .maybeSingle();
-
-      console.log("Supabase response:", { data, error });
 
       if (error) throw error;
       showMessage("Employee updated", "success");
@@ -150,48 +113,17 @@ export default function useEmployeeMutations() {
         .insert(insertFields)
         .select(
           `
-        *,
-            profile:profile_id (*),
-            identification_type:identification_type_id (
-              id,
-              name
-            ),
-            nationality:nationality_id (
-              id,
-              name
-            ),
-            department:departments (
-            id,
-            name,
-            sub
-            ),
-            manager:manager_id (
-              id,
-              employee_id,
-              full_name,
-              preferred_name,
-              email_work,
-              phone_work,
-              position,
-              department:departments (
-                id,
-                name,
-                sub
-              )
-            ),
-            employment_status:employment_status_id (
-              id,
-              name
-            ),
-            employment_type:employment_type_id (
-              id,
-              name
-            ),
-            termination_reason:termination_reason_id (
-              id,
-              name
-            )
-      `,
+          *,
+          profile:profile_id (*),
+          identification_type:identification_type_id (id,name),
+          nationality:nationality_id (id,name),
+          department:departments (id,name,sub),
+          manager:manager_id (id,employee_id,full_name,preferred_name,email_work,phone_work,position,
+            department:departments (id,name,sub)),
+          employment_status:employment_status_id (id,name),
+          employment_type:employment_type_id (id,name),
+          termination_reason:termination_reason_id (id,name)
+          `,
         )
         .maybeSingle();
 

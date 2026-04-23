@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+// /components/dataSidebar/DataSidebar.jsx
+import { useState, useEffect, useRef } from "react";
 import { editors } from "../dataTable/editors/Editors";
 import "./DataSidebar.scss";
 import Button from "../buttons/button/Button";
@@ -7,6 +8,7 @@ import { CheckIcon, TrashSimpleIcon, XIcon } from "@phosphor-icons/react";
 import CardLayout from "../cardLayout/CardLayout";
 import SectionHeader from "../sectionHeader/SectionHeader";
 import { motion } from "framer-motion";
+import { useMessage } from "../../context/MessageContext";
 
 export default function DataSidebar({
   title,
@@ -23,38 +25,76 @@ export default function DataSidebar({
   deleting,
 }) {
   const { darkMode } = useTheme();
-
+  const { showMessage } = useMessage();
   const [localData, setLocalData] = useState({});
+  const prevIdRef = useRef(null);
 
-  // Sync rowData when opening
+  // ==============
+  // SYNC ROW DATA WHEN OPENING
+  // ==============
+  // useEffect(() => {
+  //   if (open) {
+  //     const initial = {};
+  //     columns.forEach((col) => {
+  //       const rawValue =
+  //         typeof col.getValue === "function"
+  //           ? col.getValue(rowData)
+  //           : typeof col.getValue === "string"
+  //             ? rowData[col.getValue]
+  //             : typeof col.accessor === "function"
+  //               ? col.accessor(rowData)
+  //               : typeof col.accessor === "string"
+  //                 ? rowData[col.accessor]
+  //                 : "";
+  //       initial[col.key] = rawValue ?? "";
+  //     });
+  //     setLocalData(initial);
+  //   }
+  // }, [open, rowData, columns]);
+
   useEffect(() => {
-    if (open) {
-      const initial = {};
-      columns.forEach((col) => {
-        const rawValue =
-          typeof col.getValue === "function"
-            ? col.getValue(rowData)
-            : typeof col.getValue === "string"
-              ? rowData[col.getValue]
-              : typeof col.accessor === "function"
-                ? col.accessor(rowData)
-                : typeof col.accessor === "string"
-                  ? rowData[col.accessor]
-                  : "";
-        initial[col.key] = rawValue ?? "";
-      });
-      setLocalData(initial);
-    }
-  }, [open, rowData, columns]);
+    if (!open) return;
 
+    const currentId = rowData?.id ?? "new";
+
+    // only reinitialize when opening or switching record
+    if (prevIdRef.current === currentId) return;
+
+    prevIdRef.current = currentId;
+
+    const initial = {};
+    columns.forEach((col) => {
+      const rawValue =
+        typeof col.getValue === "function"
+          ? col.getValue(rowData)
+          : typeof col.getValue === "string"
+            ? rowData?.[col.getValue]
+            : typeof col.accessor === "function"
+              ? col.accessor(rowData)
+              : typeof col.accessor === "string"
+                ? rowData?.[col.accessor]
+                : "";
+
+      initial[col.key] = rawValue ?? "";
+    });
+
+    setLocalData(initial);
+  }, [open, rowData?.id]);
+
+  // ==============
+  // HANDLE CHANGE
+  // ==============
   function handleChange(key, value) {
     setLocalData((prev) => ({ ...prev, [key]: value }));
   }
 
+  // ==============
+  // HANDLE SAVE
+  // ==============
   function handleSave() {
     for (const col of columns) {
       if (col.required && !localData[col.key]) {
-        alert(`${col.label} is required`);
+        showMessage(`${col.label} is required`, "warning");
         return;
       }
     }
@@ -63,11 +103,11 @@ export default function DataSidebar({
     // onClose?.();
   }
 
+  // ==============
+  // HANDLE DELETE
+  // ==============
   function handleDelete() {
-    if (confirm("Are you sure you want to delete this item?")) {
-      onDelete?.(rowData);
-      onClose?.();
-    }
+    onDelete?.(rowData);
   }
 
   return (
@@ -140,6 +180,7 @@ export default function DataSidebar({
                   style="button buttonTypeDelete textXS"
                   onClick={handleDelete}
                   disabled={deleting}
+                  type="button"
                 />
               )}
               <Button

@@ -26,6 +26,8 @@ import {
   UsersFourIcon,
   ComputerTowerIcon,
   BookBookmarkIcon,
+  AppWindowIcon,
+  MonitorIcon,
 } from "@phosphor-icons/react";
 
 // =============================
@@ -165,7 +167,10 @@ const employeeSegment = {
 const itSegment = {
   segmentTitle: "IT",
   segmentCode: "IT",
-  links: [{ label: "IT Assets", icon: ComputerTowerIcon, path: "it/assets" }],
+  links: [
+    { label: "IT Assets", icon: MonitorIcon, path: "it/assets" },
+    { label: "Software", icon: AppWindowIcon, path: "it/software" },
+  ],
 };
 
 // SUPPORT

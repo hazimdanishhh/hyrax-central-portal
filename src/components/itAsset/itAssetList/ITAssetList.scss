@@ -42,6 +42,12 @@
     align-items: start;
     flex: 1;
 
+    // Truncation
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
     &.listSegmentMobile {
       @media screen and (max-width: 1024px) {
         display: none;

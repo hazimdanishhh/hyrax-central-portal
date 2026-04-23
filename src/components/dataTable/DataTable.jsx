@@ -73,53 +73,51 @@ export default function DataTable({
   }
 
   return (
-    <div className="dataTableWrapper">
-      <table className="dataTable">
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col.key}>{col.label}</th>
-            ))}
-          </tr>
-        </thead>
+    <table className="dataTable">
+      <thead>
+        <tr>
+          {columns.map((col) => (
+            <th key={col.key}>{col.label}</th>
+          ))}
+        </tr>
+      </thead>
 
-        <tbody>
-          {data.map((row) => {
-            const rowId = row[rowKey];
+      <tbody>
+        {data.map((row) => {
+          const rowId = row[rowKey];
 
-            return (
-              <tr
-                key={rowId}
-                onClick={() => onRowClick?.(row)}
-                className={onRowClick ? "clickableRow" : ""}
-              >
-                {columns.map((col) => {
-                  const rawValue = getRawValue(row, col);
-                  const displayValue = getDisplayValue(row, col, rawValue);
+          return (
+            <tr
+              key={rowId}
+              onClick={() => onRowClick?.(row)}
+              className={onRowClick ? "clickableRow" : ""}
+            >
+              {columns.map((col) => {
+                const rawValue = getRawValue(row, col);
+                const displayValue = getDisplayValue(row, col, rawValue);
 
-                  const isEditing =
-                    editingCell?.rowId === rowId &&
-                    editingCell?.columnKey === col.key;
+                const isEditing =
+                  editingCell?.rowId === rowId &&
+                  editingCell?.columnKey === col.key;
 
-                  return (
-                    <DataTableCell
-                      key={col.key}
-                      row={row}
-                      rowId={rowId}
-                      column={col}
-                      isEditing={isEditing}
-                      rawValue={rawValue}
-                      displayValue={displayValue}
-                      startEdit={startEdit}
-                      onSave={() => saveEdit(row, col)}
-                    />
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                return (
+                  <DataTableCell
+                    key={col.key}
+                    row={row}
+                    rowId={rowId}
+                    column={col}
+                    isEditing={isEditing}
+                    rawValue={rawValue}
+                    displayValue={displayValue}
+                    startEdit={startEdit}
+                    onSave={() => saveEdit(row, col)}
+                  />
+                );
+              })}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }

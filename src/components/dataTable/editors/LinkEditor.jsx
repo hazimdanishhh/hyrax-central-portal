@@ -32,14 +32,15 @@ export default function LinkEditor({ value, onChange, onBlur, required }) {
           <LinkButton
             href={value}
             icon={ArrowLineUpRightIcon}
-            style="button iconButton2"
+            style="iconButton2"
             size={16}
           />
           <Button
             onClick={handleCopy}
             icon={CopyIcon}
-            style="button iconButton2"
+            style="iconButton2"
             size={16}
+            type="button"
           />
         </>
       )}

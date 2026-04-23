@@ -1,8 +1,8 @@
 // components/searchFilterBar/SearchFilterBar.jsx
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./SearchFilterBar.scss";
-import { FunnelIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { FunnelIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import Button from "../buttons/button/Button";
 import { useTheme } from "../../context/ThemeContext";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,6 +19,11 @@ export default function SearchFilterBar({
 }) {
   const { darkMode } = useTheme();
   const [filterOpen, setFilterOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState(search || "");
+
+  useEffect(() => {
+    setSearchInput(search || "");
+  }, [search]);
 
   return (
     <>
@@ -26,12 +31,33 @@ export default function SearchFilterBar({
         {/* SEARCH */}
         {disableSearch ? null : (
           <div className="searchInputWrapper">
-            <MagnifyingGlassIcon size={18} />
             <input
               type="text"
-              value={search}
+              value={searchInput}
               placeholder={placeholder}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onSearchChange(e.target.value); // trigger actual search on Enter
+                }
+              }}
+            />
+            {searchInput.length !== 0 && (
+              <Button
+                onClick={() => {
+                  setSearchInput("");
+                  onSearchChange("");
+                }}
+                icon={XIcon}
+                size={18}
+                style="iconButton2"
+              />
+            )}
+            <Button
+              onClick={() => onSearchChange(searchInput)}
+              icon={MagnifyingGlassIcon}
+              size={18}
+              style="iconButton2"
             />
           </div>
         )}
@@ -42,7 +68,7 @@ export default function SearchFilterBar({
             onClick={() => setFilterOpen(!filterOpen)}
             name="Filter"
             icon2={FunnelIcon}
-            style="button buttonType3 textLight textXXS"
+            style="button buttonType5 textLight textXXS"
           />
         </div>
       </div>
@@ -54,10 +80,10 @@ export default function SearchFilterBar({
             type="date"
             value={filters.startDate || ""}
             onChange={(e) =>
-              onFilterChange((prev) => ({
-                ...prev,
+              onFilterChange({
+                ...filters,
                 startDate: e.target.value,
-              }))
+              })
             }
           />
 
@@ -67,10 +93,10 @@ export default function SearchFilterBar({
             type="date"
             value={filters.endDate || ""}
             onChange={(e) =>
-              onFilterChange((prev) => ({
-                ...prev,
+              onFilterChange({
+                ...filters,
                 endDate: e.target.value,
-              }))
+              })
             }
           />
         </div>
@@ -90,16 +116,16 @@ export default function SearchFilterBar({
                 key={filter.key}
                 value={filters[filter.key] || ""}
                 onChange={(e) =>
-                  onFilterChange((prev) => ({
-                    ...prev,
-                    [filter.key]: e.target.value,
-                  }))
+                  onFilterChange({
+                    ...filters,
+                    [filter.key]: e.target.value === "" ? "" : e.target.value,
+                  })
                 }
               >
                 <option value="">{filter.label}</option>
                 {filter.options.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
                   </option>
                 ))}
               </select>

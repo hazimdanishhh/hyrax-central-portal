@@ -1,11 +1,12 @@
 .iconButton {
   display: flex;
   // align-self: end;
-  background: $neutral800;
+  background-color: $neutral800;
   color: $neutral100;
   padding: 0.5em;
   border-radius: 50%;
   position: relative;
+  border: 1px solid $neutral300;
 
   &:hover {
     background-color: $primary;
@@ -34,11 +35,23 @@
 .iconButton2 {
   display: flex;
   // align-self: end;
-  background: $neutral800;
+  background-color: $neutral800;
   color: $neutral100;
   padding: 0.5em;
   border-radius: 0.5rem;
   position: relative;
+  border: 1px solid $neutral300;
+
+  &:disabled {
+    color: $neutral600;
+    background-color: $neutral400;
+
+    &:hover {
+      border: 1px solid $neutral600;
+      background-color: $neutral400;
+      cursor: not-allowed;
+    }
+  }
 
   &:hover {
     background-color: $primary;
@@ -150,7 +163,7 @@
     }
   }
 
-  // TYPE 4 - Orange Background Hover - Padding Suitable for Icon Size - Width 100%
+  // TYPE 4 - Black Background Orange Hover - Padding Suitable for Icon Size - Width 100%
   &.buttonType4 {
     background-color: $neutral900;
     color: $neutral100;
@@ -159,6 +172,24 @@
     padding: 0.5rem;
     transition: 0.3s;
     width: 100%;
+
+    &:hover {
+      background-color: $primary;
+      color: $neutral100;
+      border: 1px solid $primary;
+      transition: 0.3s;
+    }
+  }
+
+  // TYPE 5 - Black Background Orange Hover - Padding Suitable for Icon Size - Width Fit Content
+  &.buttonType5 {
+    background-color: $neutral900;
+    color: $neutral100;
+    border-radius: 10px;
+    border: 1px solid $neutral600;
+    padding: 0.5rem;
+    transition: 0.3s;
+    width: fit-content;
 
     &:hover {
       background-color: $primary;

@@ -1,22 +1,14 @@
-// pages/user/it/it_assets/IT_Assets.jsx
+// pages/employee/attendance/Attendance.jsx
 import {
   CaretLeftIcon,
   CaretRightIcon,
   CheckIcon,
   ClipboardTextIcon,
-  DesktopIcon,
-  FloppyDiskIcon,
-  LaptopIcon,
-  MonitorIcon,
   PencilSimpleLineIcon,
-  PercentIcon,
-  PlusCircleIcon,
   SignInIcon,
   SignOutIcon,
-  SpinnerIcon,
   SquaresFourIcon,
   TableIcon,
-  UsersThreeIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -45,6 +37,10 @@ import useSubordinatesAttendanceActivities from "../../../../hooks/useSubordinat
 import useSubordinates from "../../../../hooks/useSubordinates";
 import "./Attendance.scss";
 
+/**
+ * Current Employee Attendance Page + Team Attendance Management Page
+ * This is private employee attendance data
+ */
 export default function Attendance() {
   const { darkMode } = useTheme();
 
@@ -350,14 +346,14 @@ export default function Attendance() {
 
                       <Button
                         icon={CaretLeftIcon}
-                        style="button iconButton2 textXXS"
+                        style="iconButton2 textXXS"
                         disabled={currentPage === 1}
                         onClick={() => setCurrentPage((p) => p - 1)}
                       />
 
                       <Button
                         icon={CaretRightIcon}
-                        style="button iconButton2 textXXS"
+                        style="iconButton2 textXXS"
                         disabled={currentPage === totalPages}
                         onClick={() => setCurrentPage((p) => p + 1)}
                       />
@@ -393,20 +389,20 @@ export default function Attendance() {
 
                       <Button
                         icon={CaretLeftIcon}
-                        style="button iconButton2 textXXS"
+                        style="iconButton2 textXXS"
                         disabled={currentPage === 1}
                         onClick={() => setCurrentPage((p) => p - 1)}
                       />
 
                       <Button
                         icon={CaretRightIcon}
-                        style="button iconButton2 textXXS"
+                        style="iconButton2 textXXS"
                         disabled={currentPage === totalPages}
                         onClick={() => setCurrentPage((p) => p + 1)}
                       />
                     </CardLayout>
                   </CardLayout>
-                  <div className="cardWrapperScroll generalCard cardPaddingSmall">
+                  <CardLayout style="cardWrapperScroll generalCard cardPaddingSmall">
                     {Object.entries(groupedByDate).map(([date, activities]) => (
                       <CardLayout key={date} style="cardLayout1 generalCard">
                         {/* Date Header */}
@@ -505,7 +501,7 @@ export default function Attendance() {
                         ))}
                       </CardLayout>
                     ))}
-                  </div>
+                  </CardLayout>
                 </>
               )}
             </CardWrapper>

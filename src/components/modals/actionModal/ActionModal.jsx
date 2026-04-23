@@ -32,6 +32,7 @@ export default function ActionModal({
     <AnimatePresence>
       <motion.div
         className="modalOverlay"
+        onClick={onClose}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -66,7 +67,7 @@ export default function ActionModal({
             <Button
               name={confirmText}
               style={
-                modalType === "approve"
+                modalType === "approve" || modalType === "save"
                   ? "button buttonTypeApprove textXXS"
                   : "button buttonTypeDelete textXXS"
               }

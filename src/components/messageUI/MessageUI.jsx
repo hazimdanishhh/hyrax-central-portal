@@ -5,6 +5,7 @@ import {
   CheckIcon,
   CircleNotchIcon,
   InfoIcon,
+  WarningDiamondIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { useEffect } from "react";
@@ -65,6 +66,7 @@ export default function MessageUI({ timeout = 3000 }) {
           {type === "error" && <XIcon />}
           {type === "success" && <CheckIcon />}
           {type === "info" && <InfoIcon />}
+          {type === "warning" && <WarningDiamondIcon />}
           {text}
         </motion.div>
       )}

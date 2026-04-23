@@ -72,54 +72,62 @@ export default function Department() {
               </CardLayout>
 
               {/* MY DEPARTMENT SECTION */}
-              <Breadcrumbs icon={UsersThreeIcon} current="My Department" />
-              <CardLayout style="cardLayout2">
-                {employees.map((emp) => {
-                  const isMyManager = emp.id === employee?.manager_id;
+              {employee?.department_id && (
+                <>
+                  <Breadcrumbs icon={UsersThreeIcon} current="My Department" />
+                  <CardLayout style="cardLayout2">
+                    {employees.map((emp) => {
+                      const isMyManager = emp.id === employee?.manager_id;
 
-                  return (
-                    <EmployeeCard
-                      key={emp.id}
-                      className="employeeCard"
-                      onClick={() => navigate(`/app/employees/${emp.id}`)}
-                      src={emp.avatar_url}
-                      full_name={emp.full_name}
-                      position={emp.position}
-                      employee_id={emp.employee_id}
-                      department_name={emp.department_name}
-                      email_work={emp.email_work}
-                      phone_work={emp.phone_work}
-                      isMyManager={isMyManager}
-                      employment_status_name={emp.employment_status_name}
-                    />
-                  );
-                })}
-              </CardLayout>
+                      return (
+                        <EmployeeCard
+                          key={emp.id}
+                          className="employeeCard"
+                          onClick={() => navigate(`/app/employees/${emp.id}`)}
+                          src={emp.avatar_url}
+                          full_name={emp.full_name}
+                          position={emp.position}
+                          employee_id={emp.employee_id}
+                          department_name={emp.department_name}
+                          email_work={emp.email_work}
+                          phone_work={emp.phone_work}
+                          isMyManager={isMyManager}
+                          employment_status_name={emp.employment_status_name}
+                        />
+                      );
+                    })}
+                  </CardLayout>
+                </>
+              )}
 
               {/* MY SUBORDINATES SECTION */}
-              <Breadcrumbs icon={UsersThreeIcon} current="My Staff" />
-              <CardLayout style="cardLayout2">
-                {subordinates.map((emp) => {
-                  const isMyManager = emp.id === employee?.manager_id;
+              {subordinates && (
+                <>
+                  <Breadcrumbs icon={UsersThreeIcon} current="My Staff" />
+                  <CardLayout style="cardLayout2">
+                    {subordinates.map((emp) => {
+                      const isMyManager = emp.id === employee?.manager_id;
 
-                  return (
-                    <EmployeeCard
-                      key={emp.id}
-                      className="employeeCard"
-                      onClick={() => navigate(`/app/employees/${emp.id}`)}
-                      src={emp.avatar_url}
-                      full_name={emp.full_name}
-                      position={emp.position}
-                      employee_id={emp.employee_id}
-                      department_name={emp.department_name}
-                      email_work={emp.email_work}
-                      phone_work={emp.phone_work}
-                      isMyManager={isMyManager}
-                      employment_status_name={emp.employment_status_name}
-                    />
-                  );
-                })}
-              </CardLayout>
+                      return (
+                        <EmployeeCard
+                          key={emp.id}
+                          className="employeeCard"
+                          onClick={() => navigate(`/app/employees/${emp.id}`)}
+                          src={emp.avatar_url}
+                          full_name={emp.full_name}
+                          position={emp.position}
+                          employee_id={emp.employee_id}
+                          department_name={emp.department_name}
+                          email_work={emp.email_work}
+                          phone_work={emp.phone_work}
+                          isMyManager={isMyManager}
+                          employment_status_name={emp.employment_status_name}
+                        />
+                      );
+                    })}
+                  </CardLayout>
+                </>
+              )}
             </CardWrapper>
           </div>
         </div>

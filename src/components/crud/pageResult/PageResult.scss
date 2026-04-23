@@ -1,0 +1,39 @@
+.pageResultContainer {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+
+  @media screen and (max-width: 425px) {
+    justify-content: center;
+
+    p {
+      width: 100%;
+      text-align: start;
+    }
+  }
+}
+
+.pageNumberContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.8rem;
+
+  @media screen and (max-width: 425px) {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .pageInputContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+
+    .pageInput {
+      width: 50px;
+    }
+  }
+}

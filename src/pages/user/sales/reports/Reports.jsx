@@ -32,11 +32,13 @@ function Reports() {
       )}
 
       <iframe
-        src="https://lookerstudio.google.com/embed/reporting/f5f4024e-508c-4791-b488-7204073b7f37/page/wpajF"
+        // src="https://lookerstudio.google.com/embed/reporting/f5f4024e-508c-4791-b488-7204073b7f37/page/wpajF" // Old Looker Studio
+        src="https://datastudio.google.com/embed/reporting/2ec1f106-fc4c-46b9-a0b3-76afd7ec768a/page/ffgvF"
         allowFullScreen
         sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         className="salesReportAnalytics"
         onLoad={() => setLoading(false)}
+        loading="async"
       ></iframe>
     </div>
   );

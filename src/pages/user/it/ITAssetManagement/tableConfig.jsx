@@ -4,7 +4,7 @@ import {
   WindowsLogoIcon,
   LinuxLogoIcon,
 } from "@phosphor-icons/react";
-import StatusBadge from "../components/status/statusBadge/StatusBadge";
+import StatusBadge from "../../../../components/status/statusBadge/StatusBadge";
 
 // key = actual database field name
 // label = UI name

@@ -1,6 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
 import LinkButton from "../../buttons/linkButton/LinkButton";
-import CardLayout from "../../cardLayout/CardLayout";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import "./ITAssetList.scss";
 import { CaretRightIcon, CaretCircleRightIcon } from "@phosphor-icons/react";
@@ -77,13 +76,14 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
       </div>
 
       <div className="listSegment listSegmentStatusContainer">
-        {asset.mdm_link && (
+        {asset.mdm_link && asset.mdm_status === "Enrolled" && (
           <LinkButton
             style="textLight textXXXS button buttonType3"
             href={asset.mdm_link}
             name={asset.mdm_status}
             icon={CaretRightIcon}
             onClick={(e) => e.stopPropagation()}
+            size={14}
           />
         )}
 

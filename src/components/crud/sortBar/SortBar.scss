@@ -1,0 +1,21 @@
+.sortDropdown {
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid $neutral300;
+  font-size: 14px;
+  width: fit-content;
+  max-width: 180px;
+  cursor: pointer;
+
+  @media screen and (max-width: 768px) {
+    max-width: none;
+    width: 100%;
+  }
+
+  &:focus {
+    font-size: 14px;
+    outline: none;
+    background-color: $neutral900;
+    color: $neutral100;
+  }
+}

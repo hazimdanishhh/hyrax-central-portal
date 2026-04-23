@@ -26,7 +26,7 @@ export default function useSearchFilter({
 
       return matchesSearch && matchesFilters;
     });
-  }, [data, search, filters, filterMap]);
+  }, [data, search, filters]);
 
   return {
     search,
