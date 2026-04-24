@@ -115,11 +115,13 @@
 
   .listEmployeePhotoName {
     position: absolute;
-    bottom: 40px;
-    // right: 0;
+    top: 0.4rem;
+    right: 4.3rem;
     width: fit-content;
     padding: 0.4rem;
     border: 1px solid $neutral600;
     border-radius: 8px;
+    background-color: $neutral900;
+    color: $neutral100;
   }
 }

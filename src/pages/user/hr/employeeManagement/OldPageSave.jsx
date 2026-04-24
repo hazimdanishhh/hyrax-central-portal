@@ -37,58 +37,41 @@ import OverviewCards from "../../../../components/crud/overviewCards/OverviewCar
 import { getEmployeesOverviewConfig } from "./overviewConfig";
 import PageLayout from "../../../../components/crud/pageLayout/PageLayout";
 import { getEmployeesLayoutConfig } from "./layoutConfig";
-import { useQueryClient } from "@tanstack/react-query";
-import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchEmployees } from "../../../../services/employeesServices/employeesService";
-import { getEmployeesSortConfig } from "./sortConfig";
-import SortBar from "../../../../components/crud/sortBar/SortBar";
 
 /**
  * HR Employee Management Page
  * This is private HR / employment data
  * Server-side filtering and pagination
  */
-export default function EmployeeManagement() {
-  const queryClient = useQueryClient();
+export default function OldPageSave() {
   const { darkMode } = useTheme();
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
-  const [selectedRow, setSelectedRow] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [ready, setReady] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState(null);
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [modalType, setModalType] = useState(null); // "save" | "reject"
-  const [pendingSaveRow, setPendingSaveRow] = useState(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
+  const [pendingDeleteEmployee, setPendingDeleteEmployee] = useState(null);
 
   // ==============
   // HOOKS
   // ==============
   const {
-    data: employees,
+    employees,
+    setEmployees,
+    loading: employeesLoading,
+    error,
     totalCount,
     page,
-    totalPages,
-    search,
-    filters,
-    sortBy,
-    sortOrder,
-    activeFilters,
-    hasActiveFilters,
     setPage,
+    search,
     setSearch,
+    filters,
     setFilters,
-    setSortBy,
-    setSortOrder,
-    resetParams,
-    isLoading: employeesLoading,
-    isFetching,
-    error,
-  } = usePaginatedQuery({
-    queryKey: "employees",
-    queryFn: fetchEmployees,
-    pageSize: 20,
-    defaultSortBy: "full_name",
-  });
+    refetch,
+    summary,
+  } = useEmployees({ ready });
   const { profiles, loading: profilesLoading } = useProfiles();
   const { departments, loading: departmentsLoading } = useDepartments();
   const { nationalities, loading: nationalitiesLoading } = useNationalities();
@@ -102,9 +85,8 @@ export default function EmployeeManagement() {
     useEmploymentStatus();
   const { createEmployee, updateEmployee, deleteEmployee, saving, deleting } =
     useEmployeeMutations();
-  // const overviewItems = getEmployeesOverviewConfig(summary);
+  const overviewItems = getEmployeesOverviewConfig(summary);
   const layoutOptions = getEmployeesLayoutConfig();
-  const sortOptions = getEmployeesSortConfig();
 
   // ==============
   // DATA LOADING
@@ -148,65 +130,111 @@ export default function EmployeeManagement() {
   });
 
   // ==============
+  // ACTIVE FILTERS
+  // ==============
+  const activeFilters = Object.entries(filters).filter(
+    ([_, value]) => value && value !== "",
+  );
+  const hasActiveFilters = search || activeFilters.length > 0;
+
+  // parent component or hook
+  const rowsPerPage = 20;
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
+
+  // ==============
+  // Search & Filter in URL (On Load)
+  // ==============
+  useEffect(() => {
+    const pageParam = Number(searchParams.get("page")) || 1;
+    const searchParam = searchParams.get("search") || "";
+
+    const newFilters = {};
+    for (const [key, value] of searchParams.entries()) {
+      if (key !== "page" && key !== "search") {
+        newFilters[key] = value;
+      }
+    }
+
+    setPage(pageParam);
+    setSearch(searchParam);
+    setFilters(newFilters);
+
+    // 🔥 IMPORTANT: signal that URL state is now ready
+    setReady(true);
+  }, []);
+
+  // ==============
+  // Search & Filter in URL (On Change)
+  // ==============
+  useEffect(() => {
+    const params = {
+      page,
+      search,
+      ...filters,
+    };
+
+    setSearchParams(params);
+  }, [page, search, filters]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, filters]);
+
+  // ==============
   // SIDEBAR OPEN & CLOSE
   // ==============
   function handleOpenSidebar(employee) {
-    setSelectedRow(employee);
+    setSelectedEmployee(employee);
     setSidebarOpen(true);
   }
 
   function handleCloseSidebar() {
     setSidebarOpen(false);
-    setSelectedRow(null);
+    setSelectedEmployee(null);
   }
 
   // ==============
   // SAVE + UPDATE
   // ==============
-  function handleRequestSave(data) {
-    setPendingSaveRow(data);
-    setModalType("save");
-    setModalOpen(true);
+  async function handleSaveSidebar(data) {
+    if (modalOpen) return;
+
+    try {
+      if (data.id) {
+        // UPDATE
+        await updateEmployee(data);
+      } else {
+        // CREATE
+        await createEmployee(data);
+      }
+
+      await refetch({ page, search, filters });
+      setSidebarOpen(false);
+      setSelectedEmployee(null);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   // ==============
   // DELETE
   // ==============
-  function handleRequestDelete(asset) {
-    setPendingDeleteRow(asset);
-    setSelectedRowId(asset.id);
-    setModalType("delete");
+  function handleRequestDelete(employee) {
+    setSidebarOpen(true);
+    setPendingDeleteEmployee(employee);
+    setSelectedEmployeeId(employee.id);
     setModalOpen(true);
   }
 
-  // ==============
-  // CONFIRM ACTION DELETE / SAVE / UPDATE
-  // ==============
-  async function handleConfirmAction() {
+  async function handleConfirmDelete() {
     try {
-      if (modalType === "delete") {
-        await deleteEmployee(selectedRowId);
-      }
+      await deleteEmployee(selectedEmployeeId);
 
-      if (modalType === "save") {
-        const data = pendingSaveRow;
-
-        if (data.id) {
-          await updateEmployee(data);
-        } else {
-          await createEmployee(data);
-        }
-      }
-
-      await queryClient.invalidateQueries({
-        queryKey: ["employees"],
-      });
+      await refetch({ page, search, filters });
 
       setModalOpen(false);
-      setSidebarOpen(false);
-      setSelectedRow(null);
-      setPendingSaveRow(null);
-      setModalType(null);
+      setSidebarOpen(false); // 👈 ONLY HERE
+      setSelectedEmployee(null);
     } catch (err) {
       console.error(err);
     }
@@ -221,7 +249,7 @@ export default function EmployeeManagement() {
 
             <CardWrapper>
               {/* OVERVIEW */}
-              {/* <OverviewCards items={overviewItems} /> */}
+              <OverviewCards items={overviewItems} />
 
               {/* SEARCH AND FILTER BAR */}
               <SearchFilterBar
@@ -233,8 +261,8 @@ export default function EmployeeManagement() {
                 placeholder="Search employees..."
               />
 
+              {/* LAYOUT UI + ADD */}
               <PageHeader>
-                {/* LAYOUT UI + ACTION BUTTONS */}
                 <PageLayout
                   layout={layout}
                   setLayout={setLayout}
@@ -243,19 +271,10 @@ export default function EmployeeManagement() {
                     name: "Add Employee",
                     icon: PlusCircleIcon,
                     onClick: () => {
-                      setSelectedRow({});
+                      setSelectedEmployee({});
                       setSidebarOpen(true);
                     },
                   }}
-                />
-
-                {/* SORTING ACTIONS */}
-                <SortBar
-                  sortBy={sortBy}
-                  setSortBy={setSortBy}
-                  sortOptions={sortOptions}
-                  sortOrder={sortOrder}
-                  setSortOrder={setSortOrder}
                 />
               </PageHeader>
 
@@ -267,7 +286,6 @@ export default function EmployeeManagement() {
                   filters={activeFilters}
                   setFilters={setFilters}
                   filterConfig={filterConfig}
-                  resetParams={resetParams}
                 />
               )}
 
@@ -283,7 +301,7 @@ export default function EmployeeManagement() {
 
               {/* TABLE DISPLAY UI */}
               <div className="cardWrapperScroll generalCard">
-                {isLoading || isFetching ? (
+                {isLoading ? (
                   <CardLayout style="cardLayoutFlexFull">
                     <LoadingIcon />
                   </CardLayout>
@@ -321,34 +339,39 @@ export default function EmployeeManagement() {
       <AnimatePresence>
         {sidebarOpen && (
           <DataSidebar
-            title={selectedRow?.id ? "Edit Employee" : "Add Employee"}
+            title={selectedEmployee?.id ? "Edit Employee" : "Add Employee"}
             icon={PencilSimpleLineIcon}
             open={sidebarOpen}
             onClose={handleCloseSidebar}
-            rowData={selectedRow}
+            rowData={selectedEmployee}
             columns={columns}
-            onSave={handleRequestSave}
+            onSave={handleSaveSidebar}
             onDelete={handleRequestDelete}
             saving={saving}
             deleting={deleting}
-            creating={!selectedRow?.id}
-          />
+            creating={!selectedEmployee?.id}
+          >
+            <div className="employeeCardPhotoSidebar">
+              <img
+                src={
+                  selectedEmployee.profile?.avatar_url ||
+                  "/profilePhoto/default.webp"
+                }
+                alt={selectedEmployee.full_name}
+              />
+            </div>
+          </DataSidebar>
         )}
       </AnimatePresence>
 
       <ActionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={modalType === "save" ? "Save Employee" : "Delete Employee"}
-        description={
-          modalType === "save"
-            ? "Are you sure you want to save these changes?"
-            : "Are you sure you want to delete this employee?"
-        }
-        confirmText={modalType === "save" ? "Save" : "Delete"}
-        loading={modalType === "save" ? saving : deleting}
-        onConfirm={handleConfirmAction}
-        modalType={modalType}
+        title="Delete Employee"
+        description="Are you sure you want to delete this employee?"
+        confirmText="Delete"
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
       />
     </>
   );

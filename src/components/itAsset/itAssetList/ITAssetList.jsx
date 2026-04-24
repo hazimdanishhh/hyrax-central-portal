@@ -105,11 +105,7 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
             <AnimatePresence mode="wait">
               {showName && (
                 <motion.div
-                  className={
-                    darkMode
-                      ? "textRegular textXXXS listEmployeePhotoName sectionDark"
-                      : "textRegular textXXXS listEmployeePhotoName sectionLight"
-                  }
+                  className="textRegular textXXXS listEmployeePhotoName"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}

@@ -5,6 +5,8 @@ import { useMemo, useCallback, useEffect } from "react";
 /**
  * Reusable Generic Search Params Hook
  * 
+ * URL -> HOOK -> QUERY -> UI
+ * 
  * ======================
  * Use:
  * ======================
@@ -48,7 +50,8 @@ export default function usePaginatedQuery({
   // =========================
   // RAW URL STATE
   // =========================
-  const page = Number(searchParams.get("page")) || 1;
+  const rawPage = Number(searchParams.get("page"));
+  const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1; // Validate page number to dataset size
   const search = searchParams.get("search") || "";
   const sortBy = searchParams.get("sortBy") || defaultSortBy;
   const sortOrder = searchParams.get("sortOrder") || defaultSortOrder;
@@ -106,17 +109,22 @@ export default function usePaginatedQuery({
     [setSearchParams],
   );
 
+  // PAGE VALIDATION
+  const safePage = Math.max(1, page);
+
   // =========================
   // QUERY
   // =========================
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: [
       queryKey,
-      page,
-      search,
-      sortBy,
-      sortOrder,
-      JSON.stringify(filters),
+      {
+        page,
+        search,
+        sortBy,
+        sortOrder,
+        ...filters,
+      },
     ],
     queryFn: () =>
       queryFn({
@@ -128,6 +136,9 @@ export default function usePaginatedQuery({
         sortOrder,
       }),
     placeholderData: (prev) => prev,
+    retry: 2,
+    staleTime: 1000 * 30,
+    keepPreviousData: true,
   });
 
   const resultData = data?.data || [];
@@ -142,8 +153,10 @@ export default function usePaginatedQuery({
   // LOADING
   // =========================
   useEffect(() => {
-    if (!isLoading && totalCount > 0 && page > totalPages) {
-      updateParams({ page: totalPages });
+    if (!isLoading && totalCount > 0) {
+      if (page > totalPages) {
+        updateParams({ page: totalPages });
+      }
     }
   }, [page, totalPages, isLoading, totalCount, updateParams]);
 
@@ -215,7 +228,7 @@ export default function usePaginatedQuery({
     // data
     data: resultData,
     totalCount,
-    page,
+    page: safePage,
     totalPages,
     search,
     filters,
