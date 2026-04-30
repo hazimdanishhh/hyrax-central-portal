@@ -1,11 +1,11 @@
-// src/hooks/useEmployee.js
+// services/useEmployee.js
 import { supabase } from "../../lib/supabaseClient";
 
 /**
- * Hook to fetch all employee records from employees table
- * This is private HR / employment data
+ * Service to fetch Employees for HR department
  * Server-side filtering and pagination
  */
+
 export async function fetchEmployees({
   page,
   pageSize,

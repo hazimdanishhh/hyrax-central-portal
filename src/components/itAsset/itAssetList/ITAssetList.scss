@@ -45,7 +45,7 @@
     // Truncation
     min-width: 0;
     white-space: nowrap;
-    overflow: hidden;
+    // overflow: hidden;
     text-overflow: ellipsis;
 
     &.listSegmentMobile {
@@ -93,30 +93,39 @@
   }
 }
 
-.listEmployeePhoto {
-  width: 30px;
-  height: 30px;
-  background-color: $dark;
-  border-radius: 50%;
-  border: 2px solid $neutral600;
-  overflow: hidden;
+.employeeLinkWrapper {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  gap: 8px; // Space between photo and name
+  text-decoration: none;
+  position: relative;
+  width: fit-content;
 
-  img {
-    width: 101%;
-    height: 101%;
-    object-fit: cover;
-    object-position: center;
-    display: block;
+  .listEmployeePhoto {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    background-color: $dark;
+    border-radius: 50%;
+    border: 2px solid $neutral600;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    img {
+      width: 101%;
+      height: 101%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
   }
 
   .listEmployeePhotoName {
     position: absolute;
-    top: 0.4rem;
-    right: 4.3rem;
+    right: 30px;
     width: fit-content;
     padding: 0.4rem;
     border: 1px solid $neutral600;

@@ -1,0 +1,23 @@
+.customTooltipContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid $neutral400;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+  .tooltipEntryContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: start;
+
+    .tooltipEntryCircle {
+      min-width: 10px;
+      min-height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+  }
+}

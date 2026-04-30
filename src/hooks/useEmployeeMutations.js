@@ -72,9 +72,43 @@ export default function useEmployeeMutations() {
     } catch (err) {
       console.error("Failed to update employee, please try again", err);
       setError(err);
-      showMessage("Failed to update employee, please try again", "error");
+      let userFriendlyMessage = "An unexpected error occurred.";
 
-      throw err;
+      // Handle specific Postgres codes
+      switch (err.code) {
+        case "23505":
+          // Extract the field name from the error detail or message
+          if (err.message.includes("email_work")) {
+            userFriendlyMessage =
+              "An employee with this work email already exists.";
+          } else if (err.message.includes("email_personal")) {
+            userFriendlyMessage =
+              "An employee with this personal email already exists.";
+          } else if (err.message.includes("employee_id")) {
+            userFriendlyMessage = "This Employee ID is already assigned.";
+          } else if (err.message.includes("profile_id")) {
+            userFriendlyMessage = "This Profile is already assigned.";
+          } else {
+            userFriendlyMessage =
+              "A record with this information already exists.";
+          }
+          break;
+
+        case "23503":
+          userFriendlyMessage =
+            "This record is linked to other data and cannot be changed or removed.";
+          break;
+
+        case "42501":
+          userFriendlyMessage =
+            "Permission denied. You aren't authorized to modify employees.";
+          break;
+
+        default:
+          userFriendlyMessage = err.message || "Failed to save changes.";
+      }
+
+      showMessage(userFriendlyMessage, "error");
     } finally {
       setSaving(false);
     }
@@ -133,10 +167,46 @@ export default function useEmployeeMutations() {
 
       return data;
     } catch (err) {
-      console.error("Failed to create employee, please try again:", err);
+      console.error("Failed to create employee:", err);
       setError(err);
-      showMessage("Failed to create employee, please try again", "error");
 
+      let userFriendlyMessage = "An unexpected error occurred.";
+
+      // Handle specific Postgres codes
+      switch (err.code) {
+        case "23505":
+          // Extract the field name from the error detail or message
+          if (err.message.includes("email_work")) {
+            userFriendlyMessage =
+              "An employee with this work email already exists.";
+          } else if (err.message.includes("email_personal")) {
+            userFriendlyMessage =
+              "An employee with this personal email already exists.";
+          } else if (err.message.includes("employee_id")) {
+            userFriendlyMessage = "This Employee ID is already assigned.";
+          } else if (err.message.includes("profile_id")) {
+            userFriendlyMessage = "This Profile is already assigned.";
+          } else {
+            userFriendlyMessage =
+              "A record with this information already exists.";
+          }
+          break;
+
+        case "23503":
+          userFriendlyMessage =
+            "This record is linked to other data and cannot be changed or removed.";
+          break;
+
+        case "42501":
+          userFriendlyMessage =
+            "Permission denied. You aren't authorized to modify employees.";
+          break;
+
+        default:
+          userFriendlyMessage = err.message || "Failed to save changes.";
+      }
+
+      showMessage(userFriendlyMessage, "error");
       throw err;
     } finally {
       setSaving(false);

@@ -16,7 +16,6 @@
   width: 650px;
   max-width: 100%;
   height: 100%;
-  padding: 0.8rem;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -38,6 +37,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  padding: 0.3rem 0.8rem;
+  border-bottom: 1px solid $neutral500;
 }
 
 .dataSidebarContent {
@@ -45,6 +49,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
+  padding: 0.8rem;
+  padding-bottom: 0;
 }
 
 .dataSidebarField {
@@ -70,9 +76,13 @@
 }
 
 .dataSidebarFooter {
+  border-top: 1px solid $neutral500;
+  position: sticky;
+  bottom: 0;
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  gap: 0.8rem;
+  padding: 0.3rem 0;
+  justify-content: end;
 }
 
 /* INPUTS (READ-ONLY LOOK) */
@@ -123,4 +133,8 @@
 /* STATUS COMPONENT ALIGNMENT */
 .dataSidebar .statusBadge {
   min-width: 90px;
+}
+
+.required {
+  color: $error600;
 }

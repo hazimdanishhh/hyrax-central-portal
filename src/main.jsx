@@ -47,6 +47,10 @@ import ITAssetManagement from "./pages/user/it/ITAssetManagement/ITAssetManageme
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/reactQuery";
 import SoftwareManagement from "./pages/user/it/softwareManagement/SoftwareManagement";
+import ITAssetOverview from "./pages/user/it/ITAssetManagement/overview/ITAssetOverview";
+import ITAssetsPageLayout from "./pages/user/it/ITAssetManagement/ITAssetsPageLayout";
+import EmployeeOverview from "./pages/user/hr/employeeManagement/overview/EmployeeOverview";
+import EmployeePageLayout from "./pages/user/hr/employeeManagement/EmployeePageLayout";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -97,10 +101,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     <Route path="sales/reports" element={<Reports />} />
 
                     {/* HR */}
-                    <Route
-                      path="hr/employees"
-                      element={<EmployeeManagement />}
-                    />
+                    <Route path="hr/employees" element={<EmployeePageLayout />}>
+                      <Route
+                        index
+                        element={<Navigate to="overview" replace />}
+                      />
+                      <Route path="overview" element={<EmployeeOverview />} />
+                      <Route path="list" element={<EmployeeManagement />} />
+                    </Route>
                     <Route path="hr/departments" element={<Departments />} />
                     <Route path="hr/leaves" element={<LeaveManagement />} />
                     <Route path="hr/recruitment" element={<Recruitment />} />
@@ -139,7 +147,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     <Route path="employee/policies" element={<Policies />} />
 
                     {/* Information Technology */}
-                    <Route path="it/assets" element={<ITAssetManagement />} />
+                    <Route path="it/assets" element={<ITAssetsPageLayout />}>
+                      <Route
+                        index
+                        element={<Navigate to="overview" replace />}
+                      />
+                      <Route path="overview" element={<ITAssetOverview />} />
+                      <Route path="list" element={<ITAssetManagement />} />
+                    </Route>
                     <Route
                       path="it/software"
                       element={<SoftwareManagement />}

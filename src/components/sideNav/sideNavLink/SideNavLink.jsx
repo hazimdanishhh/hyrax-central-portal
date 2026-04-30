@@ -38,7 +38,8 @@ export default function SideNavLink({ segment, navIsOpen, role, onClick }) {
       {links.map((link, index) => {
         const Icon = link.icon;
         const to = `${basePath}/${link.path}`;
-        const isActive = location.pathname === to;
+        const isActive =
+          location.pathname === to || location.pathname.startsWith(to + "/");
 
         return (
           <div

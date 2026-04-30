@@ -1,0 +1,68 @@
+.pageTabContainer {
+  display: flex;
+  width: 100%;
+  justify-content: start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+
+  .button {
+    text-wrap: nowrap;
+    padding-left: 0.4rem;
+
+    &.active {
+      .pageTabIcon {
+        background-color: $neutral100;
+        color: $neutral900;
+        transition: 0.3s;
+      }
+
+      &:hover {
+        .pageTabIcon {
+          background-color: $neutral100;
+          color: $neutral900;
+          transition: 0.3s;
+        }
+      }
+    }
+
+    &:hover {
+      .pageTabIcon {
+        background-color: $primary;
+        color: $neutral100;
+        transition: 0.3s;
+      }
+    }
+  }
+
+  // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
+  &::-webkit-scrollbar {
+    height: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba($neutral600, 0.9); // Light minimal color
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgba($neutral600, 0.6);
+  }
+
+  .pageTabIcon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.2rem;
+    border-radius: 50%;
+    background-color: $neutral900;
+    color: $neutral100;
+    transition: 0.3s;
+  }
+}

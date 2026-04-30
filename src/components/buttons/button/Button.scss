@@ -1,6 +1,18 @@
+// Different stylings for all buttons
+// iconButton | .rejection (red) | .approval (green)
+// iconButton2 | .rejection (red) | .approval (green)
+// buttonToolTip |
+// button | .rejection (red) | .approval (green)
+// buttonType1 |
+
+// =====================
+// ICON BUTTON CIRCLE
+// =====================
 .iconButton {
   display: flex;
   // align-self: end;
+  justify-content: center;
+  align-items: center;
   background-color: $neutral800;
   color: $neutral100;
   padding: 0.5em;
@@ -8,40 +20,7 @@
   position: relative;
   border: 1px solid $neutral300;
 
-  &:hover {
-    background-color: $primary;
-    transition: background-color 0.1s;
-  }
-
-  &.rejection {
-    background-color: rgba($error600, 0.8);
-
-    &:hover {
-      background-color: $error600;
-      transition: background-color 0.1s;
-    }
-  }
-
-  &.approval {
-    background-color: rgba($success600, 0.8);
-
-    &:hover {
-      background-color: $success600;
-      transition: background-color 0.1s;
-    }
-  }
-}
-
-.iconButton2 {
-  display: flex;
-  // align-self: end;
-  background-color: $neutral800;
-  color: $neutral100;
-  padding: 0.5em;
-  border-radius: 0.5rem;
-  position: relative;
-  border: 1px solid $neutral300;
-
+  // Disabled
   &:disabled {
     color: $neutral600;
     background-color: $neutral400;
@@ -58,6 +37,7 @@
     transition: background-color 0.1s;
   }
 
+  // RED
   &.rejection {
     background-color: rgba($error600, 0.8);
 
@@ -67,6 +47,7 @@
     }
   }
 
+  // GREEN
   &.approval {
     background-color: rgba($success600, 0.8);
 
@@ -77,6 +58,62 @@
   }
 }
 
+// =====================
+// ICON BUTTON SQUARE
+// =====================
+.iconButton2 {
+  display: flex;
+  // align-self: end;
+  justify-content: center;
+  align-items: center;
+  background-color: $neutral800;
+  color: $neutral100;
+  padding: 0.5em;
+  border-radius: 0.5rem;
+  position: relative;
+  border: 1px solid $neutral300;
+
+  // Disabled
+  &:disabled {
+    color: $neutral600;
+    background-color: $neutral400;
+
+    &:hover {
+      border: 1px solid $neutral600;
+      background-color: $neutral400;
+      cursor: not-allowed;
+    }
+  }
+
+  &:hover {
+    background-color: $primary;
+    transition: background-color 0.1s;
+  }
+
+  // Red
+  &.rejection {
+    background-color: rgba($error600, 0.8);
+
+    &:hover {
+      background-color: $error600;
+      transition: background-color 0.1s;
+    }
+  }
+
+  // Green
+  &.approval {
+    background-color: rgba($success600, 0.8);
+
+    &:hover {
+      background-color: $success600;
+      transition: background-color 0.1s;
+    }
+  }
+}
+
+// =====================
+// BUTTON TOOL TIP
+// =====================
 .buttonTooltip {
   position: absolute;
   top: calc(100% + 6px);
@@ -97,7 +134,9 @@
   z-index: 20;
 }
 
+// =====================
 // DEFAULT - Orange Border Hover - Padding Large - Width Fit Content
+// =====================
 .button {
   display: flex;
   gap: 0.8rem;
@@ -114,7 +153,9 @@
     padding: 0.4rem;
   }
 
+  // =====================
   // TYPE 1 - Orange Background Hover - Padding Large - Width Fit Content
+  // =====================
   &.buttonType1 {
     background-color: rgb($neutral400, 0.1);
     border-radius: 10px;
@@ -130,7 +171,9 @@
     }
   }
 
+  // =====================
   // TYPE 2 - Orange Background Hover - Padding Suitable for Icon Size - Width 100%
+  // =====================
   &.buttonType2 {
     background-color: rgb($neutral400, 0.1);
     border-radius: 10px;
@@ -147,7 +190,9 @@
     }
   }
 
-  // TYPE 2 - Orange Background Hover - Padding Suitable for Icon Size - Width Fit Content
+  // =====================
+  // TYPE 3 - Orange Background Hover - Padding Suitable for Icon Size - Width Fit Content
+  // =====================
   &.buttonType3 {
     background-color: rgb($neutral400, 0.1);
     border-radius: 10px;
@@ -163,7 +208,9 @@
     }
   }
 
+  // =====================
   // TYPE 4 - Black Background Orange Hover - Padding Suitable for Icon Size - Width 100%
+  // =====================
   &.buttonType4 {
     background-color: $neutral900;
     color: $neutral100;
@@ -181,7 +228,9 @@
     }
   }
 
+  // =====================
   // TYPE 5 - Black Background Orange Hover - Padding Suitable for Icon Size - Width Fit Content
+  // =====================
   &.buttonType5 {
     background-color: $neutral900;
     color: $neutral100;
@@ -199,7 +248,9 @@
     }
   }
 
+  // =====================
   // TYPE APPROVE - Green Background Hover - Padding Large - Width Fit Content
+  // =====================
   &.buttonTypeApprove {
     background-color: rgb($success600, 0.1);
     border-radius: 10px;
@@ -216,7 +267,9 @@
     }
   }
 
+  // =====================
   // TYPE DELETE - Red Background Hover - Padding Large - Width Fit Content
+  // =====================
   &.buttonTypeDelete {
     background-color: rgb($error600, 0.1);
     border-radius: 10px;
@@ -233,7 +286,9 @@
     }
   }
 
+  // =====================
   // TYPE DELETE 2 - Red Background Hover - Padding Small - Width Fit Content
+  // =====================
   &.buttonTypeDelete2 {
     background-color: rgb($error600, 0.1);
     border-radius: 10px;
@@ -250,7 +305,9 @@
     }
   }
 
-  // CHECKIN BUTTON - Green Background Hover - Padding Suitable for Icon Size - Width 100%
+  // =====================
+  // CHECKIN BUTTON CIRCLE - Green Background Hover - Padding Suitable for Icon Size - Width 100%
+  // =====================
   &.buttonTypeClockin {
     background-color: rgb($success600, 0.1);
     border-radius: 50%;
@@ -268,7 +325,9 @@
     }
   }
 
+  // =====================
   // CHECKIN BUTTON - Green Background Hover - Padding Suitable for Icon Size - Width 100%
+  // =====================
   &.buttonType2Clockin {
     background-color: rgb($success600, 0.1);
     border-radius: 10px;
@@ -286,7 +345,9 @@
     }
   }
 
+  // =====================
   // CHECKOUT BUTTON - Yellow Background Hover - Padding Suitable for Icon Size - Width 100%
+  // =====================
   &.buttonType2Clockout {
     background-color: rgb($warning600, 0.1);
     border-radius: 10px;
@@ -304,7 +365,9 @@
     }
   }
 
-  // CHECKOUT BUTTON - Yellow Background Hover - Padding Suitable for Icon Size - Width 100%
+  // =====================
+  // CHECKOUT BUTTON CIRCLE - Yellow Background Hover - Padding Suitable for Icon Size - Width 100%
+  // =====================
   &.buttonTypeClockout {
     background-color: rgb($warning600, 0.1);
     border-radius: 50%;
@@ -322,7 +385,9 @@
     }
   }
 
+  // =====================
   // TAB BUTTON
+  // =====================
   &.buttonTypeTab {
     padding: 0.3rem 0.8rem;
     border-radius: 30px;
@@ -334,7 +399,9 @@
     }
   }
 
-  // MAIN HOVER, DISABLED AND ACTIVE STYLES
+  // =====================
+  // MAIN HOVER, DISABLED, ACTIVE, GREEN AND RED STYLES
+  // =====================
   &:hover {
     background-color: rgb($neutral400, 0.1);
     color: $primary;
@@ -354,5 +421,35 @@
   &.active {
     border: 1px solid $primary;
     color: $primary;
+  }
+
+  // RED
+  &.rejection {
+    background-color: rgb($error600, 0.1);
+    border: 1px solid $error600;
+    transition: 0.3s;
+    color: $error600;
+
+    &:hover {
+      background-color: $error600;
+      color: $neutral100;
+      border: 1px solid $error600;
+      transition: 0.3s;
+    }
+  }
+
+  // GREEN
+  &.approval {
+    background-color: rgb($success600, 0.1);
+    border: 1px solid $success600;
+    transition: 0.3s;
+    color: $success600;
+
+    &:hover {
+      background-color: $success600;
+      color: $neutral100;
+      border: 1px solid $success600;
+      transition: 0.3s;
+    }
   }
 }

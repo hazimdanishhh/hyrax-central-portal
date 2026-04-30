@@ -1,27 +1,32 @@
-.pageTabContainer {
-  display: flex;
-  width: 100%;
-  justify-content: start;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  flex-shrink: 0;
-  gap: 0.5rem;
+// .pageTabContainer {
+//   display: flex;
+//   width: 100%;
+//   justify-content: start;
+//   flex-wrap: nowrap;
+//   overflow-x: auto;
+//   flex-shrink: 0;
+//   gap: 0.5rem;
+//   padding-bottom: 0.4rem;
 
-  // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
-  &::-webkit-scrollbar {
-    height: 5px;
-  }
+//   .button {
+//     text-wrap: nowrap;
+//   }
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
+//   // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
+//   &::-webkit-scrollbar {
+//     height: 5px;
+//   }
 
-  &::-webkit-scrollbar-thumb {
-    background-color: rgba($neutral600, 0.9); // Light minimal color
-    border-radius: 10px;
-  }
+//   &::-webkit-scrollbar-track {
+//     background: transparent;
+//   }
 
-  &::-webkit-scrollbar-thumb:hover {
-    background-color: rgba($neutral600, 0.6);
-  }
-}
+//   &::-webkit-scrollbar-thumb {
+//     background-color: rgba($neutral600, 0.9); // Light minimal color
+//     border-radius: 10px;
+//   }
+
+//   &::-webkit-scrollbar-thumb:hover {
+//     background-color: rgba($neutral600, 0.6);
+//   }
+// }

@@ -125,18 +125,29 @@ li {
   display: none;
 }
 
+// Truncate Text
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block; // Ensures the width constraints apply
+  width: 100%; // Adjust this or the parent container's width as needed
+}
+
+// GENERAL CARD STYLE
 .generalCard {
   display: flex;
   align-items: start;
   width: 100%;
-  height: 100%t;
+  height: 100%;
   border: 1px solid $neutral500;
-  background-color: rgb($neutral100, 0.05);
+  background-color: rgb($neutral300, 0.1);
   gap: 0.5rem;
   padding: 0.8rem;
   border-radius: 10px;
   flex-wrap: wrap;
   flex-direction: column;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 
   &.greenCard {
     color: $success600;
@@ -157,6 +168,45 @@ li {
   }
 }
 
+// LOADING CARD
+// Define the pulsing animation
+@keyframes card-pulse {
+  0% {
+    background-color: rgb($neutral500, 0.1);
+  }
+  50% {
+    background-color: rgb(
+      $neutral500,
+      0.6
+    ); // Increases opacity to create the "flash"
+  }
+  100% {
+    background-color: rgb($neutral500, 0.1);
+  }
+}
+
+.loadingCard {
+  display: flex;
+  align-items: start;
+  width: 100%;
+  min-height: 70px;
+  border: 1px solid $neutral500;
+  background-color: rgb($neutral500, 0.1);
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border-radius: 10px;
+  flex-wrap: wrap;
+  flex-direction: column;
+
+  // Apply the loading animation
+  animation: card-pulse 1.5s infinite ease-in-out;
+
+  // Optional: Prevent text/content from showing while loading
+  // color: transparent;
+  // * { visibility: hidden; }
+}
+
+// CARD WRAPPER SCROLLING
 .cardWrapperScroll {
   display: flex;
   flex-direction: row;
@@ -184,5 +234,90 @@ li {
 
   &::-webkit-scrollbar-thumb:hover {
     background-color: rgba($neutral600, 0.6);
+  }
+}
+
+// REACT SELECT
+.selectContainer {
+  width: 100%;
+  font-size: 13px;
+
+  @media screen and (max-width: 1024px) {
+    font-size: 16px;
+  }
+
+  .reactSelect__control {
+    padding: 0 0.3rem;
+    border-radius: 6px;
+    border: 1px solid $neutral300;
+    cursor: pointer;
+    width: 100%;
+
+    &:hover {
+      .reactSelect__indicator {
+        color: inherit;
+      }
+    }
+
+    &--is-focused {
+      outline: none;
+      border-color: $neutral900;
+      box-shadow: 0 0 0 1px $neutral900;
+    }
+  }
+
+  // The selected text inside the input
+  .reactSelect__single-value {
+    color: inherit;
+  }
+
+  // The placeholder text
+  .reactSelect__placeholder {
+    color: $neutral600; // Give placeholder a muted color
+  }
+
+  // The dropdown menu wrapper
+  .reactSelect__menu {
+    background-color: $neutral900;
+    border-radius: 6px;
+    margin-top: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    padding: 0.3rem 0;
+  }
+
+  // Individual options in the dropdown
+  .reactSelect__option {
+    padding: 8px 12px;
+    cursor: pointer;
+    background-color: transparent;
+    color: $neutral100;
+
+    &--is-focused {
+      // Hover/Keyboard focus state
+      background-color: rgba($neutral500, 0.2);
+    }
+
+    &--is-selected {
+      // The currently selected item
+      background-color: rgba($neutral900, 0.1);
+      font-weight: bold;
+    }
+  }
+
+  // Clear and Dropdown Indicators (the little 'x' and arrow)
+  .reactSelect__indicator {
+    color: $neutral600;
+    cursor: pointer;
+    padding: 4px;
+
+    &:hover {
+      color: inherit;
+    }
+  }
+
+  .react-select__indicator-separator {
+    background-color: $neutral300;
+    margin: 8px 0;
   }
 }

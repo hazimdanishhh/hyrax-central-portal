@@ -1,44 +1,38 @@
 import {
-  UserFocusIcon,
-  MonitorIcon,
-  UsersThreeIcon,
-  PercentIcon,
-  LaptopIcon,
+  CheckCircleIcon,
+  DesktopIcon,
+  UserMinusIcon,
+  WarningIcon,
 } from "@phosphor-icons/react";
 
-export function getAssetsOverviewConfig(summary) {
+export function getAssetsOverviewConfig(kpis) {
   return [
     {
-      icon: MonitorIcon,
       label: "Total Assets",
-      value: summary.total,
+      value: kpis.totalAssets,
+      icon: DesktopIcon,
+      filter: null,
     },
     {
-      icon: UsersThreeIcon,
       label: "Active Assets",
-      value: summary.active,
+      value: kpis.activeAssets,
+      icon: CheckCircleIcon,
       variant: "greenCard",
+      filter: { status: 1 },
     },
     {
-      icon: UsersThreeIcon,
-      label: "Inactive Assets",
-      value: summary.inactive,
+      label: "Risk Assets",
+      value: kpis.riskAssets,
+      icon: WarningIcon,
       variant: "redCard",
+      filter: { condition: 3 },
     },
     {
-      icon: PercentIcon,
-      label: "Utilization Rate",
-      value: summary.utilizationRate,
-    },
-    {
-      icon: LaptopIcon,
-      label: "Endpoints",
-      value: summary.endpoint,
-    },
-    {
-      icon: UserFocusIcon,
-      label: "Unassigned (In Stock)",
-      value: summary.unassigned,
+      label: "Unassigned",
+      value: kpis.unassignedAssets,
+      icon: UserMinusIcon,
+      variant: "yellowCard",
+      filter: null,
     },
   ];
 }

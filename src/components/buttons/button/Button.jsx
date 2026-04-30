@@ -1,14 +1,24 @@
 import "./Button.scss";
 
-function Button({ onClick, name, style, icon, icon2, type, size, disabled }) {
+function Button({
+  onClick,
+  name,
+  style,
+  icon,
+  icon2,
+  type,
+  size,
+  disabled,
+  weight,
+}) {
   const Icon = icon;
   const Icon2 = icon2;
 
   return (
     <button onClick={onClick} className={style} type={type} disabled={disabled}>
-      {icon2 && <Icon2 size={size ?? (name ? "20" : "24")} />}
+      {icon2 && <Icon2 size={size ?? (name ? "20" : "24")} weight={weight} />}
       {name}
-      {icon && <Icon size={size ?? (name ? "20" : "24")} />}
+      {icon && <Icon size={size ?? (name ? "20" : "24")} weight={weight} />}
     </button>
   );
 }

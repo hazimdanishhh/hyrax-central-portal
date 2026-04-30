@@ -28,11 +28,9 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
   const OSIcon = getIcon(asset.operating_system?.icon, Icons.HardDriveIcon);
 
   return (
-    <motion.div
+    <div
       className="generalCard ITAssetList"
       onClick={saving ? null : deleting ? null : onClick}
-      initial={{ y: 0 }}
-      whileHover={{ y: -3 }}
     >
       <div className="listHeader">
         {/* ASSET LOGO ICONS */}
@@ -46,8 +44,12 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
 
         {/* ASSET CODE AND NAME */}
         <div className="listSegment">
-          <p className="textBold textXXS">{asset.asset_name || "No Name"}</p>
-          <p className="textLight textXXXS">{asset.asset_code || "No Code"}</p>
+          <p className="textBold textXXS truncate">
+            {asset.asset_name || "No Name"}
+          </p>
+          <p className="textLight textXXXS truncate">
+            {asset.asset_code || "No Code"}
+          </p>
         </div>
 
         <div className="listSegment listSegmentStatus">
@@ -60,19 +62,21 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
       </div>
 
       <div className="listSegment listSegmentMobile">
-        <p className="textLight textXXXS">
+        <p className="textLight textXXXS truncate">
           {asset.asset_category?.name || "No Category"}
         </p>
-        <p className="textLight textXXXS">
+        <p className="textLight textXXXS truncate">
           {asset.asset_subcategory?.name || "No Subcategory"}
         </p>
       </div>
 
       <div className="listSegment listSegmentMobile">
-        <p className="textLight textXXXS">
+        <p className="textLight textXXXS truncate">
           {asset.asset_manufacturer?.name || "No Manufacturer"}
         </p>
-        <p className="textLight textXXXS">{asset.asset_model || "No Model"}</p>
+        <p className="textLight textXXXS truncate">
+          {asset.asset_model || "No Model"}
+        </p>
       </div>
 
       <div className="listSegment listSegmentStatusContainer">
@@ -89,26 +93,28 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
 
         {asset.asset_user && (
           <a
-            className="listEmployeePhoto"
+            className="employeeLinkWrapper"
             href={`/app/employees/${asset.asset_user?.id}`}
             onMouseEnter={() => setShowName(true)}
             onMouseLeave={() => setShowName(false)}
           >
-            <img
-              src={
-                asset.asset_user?.profile?.avatar_url
-                  ? `${asset.asset_user?.profile?.avatar_url}`
-                  : "/profilePhoto/default.webp"
-              }
-              alt={asset.asset_user?.full_name}
-            />
+            <div className="listEmployeePhoto">
+              <img
+                src={
+                  asset.asset_user?.profile?.avatar_url
+                    ? `${asset.asset_user?.profile?.avatar_url}`
+                    : "/profilePhoto/default.webp"
+                }
+                alt={asset.asset_user?.full_name}
+              />
+            </div>
             <AnimatePresence mode="wait">
               {showName && (
                 <motion.div
                   className="textRegular textXXXS listEmployeePhotoName"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
                 >
                   {asset.asset_user?.full_name}
                 </motion.div>
@@ -120,6 +126,6 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
           <CaretCircleRightIcon size={28} weight="light" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

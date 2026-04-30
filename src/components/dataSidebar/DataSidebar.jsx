@@ -32,26 +32,6 @@ export default function DataSidebar({
   // ==============
   // SYNC ROW DATA WHEN OPENING
   // ==============
-  // useEffect(() => {
-  //   if (open) {
-  //     const initial = {};
-  //     columns.forEach((col) => {
-  //       const rawValue =
-  //         typeof col.getValue === "function"
-  //           ? col.getValue(rowData)
-  //           : typeof col.getValue === "string"
-  //             ? rowData[col.getValue]
-  //             : typeof col.accessor === "function"
-  //               ? col.accessor(rowData)
-  //               : typeof col.accessor === "string"
-  //                 ? rowData[col.accessor]
-  //                 : "";
-  //       initial[col.key] = rawValue ?? "";
-  //     });
-  //     setLocalData(initial);
-  //   }
-  // }, [open, rowData, columns]);
-
   useEffect(() => {
     if (!open) return;
 
@@ -134,7 +114,13 @@ export default function DataSidebar({
         onClick={(e) => e.stopPropagation()}
       >
         <CardLayout>
-          <header className="dataSidebarHeader">
+          <header
+            className={
+              darkMode
+                ? "sectionDark dataSidebarHeader"
+                : "sectionLight dataSidebarHeader"
+            }
+          >
             <SectionHeader title={title} icon={icon} />
             <Button icon={XIcon} style="iconButton" onClick={onClose} />
           </header>
@@ -156,7 +142,13 @@ export default function DataSidebar({
 
               return (
                 <div key={col.key} className="dataSidebarField">
-                  <label className="textBold textXXS">
+                  <label
+                    className={
+                      col.required
+                        ? "textBold textXXS required"
+                        : "textBold textXXS"
+                    }
+                  >
                     {col.label}
                     <span className="dataSidebarRequired">
                       {col.required && "*"}
@@ -172,24 +164,34 @@ export default function DataSidebar({
               );
             })}
 
-            <footer className="dataSidebarFooter">
+            <footer
+              className={
+                darkMode
+                  ? "sectionDark dataSidebarFooter"
+                  : "sectionLight dataSidebarFooter"
+              }
+            >
               {!creating && (
                 <Button
                   name="Delete"
                   icon={TrashSimpleIcon}
-                  style="button buttonTypeDelete textXS"
+                  style="button buttonType5 rejection textXXS textRegular"
                   onClick={handleDelete}
                   disabled={deleting}
                   type="button"
+                  size="14"
+                  weight="bold"
                 />
               )}
               <Button
                 name="Save"
                 icon={CheckIcon}
-                style="button buttonType2 textXS"
+                style="button buttonType5 approval textXXS textRegular"
                 onClick={handleSave}
                 type="submit"
                 disabled={saving}
+                size="14"
+                weight="bold"
               />
             </footer>
           </form>

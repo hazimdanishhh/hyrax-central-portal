@@ -6,6 +6,8 @@ import { FunnelIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import Button from "../buttons/button/Button";
 import { useTheme } from "../../context/ThemeContext";
 import { AnimatePresence, motion } from "framer-motion";
+import Select from "react-select";
+import CardLayout from "../cardLayout/CardLayout";
 
 export default function SearchFilterBar({
   search,
@@ -112,23 +114,33 @@ export default function SearchFilterBar({
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
             {filterConfig.map((filter) => (
-              <select
-                key={filter.key}
-                value={filters[filter.key] || ""}
-                onChange={(e) =>
-                  onFilterChange({
-                    ...filters,
-                    [filter.key]: e.target.value === "" ? "" : e.target.value,
-                  })
-                }
-              >
-                <option value="">{filter.label}</option>
-                {filter.options.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+              <div className="filterSelectContainer" key={filter.key}>
+                <p className="filterSelectLabel textBold textXXS">
+                  {filter.label}
+                </p>
+
+                <Select
+                  unstyled
+                  className="selectContainer"
+                  classNamePrefix="reactSelect"
+                  placeholder={`Select ${filter.label}`}
+                  isClearable
+                  isSearchable
+                  options={filter.options}
+                  value={
+                    filter.options.find(
+                      (opt) =>
+                        String(opt.value) === String(filters[filter.key]),
+                    ) || null
+                  }
+                  onChange={(selectedOption) =>
+                    onFilterChange({
+                      ...filters,
+                      [filter.key]: selectedOption ? selectedOption.value : "",
+                    })
+                  }
+                />
+              </div>
             ))}
           </motion.div>
         )}

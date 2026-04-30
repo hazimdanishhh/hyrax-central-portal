@@ -1,4 +1,4 @@
-import { CaretCircleRightIcon } from "@phosphor-icons/react";
+import { CaretCircleRightIcon, NotePencilIcon } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import CardLayout from "../cardLayout/CardLayout";
 import StatusBadge from "../status/statusBadge/StatusBadge";
@@ -26,8 +26,8 @@ export default function EmployeesList({ employee, onClick, saving, deleting }) {
         </div>
         <div className="employeeCardStatusContainer">
           <StatusBadge status={employee.employment_status?.name} />
-          <button className="listArrow">
-            <CaretCircleRightIcon size={28} weight="light" />
+          <button className="listArrow iconButton2">
+            <NotePencilIcon size={16} weight="light" />
           </button>
         </div>
       </div>

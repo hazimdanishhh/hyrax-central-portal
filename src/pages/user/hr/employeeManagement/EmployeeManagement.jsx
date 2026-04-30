@@ -15,23 +15,15 @@ import SearchFilterBar from "../../../../components/searchFliterBar/SearchFilter
 import DataTable from "../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
-import useDepartments from "../../../../hooks/useDepartments";
 import EmployeesList from "../../../../components/employeesList/EmployeesList";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
-import useEmployees from "../../../../hooks/useEmployees";
-import useEmploymentStatus from "../../../../hooks/useEmploymentStatus";
-import useNationalities from "../../../../hooks/useNationalities";
-import useIdentificationTypes from "../../../../hooks/useIdentificationTypes";
-import useEmploymentTypes from "../../../../hooks/useEmploymentTypes";
-import useTerminationReasons from "../../../../hooks/useTerminationReasons";
 import { employeesTableConfig } from "./tableConfig";
 import useProfiles from "../../../../hooks/useProfiles";
 import { getEmployeesFilterConfig } from "./filterConfig";
 import useEmployeeMutations from "../../../../hooks/useEmployeeMutations";
 import { useSearchParams } from "react-router-dom";
 import ActionModal from "../../../../components/modals/actionModal/ActionModal";
-import NoResult from "../../../../components/noResult/NoResult";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 import { getEmployeesOverviewConfig } from "./overviewConfig";
@@ -42,6 +34,21 @@ import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchEmployees } from "../../../../services/employeesServices/employeesService";
 import { getEmployeesSortConfig } from "./sortConfig";
 import SortBar from "../../../../components/crud/sortBar/SortBar";
+import NoResult from "../../../../components/crud/noResult/NoResult";
+import { useEmployeesMetadata } from "../../../../hooks/employees/useEmployeesMetadata";
+import ChartCard from "../../../../components/chartCard/ChartCard";
+import { useEmployeesOverview } from "../../../../hooks/employees/useEmployeesOverview";
+import StackedBarRenderer from "../../../../components/chartCard/StackedBarRenderer";
+import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer";
+import {
+  BLUE_COLOR,
+  CONDITION_COLORS,
+  EMPLOYMENT_TYPE_COLORS,
+  GREEN_COLOR,
+  STATUS_COLORS,
+  UTILIZATION_COLORS,
+} from "../../../../components/chartCard/chartColors";
+import BarChartRenderer from "../../../../components/chartCard/BarChartRenderer";
 
 /**
  * HR Employee Management Page
@@ -63,6 +70,8 @@ export default function EmployeeManagement() {
   // ==============
   // HOOKS
   // ==============
+
+  // MAIN PAGINATED DATA AND TABLE
   const {
     data: employees,
     totalCount,
@@ -89,43 +98,77 @@ export default function EmployeeManagement() {
     pageSize: 20,
     defaultSortBy: "full_name",
   });
-  const { profiles, loading: profilesLoading } = useProfiles();
-  const { departments, loading: departmentsLoading } = useDepartments();
-  const { nationalities, loading: nationalitiesLoading } = useNationalities();
-  const { identificationTypes, loading: identificationTypesLoading } =
-    useIdentificationTypes();
-  const { employmentTypes, loading: employmentTypesLoading } =
-    useEmploymentTypes();
-  const { terminationReasons, loading: terminationReasonsLoading } =
-    useTerminationReasons();
-  const { statuses: employmentStatuses, loading: employmentStatusesLoading } =
-    useEmploymentStatus();
+
+  // ==============
+  // ANALYTICS
+  // ==============
+  const {
+    // grouped
+    departmentData,
+    statusData,
+    workforceCompositionData,
+    nationalityData,
+    identificationTypeData,
+    terminationData,
+    managerData,
+    employmentTypeData,
+
+    // insights
+    employeesWithoutManager,
+    employeesWithManager,
+    activeEmployees,
+    inactiveEmployees,
+    terminatedEmployees,
+    employeesMissingProfile,
+
+    // advanced
+    teamSizeData,
+    fullTeamSizeData,
+    managementCoverageData,
+    topDepartments,
+
+    // KPIs
+    kpis,
+    isLoading: overviewLoading,
+  } = useEmployeesOverview();
+
+  // ==============
+  // METADATA
+  // ==============
+
+  const {
+    managers,
+    profiles,
+    departments,
+    nationalities,
+    identificationTypes,
+    employmentTypes,
+    terminationReasons,
+    employmentStatuses,
+    isLoading: metadataLoading,
+  } = useEmployeesMetadata();
+
   const { createEmployee, updateEmployee, deleteEmployee, saving, deleting } =
     useEmployeeMutations();
-  // const overviewItems = getEmployeesOverviewConfig(summary);
+
+  // ==============
+  // CONFIG
+  // ==============
   const layoutOptions = getEmployeesLayoutConfig();
   const sortOptions = getEmployeesSortConfig();
+  const overviewItems = getEmployeesOverviewConfig(kpis);
 
   // ==============
   // DATA LOADING
   // ==============
-  const isLoading =
-    employeesLoading ||
-    profilesLoading ||
-    departmentsLoading ||
-    nationalitiesLoading ||
-    identificationTypesLoading ||
-    employmentTypesLoading ||
-    terminationReasonsLoading ||
-    employmentStatusesLoading;
-
+  const isLoading = employeesLoading || metadataLoading;
   const hasData = employees.length > 0;
 
   // ==============
   // TABLE CONFIG
   // ==============
   const columns = employeesTableConfig({
-    employees,
+    managers,
     profiles,
     departments,
     nationalities,
@@ -214,108 +257,98 @@ export default function EmployeeManagement() {
 
   return (
     <>
-      <section className={darkMode ? "sectionDark" : "sectionLight"}>
-        <div className="sectionWrapper">
-          <div className="sectionContent">
-            <Breadcrumbs icon={UsersFourIcon} current="Employee Management" />
+      {/* OVERVIEW */}
+      <OverviewCards items={overviewItems} />
 
-            <CardWrapper>
-              {/* OVERVIEW */}
-              {/* <OverviewCards items={overviewItems} /> */}
+      {/* SEARCH AND FILTER BAR */}
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search employees..."
+      />
 
-              {/* SEARCH AND FILTER BAR */}
-              <SearchFilterBar
-                search={search}
-                onSearchChange={setSearch}
-                filters={filters}
-                onFilterChange={setFilters}
-                filterConfig={filterConfig}
-                placeholder="Search employees..."
+      <PageHeader>
+        {/* LAYOUT UI + ACTION BUTTONS */}
+        <PageLayout
+          layout={layout}
+          setLayout={setLayout}
+          options={layoutOptions}
+          addButton={{
+            name: "Add Employee",
+            icon: PlusCircleIcon,
+            onClick: () => {
+              setSelectedRow({});
+              setSidebarOpen(true);
+            },
+          }}
+        />
+
+        {/* SORTING ACTIONS */}
+        <SortBar
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOptions={sortOptions}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+        />
+      </PageHeader>
+
+      {/* ACTIVE FILTERS */}
+      {hasActiveFilters && (
+        <ActiveFiltersBar
+          search={search}
+          setSearch={setSearch}
+          filters={activeFilters}
+          setFilters={setFilters}
+          filterConfig={filterConfig}
+          resetParams={resetParams}
+        />
+      )}
+
+      {/* RESULT NUMBER + NEXT AND PREVIOUS BUTTONS */}
+      <PageResult
+        data={employees}
+        totalCount={totalCount}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+        error={error}
+      />
+
+      {/* TABLE DISPLAY UI */}
+      <div className="cardWrapperScroll generalCard">
+        {isLoading || isFetching ? (
+          <CardLayout style="cardLayoutFlexFull">
+            <LoadingIcon />
+          </CardLayout>
+        ) : !hasData ? (
+          <NoResult />
+        ) : layout === 1 ? (
+          // TABLE LAYOUT
+          <DataTable
+            data={employees}
+            columns={columns}
+            rowKey="id"
+            onRowClick={handleOpenSidebar}
+          />
+        ) : (
+          // LIST LAYOUT
+          <CardLayout style="cardLayout1 cardPadding">
+            {employees.map((employee) => (
+              <EmployeesList
+                key={employee.id}
+                employee={employee}
+                onClick={() => handleOpenSidebar(employee)}
+                saving={saving}
+                deleting={deleting}
               />
-
-              <PageHeader>
-                {/* LAYOUT UI + ACTION BUTTONS */}
-                <PageLayout
-                  layout={layout}
-                  setLayout={setLayout}
-                  options={layoutOptions}
-                  addButton={{
-                    name: "Add Employee",
-                    icon: PlusCircleIcon,
-                    onClick: () => {
-                      setSelectedRow({});
-                      setSidebarOpen(true);
-                    },
-                  }}
-                />
-
-                {/* SORTING ACTIONS */}
-                <SortBar
-                  sortBy={sortBy}
-                  setSortBy={setSortBy}
-                  sortOptions={sortOptions}
-                  sortOrder={sortOrder}
-                  setSortOrder={setSortOrder}
-                />
-              </PageHeader>
-
-              {/* ACTIVE FILTERS */}
-              {hasActiveFilters && (
-                <ActiveFiltersBar
-                  search={search}
-                  setSearch={setSearch}
-                  filters={activeFilters}
-                  setFilters={setFilters}
-                  filterConfig={filterConfig}
-                  resetParams={resetParams}
-                />
-              )}
-
-              {/* RESULT NUMBER + NEXT AND PREVIOUS BUTTONS */}
-              <PageResult
-                data={employees}
-                totalCount={totalCount}
-                page={page}
-                setPage={setPage}
-                totalPages={totalPages}
-                error={error}
-              />
-
-              {/* TABLE DISPLAY UI */}
-              <div className="cardWrapperScroll generalCard">
-                {isLoading || isFetching ? (
-                  <CardLayout style="cardLayoutFlexFull">
-                    <LoadingIcon />
-                  </CardLayout>
-                ) : !hasData ? (
-                  <NoResult />
-                ) : layout === 1 ? (
-                  // TABLE LAYOUT
-                  <DataTable
-                    data={employees}
-                    columns={columns}
-                    rowKey="id"
-                    onRowClick={handleOpenSidebar}
-                  />
-                ) : (
-                  // LIST LAYOUT
-                  <CardLayout style="cardLayout1 cardPadding">
-                    {employees.map((employee) => (
-                      <EmployeesList
-                        key={employee.id}
-                        employee={employee}
-                        onClick={() => handleOpenSidebar(employee)}
-                        saving={saving}
-                        deleting={deleting}
-                      />
-                    ))}
-                  </CardLayout>
-                )}
-              </div>
-            </CardWrapper>
-          </div>
-        </div>
-      </section>
+            ))}
+          </CardLayout>
+        )}
+      </div>
 
       {/* DATA SIDEBAR */}
       <AnimatePresence>

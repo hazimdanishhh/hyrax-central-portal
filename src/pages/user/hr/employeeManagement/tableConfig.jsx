@@ -8,7 +8,7 @@
 // editable = boolean
 
 export const employeesTableConfig = ({
-  employees,
+  managers,
   profiles,
   departments,
   nationalities,
@@ -230,9 +230,9 @@ export const employeesTableConfig = ({
     displayValue: (employee) => employee.manager?.full_name,
     editable: true,
     editor: "select",
-    options: employees.map((e) => ({
-      label: e.full_name,
-      value: e.id,
+    options: managers.map((m) => ({
+      label: m.full_name,
+      value: m.id,
     })),
   },
   {

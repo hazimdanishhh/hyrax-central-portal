@@ -32,6 +32,7 @@ export default function PageResult({
 
       <CardLayout style="pageNumberContainer">
         <Button
+          size={20}
           icon={CaretLeftIcon}
           disabled={page === 1}
           style="iconButton2 textXXS"
@@ -79,6 +80,7 @@ export default function PageResult({
         </div>
 
         <Button
+          size={20}
           icon={CaretRightIcon}
           disabled={totalPages === 0 || page === totalPages}
           style="iconButton2 textXXS"
