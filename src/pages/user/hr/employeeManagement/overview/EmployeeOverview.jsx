@@ -66,7 +66,7 @@ export default function EmployeeOverview() {
           <LoadingIcon />
         </CardLayout>
       ) : (
-        <CardLayout style="cardLayout2 itAssetOverviewContainer">
+        <CardLayout style="cardLayout2">
           <ChartCard style="cardGapSmall" title="Departments">
             <BarChartRenderer data={departmentData} colorMap={GREEN_COLOR} />
           </ChartCard>

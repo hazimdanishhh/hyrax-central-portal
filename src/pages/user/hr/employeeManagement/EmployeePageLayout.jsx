@@ -1,7 +1,12 @@
 import React from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import { ChartLineIcon, DesktopIcon, ListIcon } from "@phosphor-icons/react";
+import {
+  ChartLineIcon,
+  DesktopIcon,
+  ListIcon,
+  UsersFourIcon,
+} from "@phosphor-icons/react";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { Link, NavLink, Outlet } from "react-router";
 
@@ -13,7 +18,7 @@ export default function EmployeePageLayout() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={DesktopIcon} current="IT Assets" />
+            <Breadcrumbs icon={UsersFourIcon} current="Employee Management" />
 
             <CardWrapper>
               <div className="pageTabContainer">
@@ -42,7 +47,7 @@ export default function EmployeePageLayout() {
                   <div className="pageTabIcon">
                     <ListIcon size={15} />
                   </div>
-                  Asset List
+                  Employees List
                 </NavLink>
               </div>
               <Outlet />
