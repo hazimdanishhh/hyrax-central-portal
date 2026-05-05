@@ -78,29 +78,33 @@ export default function SearchFilterBar({
       {/* DATE RANGE */}
       {enableDateRange && (
         <div className="dateRangeWrapper">
-          <input
-            type="date"
-            value={filters.startDate || ""}
-            onChange={(e) =>
-              onFilterChange({
-                ...filters,
-                startDate: e.target.value,
-              })
-            }
-          />
+          <p className="textBold textXXS">Date Range</p>
 
-          <span className="textXXS">to</span>
+          <div className="dateRangeInputContainer">
+            <input
+              type="date"
+              value={filters.startDate || ""}
+              onChange={(e) =>
+                onFilterChange({
+                  ...filters,
+                  startDate: e.target.value,
+                })
+              }
+            />
 
-          <input
-            type="date"
-            value={filters.endDate || ""}
-            onChange={(e) =>
-              onFilterChange({
-                ...filters,
-                endDate: e.target.value,
-              })
-            }
-          />
+            <span className="textXXS">to</span>
+
+            <input
+              type="date"
+              value={filters.endDate || ""}
+              onChange={(e) =>
+                onFilterChange({
+                  ...filters,
+                  endDate: e.target.value,
+                })
+              }
+            />
+          </div>
         </div>
       )}
 

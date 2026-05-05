@@ -4,6 +4,7 @@ import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import {
   ChartLineIcon,
   DesktopIcon,
+  GearIcon,
   ListIcon,
   UsersFourIcon,
 } from "@phosphor-icons/react";
@@ -48,6 +49,20 @@ export default function EmployeePageLayout() {
                     <ListIcon size={15} />
                   </div>
                   Employees List
+                </NavLink>
+
+                <NavLink
+                  to="/app/hr/employees/settings"
+                  className={({ isActive }) =>
+                    `button buttonTypeTab textRegular textXS ${
+                      isActive ? "active" : ""
+                    }`
+                  }
+                >
+                  <div className="pageTabIcon">
+                    <GearIcon size={15} />
+                  </div>
+                  Settings
                 </NavLink>
               </div>
               <Outlet />

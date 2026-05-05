@@ -1,4 +1,4 @@
-import { ClockUserIcon, SignOutIcon } from "@phosphor-icons/react";
+import { SignInIcon, SignOutIcon } from "@phosphor-icons/react";
 import useAttendanceActivities from "../../hooks/useAttendanceActivities";
 import CardLayout from "../cardLayout/CardLayout";
 
@@ -12,7 +12,7 @@ function AttendanceActivity() {
         <CardLayout key={attendanceActivity.id} style="cardLayout2 generalCard">
           <CardLayout style="cardLayout1">
             <p>
-              {attendanceActivity.attendance_type?.name} <ClockUserIcon />
+              {attendanceActivity.attendance_type?.name} <SignInIcon />
             </p>
             <p>{attendanceActivity.clocked_in_at}</p>
           </CardLayout>

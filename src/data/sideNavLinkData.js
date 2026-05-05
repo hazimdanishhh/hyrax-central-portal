@@ -168,6 +168,7 @@ const itSegment = {
   segmentTitle: "IT",
   segmentCode: "IT",
   links: [
+    { label: "Dashboard", icon: SquaresFourIcon, path: "it/dashboard" },
     { label: "IT Assets", icon: MonitorIcon, path: "it/assets" },
     { label: "Software", icon: AppWindowIcon, path: "it/software" },
   ],

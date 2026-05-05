@@ -24,6 +24,8 @@ import BarChartRenderer from "../../../../../components/chartCard/BarChartRender
 import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import { useEmployeesOverview } from "../../../../../hooks/employees/useEmployeesOverview";
+import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
+import { getEmployeesOverviewConfig } from "../overviewConfig";
 
 export default function EmployeeOverview() {
   // ==============
@@ -59,6 +61,8 @@ export default function EmployeeOverview() {
     isLoading: overviewLoading,
   } = useEmployeesOverview();
 
+  const overviewItems = getEmployeesOverviewConfig(kpis);
+
   return (
     <>
       {overviewLoading ? (
@@ -66,40 +70,44 @@ export default function EmployeeOverview() {
           <LoadingIcon />
         </CardLayout>
       ) : (
-        <CardLayout style="cardLayout2">
-          <ChartCard style="cardGapSmall" title="Departments">
-            <BarChartRenderer data={departmentData} colorMap={GREEN_COLOR} />
-          </ChartCard>
+        <>
+          <OverviewCards items={overviewItems} />
 
-          <ChartCard title="Workforce Status" style="cardGapSmall">
-            <PieChartRenderer
-              mode="semantic"
-              data={statusData}
-              colorMap={STATUS_COLORS}
-              centerLabel={kpis.activeEmployees}
-              centerSubLabel="Active"
-            />
-          </ChartCard>
+          <CardLayout style="cardLayout2">
+            <ChartCard style="cardGapSmall" title="Departments">
+              <BarChartRenderer data={departmentData} colorMap={GREEN_COLOR} />
+            </ChartCard>
 
-          <ChartCard title="Top Managers (Team Size)" style="cardGapSmall">
-            <BarChartRenderer data={teamSizeData} colorMap={BLUE_COLOR} />
-          </ChartCard>
+            <ChartCard title="Workforce Status" style="cardGapSmall">
+              <PieChartRenderer
+                mode="semantic"
+                data={statusData}
+                colorMap={STATUS_COLORS}
+                centerLabel={kpis.activeEmployees}
+                centerSubLabel="Active"
+              />
+            </ChartCard>
 
-          <ChartCard title="Management Coverage" style="cardGapSmall">
-            <StackedBarRenderer
-              data={managementCoverageData}
-              colorMap={UTILIZATION_COLORS}
-            />
-          </ChartCard>
+            <ChartCard title="Top Managers (Team Size)" style="cardGapSmall">
+              <BarChartRenderer data={teamSizeData} colorMap={BLUE_COLOR} />
+            </ChartCard>
 
-          <ChartCard title="Employment Type" style="cardGapSmall">
-            <PieChartRenderer
-              data={workforceCompositionData}
-              mode="semantic"
-              colorMap={EMPLOYMENT_TYPE_COLORS}
-            />
-          </ChartCard>
-        </CardLayout>
+            <ChartCard title="Management Coverage" style="cardGapSmall">
+              <StackedBarRenderer
+                data={managementCoverageData}
+                colorMap={UTILIZATION_COLORS}
+              />
+            </ChartCard>
+
+            <ChartCard title="Employment Type" style="cardGapSmall">
+              <PieChartRenderer
+                data={workforceCompositionData}
+                mode="semantic"
+                colorMap={EMPLOYMENT_TYPE_COLORS}
+              />
+            </ChartCard>
+          </CardLayout>
+        </>
       )}
     </>
   );

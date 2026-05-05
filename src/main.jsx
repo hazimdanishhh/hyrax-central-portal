@@ -42,7 +42,6 @@ import EmployeeProfile from "./pages/user/employees/employeeProfile/EmployeeProf
 import { MessageProvider } from "./context/MessageContext";
 import { AttendanceProvider } from "./context/AttendanceProvider";
 import Departments from "./pages/user/hr/departments/Departments";
-import EmployeeManagement from "./pages/user/hr/employeeManagement/EmployeeManagement";
 import ITAssetManagement from "./pages/user/it/ITAssetManagement/ITAssetManagement";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/reactQuery";
@@ -51,6 +50,11 @@ import ITAssetOverview from "./pages/user/it/ITAssetManagement/overview/ITAssetO
 import ITAssetsPageLayout from "./pages/user/it/ITAssetManagement/ITAssetsPageLayout";
 import EmployeeOverview from "./pages/user/hr/employeeManagement/overview/EmployeeOverview";
 import EmployeePageLayout from "./pages/user/hr/employeeManagement/EmployeePageLayout";
+import EmployeeManagement from "./pages/user/hr/employeeManagement/list/EmployeeManagement";
+import ITDashboard from "./pages/user/it/dashboard/ITDashboard";
+import AttendanceManagement from "./pages/user/hr/attendanceManagement/list/AttendanceManagement";
+import AttendanceOverview from "./pages/user/hr/attendanceManagement/overview/AttendanceOverview";
+import AttendancePageLayout from "./pages/user/hr/attendanceManagement/AttendancePageLayout";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -101,18 +105,34 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     <Route path="sales/reports" element={<Reports />} />
 
                     {/* HR */}
-                    <Route path="hr/employees" element={<EmployeePageLayout />}>
+                    <Route path="hr">
+                      <Route path="employees" element={<EmployeePageLayout />}>
+                        <Route
+                          index
+                          element={<Navigate to="overview" replace />}
+                        />
+                        <Route path="overview" element={<EmployeeOverview />} />
+                        <Route path="list" element={<EmployeeManagement />} />
+                      </Route>
+                      <Route path="departments" element={<Departments />} />
+                      <Route path="leaves" element={<LeaveManagement />} />
+                      <Route path="recruitment" element={<Recruitment />} />
+                      <Route path="performance" element={<Performance />} />
                       <Route
-                        index
-                        element={<Navigate to="overview" replace />}
-                      />
-                      <Route path="overview" element={<EmployeeOverview />} />
-                      <Route path="list" element={<EmployeeManagement />} />
+                        path="attendance"
+                        element={<AttendancePageLayout />}
+                      >
+                        <Route
+                          index
+                          element={<Navigate to="overview" replace />}
+                        />
+                        <Route
+                          path="overview"
+                          element={<AttendanceOverview />}
+                        />
+                        <Route path="list" element={<AttendanceManagement />} />
+                      </Route>
                     </Route>
-                    <Route path="hr/departments" element={<Departments />} />
-                    <Route path="hr/leaves" element={<LeaveManagement />} />
-                    <Route path="hr/recruitment" element={<Recruitment />} />
-                    <Route path="hr/performance" element={<Performance />} />
 
                     {/* Finance */}
                     <Route path="finance/invoices" element={<Invoices />} />
@@ -147,18 +167,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                     <Route path="employee/policies" element={<Policies />} />
 
                     {/* Information Technology */}
-                    <Route path="it/assets" element={<ITAssetsPageLayout />}>
-                      <Route
-                        index
-                        element={<Navigate to="overview" replace />}
-                      />
-                      <Route path="overview" element={<ITAssetOverview />} />
-                      <Route path="list" element={<ITAssetManagement />} />
+                    <Route path="it">
+                      <Route path="dashboard" element={<ITDashboard />} />
+                      <Route path="assets" element={<ITAssetsPageLayout />}>
+                        <Route
+                          index
+                          element={<Navigate to="overview" replace />}
+                        />
+                        <Route path="overview" element={<ITAssetOverview />} />
+                        <Route path="list" element={<ITAssetManagement />} />
+                      </Route>
+                      <Route path="software" element={<SoftwareManagement />} />
                     </Route>
-                    <Route
-                      path="it/software"
-                      element={<SoftwareManagement />}
-                    />
 
                     {/* Help */}
                     <Route path="help" element={<Help />} />

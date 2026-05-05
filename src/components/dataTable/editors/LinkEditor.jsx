@@ -3,7 +3,13 @@ import LinkButton from "../../buttons/linkButton/LinkButton";
 import Button from "../../buttons/button/Button";
 import { useMessage } from "../../../context/MessageContext";
 
-export default function LinkEditor({ value, onChange, onBlur, required }) {
+export default function LinkEditor({
+  value,
+  onChange,
+  onBlur,
+  required,
+  readOnly,
+}) {
   const { showMessage } = useMessage();
 
   const handleCopy = async () => {
@@ -26,6 +32,7 @@ export default function LinkEditor({ value, onChange, onBlur, required }) {
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         required={required}
+        readOnly={readOnly}
       />
       {value && (
         <>

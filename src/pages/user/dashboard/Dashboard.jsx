@@ -22,6 +22,10 @@ import AttendanceActivity from "../../../components/attendanceActivity/Attendanc
 import AttendanceActivityClockin from "../../../components/attendanceActivityClockin/AttendanceActivityClockin";
 import { useMessage } from "../../../context/MessageContext";
 import useUserProfile from "../../../hooks/useUserProfile";
+import {
+  quickActionsHome,
+  quickActionsIT,
+} from "../../../data/quickActionsCardData";
 
 function Dashboard() {
   const { darkMode } = useTheme();
@@ -48,6 +52,11 @@ function Dashboard() {
             <Breadcrumbs icon={HouseIcon} current="Dashboard" />
 
             <CardWrapper>
+              <QuickActions
+                quickActionsList={quickActionsHome}
+                title="Web Services"
+              />
+
               {/* ATTENDANCE SYSTEM */}
               <CardLayout style="cardLayout1">
                 <AttendanceActivityClockin />

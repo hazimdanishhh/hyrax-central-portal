@@ -61,6 +61,7 @@ export const employeesTableConfig = ({
         value: "Widowed",
       },
     ],
+    isSearchable: false,
   },
   {
     key: "employee_id",
@@ -108,6 +109,7 @@ export const employeesTableConfig = ({
       },
       { label: "Not Specified", value: "Not Specified" },
     ],
+    isSearchable: false,
   },
 
   {
@@ -133,6 +135,7 @@ export const employeesTableConfig = ({
       label: i.name,
       value: i.id,
     })),
+    isSearchable: false,
   },
   {
     key: "identification_number",
@@ -196,6 +199,7 @@ export const employeesTableConfig = ({
       { label: "Friend", value: "Friend" },
       { label: "Other", value: "Other" },
     ],
+    isSearchable: false,
   },
   {
     key: "emergency_contact_phone",
@@ -247,6 +251,7 @@ export const employeesTableConfig = ({
       value: e.id,
     })),
     required: true,
+    isSearchable: false,
   },
   {
     key: "employment_type_id",
@@ -259,6 +264,7 @@ export const employeesTableConfig = ({
       label: e.name,
       value: e.id,
     })),
+    isSearchable: false,
   },
   {
     key: "join_date",
@@ -299,6 +305,7 @@ export const employeesTableConfig = ({
       label: t.name,
       value: t.id,
     })),
+    isSearchable: false,
   },
   {
     key: "address_work",

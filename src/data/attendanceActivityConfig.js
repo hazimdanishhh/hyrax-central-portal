@@ -18,28 +18,27 @@ export function attendanceActivityConfig({
     },
     {
       key: "photo_url",
-      label: "Photo URL",
+      label: "Attendance Photo",
+      getValue: (activity) => activity.photo_url,
       editable: true,
-      editor: "text", // Placeholder for now
-      // required: selectedType?.requires_photo || false,
-      // visible: selectedType?.requires_photo !== false,
+      editor: "image",
       required: true,
     },
-    {
-      key: "location",
-      label: "Location",
-      editable: true,
-      editor: "text",
-      required: selectedType?.requires_location || false,
-      visible: selectedType?.requires_location !== false,
-    },
+    // {
+    //   key: "location",
+    //   label: "Location",
+    //   editable: true,
+    //   editor: "text",
+    //   required: selectedType?.requires_location || false,
+    //   show: selectedType?.requires_location !== false,
+    // },
     {
       key: "notes",
       label: "Notes",
       editable: true,
       editor: "text",
       required: false,
-      visible: true,
+      show: true,
     },
   ];
 }

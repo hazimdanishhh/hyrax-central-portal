@@ -25,7 +25,7 @@ import { useAttendance } from "../../../context/AttendanceProvider";
 
 export default function ClockinMini({ navIsOpen }) {
   const { darkMode, toggleMode } = useTheme();
-  const { showMessage } = useMessage;
+  const { showMessage } = useMessage();
 
   const [selectedAttendanceActivity, setSelectedAttendanceActivity] =
     useState(null);

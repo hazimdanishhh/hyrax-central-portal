@@ -5,6 +5,8 @@ import SelectEditor from "./SelectEditor";
 import TextareaEditor from "./TextareaEditor";
 import LinkEditor from "./LinkEditor";
 import "./Editors.scss";
+import DateTimeEditor from "./DateTimeEditor";
+import ImageUploadEditor from "./ImageUploadEditor";
 
 export const editors = {
   text: TextEditor,
@@ -13,4 +15,6 @@ export const editors = {
   select: SelectEditor,
   textarea: TextareaEditor,
   link: LinkEditor,
+  dateTime: DateTimeEditor,
+  image: ImageUploadEditor,
 };

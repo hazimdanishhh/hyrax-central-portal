@@ -1,12 +1,12 @@
 import { CaretCircleRightIcon, NotePencilIcon } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
-import CardLayout from "../cardLayout/CardLayout";
-import StatusBadge from "../status/statusBadge/StatusBadge";
+import CardLayout from "../../cardLayout/CardLayout";
+import StatusBadge from "../../status/statusBadge/StatusBadge";
 
 export default function EmployeesList({ employee, onClick, saving, deleting }) {
   return (
     <motion.div
-      className="employeeList"
+      className="employeeList generalCard"
       onClick={saving ? null : deleting ? null : onClick}
       initial={{ y: 0 }}
       whileHover={{ y: -3 }}

@@ -26,11 +26,9 @@ export default function useSubordinates({ setMessage } = {}) {
         .eq("manager_id", employee.id) // 🔥 key logic
         .in("employment_status_name", [
           "Active",
-          "Intern",
-          "Probation",
-          "Contract",
-          "Freelance",
           "Terminated Notice",
+          "On Leave",
+          "Probation",
         ])
         .order("full_name", { ascending: true });
 

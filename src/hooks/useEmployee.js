@@ -30,44 +30,14 @@ export default function useEmployee() {
           .select(
             `
             *,
-            identification_type:identification_type_id (
-              id,
-              name
-            ),
-            nationality:nationality_id (
-              id,
-              name
-            ),
-            department:departments (
-            id,
-            name,
-            sub
-            ),
-            manager:manager_id (
-              id,
-              employee_id,
-              full_name,
-              preferred_name,
-              email_work,
-              phone_work,
-              position,
-              department:departments (
-                id,
-                name,
-                sub
-              )
-            ),
-            employment_status:employment_status_id (
-              id,
-              name
-            ),
-            employment_type:employment_type_id (
-              id,
-              name
-            ),
-            termination_reason:termination_reason_id (
-              id,
-              name
+            identification_type:identification_type_id (id,name),
+            nationality:nationality_id (id,name),
+            department:departments (id,name,sub),
+            manager:manager_id (id,employee_id,full_name,preferred_name,email_work,phone_work,position,
+              department:departments (id,name,sub)),
+            employment_status:employment_status_id (id,name),
+            employment_type:employment_type_id (id,name),
+            termination_reason:termination_reason_id (id,name
             )
           `,
           )

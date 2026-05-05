@@ -1,0 +1,87 @@
+.attendanceCard {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  text-align: start;
+
+  @media screen and (max-width: 768px) {
+    flex-direction: column;
+  }
+
+  .attendanceCardSegment {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    width: fit-content;
+    max-width: 100%;
+
+    @media screen and (max-width: 768px) {
+      width: 100%;
+    }
+  }
+
+  .attendanceCardNameHeader {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 0.6rem;
+
+    @media screen and (max-width: 768px) {
+      width: 100%;
+    }
+  }
+
+  .attendanceCardClockWrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .attendanceCardClock {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.8rem;
+    max-width: 120px;
+    width: fit-content;
+    padding: 0.2rem 0.4rem;
+
+    &.green {
+      background-color: rgba($success600, 0.2);
+      color: $success600;
+      border-radius: 6px;
+
+      .attendanceCardIcon {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
+        background-color: $success600;
+        color: $neutral100;
+      }
+    }
+
+    &.yellow {
+      background-color: rgba($warning600, 0.2);
+      color: $warning600;
+      border-radius: 6px;
+
+      .attendanceCardIcon {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
+        background-color: $warning600;
+        color: $neutral100;
+      }
+    }
+  }
+}

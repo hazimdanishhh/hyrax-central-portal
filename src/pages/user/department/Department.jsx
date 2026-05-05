@@ -31,8 +31,6 @@ export default function Department() {
 
   const { subordinates, loading } = useSubordinates();
 
-  console.log(reportingManager);
-
   if (profileLoading || employeesLoading || managerLoading) {
     return <LoadingIcon />;
   }
@@ -48,32 +46,36 @@ export default function Department() {
             />
             <CardWrapper>
               {/* MY REPORTING MANAGER SECTION */}
-              <Breadcrumbs
-                icon={UserCircleIcon}
-                current="My Reporting Manager"
-              />
-              <CardLayout style="cardLayout2">
-                <EmployeeCard
-                  className="employeeCard"
-                  onClick={() =>
-                    navigate(`/app/employees/${reportingManager?.id}`)
-                  }
-                  src={reportingManager?.avatar_url}
-                  full_name={reportingManager?.full_name}
-                  position={reportingManager?.position}
-                  employee_id={reportingManager?.employee_id}
-                  department_name={reportingManager?.department_name}
-                  email_work={reportingManager?.email_work}
-                  phone_work={reportingManager?.phone_work}
-                  employment_status_name={
-                    reportingManager?.employment_status_name
-                  }
-                />
-              </CardLayout>
+              {reportingManager && (
+                <CardLayout style="generalCard">
+                  <Breadcrumbs
+                    icon={UserCircleIcon}
+                    current="My Reporting Manager"
+                  />
+                  <CardLayout style="cardLayout2">
+                    <EmployeeCard
+                      className="employeeCard"
+                      onClick={() =>
+                        navigate(`/app/employees/${reportingManager?.id}`)
+                      }
+                      src={reportingManager?.avatar_url}
+                      full_name={reportingManager?.full_name}
+                      position={reportingManager?.position}
+                      employee_id={reportingManager?.employee_id}
+                      department_name={reportingManager?.department_name}
+                      email_work={reportingManager?.email_work}
+                      phone_work={reportingManager?.phone_work}
+                      employment_status_name={
+                        reportingManager?.employment_status_name
+                      }
+                    />
+                  </CardLayout>
+                </CardLayout>
+              )}
 
               {/* MY DEPARTMENT SECTION */}
               {employee?.department_id && (
-                <>
+                <CardLayout style="generalCard">
                   <Breadcrumbs icon={UsersThreeIcon} current="My Department" />
                   <CardLayout style="cardLayout2">
                     {employees.map((emp) => {
@@ -97,12 +99,12 @@ export default function Department() {
                       );
                     })}
                   </CardLayout>
-                </>
+                </CardLayout>
               )}
 
               {/* MY SUBORDINATES SECTION */}
               {subordinates && (
-                <>
+                <CardLayout style="generalCard">
                   <Breadcrumbs icon={UsersThreeIcon} current="My Staff" />
                   <CardLayout style="cardLayout2">
                     {subordinates.map((emp) => {
@@ -126,7 +128,7 @@ export default function Department() {
                       );
                     })}
                   </CardLayout>
-                </>
+                </CardLayout>
               )}
             </CardWrapper>
           </div>

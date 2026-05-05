@@ -29,7 +29,7 @@ import useEmployeeAttendanceActivities from "../../hooks/useEmployeeAttendanceAc
 
 export default function AttendanceActivityClockin() {
   const { darkMode, toggleMode } = useTheme();
-  const { showMessage } = useMessage;
+  const { showMessage } = useMessage();
   const [period, setPeriod] = useState("year"); // "year" | "month"
 
   const [selectedAttendanceActivity, setSelectedAttendanceActivity] =

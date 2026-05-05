@@ -2,7 +2,13 @@ import { CopyIcon } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
 import { useMessage } from "../../../context/MessageContext";
 
-export default function TextEditor({ value, onChange, onBlur, required }) {
+export default function TextEditor({
+  value,
+  onChange,
+  onBlur,
+  required,
+  readOnly,
+}) {
   const { showMessage } = useMessage();
   const handleCopy = async () => {
     if (!value) return;
@@ -24,6 +30,7 @@ export default function TextEditor({ value, onChange, onBlur, required }) {
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         required={required}
+        readOnly={readOnly}
       />
       {value && (
         <Button

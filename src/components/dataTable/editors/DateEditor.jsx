@@ -1,4 +1,10 @@
-export default function DateEditor({ value, onChange, onBlur, required }) {
+export default function DateEditor({
+  value,
+  onChange,
+  onBlur,
+  required,
+  readOnly,
+}) {
   return (
     <div className="editorContainer">
       <input
@@ -7,6 +13,7 @@ export default function DateEditor({ value, onChange, onBlur, required }) {
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         required={required}
+        readOnly={readOnly}
       />
     </div>
   );

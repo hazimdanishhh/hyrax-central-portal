@@ -14,8 +14,17 @@
 .dateRangeWrapper {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
   gap: 8px;
+
+  .dateRangeInputContainer {
+    display: flex;
+    // justify-content: center;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
 
   input {
     padding: 4px 8px;

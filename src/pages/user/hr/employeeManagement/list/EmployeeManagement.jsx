@@ -5,41 +5,41 @@ import {
   PlusCircleIcon,
   UsersFourIcon,
 } from "@phosphor-icons/react";
-import CardLayout from "../../../../components/cardLayout/CardLayout";
-import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
-import { useTheme } from "../../../../context/ThemeContext";
+import CardLayout from "../../../../../components/cardLayout/CardLayout";
+import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import { useTheme } from "../../../../../context/ThemeContext";
 import { useEffect, useState } from "react";
-import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../components/searchFliterBar/SearchFilterBar";
-import DataTable from "../../../../components/dataTable/DataTable";
-import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
+import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
+import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
+import SearchFilterBar from "../../../../../components/searchFliterBar/SearchFilterBar";
+import DataTable from "../../../../../components/dataTable/DataTable";
+import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
-import EmployeesList from "../../../../components/employeesList/EmployeesList";
-import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
-import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
-import { employeesTableConfig } from "./tableConfig";
-import useProfiles from "../../../../hooks/useProfiles";
-import { getEmployeesFilterConfig } from "./filterConfig";
-import useEmployeeMutations from "../../../../hooks/useEmployeeMutations";
+import EmployeesList from "../../../../../components/employees/employeesList/EmployeesList";
+import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
+import { employeesTableConfig } from "../tableConfig";
+import useProfiles from "../../../../../hooks/useProfiles";
+import { getEmployeesFilterConfig } from "../filterConfig";
+import useEmployeeMutations from "../../../../../hooks/useEmployeeMutations";
 import { useSearchParams } from "react-router-dom";
-import ActionModal from "../../../../components/modals/actionModal/ActionModal";
-import PageResult from "../../../../components/crud/pageResult/PageResult";
-import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
-import { getEmployeesOverviewConfig } from "./overviewConfig";
-import PageLayout from "../../../../components/crud/pageLayout/PageLayout";
-import { getEmployeesLayoutConfig } from "./layoutConfig";
+import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
+import PageResult from "../../../../../components/crud/pageResult/PageResult";
+import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
+import { getEmployeesOverviewConfig } from "../overviewConfig";
+import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
+import { getEmployeesLayoutConfig } from "../layoutConfig";
 import { useQueryClient } from "@tanstack/react-query";
-import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchEmployees } from "../../../../services/employeesServices/employeesService";
-import { getEmployeesSortConfig } from "./sortConfig";
-import SortBar from "../../../../components/crud/sortBar/SortBar";
-import NoResult from "../../../../components/crud/noResult/NoResult";
-import { useEmployeesMetadata } from "../../../../hooks/employees/useEmployeesMetadata";
-import ChartCard from "../../../../components/chartCard/ChartCard";
-import { useEmployeesOverview } from "../../../../hooks/employees/useEmployeesOverview";
-import StackedBarRenderer from "../../../../components/chartCard/StackedBarRenderer";
-import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import { fetchEmployees } from "../../../../../services/employeesServices/employeesService";
+import { getEmployeesSortConfig } from "../sortConfig";
+import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import NoResult from "../../../../../components/crud/noResult/NoResult";
+import { useEmployeesMetadata } from "../../../../../hooks/employees/useEmployeesMetadata";
+import ChartCard from "../../../../../components/chartCard/ChartCard";
+import { useEmployeesOverview } from "../../../../../hooks/employees/useEmployeesOverview";
+import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
+import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
 import {
   BLUE_COLOR,
   CONDITION_COLORS,
@@ -47,8 +47,8 @@ import {
   GREEN_COLOR,
   STATUS_COLORS,
   UTILIZATION_COLORS,
-} from "../../../../components/chartCard/chartColors";
-import BarChartRenderer from "../../../../components/chartCard/BarChartRenderer";
+} from "../../../../../components/chartCard/chartColors";
+import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 
 /**
  * HR Employee Management Page
@@ -102,35 +102,6 @@ export default function EmployeeManagement() {
   // ==============
   // ANALYTICS
   // ==============
-  const {
-    // grouped
-    departmentData,
-    statusData,
-    workforceCompositionData,
-    nationalityData,
-    identificationTypeData,
-    terminationData,
-    managerData,
-    employmentTypeData,
-
-    // insights
-    employeesWithoutManager,
-    employeesWithManager,
-    activeEmployees,
-    inactiveEmployees,
-    terminatedEmployees,
-    employeesMissingProfile,
-
-    // advanced
-    teamSizeData,
-    fullTeamSizeData,
-    managementCoverageData,
-    topDepartments,
-
-    // KPIs
-    kpis,
-    isLoading: overviewLoading,
-  } = useEmployeesOverview();
 
   // ==============
   // METADATA
@@ -156,7 +127,6 @@ export default function EmployeeManagement() {
   // ==============
   const layoutOptions = getEmployeesLayoutConfig();
   const sortOptions = getEmployeesSortConfig();
-  const overviewItems = getEmployeesOverviewConfig(kpis);
 
   // ==============
   // DATA LOADING
@@ -193,8 +163,8 @@ export default function EmployeeManagement() {
   // ==============
   // SIDEBAR OPEN & CLOSE
   // ==============
-  function handleOpenSidebar(employee) {
-    setSelectedRow(employee);
+  function handleOpenSidebar(data) {
+    setSelectedRow(data);
     setSidebarOpen(true);
   }
 
@@ -215,9 +185,9 @@ export default function EmployeeManagement() {
   // ==============
   // DELETE
   // ==============
-  function handleRequestDelete(asset) {
-    setPendingDeleteRow(asset);
-    setSelectedRowId(asset.id);
+  function handleRequestDelete(data) {
+    setPendingDeleteRow(data);
+    setSelectedRowId(data.id);
     setModalType("delete");
     setModalOpen(true);
   }
@@ -257,9 +227,6 @@ export default function EmployeeManagement() {
 
   return (
     <>
-      {/* OVERVIEW */}
-      <OverviewCards items={overviewItems} />
-
       {/* SEARCH AND FILTER BAR */}
       <SearchFilterBar
         search={search}
@@ -365,10 +332,24 @@ export default function EmployeeManagement() {
             saving={saving}
             deleting={deleting}
             creating={!selectedRow?.id}
-          />
+          >
+            {/* PICTURE */}
+            {selectedRow?.id && (
+              <div className="employeeCardPhotoSidebar">
+                <img
+                  src={
+                    selectedRow.profile?.avatar_url ||
+                    "/profilePhoto/default.webp"
+                  }
+                  alt={selectedRow.full_name}
+                />
+              </div>
+            )}
+          </DataSidebar>
         )}
       </AnimatePresence>
 
+      {/* ACTION MODAL */}
       <ActionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

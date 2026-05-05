@@ -82,7 +82,8 @@ input[type="reset"] {
   cursor: pointer;
 }
 
-input[type="date"] {
+input[type="date"],
+input[type="datetime-local"] {
   background: $lightbg;
   color: $dark;
   border: 1px solid $neutral900;
@@ -98,6 +99,7 @@ button {
   color: inherit;
   border: none;
   cursor: pointer;
+  font-family: inherit;
 }
 
 * {
@@ -319,5 +321,69 @@ li {
   .react-select__indicator-separator {
     background-color: $neutral300;
     margin: 8px 0;
+  }
+}
+
+// CARD CIRCLE PHOTO
+.generalCardPhotoSmall {
+  width: 40px;
+  height: 40px;
+  background-color: $dark;
+  border-radius: 50%;
+  border: 2px solid $neutral600;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img {
+    width: 101%;
+    height: 101%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+}
+
+.generalCardPhoto {
+  width: 80px;
+  height: 80px;
+  background-color: $dark;
+  border-radius: 50%;
+  border: 2px solid $neutral600;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img {
+    width: 101%;
+    height: 101%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+  }
+}
+
+.generalCardPhotoLarge {
+  width: 150px;
+  height: 150px;
+  background-color: $dark;
+  border-radius: 50%;
+  border: 2px solid $neutral600;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img {
+    width: 101%;
+    height: 101%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
   }
 }

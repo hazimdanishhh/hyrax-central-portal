@@ -7,6 +7,8 @@ export default function SelectEditor({
   onBlur,
   required,
   placeholder = "Select...",
+  isSearchable,
+  readOnly,
 }) {
   return (
     // <select
@@ -29,8 +31,9 @@ export default function SelectEditor({
       className="selectContainer"
       classNamePrefix="reactSelect"
       placeholder={placeholder}
-      isClearable
-      isSearchable
+      isClearable={readOnly}
+      readOnly={readOnly}
+      isSearchable={isSearchable}
       options={options}
       // 1. Find the matching option object using string comparison
       value={options.find((opt) => String(opt.value) === String(value)) || null}

@@ -15,7 +15,7 @@ import useEmployeesPublic from "../../../hooks/useEmployeesPublic";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Button from "../../../components/buttons/button/Button";
-import EmployeeList from "../../../components/employeeList/EmployeeList";
+import EmployeeList from "../../../components/employees/employeesPublicList/EmployeesPublicList";
 import useSearchFilter from "../../../hooks/useSearchFliter";
 import useDepartments from "../../../hooks/useDepartments";
 import useEmploymentStatus from "../../../hooks/useEmploymentStatus";

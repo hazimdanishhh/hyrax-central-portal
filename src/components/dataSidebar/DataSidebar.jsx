@@ -135,10 +135,35 @@ export default function DataSidebar({
             }}
           >
             {columns.map((col) => {
-              if (!col.editable) return null;
-
               const Editor = editors[col.editor] ?? editors.text;
               const value = localData[col.key];
+
+              if (col.show === false) return null;
+
+              if (!col.editable)
+                return (
+                  <div key={col.key} className="dataSidebarField">
+                    <label
+                      className={
+                        col.required
+                          ? "textBold textXXS required"
+                          : "textBold textXXS"
+                      }
+                    >
+                      {col.label}
+                      <span className="dataSidebarRequired">
+                        {col.required && "*"}
+                      </span>
+                    </label>
+                    <Editor
+                      value={value}
+                      options={col.options}
+                      required={col.required}
+                      isSearchable={col.isSearchable}
+                      readOnly={true}
+                    />
+                  </div>
+                );
 
               return (
                 <div key={col.key} className="dataSidebarField">
@@ -159,6 +184,7 @@ export default function DataSidebar({
                     options={col.options}
                     onChange={(v) => handleChange(col.key, v)}
                     required={col.required}
+                    isSearchable={col.isSearchable}
                   />
                 </div>
               );

@@ -1,8 +1,8 @@
 import { CaretCircleRightIcon } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
-import "./EmployeeList.scss";
-import CardLayout from "../cardLayout/CardLayout";
-import StatusBadge from "../status/statusBadge/StatusBadge";
+import "./EmployeesPublicList.scss";
+import CardLayout from "../../cardLayout/CardLayout";
+import StatusBadge from "../../status/statusBadge/StatusBadge";
 
 export default function EmployeeList({
   className,

@@ -404,7 +404,10 @@ export default function Attendance() {
                   </CardLayout>
                   <CardLayout style="cardWrapperScroll generalCard cardPaddingSmall">
                     {Object.entries(groupedByDate).map(([date, activities]) => (
-                      <CardLayout key={date} style="cardLayout1 generalCard">
+                      <CardLayout
+                        key={date}
+                        style="cardLayout1 generalCard smallCard"
+                      >
                         {/* Date Header */}
                         <h4 className="textXS cardDateHeader">{date}</h4>
 
@@ -422,16 +425,20 @@ export default function Attendance() {
                                   onMouseEnter={() => setShowName(true)}
                                   onMouseLeave={() => setShowName(false)}
                                 >
-                                  <img
-                                    src={
-                                      attendanceActivity.employee?.profile
-                                        ?.avatar_url
-                                        ? attendanceActivity.employee?.profile
-                                            .avatar_url
-                                        : "/profilePhoto/default.webp"
-                                    }
-                                    alt={attendanceActivity.employee?.full_name}
-                                  />
+                                  <div className="generalCardPhotoSmall">
+                                    <img
+                                      src={
+                                        attendanceActivity.employee?.profile
+                                          ?.avatar_url
+                                          ? attendanceActivity.employee?.profile
+                                              .avatar_url
+                                          : "/profilePhoto/default.webp"
+                                      }
+                                      alt={
+                                        attendanceActivity.employee?.full_name
+                                      }
+                                    />
+                                  </div>
                                   <AnimatePresence mode="wait">
                                     {showName && (
                                       <motion.div
