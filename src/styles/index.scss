@@ -168,6 +168,16 @@ li {
     border: 1px solid $error600;
     background-color: rgb($error600, 0.1);
   }
+
+  &.blueCard {
+    color: $info600;
+    border: 1px solid $info600;
+    background-color: rgb($info600, 0.1);
+  }
+
+  &.cardWidth {
+    width: fit-content;
+  }
 }
 
 // LOADING CARD
@@ -364,6 +374,13 @@ li {
     object-fit: cover;
     object-position: center;
     display: block;
+  }
+
+  &.mobile {
+    @media screen and (max-width: 768px) {
+      width: 40px;
+      height: 40px;
+    }
   }
 }
 

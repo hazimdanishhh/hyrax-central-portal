@@ -1,11 +1,11 @@
 import { PackageIcon } from "@phosphor-icons/react";
 import "./NoResult.scss";
 
-function NoResult() {
+function NoResult({ title }) {
   return (
     <div className="noResultContainer">
       <PackageIcon size={40} weight="fill" />
-      <p className="textBold textM">No results found</p>
+      <p className="textBold textM">{title || "No results found"}</p>
     </div>
   );
 }

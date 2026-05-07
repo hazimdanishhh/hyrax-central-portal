@@ -1,0 +1,31 @@
+.attendanceTypeContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: rgba($info600, 0.2);
+  padding: 0.2rem;
+  border-radius: 4px;
+  color: $info500;
+  width: max-content;
+
+  &.red {
+    background-color: rgba($error600, 0.2);
+    color: $error600;
+  }
+
+  &.green {
+    background-color: rgba($success600, 0.2);
+    color: $success600;
+  }
+
+  &.blue {
+    background-color: rgba($info600, 0.2);
+    color: $info600;
+  }
+
+  &.yellow {
+    background-color: rgba($warning600, 0.2);
+    color: $warning600;
+  }
+}

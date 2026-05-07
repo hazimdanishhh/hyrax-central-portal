@@ -34,7 +34,7 @@ import useEmployeeAttendanceActivities from "../../../../hooks/useEmployeeAttend
 import StatusBadge from "../../../../components/status/statusBadge/StatusBadge";
 import ActionModal from "../../../../components/modals/actionModal/ActionModal";
 import useSubordinatesAttendanceActivities from "../../../../hooks/useSubordinatesAttendanceActivities";
-import useSubordinates from "../../../../hooks/useSubordinates";
+import useSubordinates from "../../../../hooks/employeesPublic/useSubordinates";
 import "./Attendance.scss";
 
 /**

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import "./EmployeesPublicList.scss";
 import CardLayout from "../../cardLayout/CardLayout";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
+import AttendanceType from "../../attendance/attendanceType/AttendanceType";
 
 export default function EmployeeList({
   className,
@@ -16,6 +17,7 @@ export default function EmployeeList({
   phone_work,
   isMyManager,
   employment_status_name,
+  current_attendance_type_name,
 }) {
   return (
     <motion.div
@@ -38,6 +40,9 @@ export default function EmployeeList({
           )}
         </div>
         <div className="employeeCardStatusContainer">
+          {current_attendance_type_name && (
+            <AttendanceType attendanceType={current_attendance_type_name} />
+          )}
           <StatusBadge status={employment_status_name} />
           <button className="listArrow">
             <CaretCircleRightIcon size={28} weight="light" />

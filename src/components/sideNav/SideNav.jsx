@@ -14,34 +14,16 @@ import { sideNavLinkData } from "../../data/sideNavLinkData";
 import SideNavLink from "./sideNavLink/SideNavLink";
 import ThemeButton from "../buttons/themeButton/ThemeButton";
 import LogoutButton from "../buttons/logoutButton/LogoutButton";
-import useUserProfile from "../../hooks/useUserProfile";
-import useAttendanceTypes from "../../hooks/useAttendanceTypes";
-import useEmployee from "../../hooks/useEmployee";
-import { useAttendance } from "../../context/AttendanceProvider";
 import ClockinMini from "../attendanceActivityClockin/clockinMini/ClockinMini";
+import { useAccessControl } from "../../context/AccessControlContext";
+import LoadingIcon from "../loadingIcon/LoadingIcon";
+import CardLayout from "../cardLayout/CardLayout";
 
 export default function SideNav() {
   const [navIsOpen, setNavIsOpen] = useState(true);
   const { darkMode, toggleMode } = useTheme();
   const navModalRef = useRef(null);
-
-  // Fetch Data
-  const { profile, loading: profileLoading } = useUserProfile();
-  const { employee, loading: employeeLoading } = useEmployee();
-  const { attendanceTypes, loading: attendanceTypesLoading } =
-    useAttendanceTypes();
-
-  const { currentActivity, refetchCurrent } = useAttendance();
-
-  // Determine user’s accessible navigation
-  const userRole = profile?.role?.toLowerCase() || "staff";
-  const userDepartment = profile?.departmentSub || "GEN";
-
-  // Fallbacks
-  const userNavSegments =
-    userRole === "superadmin"
-      ? sideNavLinkData.superadmin
-      : sideNavLinkData[userDepartment] || sideNavLinkData.GEN;
+  const { navigation, loading: accessLoading } = useAccessControl();
 
   return (
     <>
@@ -73,18 +55,24 @@ export default function SideNav() {
           <ClockinMini navIsOpen={navIsOpen} />
 
           {/* NAV SEGMENTS */}
-          {userNavSegments.map((segment, index) => (
-            <div key={index}>
-              <div className="sideNavLinkLayout">
-                <SideNavLink
-                  segment={segment}
-                  navIsOpen={navIsOpen}
-                  role={userRole}
-                />
-              </div>
-              <hr className="sideNavLinkHr" />
+          {accessLoading ? (
+            <CardLayout>
+              <div className="loadingCard" />
+              <div className="loadingCard" />
+              <div className="loadingCard" />
+            </CardLayout>
+          ) : (
+            <div>
+              {navigation.map((segment, index) => (
+                <div key={index}>
+                  <div className="sideNavLinkLayout">
+                    <SideNavLink segment={segment} navIsOpen={navIsOpen} />
+                  </div>
+                  <hr className="sideNavLinkHr" />
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
         <div className="sideNavButtons">

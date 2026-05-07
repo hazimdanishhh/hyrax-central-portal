@@ -40,9 +40,6 @@ export async function fetchAttendanceActivities({
       attendanceType: "attendance_type_id",
       approvedBy: "approved_by",
       approvalStatus: "approval_status",
-      clockedInAt: "clocked_in_at",
-      clockedOutAt: "clocked_out_at",
-      approvedAt: "approved_at",
     };
 
     if (map[key]) query = query.eq(map[key], value);

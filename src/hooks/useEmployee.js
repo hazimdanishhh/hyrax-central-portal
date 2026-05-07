@@ -37,8 +37,7 @@ export default function useEmployee() {
               department:departments (id,name,sub)),
             employment_status:employment_status_id (id,name),
             employment_type:employment_type_id (id,name),
-            termination_reason:termination_reason_id (id,name
-            )
+            termination_reason:termination_reason_id (id,name)
           `,
           )
           .eq("profile_id", session.user.id)

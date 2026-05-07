@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
+import { useMessage } from "../../context/MessageContext";
 
-export default function useReportingManager(employeeId, { setMessage } = {}) {
+// Fetch Employee's Manager
+export default function useManagerPublic(employeeId) {
+  const { showMessage } = useMessage();
   const [manager, setManager] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!employeeId) {
@@ -14,6 +18,7 @@ export default function useReportingManager(employeeId, { setMessage } = {}) {
 
     const fetchManager = async () => {
       setLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from("employees_public")
@@ -36,10 +41,8 @@ export default function useReportingManager(employeeId, { setMessage } = {}) {
 
       if (error) {
         console.error(error);
-        setMessage?.({
-          type: "error",
-          text: "Failed to load reporting manager",
-        });
+        setError(err);
+        showMessage("Failed to load reporting manager", "error");
         setManager(null);
       } else {
         setManager({
@@ -62,5 +65,5 @@ export default function useReportingManager(employeeId, { setMessage } = {}) {
     fetchManager();
   }, [employeeId]);
 
-  return { manager, loading };
+  return { manager, loading, error };
 }

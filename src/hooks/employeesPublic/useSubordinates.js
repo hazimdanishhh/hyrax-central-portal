@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
-import useEmployee from "./useEmployee";
+import { supabase } from "../../lib/supabaseClient";
+import useEmployee from "../useEmployee";
+import { useMessage } from "../../context/MessageContext";
 
 export default function useSubordinates({ setMessage } = {}) {
   const { employee } = useEmployee();
-
+  const { showMessage } = useMessage();
   const [subordinates, setSubordinates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -19,6 +21,7 @@ export default function useSubordinates({ setMessage } = {}) {
       }
 
       setLoading(true);
+      setError(null);
 
       const { data, error } = await supabase
         .from("employees_public")
@@ -36,11 +39,12 @@ export default function useSubordinates({ setMessage } = {}) {
 
       if (error) {
         console.error("Failed to fetch subordinates:", error);
+        setError(err);
         setSubordinates([]);
-        setMessage?.("Failed to load subordinates", "error");
+        showMessage("Failed to load subordinates", "error");
       } else {
         setSubordinates(data || []);
-        setMessage?.("Subordinates loaded", "success");
+        showMessage("Subordinates loaded", "success");
       }
 
       setLoading(false);
@@ -56,5 +60,6 @@ export default function useSubordinates({ setMessage } = {}) {
   return {
     subordinates,
     loading,
+    error,
   };
 }

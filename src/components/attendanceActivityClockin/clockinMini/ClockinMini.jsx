@@ -22,6 +22,8 @@ import useEmployee from "../../../hooks/useEmployee";
 import CardLayout from "../../cardLayout/CardLayout";
 import { useMessage } from "../../../context/MessageContext";
 import { useAttendance } from "../../../context/AttendanceProvider";
+import AttendanceType from "../../attendance/attendanceType/AttendanceType";
+import AttendanceClock from "../../attendance/attendanceClock/AttendanceClock";
 
 export default function ClockinMini({ navIsOpen }) {
   const { darkMode, toggleMode } = useTheme();
@@ -99,33 +101,22 @@ export default function ClockinMini({ navIsOpen }) {
         />
       )}
 
-      {/* BUTTON V2 */}
-
+      {/* CURRENT ACTIVITY */}
       {currentActivity && navIsOpen ? (
         <CardLayout key={currentActivity.id} style="cardLayout1">
           <CardLayout style="cardLayoutFlexFull generalCard">
-            <div className="attendanceTypeHeader">
-              {currentActivity?.attendance_type?.name === "Office" ? (
-                <BuildingOfficeIcon size={20} />
-              ) : currentActivity?.attendance_type?.name === "Site Visit" ? (
-                <FactoryIcon size={20} />
-              ) : currentActivity?.attendance_type?.name ===
-                "Work From Home" ? (
-                <HouseIcon size={20} />
-              ) : (
-                <BuildingOfficeIcon size={20} />
-              )}
-              <p className="textBold">
-                {currentActivity?.attendance_type?.name}
-              </p>
-            </div>
-            <p className="textLight textXXS">
-              {currentActivity.clocked_in_time}
-            </p>
+            <AttendanceType
+              attendanceType={currentActivity.attendance_type?.name}
+            />
+            <AttendanceClock
+              time={currentActivity.clocked_in_time}
+              type="clockin"
+            />
           </CardLayout>
         </CardLayout>
       ) : null}
 
+      {/* DATASIDEBAR */}
       <AnimatePresence>
         {attendanceSidebarOpen &&
           (attendanceTypesLoading ? (

@@ -44,6 +44,8 @@ export default function usePaginatedQuery({
   pageSize = 20,
   defaultSortBy = "id",
   defaultSortOrder = "ascending",
+  extraParams = {},
+  enabled = true,
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -124,6 +126,7 @@ export default function usePaginatedQuery({
         sortBy,
         sortOrder,
         ...filters,
+        ...extraParams,
       },
     ],
     queryFn: () =>
@@ -134,8 +137,9 @@ export default function usePaginatedQuery({
         filters,
         sortBy,
         sortOrder,
+        ...extraParams,
       }),
-    placeholderData: (prev) => prev,
+    enabled,
     retry: 2,
     staleTime: 1000 * 30,
     keepPreviousData: true,

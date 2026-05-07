@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
-import { useMessage } from "../context/MessageContext";
+import { supabase } from "../../lib/supabaseClient";
+import { useMessage } from "../../context/MessageContext";
 
 /**
  * Hook to fetch the current logged-in user's department employees
@@ -8,13 +8,13 @@ import { useMessage } from "../context/MessageContext";
 
 export default function useDepartmentEmployees(departmentId) {
   const { showMessage } = useMessage();
-  const [employees, setEmployees] = useState([]);
+  const [departmentEmployees, setDepartmentEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!departmentId) {
-      setEmployees([]);
+      setDepartmentEmployees([]);
       setLoading(false);
       showMessage("No department found", "error");
       console.error("No department found");
@@ -35,9 +35,9 @@ export default function useDepartmentEmployees(departmentId) {
         console.error(error);
         showMessage("Failed to load department", "error");
         setError(error);
-        setEmployees([]);
+        setDepartmentEmployees([]);
       } else {
-        setEmployees(data);
+        setDepartmentEmployees(data);
         showMessage("Department loaded", "success");
       }
 
@@ -47,5 +47,5 @@ export default function useDepartmentEmployees(departmentId) {
     fetchEmployees();
   }, [departmentId]);
 
-  return { employees, loading, error };
+  return { departmentEmployees, loading, error };
 }

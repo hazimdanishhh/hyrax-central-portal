@@ -5,7 +5,11 @@ import StatusBadge from "../../status/statusBadge/StatusBadge";
 import { AnimatePresence, motion } from "framer-motion";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import CardLayout from "../../cardLayout/CardLayout";
+import AttendanceType from "../attendanceType/AttendanceType";
+import AttendanceClock from "../attendanceClock/AttendanceClock";
 
+// GENERAL REUSABLE ATTENDANCE CARD
+// WITH PHOTO, ATTENDANCE TYPE ICONS, CLOCK IN/OUT AND APPROVAL STATUS
 function AttendanceCard({ activity, onClick }) {
   const [showName, setShowName] = useState(false);
 
@@ -23,24 +27,14 @@ function AttendanceCard({ activity, onClick }) {
         <p className="textBold textXS" title={activity.employee_name}>
           {activity.employee_preferred_name}
         </p>
-        <p className="textRegular textXS">{activity.attendance_type_name}</p>
+        <AttendanceType attendanceType={activity.attendance_type_name} />
       </div>
       <div className="attendanceCardSegment">
         <div className="attendanceCardClockWrapper">
-          <div className="attendanceCardClock green">
-            <p className="textBold textXXS">{activity.clocked_in_time}</p>
-            <div className="attendanceCardIcon">
-              <SignInIcon weight="bold" size={12} />
-            </div>
-          </div>
+          <AttendanceClock time={activity.clocked_in_time} type="clockin" />
 
           {activity.clocked_out_at && (
-            <div className="attendanceCardClock yellow">
-              <p className="textBold textXXS">{activity.clocked_out_time}</p>
-              <div className="attendanceCardIcon">
-                <SignOutIcon weight="bold" size={12} />
-              </div>
-            </div>
+            <AttendanceClock time={activity.clocked_out_time} type="clockout" />
           )}
         </div>
 

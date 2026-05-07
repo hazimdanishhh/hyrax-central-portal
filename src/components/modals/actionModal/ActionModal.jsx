@@ -41,6 +41,7 @@ export default function ActionModal({
           className={
             darkMode ? "modalContent sectionDark" : "modalContent sectionLight"
           }
+          onClick={(e) => e.stopPropagation()}
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
@@ -49,7 +50,8 @@ export default function ActionModal({
           <p>{description}</p>
 
           {requireInput && (
-            <textarea
+            <input
+              type="text"
               placeholder={inputPlaceholder}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}

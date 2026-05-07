@@ -1,10 +1,12 @@
 // pages/user/hr/employees/attendanceManagement/list/AttendanceManagement.jsx
 import {
+  CheckIcon,
   PencilSimpleLineIcon,
   PlusCircleIcon,
   SignInIcon,
   SignOutIcon,
   UsersFourIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
@@ -38,6 +40,13 @@ import "./AttendanceManagement.scss";
 import useAttendanceActivityMutations from "../../../../../hooks/attendanceActivities/useAttendanceActivityMutations";
 import { uploadAttendancePhoto } from "../../../../../services/storage/uploadAttendancePhoto";
 import AttendanceCard from "../../../../../components/attendance/attendanceCard/AttendanceCard";
+import Button from "../../../../../components/buttons/button/Button";
+import { supabase } from "../../../../../lib/supabaseClient";
+import { useMessage } from "../../../../../context/MessageContext";
+import AttendanceType from "../../../../../components/attendance/attendanceType/AttendanceType";
+import AttendanceSidebarHR from "../../../../../components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
+import { attendanceActivitiesChangeClockInTimeConfig } from "./changeClockInTimeConfig";
+import { attendanceActivitiesChangeClockOutTimeConfig } from "./changeClockOutTimeConfig";
 
 /**
  * HR Attendance Management Page
@@ -55,6 +64,9 @@ export default function AttendanceManagement() {
   const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
   const [modalType, setModalType] = useState(null); // "save" | "reject"
   const [pendingSaveRow, setPendingSaveRow] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
+  const { showMessage } = useMessage();
+  const [columnMode, setColumnMode] = useState("default");
 
   // ==============
   // HOOKS
@@ -106,6 +118,7 @@ export default function AttendanceManagement() {
     createAttendanceActivity: createRow,
     updateAttendanceActivity: updateRow,
     deleteAttendanceActivity: deleteRow,
+    clockOutAttendanceActivity,
     saving,
     deleting,
   } = useAttendanceActivityMutations();
@@ -119,11 +132,23 @@ export default function AttendanceManagement() {
     employees,
     attendanceTypes,
   });
+  const clockInColumns = attendanceActivitiesChangeClockInTimeConfig();
+  const clockOutColumns = attendanceActivitiesChangeClockOutTimeConfig();
   const filterConfig = getAttendanceActivitiesFilterConfig({
     employees,
     departments,
     attendanceTypes,
   });
+
+  // ==============
+  // COLUMNS
+  // ==============
+  const currentColumns =
+    columnMode === "clockIn"
+      ? clockInColumns
+      : columnMode === "clockOut"
+        ? clockOutColumns
+        : columns;
 
   // ==============
   // DATA LOADING
@@ -161,7 +186,6 @@ export default function AttendanceManagement() {
     setPendingSaveRow(data);
     setModalType("save");
     setModalOpen(true);
-    console.log(data);
   }
 
   // ==============
@@ -175,14 +199,75 @@ export default function AttendanceManagement() {
   }
 
   // ==============
+  // CLOCKING OUT
+  // ==============
+  const handleClockOut = async (id) => {
+    await clockOutAttendanceActivity(id);
+
+    await queryClient.invalidateQueries({
+      queryKey: ["attendance_activities"],
+    });
+
+    setSidebarOpen(false);
+  };
+
+  // ==============
+  // APPROVE
+  // ==============
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+
+  const handleApprove = async (id) => {
+    try {
+      setActionLoadingId(id);
+
+      const { error } = await supabase.rpc("approve_attendance", {
+        activity_id: id,
+      });
+
+      showMessage("Attendance approved successfully", "success");
+
+      if (error) throw error;
+    } catch (err) {
+      console.error("Approve error:", err.message);
+      showMessage("Error approving attendance", "error");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // ==============
+  // REJECT
+  // ==============
+  const handleReject = async (id, reason) => {
+    try {
+      setActionLoadingId(id);
+
+      const { error } = await supabase.rpc("reject_attendance", {
+        activity_id: id,
+        reason,
+      });
+      showMessage("Attendance rejected successfully", "success");
+
+      if (error) throw error;
+    } catch (err) {
+      console.error("Reject error:", err.message);
+      showMessage("Error rejecting attendance", "error");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
   // ==============
-  async function handleConfirmAction() {
+  async function handleConfirmAction(reason) {
     try {
+      // DELETE
       if (modalType === "delete") {
         await deleteRow(selectedRowId);
       }
 
+      // SAVE OR UPDATE
       if (modalType === "save") {
         const data = { ...pendingSaveRow };
 
@@ -209,6 +294,15 @@ export default function AttendanceManagement() {
             approval_status: "Pending",
           });
         }
+      }
+
+      // APPROVE OR REJECT
+      if (modalType === "approve") {
+        await handleApprove(selectedId);
+      }
+
+      if (modalType === "reject") {
+        await handleReject(selectedId, reason);
       }
 
       await queryClient.invalidateQueries({
@@ -242,6 +336,7 @@ export default function AttendanceManagement() {
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
         <PageLayout
+          noLayout={true}
           layout={layout}
           setLayout={setLayout}
           options={layoutOptions}
@@ -318,6 +413,12 @@ export default function AttendanceManagement() {
                     key={activity.id}
                     activity={activity}
                     onClick={() => handleOpenSidebar(activity)}
+                    // onClick={() => setColumnMode("clockIn")}
+                    // onClick={() => {
+                    //   setSelectedRow(activity);
+                    //   setColumnMode("clockIn");
+                    //   setSidebarOpen(true);
+                    // }}
                   />
                 ))}
               </CardLayout>
@@ -339,23 +440,24 @@ export default function AttendanceManagement() {
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             rowData={selectedRow}
-            columns={columns}
+            columns={currentColumns}
             onSave={handleRequestSave}
             onDelete={handleRequestDelete}
             saving={saving}
             deleting={deleting}
             creating={!selectedRow?.id}
+            // columns={!selectedRow?.id ? columns : []}
+            // cannotUpdate={selectedRow?.id}
           >
             {/* PICTURE */}
             {selectedRow?.id && (
-              <CardLayout style="cardLayoutFlexFull">
-                <div className="generalCardPhotoLarge">
-                  <img
-                    src={selectedRow.avatar_url || "/profilePhoto/default.webp"}
-                    alt={selectedRow.employee_name}
-                  />
-                </div>
-              </CardLayout>
+              <AttendanceSidebarHR
+                selectedRow={selectedRow}
+                setSelectedId={setSelectedId}
+                setModalType={setModalType}
+                setModalOpen={setModalOpen}
+                clockOutAttendanceActivity={handleClockOut}
+              />
             )}
           </DataSidebar>
         )}
@@ -365,15 +467,46 @@ export default function AttendanceManagement() {
       <ActionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={modalType === "save" ? "Save Attendance" : "Delete Attendance"}
+        title={
+          modalType === "save"
+            ? "Save Attendance"
+            : modalType === "delete"
+              ? "Delete Attendance"
+              : modalType === "approve"
+                ? "Approve Attendance"
+                : modalType === "reject"
+                  ? "Reject Attendance"
+                  : null
+        }
         description={
           modalType === "save"
             ? "Are you sure you want to save these changes?"
-            : "Are you sure you want to delete this attendance?"
+            : modalType === "delete"
+              ? "Are you sure you want to delete this attendance?"
+              : modalType === "approve"
+                ? "Are you sure you want to approve this attendance?"
+                : modalType === "reject"
+                  ? "Are you sure you want to reject this attendance?"
+                  : null
         }
-        confirmText={modalType === "save" ? "Save" : "Delete"}
-        loading={modalType === "save" ? saving : deleting}
-        onConfirm={handleConfirmAction}
+        confirmText={
+          modalType === "save"
+            ? "Save"
+            : modalType === "delete"
+              ? "Delete"
+              : modalType === "approve"
+                ? "Approve"
+                : modalType === "reject"
+                  ? "Reject"
+                  : null
+        }
+        loading={
+          modalType === "save" || modalType === "approve" ? saving : deleting
+        }
+        onConfirm={async (reason) => {
+          handleConfirmAction(reason);
+        }}
+        requireInput={modalType === "reject"}
         modalType={modalType}
       />
     </>

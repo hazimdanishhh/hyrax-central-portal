@@ -16,10 +16,7 @@ export default function useEmployeesPublic({ setMessage } = {}) {
         .select("*")
         .in("employment_status_name", [
           "Active",
-          "Intern",
           "Probation",
-          "Contract",
-          "Freelance",
           "Terminated Notice",
         ])
         .order("full_name", { ascending: true });

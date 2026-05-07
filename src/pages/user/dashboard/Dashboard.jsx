@@ -18,10 +18,8 @@ import CardLayout from "../../../components/cardLayout/CardLayout";
 import { Link } from "react-router";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
-import AttendanceActivity from "../../../components/attendanceActivity/AttendanceActivity";
 import AttendanceActivityClockin from "../../../components/attendanceActivityClockin/AttendanceActivityClockin";
 import { useMessage } from "../../../context/MessageContext";
-import useUserProfile from "../../../hooks/useUserProfile";
 import {
   quickActionsHome,
   quickActionsIT,
@@ -60,7 +58,6 @@ function Dashboard() {
               {/* ATTENDANCE SYSTEM */}
               <CardLayout style="cardLayout1">
                 <AttendanceActivityClockin />
-                {/* <AttendanceActivity /> */}
               </CardLayout>
 
               <CardLayout style="cardLayout2">

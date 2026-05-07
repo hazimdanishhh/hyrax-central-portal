@@ -15,10 +15,10 @@ export const profileData = [
     fields: [
       { label: "Display Name", value: (d) => d?.full_name },
       { label: "System Email", value: (d) => d?.email },
-      { label: "System Role", value: (d) => d?.role },
+      { label: "System Role", value: (d) => d?.role?.name },
       {
         label: "Module Access",
-        value: (d) => `${d?.department} (${d?.departmentSub})`,
+        value: (d) => `${d?.department?.name} (${d?.department?.sub})`,
       },
       { label: "System ID", value: (d) => d?.id },
     ],
@@ -97,20 +97,20 @@ export const profileData = [
   {
     title: "Reporting Manager",
     icon: UsersFourIcon,
-    source: "employee",
+    source: "employeePublic",
     fields: [
-      { label: "Manager Employee ID", value: (d) => d?.manager?.employee_id },
+      { label: "Manager Employee ID", value: (d) => d?.manager_employee_id },
       {
         label: "Reporting Manager",
-        value: (d) => d?.manager?.full_name,
+        value: (d) => d?.manager_name,
       },
-      { label: "Manager Email (Work)", value: (d) => d?.manager?.email_work },
-      { label: "Manager Phone (Work)", value: (d) => d?.manager?.phone_work },
+      { label: "Manager Email (Work)", value: (d) => d?.manager_email },
+      { label: "Manager Phone (Work)", value: (d) => d?.manager_phone },
       {
         label: "Manager Department",
-        value: (d) => d?.manager?.department?.name,
+        value: (d) => d?.manager_department_name,
       },
-      { label: "Manager Position", value: (d) => d?.manager?.position },
+      { label: "Manager Position", value: (d) => d?.manager_position },
     ],
   },
 

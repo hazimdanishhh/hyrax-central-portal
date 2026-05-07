@@ -1,8 +1,10 @@
 // src/hooks/useEmployeePublicProfile.js
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
-export default function useEmployeePublicProfile(employeeId) {
+// Pass employeeId
+// Can be used for any single employee data
+export default function useEmployeePublic(employeeId) {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

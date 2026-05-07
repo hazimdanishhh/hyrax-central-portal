@@ -6,27 +6,16 @@ import { sideNavLinkData } from "../../data/sideNavLinkData";
 import SideNavLink from "../sideNav/sideNavLink/SideNavLink";
 import LogoutButton from "../buttons/logoutButton/LogoutButton";
 import ThemeButton from "../buttons/themeButton/ThemeButton";
-import useUserProfile from "../../hooks/useUserProfile";
 import ClockinMini from "../attendanceActivityClockin/clockinMini/ClockinMini";
+import { useProfile } from "../../context/ProfileContext";
+import { useAccessControl } from "../../context/AccessControlContext";
 
 export default function MobileNav({ onClick, mobileNavIsOpen }) {
   const [navIsOpen, setNavIsOpen] = useState(true);
   const { darkMode } = useTheme();
   const navModalRef = useRef(null);
   const [message, setMessage] = useState({ text: "", type: "" });
-
-  // Fetch User Profile Data
-  const { profile, loading } = useUserProfile();
-
-  // Determine user’s accessible navigation
-  const userRole = profile?.role.toLowerCase() || "staff";
-  const userDepartment = profile?.departmentSub || "GEN";
-
-  // Fallbacks
-  const userNavSegments =
-    userRole === "superadmin"
-      ? sideNavLinkData.superadmin
-      : sideNavLinkData[userDepartment] || sideNavLinkData.GEN;
+  const { navigation, loading: accessLoading } = useAccessControl();
 
   // ⛑️ Disables background scroll only on client
   useEffect(() => {
@@ -67,13 +56,12 @@ export default function MobileNav({ onClick, mobileNavIsOpen }) {
         <ClockinMini navIsOpen={navIsOpen} />
 
         {/* NAV SEGMENTS */}
-        {userNavSegments.map((segment, index) => (
+        {navigation.map((segment, index) => (
           <div key={index}>
             <div className="sideNavLinkLayout">
               <SideNavLink
                 segment={segment}
                 navIsOpen={navIsOpen}
-                role={userRole}
                 onClick={onClick}
               />
             </div>

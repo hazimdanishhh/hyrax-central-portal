@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 
-export default function SideNavLink({ segment, navIsOpen, role, onClick }) {
+export default function SideNavLink({ segment, navIsOpen, onClick }) {
   if (!segment) return null;
 
   const { segmentTitle, segmentCode, links } = segment;

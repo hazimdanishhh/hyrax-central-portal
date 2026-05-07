@@ -23,6 +23,7 @@ export default function DataSidebar({
   children,
   saving,
   deleting,
+  cannotUpdate,
 }) {
   const { darkMode } = useTheme();
   const { showMessage } = useMessage();
@@ -209,16 +210,18 @@ export default function DataSidebar({
                   weight="bold"
                 />
               )}
-              <Button
-                name="Save"
-                icon={CheckIcon}
-                style="button buttonType5 approval textXXS textRegular"
-                onClick={handleSave}
-                type="submit"
-                disabled={saving}
-                size="14"
-                weight="bold"
-              />
+              {!cannotUpdate && (
+                <Button
+                  name="Save"
+                  icon={CheckIcon}
+                  style="button buttonType5 approval textXXS textRegular"
+                  onClick={handleSave}
+                  type="submit"
+                  disabled={saving}
+                  size="14"
+                  weight="bold"
+                />
+              )}
             </footer>
           </form>
         </CardLayout>

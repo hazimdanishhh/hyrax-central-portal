@@ -16,9 +16,9 @@ import NotificationCard from "../notifications/notificationCard/NotificationCard
 import { notificationData } from "../../data/notificationData";
 import MobileNav from "../mobileNav/MobileNav";
 import useMediaQuery from "../../functions/mediaQuery";
-import useUserProfile from "../../hooks/useUserProfile";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../buttons/button/Button";
+import { useProfile } from "../../context/ProfileContext";
 
 function Navbar() {
   const [mobileNavIsOpen, setMobileNavIsOpen] = useState(false);
@@ -31,10 +31,13 @@ function Navbar() {
   const isDesktop = useMediaQuery("(min-width: 1025px)");
   const notifications = [...notificationData].reverse();
 
-  // Fetch User Profile Data
-  const { profile, loading } = useUserProfile({ setMessage });
+  // Fetch User Session
   const { session } = useAuth();
   const last_sign_in_at = session?.user?.last_sign_in_at;
+
+  // Fetch User Profile
+  const { profile, loading, role, isSuperAdmin, isManager, isStaff } =
+    useProfile();
 
   // Close navbar when clicked outside
   useClickOutside(navModalRef, () => setMobileNavIsOpen(false));

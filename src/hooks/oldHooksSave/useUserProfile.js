@@ -1,7 +1,7 @@
 // src/hooks/useUserProfile.jsx
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
-import { useAuth } from "../context/AuthContext";
+import { supabase } from "../../lib/supabaseClient";
+import { useAuth } from "../../context/AuthContext";
 
 /**
  * Hook to fetch the current logged-in user's profile

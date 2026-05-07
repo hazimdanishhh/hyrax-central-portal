@@ -1,25 +1,50 @@
 import { useState } from "react";
 import ProfileCard from "../../../components/profileCard/ProfileCard";
 import { useTheme } from "../../../context/ThemeContext";
-import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
-import useEmployee from "../../../hooks/useEmployee";
 import useEmployeeAssets from "../../../hooks/useEmployeeAssets";
 import CardSection from "../../../components/cardSection/CardSection";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import { UserCircleIcon } from "@phosphor-icons/react";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
+import { useProfile } from "../../../context/ProfileContext";
+import { useEmployee } from "../../../context/EmployeeContext";
+import useEmployeePublic from "../../../hooks/employeesPublic/useEmployeePublic";
 
 export default function Profile() {
-  const { darkMode, toggleMode } = useTheme();
+  const { darkMode } = useTheme();
 
-  // Fetch user and profile data
-  const { profile, loading } = useUserProfile();
-  const { employee } = useEmployee();
+  // Fetch Current User Profile Data
+  const {
+    profile,
+    loading: profileLoading,
+    error: profileError,
+    role,
+    isSuperAdmin,
+    isManager,
+    isStaff,
+  } = useProfile();
 
-  // Fetch employee assets
+  // Fetch Current Employee Data
+  const {
+    employee,
+    loading: employeeLoading,
+    error: employeeError,
+  } = useEmployee();
+
+  // Fetch Current Employee Public Manager Data
+  const {
+    employee: employeePublic,
+    loading: employeePublicLoading,
+    error: employeePublicError,
+  } = useEmployeePublic(employee?.id);
+
+  // Fetch Current Employee Assets
   const { assets, loading: assetsLoading } = useEmployeeAssets(employee?.id);
+
+  const loading =
+    profileLoading || employeeLoading || employeePublicLoading || assetsLoading;
 
   return (
     <>
@@ -35,7 +60,9 @@ export default function Profile() {
                 <ProfileCard
                   profile={profile}
                   employee={employee}
+                  employeePublic={employeePublic}
                   assets={assets}
+                  role={role}
                 />
               ) : (
                 // No Profile UI

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
-import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
 import useEmployee from "../../../hooks/useEmployee";
 import CardLayout from "../../../components/cardLayout/CardLayout";
@@ -23,11 +22,10 @@ import SearchFilterBar from "../../../components/searchFliterBar/SearchFilterBar
 import PageHeader from "../../../components/crud/pageHeader/PageHeader";
 import ActiveFiltersBar from "../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 
-export default function EmployeesList() {
+export default function EmployeesPublicPage() {
   const navigate = useNavigate();
   const [layout, setLayout] = useState(1); // 1: List, 2: Card
   const { darkMode } = useTheme();
-  const { loading: profileLoading } = useUserProfile();
   const { employee } = useEmployee();
   const { departments } = useDepartments();
   const { statuses: employmentStatuses } = useEmploymentStatus();
@@ -70,7 +68,7 @@ export default function EmployeesList() {
   const hasActiveFilters = search || activeFilters.length > 0;
 
   // Return Loading
-  if (profileLoading || employeesLoading) {
+  if (employeesLoading) {
     return <LoadingIcon />;
   }
 
@@ -147,7 +145,7 @@ export default function EmployeesList() {
                     return (
                       <EmployeeList
                         key={emp.id}
-                        className="employeeList"
+                        className="employeeList generalCard"
                         onClick={() => navigate(`/app/employees/${emp.id}`)}
                         src={emp.avatar_url}
                         full_name={emp.full_name}
@@ -158,6 +156,9 @@ export default function EmployeesList() {
                         phone_work={emp.phone_work}
                         isMyManager={isMyManager}
                         employment_status_name={emp.employment_status_name}
+                        current_attendance_type_name={
+                          emp.current_attendance_type_name
+                        }
                       />
                     );
                   })}
@@ -172,15 +173,8 @@ export default function EmployeesList() {
                         key={emp.id}
                         className="employeeCard"
                         onClick={() => navigate(`/app/employees/${emp.id}`)}
-                        src={emp.avatar_url}
-                        full_name={emp.full_name}
-                        position={emp.position}
-                        employee_id={emp.employee_id}
-                        department_name={emp.department_name}
-                        email_work={emp.email_work}
-                        phone_work={emp.phone_work}
+                        employee={emp}
                         isMyManager={isMyManager}
-                        employment_status_name={emp.employment_status_name}
                       />
                     );
                   })}

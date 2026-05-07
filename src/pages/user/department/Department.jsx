@@ -1,39 +1,58 @@
 import { useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
-import useUserProfile from "../../../hooks/useUserProfile";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
-import useEmployee from "../../../hooks/useEmployee";
-import useDepartmentEmployees from "../../../hooks/useDepartmentEmployees";
+import useDepartmentEmployees from "../../../hooks/employeesPublic/useDepartmentEmployees";
 import CardSection from "../../../components/cardSection/CardSection";
 import CardLayout from "../../../components/cardLayout/CardLayout";
 import "./Department.scss";
-import useReportingManager from "../../../hooks/useReportingManager";
 import { useNavigate } from "react-router";
 import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import { UserCircleIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
-import useSubordinates from "../../../hooks/useSubordinates";
+import useSubordinates from "../../../hooks/employeesPublic/useSubordinates";
+import useManagerPublic from "../../../hooks/employeesPublic/useManagerPublic";
+import { useEmployee } from "../../../context/EmployeeContext";
+import NoResult from "../../../components/crud/noResult/NoResult";
 
 export default function Department() {
   const navigate = useNavigate();
   const { darkMode } = useTheme();
-  const { loading: profileLoading } = useUserProfile();
-  const { employee } = useEmployee();
+  const {
+    employee,
+    loading: employeeLoading,
+    error: employeeError,
+  } = useEmployee();
 
-  const { manager: reportingManager, loading: managerLoading } =
-    useReportingManager(employee?.employee_id);
+  const {
+    manager,
+    loading: managerLoading,
+    error: managerError,
+  } = useManagerPublic(employee?.employee_id);
 
-  const { employees, loading: employeesLoading } = useDepartmentEmployees(
-    employee?.department?.id,
-  );
+  const {
+    departmentEmployees,
+    loading: departmentEmployeesLoading,
+    error: departmentEmployeesError,
+  } = useDepartmentEmployees(employee?.department?.id);
 
-  const { subordinates, loading } = useSubordinates();
+  const {
+    subordinates,
+    loading: subordinatesLoading,
+    error: subordinatesError,
+  } = useSubordinates();
 
-  if (profileLoading || employeesLoading || managerLoading) {
-    return <LoadingIcon />;
-  }
+  const loading =
+    employeeLoading ||
+    managerLoading ||
+    departmentEmployeesLoading ||
+    subordinatesLoading;
+  const error =
+    employeeError ||
+    managerError ||
+    departmentEmployeesError ||
+    subordinatesError;
 
   return (
     <>
@@ -42,95 +61,78 @@ export default function Department() {
           <div className="sectionContent">
             <Breadcrumbs
               icon={UsersThreeIcon}
-              current={`My Department: ${employee?.department?.name}`}
+              current={`My Department: ${employee?.department?.name || null}`}
             />
-            <CardWrapper>
-              {/* MY REPORTING MANAGER SECTION */}
-              {reportingManager && (
-                <CardLayout style="generalCard">
-                  <Breadcrumbs
-                    icon={UserCircleIcon}
-                    current="My Reporting Manager"
-                  />
-                  <CardLayout style="cardLayout2">
-                    <EmployeeCard
-                      className="employeeCard"
-                      onClick={() =>
-                        navigate(`/app/employees/${reportingManager?.id}`)
-                      }
-                      src={reportingManager?.avatar_url}
-                      full_name={reportingManager?.full_name}
-                      position={reportingManager?.position}
-                      employee_id={reportingManager?.employee_id}
-                      department_name={reportingManager?.department_name}
-                      email_work={reportingManager?.email_work}
-                      phone_work={reportingManager?.phone_work}
-                      employment_status_name={
-                        reportingManager?.employment_status_name
-                      }
+            {loading ? (
+              <LoadingIcon />
+            ) : error ? (
+              <NoResult />
+            ) : (
+              <CardWrapper>
+                {/* MY REPORTING MANAGER SECTION */}
+                {manager && (
+                  <CardLayout style="generalCard">
+                    <Breadcrumbs
+                      icon={UserCircleIcon}
+                      current="My Reporting Manager"
                     />
+                    <CardLayout style="cardLayout2">
+                      <EmployeeCard
+                        className="employeeCard"
+                        onClick={() =>
+                          navigate(`/app/employees/${manager?.id}`)
+                        }
+                        employee={manager}
+                      />
+                    </CardLayout>
                   </CardLayout>
-                </CardLayout>
-              )}
+                )}
 
-              {/* MY DEPARTMENT SECTION */}
-              {employee?.department_id && (
-                <CardLayout style="generalCard">
-                  <Breadcrumbs icon={UsersThreeIcon} current="My Department" />
-                  <CardLayout style="cardLayout2">
-                    {employees.map((emp) => {
-                      const isMyManager = emp.id === employee?.manager_id;
+                {/* MY DEPARTMENT SECTION */}
+                {employee?.department_id && (
+                  <CardLayout style="generalCard">
+                    <Breadcrumbs
+                      icon={UsersThreeIcon}
+                      current="My Department"
+                    />
+                    <CardLayout style="cardLayout2">
+                      {departmentEmployees.map((emp) => {
+                        const isMyManager = emp.id === employee?.manager_id;
 
-                      return (
-                        <EmployeeCard
-                          key={emp.id}
-                          className="employeeCard"
-                          onClick={() => navigate(`/app/employees/${emp.id}`)}
-                          src={emp.avatar_url}
-                          full_name={emp.full_name}
-                          position={emp.position}
-                          employee_id={emp.employee_id}
-                          department_name={emp.department_name}
-                          email_work={emp.email_work}
-                          phone_work={emp.phone_work}
-                          isMyManager={isMyManager}
-                          employment_status_name={emp.employment_status_name}
-                        />
-                      );
-                    })}
+                        return (
+                          <EmployeeCard
+                            key={emp.id}
+                            className="employeeCard"
+                            onClick={() => navigate(`/app/employees/${emp.id}`)}
+                            employee={emp}
+                            isMyManager={isMyManager}
+                          />
+                        );
+                      })}
+                    </CardLayout>
                   </CardLayout>
-                </CardLayout>
-              )}
+                )}
 
-              {/* MY SUBORDINATES SECTION */}
-              {subordinates && (
-                <CardLayout style="generalCard">
-                  <Breadcrumbs icon={UsersThreeIcon} current="My Staff" />
-                  <CardLayout style="cardLayout2">
-                    {subordinates.map((emp) => {
-                      const isMyManager = emp.id === employee?.manager_id;
-
-                      return (
-                        <EmployeeCard
-                          key={emp.id}
-                          className="employeeCard"
-                          onClick={() => navigate(`/app/employees/${emp.id}`)}
-                          src={emp.avatar_url}
-                          full_name={emp.full_name}
-                          position={emp.position}
-                          employee_id={emp.employee_id}
-                          department_name={emp.department_name}
-                          email_work={emp.email_work}
-                          phone_work={emp.phone_work}
-                          isMyManager={isMyManager}
-                          employment_status_name={emp.employment_status_name}
-                        />
-                      );
-                    })}
+                {/* MY SUBORDINATES SECTION */}
+                {subordinates && (
+                  <CardLayout style="generalCard">
+                    <Breadcrumbs icon={UsersThreeIcon} current="My Staff" />
+                    <CardLayout style="cardLayout2">
+                      {subordinates.map((emp) => {
+                        return (
+                          <EmployeeCard
+                            key={emp.id}
+                            className="employeeCard"
+                            onClick={() => navigate(`/app/employees/${emp.id}`)}
+                            employee={emp}
+                          />
+                        );
+                      })}
+                    </CardLayout>
                   </CardLayout>
-                </CardLayout>
-              )}
-            </CardWrapper>
+                )}
+              </CardWrapper>
+            )}
           </div>
         </div>
       </section>

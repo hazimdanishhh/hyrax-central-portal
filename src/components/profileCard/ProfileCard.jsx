@@ -6,14 +6,23 @@ import "./ProfileCard.scss";
 import Button from "../buttons/button/Button";
 import StatusBadge from "../status/statusBadge/StatusBadge";
 import SectionHeader from "../sectionHeader/SectionHeader";
+import { Link } from "react-router";
+import RouterButton from "../buttons/routerButton/RouterButton";
+import AttendanceType from "../attendance/attendanceType/AttendanceType";
 
-export default function ProfileCard({ profile, employee, assets }) {
+export default function ProfileCard({
+  profile,
+  employee,
+  employeePublic,
+  assets,
+  role,
+}) {
   if (!profile || !employee) return null;
-  console.log(employee);
 
   const sources = {
     profile,
     employee,
+    employeePublic,
   };
 
   return (
@@ -44,13 +53,18 @@ export default function ProfileCard({ profile, employee, assets }) {
             <CardSection>
               <div className="profileSectionHeader">
                 <SectionHeader title={section.title} icon={section.icon} />
-                {index === 0 && profile.role !== "superadmin" ? null : (
-                  <Button
-                    name="Edit Profile"
-                    icon2={PencilSimpleIcon}
-                    style="button buttonType3"
-                  />
-                )}
+
+                {/* CAN EDIT ONLY IF SUPERADMIN OR HR MANAGER */}
+                {(section.source === "employee" && role === "superadmin") ||
+                  (section.source === "employee" &&
+                    profile.department.sub === "HR" &&
+                    profile.role_id > 1 && (
+                      <RouterButton
+                        to={`/app/hr/employees/list/?employeeId=${employee.id}`}
+                        style="button buttonType5 textXXS"
+                        icon={PencilSimpleIcon}
+                      />
+                    ))}
               </div>
               <CardLayout
                 style={
@@ -68,8 +82,15 @@ export default function ProfileCard({ profile, employee, assets }) {
                       key={field.label}
                       className="profileData textRegular textXXS"
                     >
-                      {field.value(data) || `null`}
+                      {field.value(data) || `-`}
                     </p>
+                    {/* <input
+                      type="text"
+                      key={field.label}
+                      className="profileData textRegular textXXS"
+                      value={field.value(data)}
+                      readOnly
+                    /> */}
                   </div>
                 ))}
               </CardLayout>

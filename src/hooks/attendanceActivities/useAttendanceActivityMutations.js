@@ -1,4 +1,4 @@
-// src/hooks/useEmployeeMutations.js
+// src/hooks/attendanceActivities/useAttendanceActivityMutations.js
 import { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { useMessage } from "../../context/MessageContext";
@@ -210,10 +210,40 @@ export default function useAttendanceActivityMutations() {
     }
   };
 
+  // =============
+  // CLOCK OUT ATTENDANCE ACTIVITY
+  // =============
+  const clockOutAttendanceActivity = async (id) => {
+    try {
+      setSaving(true);
+      showMessage("Clocking out attendance", "loading");
+
+      const { data, error } = await supabase
+        .from("attendance_activities")
+        .update({
+          clocked_out_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select(`*, attendance_type:attendance_type_id(id, name)`)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      showMessage("Attendance clocked out", "success");
+      return data;
+    } catch (err) {
+      console.error("Clock out failed:", err);
+      showMessage("Clock out failed", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return {
     createAttendanceActivity,
     updateAttendanceActivity,
     deleteAttendanceActivity,
+    clockOutAttendanceActivity,
     saving,
     deleting,
     error,
