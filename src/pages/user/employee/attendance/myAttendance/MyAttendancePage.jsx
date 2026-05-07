@@ -43,8 +43,8 @@ import AttendanceSidebarHR from "../../../../../components/attendance/attendance
 import { fetchMyAttendanceActivities } from "../../../../../services/attendanceActivitiesServices/myAttendanceActivitiesService";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import { useAttendanceActivitiesMetadata } from "../../../../../hooks/attendanceActivities/useAttendanceActivitiesMetadata";
-import useAttendanceActivityMutations from "../../../../../hooks/useAttendanceActivityMutations";
-import useEmployee from "../../../../../hooks/useEmployee";
+import { useEmployee } from "../../../../../context/EmployeeContext";
+import useAttendanceActivityMutations from "../../../../../hooks/attendanceActivities/useAttendanceActivityMutations";
 
 /**
  * HR Attendance Management Page

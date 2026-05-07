@@ -1,5 +1,4 @@
 // services/myAttendanceActivitiesService.js
-import useEmployee from "../../hooks/useEmployee";
 import { supabase } from "../../lib/supabaseClient";
 
 /**

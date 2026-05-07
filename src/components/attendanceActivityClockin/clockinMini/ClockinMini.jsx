@@ -17,13 +17,13 @@ import DataSidebar from "../../dataSidebar/DataSidebar";
 import useAttendanceTypes from "../../../hooks/useAttendanceTypes";
 import { attendanceActivityConfig } from "../../../data/attendanceActivityConfig";
 import LoadingIcon from "../../loadingIcon/LoadingIcon";
-import useAttendanceActivityMutations from "../../../hooks/useAttendanceActivityMutations";
-import useEmployee from "../../../hooks/useEmployee";
 import CardLayout from "../../cardLayout/CardLayout";
 import { useMessage } from "../../../context/MessageContext";
 import { useAttendance } from "../../../context/AttendanceProvider";
 import AttendanceType from "../../attendance/attendanceType/AttendanceType";
 import AttendanceClock from "../../attendance/attendanceClock/AttendanceClock";
+import { useEmployee } from "../../../context/EmployeeContext";
+import useAttendanceActivityMutations from "../../../hooks/attendanceActivities/useAttendanceActivityMutations";
 
 export default function ClockinMini({ navIsOpen }) {
   const { darkMode, toggleMode } = useTheme();
@@ -50,7 +50,7 @@ export default function ClockinMini({ navIsOpen }) {
 
   // IT Asset Update and Delete Hook Function
   const {
-    createAttendanceActivity,
+    clockInAttendanceActivity,
     clockOutAttendanceActivity,
     saving,
     deleting,
@@ -64,7 +64,7 @@ export default function ClockinMini({ navIsOpen }) {
     }
 
     // Attach employee_id here
-    await createAttendanceActivity({
+    await clockInAttendanceActivity({
       ...data,
       employee_id: employee.id, // <-- attach current employee
     });

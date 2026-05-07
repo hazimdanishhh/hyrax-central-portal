@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
-import useEmployee from "../../../hooks/useEmployee";
 import CardLayout from "../../../components/cardLayout/CardLayout";
 import { useNavigate } from "react-router";
 import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
@@ -21,6 +20,7 @@ import useEmploymentStatus from "../../../hooks/useEmploymentStatus";
 import SearchFilterBar from "../../../components/searchFliterBar/SearchFilterBar";
 import PageHeader from "../../../components/crud/pageHeader/PageHeader";
 import ActiveFiltersBar from "../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import { useEmployee } from "../../../context/EmployeeContext";
 
 export default function EmployeesPublicPage() {
   const navigate = useNavigate();

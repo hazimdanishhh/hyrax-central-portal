@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useMessage } from "../context/MessageContext";
-import useEmployee from "./useEmployee";
+import { useEmployee } from "../context/EmployeeContext";
 
 /**
  * Hook to fetch the attendance activities of current logged in employee

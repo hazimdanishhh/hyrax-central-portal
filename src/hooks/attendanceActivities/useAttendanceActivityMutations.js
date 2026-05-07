@@ -211,6 +211,61 @@ export default function useAttendanceActivityMutations() {
   };
 
   // =============
+  // CLOCK IN ATTENDANCE ACTIVITY
+  // =============
+  const clockInAttendanceActivity = async (newData) => {
+    try {
+      setSaving(true);
+      setError(null);
+      showMessage("Clocking in...", "loading");
+
+      const { id, ...rawFields } = newData; // ignore id if accidentally passed
+
+      const insertFields = Object.fromEntries(
+        Object.entries(rawFields)
+          .filter(([_, value]) => value !== undefined)
+          .map(([key, value]) => {
+            if (value === "") return [key, null];
+
+            if (key.endsWith("_id") && value !== null) {
+              const isNumeric =
+                typeof value === "string" && /^\d+$/.test(value);
+
+              return [key, isNumeric ? Number(value) : value];
+            }
+
+            return [key, value];
+          }),
+      );
+
+      const { data, error } = await supabase
+        .from("attendance_activities")
+        .insert(insertFields)
+        .select(
+          `
+        *,
+        attendance_type:attendance_type_id (id, name, requires_photo, requires_location)
+      `,
+        )
+        .single();
+
+      if (error) throw error;
+
+      showMessage("Clocked in!", "success");
+
+      return data;
+    } catch (err) {
+      console.error("Clock in failed:", err);
+      setError(err);
+      showMessage("Clock in failed", "error");
+
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // =============
   // CLOCK OUT ATTENDANCE ACTIVITY
   // =============
   const clockOutAttendanceActivity = async (id) => {
@@ -243,6 +298,7 @@ export default function useAttendanceActivityMutations() {
     createAttendanceActivity,
     updateAttendanceActivity,
     deleteAttendanceActivity,
+    clockInAttendanceActivity,
     clockOutAttendanceActivity,
     saving,
     deleting,

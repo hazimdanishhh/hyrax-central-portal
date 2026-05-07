@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import useEmployee from "../hooks/useEmployee";
+import { useEmployee } from "./EmployeeContext";
 
 /**
  * Attendance Activity Context

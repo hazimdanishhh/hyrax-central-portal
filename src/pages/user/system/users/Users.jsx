@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
-import useEmployee from "../../../hooks/useEmployee";
 import CardSection from "../../../components/cardSection/CardSection";
 import CardLayout from "../../../components/cardLayout/CardLayout";
 import { useNavigate } from "react-router";
@@ -9,6 +8,7 @@ import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import { UsersFourIcon } from "@phosphor-icons/react";
 import useEmployeesPublic from "../../../hooks/useEmployeesPublic";
+import { useEmployee } from "../../../../context/EmployeeContext";
 
 export default function Users() {
   const navigate = useNavigate();

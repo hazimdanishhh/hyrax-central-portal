@@ -17,8 +17,6 @@ import DataSidebar from "../dataSidebar/DataSidebar";
 import useAttendanceTypes from "../../hooks/useAttendanceTypes";
 import { attendanceActivityConfig } from "../../data/attendanceActivityConfig";
 import LoadingIcon from "../loadingIcon/LoadingIcon";
-import useAttendanceActivityMutations from "../../hooks/useAttendanceActivityMutations";
-import useEmployee from "../../hooks/useEmployee";
 import CardLayout from "../cardLayout/CardLayout";
 import useCurrentAttendanceActivity from "../../hooks/useCurrentAttendanceActivity";
 import SectionHeader from "../sectionHeader/SectionHeader";
@@ -26,6 +24,8 @@ import "./AttendanceActivityClockin.scss";
 import { useMessage } from "../../context/MessageContext";
 import { useAttendance } from "../../context/AttendanceProvider";
 import useEmployeeAttendanceActivities from "../../hooks/useEmployeeAttendanceActivities";
+import { useEmployee } from "../../context/EmployeeContext";
+import useAttendanceActivityMutations from "../../hooks/attendanceActivities/useAttendanceActivityMutations";
 
 export default function AttendanceActivityClockin() {
   const { darkMode, toggleMode } = useTheme();
@@ -129,7 +129,7 @@ export default function AttendanceActivityClockin() {
 
   // IT Asset Update and Delete Hook Function
   const {
-    createAttendanceActivity,
+    clockInAttendanceActivity,
     clockOutAttendanceActivity,
     saving,
     deleting,
@@ -143,7 +143,7 @@ export default function AttendanceActivityClockin() {
     }
 
     // Attach employee_id here
-    await createAttendanceActivity({
+    await clockInAttendanceActivity({
       ...data,
       employee_id: employee.id, // <-- attach current employee
     });

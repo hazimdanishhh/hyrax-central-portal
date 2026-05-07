@@ -19,7 +19,6 @@ import EmployeesList from "../../../../../components/employees/employeesList/Emp
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import { employeesTableConfig } from "../tableConfig";
-import useProfiles from "../../../../../hooks/useProfiles";
 import { getEmployeesFilterConfig } from "../filterConfig";
 import useEmployeeMutations from "../../../../../hooks/useEmployeeMutations";
 import { useSearchParams } from "react-router-dom";
