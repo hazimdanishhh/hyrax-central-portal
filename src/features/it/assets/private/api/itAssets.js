@@ -1,5 +1,5 @@
 // services/itAssetsService.js
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
  * Service to fetch IT assets for IT department
@@ -24,8 +24,7 @@ export async function fetchITAssets({
       asset_category:asset_category_id (id, name),
       asset_subcategory:asset_subcategory_id (id, name, sub, icon),
       asset_status:asset_status_id (id, name),
-      asset_user:asset_user_id (id,full_name,employee_id,
-        profile:profile_id (id,avatar_url)),
+      asset_user:employees_public!asset_user_id (*),
       operating_system:operating_system_id (id, name, icon),
       asset_condition:asset_condition_id (id, name),
       asset_department:asset_department_id (id, name, sub),

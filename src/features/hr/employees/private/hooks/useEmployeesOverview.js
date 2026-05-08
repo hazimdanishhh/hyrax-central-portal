@@ -46,6 +46,28 @@ export function useEmployeesOverview() {
     [data],
   );
 
+  const genderData = useMemo(() => {
+    const map = {
+      Male: "Male",
+      Female: "Female",
+      "Not Specified": "Not Specified",
+    };
+
+    const grouped = {};
+
+    data.forEach((e) => {
+      const raw = e.gender;
+      const key = map[raw] || "Not Specified";
+
+      grouped[key] = (grouped[key] || 0) + 1;
+    });
+
+    return Object.entries(grouped).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }, [data]);
+
   const normalizedStatusData = useMemo(() => {
     const map = {
       Active: "Active",
@@ -218,6 +240,7 @@ export function useEmployeesOverview() {
     terminationData,
     managerData,
     employmentTypeData,
+    genderData,
 
     // insights
     employeesWithoutManager,

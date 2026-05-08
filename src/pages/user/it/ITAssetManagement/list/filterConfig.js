@@ -41,7 +41,7 @@ export function getITAssetsFilterConfig({
     },
     {
       key: "employees",
-      label: "Employee",
+      label: "Assigned To",
       options: employees.map((e) => ({ label: e.full_name, value: e.id })),
     },
     {

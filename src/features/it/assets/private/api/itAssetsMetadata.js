@@ -1,4 +1,4 @@
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 export async function fetchITAssetsMetadata() {
   const [
@@ -18,7 +18,7 @@ export async function fetchITAssetsMetadata() {
     supabase.from("it_asset_operating_system").select("*").order("name"),
     supabase.from("it_asset_status").select("*").order("name"),
     supabase.from("departments").select("*").order("name"),
-    supabase.from("employees").select("id, full_name").order("full_name"),
+    supabase.from("employees_public").select("*").order("full_name"),
   ]);
 
   return {

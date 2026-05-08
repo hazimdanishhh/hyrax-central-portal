@@ -2,7 +2,7 @@ import { Navigate, Route } from "react-router";
 import ITDashboard from "../pages/user/it/dashboard/ITDashboard";
 import ITAssetsPageLayout from "../pages/user/it/ITAssetManagement/ITAssetsPageLayout";
 import ITAssetOverview from "../pages/user/it/ITAssetManagement/overview/ITAssetOverview";
-import ITAssetManagement from "../pages/user/it/ITAssetManagement/ITAssetManagement";
+import ITAssetManagement from "../pages/user/it/ITAssetManagement/list/ITAssetManagement";
 import SoftwareManagement from "../pages/user/it/softwareManagement/SoftwareManagement";
 import AccessRoute from "./AccessRoute";
 

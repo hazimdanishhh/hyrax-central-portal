@@ -6,6 +6,7 @@ import { CaretRightIcon, CaretCircleRightIcon } from "@phosphor-icons/react";
 import * as Icons from "@phosphor-icons/react";
 import { useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
+import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 
 export default function ITAssetList({ asset, onClick, saving, deleting }) {
   const [showName, setShowName] = useState(false);
@@ -44,7 +45,7 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
 
         {/* ASSET CODE AND NAME */}
         <div className="listSegment">
-          <p className="textBold textXXS truncate">
+          <p className="textBold textXXS truncate" title={asset.asset_name}>
             {asset.asset_name || "No Name"}
           </p>
           <p className="textLight textXXXS truncate">
@@ -62,19 +63,28 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
       </div>
 
       <div className="listSegment listSegmentMobile">
-        <p className="textLight textXXXS truncate">
+        <p
+          className="textLight textXXXS truncate"
+          title={asset.asset_category?.name}
+        >
           {asset.asset_category?.name || "No Category"}
         </p>
-        <p className="textLight textXXXS truncate">
+        <p
+          className="textLight textXXXS truncate"
+          title={asset.asset_subcategory?.name}
+        >
           {asset.asset_subcategory?.name || "No Subcategory"}
         </p>
       </div>
 
       <div className="listSegment listSegmentMobile">
-        <p className="textLight textXXXS truncate">
+        <p
+          className="textLight textXXXS truncate"
+          title={asset.asset_manufacturer?.name}
+        >
           {asset.asset_manufacturer?.name || "No Manufacturer"}
         </p>
-        <p className="textLight textXXXS truncate">
+        <p className="textLight textXXXS truncate" title={asset.asset_model}>
           {asset.asset_model || "No Model"}
         </p>
       </div>
@@ -92,36 +102,15 @@ export default function ITAssetList({ asset, onClick, saving, deleting }) {
         )}
 
         {asset.asset_user && (
-          <a
-            className="employeeLinkWrapper"
-            href={`/app/employees/${asset.asset_user?.id}`}
-            onMouseEnter={() => setShowName(true)}
-            onMouseLeave={() => setShowName(false)}
-          >
-            <div className="listEmployeePhoto">
-              <img
-                src={
-                  asset.asset_user?.profile?.avatar_url
-                    ? `${asset.asset_user?.profile?.avatar_url}`
-                    : "/profilePhoto/default.webp"
-                }
-                alt={asset.asset_user?.full_name}
-              />
-            </div>
-            <AnimatePresence mode="wait">
-              {showName && (
-                <motion.div
-                  className="textRegular textXXXS listEmployeePhotoName"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                >
-                  {asset.asset_user?.full_name}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </a>
+          <EmployeeImage
+            employee={asset.asset_user}
+            setShowName={setShowName}
+            showName={showName}
+            position="left"
+            employeeId={asset.asset_user.id}
+          />
         )}
+
         <div className="listArrow">
           <CaretCircleRightIcon size={28} weight="light" />
         </div>

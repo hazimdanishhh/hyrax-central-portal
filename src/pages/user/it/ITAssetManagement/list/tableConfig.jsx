@@ -4,7 +4,7 @@ import {
   WindowsLogoIcon,
   LinuxLogoIcon,
 } from "@phosphor-icons/react";
-import StatusBadge from "../../../../components/status/statusBadge/StatusBadge";
+import StatusBadge from "../../../../../components/status/statusBadge/StatusBadge";
 
 // key = actual database field name
 // label = UI name
@@ -78,6 +78,7 @@ export const itAssetTableConfig = ({
       label: s.name,
       value: s.id,
     })),
+    isSearchable: false,
   },
   {
     key: "asset_category_id",
@@ -90,6 +91,7 @@ export const itAssetTableConfig = ({
       label: c.name,
       value: c.id,
     })),
+    isSearchable: false,
   },
   {
     key: "asset_subcategory_id",
@@ -102,6 +104,7 @@ export const itAssetTableConfig = ({
       label: s.name,
       value: s.id,
     })),
+    isSearchable: false,
   },
   {
     key: "asset_user_id",
@@ -214,6 +217,7 @@ export const itAssetTableConfig = ({
       label: c.name,
       value: c.id,
     })),
+    isSearchable: false,
   },
   {
     key: "asset_location_id",

@@ -16,6 +16,7 @@ export async function fetchEmployees({
 }) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
+  const FILTER_NULL = "__null__";
 
   let query = supabase
     .from("employees")
@@ -46,7 +47,7 @@ export async function fetchEmployees({
 
   // --- FILTERS ---
   Object.entries(filters).forEach(([key, value]) => {
-    if (!value) return;
+    if (value === undefined || value === "") return;
 
     const map = {
       department: "department_id",
@@ -56,10 +57,20 @@ export async function fetchEmployees({
       nationality: "nationality_id",
       identificationType: "identification_type_id",
       maritalStatus: "marital_status",
+      gender: "gender",
       manager: "manager_id",
     };
 
-    if (map[key]) query = query.eq(map[key], value);
+    const column = map[key];
+    if (!column) return;
+
+    // ✅ NULL filter (ONLY for real null)
+    if (value === FILTER_NULL) {
+      query = query.is(column, null);
+      return;
+    }
+
+    query = query.eq(column, value);
   });
 
   // paginate LAST

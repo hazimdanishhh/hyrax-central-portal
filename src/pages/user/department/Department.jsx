@@ -10,11 +10,11 @@ import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import { UserCircleIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
-import useManagerPublic from "../../../features/hr/employees/public/hooks/useManagerPublic";
 import { useEmployee } from "../../../context/EmployeeContext";
 import NoResult from "../../../components/crud/noResult/NoResult";
 import useDepartmentEmployeesPublic from "../../../features/hr/employees/public/hooks/useDepartmentEmployeesPublic";
-import useSubordinates from "../../../features/hr/employees/public/hooks/useSubordinates";
+import useSubordinatesPublic from "../../../features/hr/employees/public/hooks/useSubordinatesPublic";
+import useEmployeePublic from "../../../features/hr/employees/public/hooks/useEmployeePublic";
 
 export default function Department() {
   const navigate = useNavigate();
@@ -26,10 +26,27 @@ export default function Department() {
   } = useEmployee();
 
   const {
-    manager,
-    loading: managerLoading,
-    error: managerError,
-  } = useManagerPublic(employee?.employee_id);
+    data: employeePublic,
+    isLoading: employeePublicLoad,
+    error: employeePublicError,
+  } = useEmployeePublic(employee?.id);
+
+  const manager = employeePublic?.manager_id
+    ? {
+        id: employeePublic.manager_id,
+        full_name: employeePublic.manager_name,
+        employee_id: employeePublic.manager_employee_id,
+        profile_id: employeePublic.manager_profile_id,
+        preferred_name: employeePublic.manager_preferred_name,
+        position: employeePublic.manager_position,
+        phone_work: employeePublic.manager_phone,
+        email_work: employeePublic.manager_email,
+        address_work: employeePublic.manager_address_work,
+        avatar_url: employeePublic.manager_avatar_url,
+        department_name: employeePublic.manager_department_name,
+        employment_status_name: employeePublic.manager_employment_status_name,
+      }
+    : null;
 
   const {
     data: departmentEmployees,
@@ -38,21 +55,14 @@ export default function Department() {
   } = useDepartmentEmployeesPublic(employee?.department?.id);
 
   const {
-    subordinates,
-    loading: subordinatesLoading,
+    data: subordinates,
+    isLoading: subordinatesLoading,
     error: subordinatesError,
-  } = useSubordinates();
+  } = useSubordinatesPublic(employee?.id);
 
   const loading =
-    employeeLoading ||
-    managerLoading ||
-    departmentEmployeesLoading ||
-    subordinatesLoading;
-  const error =
-    employeeError ||
-    managerError ||
-    departmentEmployeesError ||
-    subordinatesError;
+    employeeLoading || departmentEmployeesLoading || subordinatesLoading;
+  const error = employeeError || departmentEmployeesError || subordinatesError;
 
   return (
     <>

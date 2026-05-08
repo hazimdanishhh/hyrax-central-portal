@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { getDepartmentEmployeesPublicById } from "../api/byDepartment";
+import { fetchDepartmentEmployeesPublicById } from "../api/departmentEmployeesPublic";
 
 /**
- * Hook to fetch the current logged-in user's department employees
+ * Hook to fetch the department employees by department ID
  */
 export default function useDepartmentEmployeesPublic(departmentId) {
   return useQuery({
-    queryKey: ["employee_public", departmentId],
-    queryFn: () => getDepartmentEmployeesPublicById(departmentId),
+    queryKey: ["department_employees_public", departmentId],
+    queryFn: () => fetchDepartmentEmployeesPublicById(departmentId),
     enabled: !!departmentId,
     staleTime: 1000 * 60 * 5,
   });

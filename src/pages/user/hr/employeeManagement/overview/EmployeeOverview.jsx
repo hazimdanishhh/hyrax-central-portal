@@ -19,6 +19,7 @@ import {
   RISK_COLORS,
   STATUS_COLORS,
   UTILIZATION_COLORS,
+  GENDER_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
@@ -41,6 +42,7 @@ export default function EmployeeOverview() {
     terminationData,
     managerData,
     employmentTypeData,
+    genderData,
 
     // insights
     employeesWithoutManager,
@@ -104,6 +106,14 @@ export default function EmployeeOverview() {
                 data={workforceCompositionData}
                 mode="semantic"
                 colorMap={EMPLOYMENT_TYPE_COLORS}
+              />
+            </ChartCard>
+
+            <ChartCard title="Gender Distribution" style="cardGapSmall">
+              <PieChartRenderer
+                data={genderData}
+                mode="semantic"
+                colorMap={GENDER_COLORS}
               />
             </ChartCard>
           </CardLayout>

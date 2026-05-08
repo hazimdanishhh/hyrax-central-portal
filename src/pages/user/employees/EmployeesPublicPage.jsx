@@ -9,7 +9,6 @@ import {
   SquaresFourIcon,
   UsersFourIcon,
 } from "@phosphor-icons/react";
-import useEmployeesPublic from "../../../hooks/useEmployeesPublic";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Button from "../../../components/buttons/button/Button";
@@ -18,7 +17,7 @@ import PageHeader from "../../../components/crud/pageHeader/PageHeader";
 import ActiveFiltersBar from "../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import { useEmployee } from "../../../context/EmployeeContext";
 import usePaginatedQuery from "../../../hooks/usePaginatedQuery";
-import { fetchEmployeesPublic } from "../../../features/hr/employees/public/api/list";
+import { fetchEmployeesPublic } from "../../../features/hr/employees/public/api/employeesPublic";
 import { getEmployeesPublicSortConfig } from "./sortConfig";
 import { getEmployeesPublicFilterConfig } from "./filterConfig";
 import SortBar from "../../../components/crud/sortBar/SortBar";
@@ -56,7 +55,7 @@ export default function EmployeesPublicPage() {
     resetParams,
     isLoading: employeesLoading,
     isFetching,
-    error,
+    error: employeesError,
   } = usePaginatedQuery({
     queryKey: "employees_public",
     queryFn: fetchEmployeesPublic,
@@ -73,6 +72,7 @@ export default function EmployeesPublicPage() {
     nationalities,
     employmentTypes,
     isLoading: metadataLoading,
+    error: metadataError,
   } = useEmployeesPublicMetadata();
 
   // ==============
@@ -90,6 +90,7 @@ export default function EmployeesPublicPage() {
   // DATA LOADING
   // ==============
   const isLoading = employeesLoading || metadataLoading;
+  const error = employeesError || metadataError;
   const hasData = employees.length > 0;
 
   return (
@@ -151,7 +152,7 @@ export default function EmployeesPublicPage() {
                   <CardLayout style="cardLayoutFlexFull">
                     <LoadingIcon />
                   </CardLayout>
-                ) : !hasData ? (
+                ) : !hasData || error ? (
                   <NoResult />
                 ) : (
                   // LIST LAYOUT

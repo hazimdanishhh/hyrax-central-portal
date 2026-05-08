@@ -20,10 +20,13 @@ import {
   UTILIZATION_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
-import { useITAssetsOverview } from "../../../../../hooks/itAssets/useITAssetsOverview";
+import { useITAssetsOverview } from "../../../../../features/it/assets/private/hooks/useITAssetsOverview";
 import ITAssetsPageLayout from "../ITAssetsPageLayout";
 import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
+import { getAssetsOverviewConfig } from "./overviewConfig";
+import NoResult from "../../../../../components/crud/noResult/NoResult";
 
 function ITAssetOverview() {
   // ==============
@@ -50,16 +53,25 @@ function ITAssetOverview() {
     // KPIs
     kpis,
     isLoading: overviewLoading,
+    error: overviewError,
   } = useITAssetsOverview();
+
+  const overviewItems = getAssetsOverviewConfig(kpis);
+  const loading = overviewLoading;
+  const error = overviewError;
 
   return (
     <>
-      {overviewLoading ? (
+      {loading ? (
         <CardLayout style="cardLayoutFlexFull">
           <LoadingIcon />
         </CardLayout>
+      ) : error ? (
+        <NoResult />
       ) : (
         <CardLayout>
+          <OverviewCards items={overviewItems} />
+
           <CardLayout style="cardLayout2">
             <ChartCard
               style="cardGapSmall"

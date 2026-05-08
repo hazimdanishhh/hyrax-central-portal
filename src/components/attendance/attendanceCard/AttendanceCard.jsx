@@ -22,7 +22,7 @@ function AttendanceCard({ activity, onClick }) {
         <EmployeeImage
           showName={showName}
           setShowName={setShowName}
-          table={activity}
+          employee={activity}
         />
         <p className="textBold textXS" title={activity.employee_name}>
           {activity.employee_preferred_name}

@@ -1,6 +1,6 @@
 // services/itAssetsServices/itAssetsAnalyticsService.js
 
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 export async function fetchITAssetsOverview() {
   const { data, error } = await supabase.from("it_assets").select(`

@@ -7,50 +7,47 @@ import {
   UserMinusIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
-import CardLayout from "../../../../components/cardLayout/CardLayout";
-import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
-import { useTheme } from "../../../../context/ThemeContext";
+import CardLayout from "../../../../../components/cardLayout/CardLayout";
+import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import { useTheme } from "../../../../../context/ThemeContext";
 import "./ITAssetManagement.scss";
 import { useMemo, useState } from "react";
-import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../components/searchFliterBar/SearchFilterBar";
-import DataTable from "../../../../components/dataTable/DataTable";
+import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
+import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
+import SearchFilterBar from "../../../../../components/searchFliterBar/SearchFilterBar";
+import DataTable from "../../../../../components/dataTable/DataTable";
 import { itAssetTableConfig } from "./tableConfig";
-import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
+import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
-import useEmployeesPublic from "../../../../hooks/useEmployeesPublic";
-import useDepartments from "../../../../hooks/useDepartments";
-import ITAssetList from "../../../../components/itAsset/itAssetList/ITAssetList";
-import useITAssetMutations from "../../../../hooks/itAssets/useITAssetMutations";
-import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
-import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
+import useDepartments from "../../../../../hooks/useDepartments";
+import ITAssetList from "../../../../../components/itAsset/itAssetList/ITAssetList";
+import useITAssetMutations from "../../../../../features/it/assets/private/hooks/useITAssetMutations";
+import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import { getITAssetsFilterConfig } from "./filterConfig";
-import PageTab from "../../../../components/navigation/pageTab/PageTab";
+import PageTab from "../../../../../components/navigation/pageTab/PageTab";
 import { getAssetsLayoutConfig } from "./layoutConfig";
-import ActionModal from "../../../../components/modals/actionModal/ActionModal";
-import PageLayout from "../../../../components/crud/pageLayout/PageLayout";
-import PageResult from "../../../../components/crud/pageResult/PageResult";
-import NoResult from "../../../../components/crud/noResult/NoResult";
-import { getAssetsOverviewConfig } from "./overviewConfig";
-import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
+import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
+import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
+import PageResult from "../../../../../components/crud/pageResult/PageResult";
+import NoResult from "../../../../../components/crud/noResult/NoResult";
+import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import { getITAssetsSortConfig } from "./sortConfig";
-import SortBar from "../../../../components/crud/sortBar/SortBar";
+import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import { useQueryClient } from "@tanstack/react-query";
-import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchITAssets } from "../../../../services/itAssetsServices/itAssetsService";
-import { useITAssetsMetadata } from "../../../../hooks/itAssets/useITAssetsMetadata";
-import { useITAssetsOverview } from "../../../../hooks/itAssets/useITAssetsOverview";
-import ChartCard from "../../../../components/chartCard/ChartCard";
-import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer";
-import StackedBarRenderer from "../../../../components/chartCard/StackedBarRenderer";
-import BarChartRenderer from "../../../../components/chartCard/BarChartRenderer";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import { fetchITAssets } from "../../../../../features/it/assets/private/api/itAssets";
+import { useITAssetsMetadata } from "../../../../../features/it/assets/private/hooks/useITAssetsMetadata";
+import ChartCard from "../../../../../components/chartCard/ChartCard";
+import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
+import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
+import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 import {
   CONDITION_COLORS,
   RISK_COLORS,
   STATUS_COLORS,
   UTILIZATION_COLORS,
-} from "../../../../components/chartCard/chartColors";
+} from "../../../../../components/chartCard/chartColors";
 
 /**
  * IT Asset Management Page
@@ -93,39 +90,13 @@ export default function ITAssetManagement() {
     resetParams,
     isLoading: assetsLoading,
     isFetching,
-    error,
+    error: assetsError,
   } = usePaginatedQuery({
     queryKey: "itAssets",
     queryFn: fetchITAssets,
     pageSize: 20,
     defaultSortBy: "asset_code",
   });
-
-  // ==============
-  // ANALYTICS
-  // ==============
-  const {
-    // grouped charts
-    categoryData,
-    statusData,
-    subcategoryData,
-    departmentData,
-    conditionData,
-    osData,
-
-    // insight charts
-    riskData,
-    utilizationData,
-
-    // lists (for tables / drilldowns)
-    riskAssets,
-    unassignedAssets,
-    assignedAssets,
-
-    // KPIs
-    kpis,
-    isLoading: overviewLoading,
-  } = useITAssetsOverview();
 
   // ==============
   // METADATA
@@ -140,6 +111,7 @@ export default function ITAssetManagement() {
     departments,
     employees,
     isLoading: metadataLoading,
+    error: metadataError,
   } = useITAssetsMetadata();
   const { createAsset, updateAsset, deleteAsset, saving, deleting } =
     useITAssetMutations();
@@ -149,12 +121,12 @@ export default function ITAssetManagement() {
   // ==============
   const layoutOptions = getAssetsLayoutConfig();
   const sortOptions = getITAssetsSortConfig();
-  const overviewItems = getAssetsOverviewConfig(kpis);
 
   // ==============
   // DATA LOADING
   // ==============
   const isLoading = assetsLoading || metadataLoading;
+  const error = assetsError || metadataError;
   const hasData = assets.length > 0;
 
   // ==============
@@ -250,63 +222,10 @@ export default function ITAssetManagement() {
     }
   }
 
-  const items = [1, 2, 3, 4];
-  const items2 = [1, 2];
-
   return (
     <>
       {/* TABLE LIST TAB */}
       <>
-        {/* OVERVIEW */}
-        {overviewLoading ? (
-          <>
-            <CardLayout style="cardLayout4">
-              {items.map((item) => (
-                <div key={item} className="loadingCard" />
-              ))}
-            </CardLayout>
-
-            <CardLayout style="cardLayout2">
-              <div className="loadingCard" />
-              <CardLayout>
-                {items2.map((item) => (
-                  <div key={item} className="loadingCard" />
-                ))}
-              </CardLayout>
-            </CardLayout>
-          </>
-        ) : (
-          <>
-            <OverviewCards items={overviewItems} />
-
-            <CardLayout style="cardLayout2 itAssetOverviewContainer">
-              <ChartCard style="cardGapSmall">
-                <PieChartRenderer
-                  data={categoryData}
-                  showLegend={false}
-                  centerLabel="total"
-                  centerSubLabel="Total Assets"
-                />
-              </ChartCard>
-
-              <CardLayout style="cardLayout1">
-                <ChartCard title="Asset Status" style="cardGapSmall">
-                  <StackedBarRenderer
-                    data={statusData}
-                    colorMap={STATUS_COLORS}
-                  />
-                </ChartCard>
-                <ChartCard title="Asset Condition" style="cardGapSmall">
-                  <StackedBarRenderer
-                    data={conditionData}
-                    colorMap={CONDITION_COLORS}
-                  />
-                </ChartCard>
-              </CardLayout>
-            </CardLayout>
-          </>
-        )}
-
         {/* SEARCH AND FILTER BAR */}
         <SearchFilterBar
           search={search}
@@ -371,7 +290,7 @@ export default function ITAssetManagement() {
             <CardLayout style="cardLayoutFlexFull">
               <LoadingIcon />
             </CardLayout>
-          ) : !hasData ? (
+          ) : !hasData || error ? (
             <NoResult />
           ) : layout === 1 ? (
             // TABLE LAYOUT

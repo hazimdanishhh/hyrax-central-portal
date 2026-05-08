@@ -3,7 +3,7 @@ import { supabase } from "../../../../../lib/supabaseClient";
 
 export async function fetchEmployeesOverview() {
   const { data, error } = await supabase.from("employees").select(`
-    id,full_name,employee_id,
+    id,full_name,employee_id,gender,
     profile:profile_id (*),
     identification_type:identification_type_id (id,name),
     nationality:nationality_id (id,name),

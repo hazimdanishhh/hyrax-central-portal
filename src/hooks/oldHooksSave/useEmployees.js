@@ -88,6 +88,9 @@ export default function useEmployees({ pageSize = 20, ready = true } = {}) {
           case "maritalStatus":
             query = query.eq("marital_status", value);
             break;
+          case "gender":
+            query = query.eq("gender", value);
+            break;
           default:
             break;
         }

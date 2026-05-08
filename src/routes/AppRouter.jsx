@@ -14,6 +14,7 @@ import Error404 from "../pages/error/Error404";
 import ProtectedRoute from "./ProtectedRoute";
 import AppLayout from "../layouts/AppLayout";
 import WorkspaceRoutes from "./WorkspaceRoutes";
+import SuperadminRoutes from "./SuperadminRoutes";
 
 export default function AppRouter() {
   return (
@@ -37,6 +38,7 @@ export default function AppRouter() {
           {EmployeeRoutes}
           {ITRoutes}
           {HelpRoutes}
+          {SuperadminRoutes}
 
           <Route path="*" element={<Error404 />} />
         </Route>

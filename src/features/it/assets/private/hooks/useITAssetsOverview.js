@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchITAssetsOverview } from "../../services/itAssetsServices/itAssetsAnalyticsService";
+import { fetchITAssetsOverview } from "../api/itAssetsOverview";
 import { useMemo } from "react";
-import { groupCount } from "../../functions/dataTransform";
+import { groupCount } from "../../../../../functions/dataTransform";
 
 export function useITAssetsOverview() {
   const query = useQuery({

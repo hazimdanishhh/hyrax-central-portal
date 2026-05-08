@@ -1,6 +1,6 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
-export async function getEmployeePublicById(employeeId) {
+export async function fetchEmployeePublicById(employeeId) {
   if (!employeeId) return null;
 
   const { data, error } = await supabase

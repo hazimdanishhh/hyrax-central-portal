@@ -53,3 +53,9 @@ export const EMPLOYMENT_TYPE_COLORS = {
   Freelancer: "#ac41c7",
   Temporary: "#d76363",
 };
+
+export const GENDER_COLORS = {
+  Male: "#3B82F6", // blue
+  Female: "#EC4899", // pink
+  "Not Specified": "#9CA3AF", // gray
+};

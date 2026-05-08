@@ -3,22 +3,31 @@ import React from "react";
 import { Link } from "react-router";
 import "./EmployeeImage.scss";
 
-function EmployeeImage({ showName, setShowName, table, position = "right" }) {
+function EmployeeImage({
+  showName,
+  setShowName,
+  employee,
+  position = "right",
+  employeeId,
+}) {
   return (
     <Link
       className="employeeLinkWrapper"
-      to={`/app/employees/${table.employee_id}`}
+      onClick={(e) => e.stopPropagation()}
+      to={`/app/employees/${employeeId || employee.employee_id}`}
       onMouseEnter={() => setShowName(true)}
       onMouseLeave={() => setShowName(false)}
+      target="_blank"
+      rel="noopener noreferrer"
     >
       <div className="listEmployeePhoto">
         <img
           src={
-            table.avatar_url
-              ? `${table.avatar_url}`
+            employee.avatar_url
+              ? `${employee.avatar_url}`
               : "/profilePhoto/default.webp"
           }
-          alt={table.employee_name}
+          alt={employee.employee_name || employee.full_name}
         />
       </div>
       <AnimatePresence mode="wait">
@@ -33,7 +42,7 @@ function EmployeeImage({ showName, setShowName, table, position = "right" }) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
           >
-            {table.employee_name}
+            {employee.employee_name || employee.full_name}
           </motion.div>
         )}
       </AnimatePresence>

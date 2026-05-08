@@ -89,7 +89,7 @@ export default function EmployeeManagement() {
     resetParams,
     isLoading: employeesLoading,
     isFetching,
-    error,
+    error: employeesError,
   } = usePaginatedQuery({
     queryKey: "employees",
     queryFn: fetchEmployees,
@@ -115,6 +115,7 @@ export default function EmployeeManagement() {
     terminationReasons,
     employmentStatuses,
     isLoading: metadataLoading,
+    error: metadataError,
   } = useEmployeesMetadata();
 
   const { createEmployee, updateEmployee, deleteEmployee, saving, deleting } =
@@ -149,6 +150,7 @@ export default function EmployeeManagement() {
   // DATA LOADING
   // ==============
   const isLoading = employeesLoading || metadataLoading;
+  const error = employeesError || metadataError;
   const hasData = employees.length > 0;
 
   // ==============

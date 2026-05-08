@@ -1,7 +1,9 @@
-// hooks/itAssets/useITAssetsMetadata.js
 import { useQuery } from "@tanstack/react-query";
-import { fetchEmployeesPublicMetadata } from "../api/metadata";
+import { fetchEmployeesPublicMetadata } from "../api/employeesPublicMetadata";
 
+/**
+ * Hook to fetch employee metadata for filter and table config
+ */
 export function useEmployeesPublicMetadata() {
   const query = useQuery({
     queryKey: ["employeesMetadata"],
