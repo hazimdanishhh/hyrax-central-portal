@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { groupCount } from "../../functions/dataTransform";
-import { fetchEmployeesOverview } from "../../services/employeesServices/employeeAnalyticsService";
+import { groupCount } from "../../../../../functions/dataTransform";
+import { fetchEmployeesOverview } from "../api/employeesOverview";
 
 // ======================
 // CONFIG

@@ -1,6 +1,6 @@
 // hooks/itAssets/useITAssetsMetadata.js
 import { useQuery } from "@tanstack/react-query";
-import { fetchEmployeesMetadata } from "../../services/employeesServices/employeesMetadataService";
+import { fetchEmployeesMetadata } from "../api/employeesMetadataService";
 
 export function useEmployeesMetadata() {
   const query = useQuery({

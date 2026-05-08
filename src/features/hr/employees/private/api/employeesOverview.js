@@ -1,5 +1,5 @@
 // services/employeeServices/employeeAnalyticsService.js
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 export async function fetchEmployeesOverview() {
   const { data, error } = await supabase.from("employees").select(`

@@ -30,13 +30,10 @@ import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
 import { getEmployeesLayoutConfig } from "./layoutConfig";
 import { useQueryClient } from "@tanstack/react-query";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
-import { fetchEmployees } from "../../../../../services/employeesServices/employeesService";
 import { getEmployeesSortConfig } from "./sortConfig";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import { useEmployeesMetadata } from "../../../../../hooks/employees/useEmployeesMetadata";
 import ChartCard from "../../../../../components/chartCard/ChartCard";
-import { useEmployeesOverview } from "../../../../../hooks/employees/useEmployeesOverview";
 import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
 import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
 import {
@@ -48,6 +45,8 @@ import {
   UTILIZATION_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
+import { fetchEmployees } from "../../../../../features/hr/employees/private/api/employeesService";
+import { useEmployeesMetadata } from "../../../../../features/hr/employees/private/hooks/useEmployeesMetadata";
 
 /**
  * HR Employee Management Page

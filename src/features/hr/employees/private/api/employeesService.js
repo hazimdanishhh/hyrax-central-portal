@@ -1,5 +1,5 @@
 // services/useEmployee.js
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
  * Service to fetch Employees for HR department
@@ -56,6 +56,7 @@ export async function fetchEmployees({
       nationality: "nationality_id",
       identificationType: "identification_type_id",
       maritalStatus: "marital_status",
+      manager: "manager_id",
     };
 
     if (map[key]) query = query.eq(map[key], value);

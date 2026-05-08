@@ -23,9 +23,9 @@ import {
 import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
-import { useEmployeesOverview } from "../../../../../hooks/employees/useEmployeesOverview";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import { getEmployeesOverviewConfig } from "./overviewConfig";
+import { useEmployeesOverview } from "../../../../../features/hr/employees/private/hooks/useEmployeesOverview";
 
 export default function EmployeeOverview() {
   // ==============
