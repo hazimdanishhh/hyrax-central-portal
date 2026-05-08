@@ -2,7 +2,7 @@ import { supabase } from "../../lib/supabaseClient";
 
 export async function fetchEmployeesMetadata() {
   const [
-    employees,
+    managers,
     profiles,
     departments,
     nationalities,
@@ -25,7 +25,7 @@ export async function fetchEmployeesMetadata() {
   ]);
 
   return {
-    managers: employees.data || [],
+    managers: managers.data || [],
     profiles: profiles.data || [],
     departments: departments.data || [],
     nationalities: nationalities.data || [],

@@ -1,6 +1,4 @@
-// hooks/itAssets/useITAssetsMetadata.js
 import { useQuery } from "@tanstack/react-query";
-import { fetchEmployeesMetadata } from "../../services/employeesServices/employeesMetadataService";
 import { fetchAttendanceActivitiesMetadata } from "../../services/attendanceActivitiesServices/attendanceActivitiesMetadataService";
 
 export function useAttendanceActivitiesMetadata() {

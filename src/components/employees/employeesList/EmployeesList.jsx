@@ -2,6 +2,7 @@ import { CaretCircleRightIcon, NotePencilIcon } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import CardLayout from "../../cardLayout/CardLayout";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
+import AttendanceType from "../../attendance/attendanceType/AttendanceType";
 
 export default function EmployeesList({ employee, onClick, saving, deleting }) {
   return (

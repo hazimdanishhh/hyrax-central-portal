@@ -25,7 +25,7 @@ import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRe
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import { useEmployeesOverview } from "../../../../../hooks/employees/useEmployeesOverview";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import { getEmployeesOverviewConfig } from "../overviewConfig";
+import { getEmployeesOverviewConfig } from "./overviewConfig";
 
 export default function EmployeeOverview() {
   // ==============

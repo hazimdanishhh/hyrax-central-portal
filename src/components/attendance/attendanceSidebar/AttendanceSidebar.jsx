@@ -10,11 +10,10 @@ import {
 } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
 import { Link } from "react-router";
-import "./AttendanceSidebarHR.scss";
 import AttendanceClock from "../attendanceClock/AttendanceClock";
 
-// SIDEBAR UI FOR HR ATTENDANCE MANAGEMENT PAGE
-function AttendanceSidebarHR({
+// SIDEBAR UI FOR MY ATTENDANCE PAGE
+export default function AttendanceSidebar({
   selectedRow,
   setSelectedId,
   setModalType,
@@ -63,31 +62,6 @@ function AttendanceSidebarHR({
             </div>
           </div>
         </div>
-
-        {/* APPROVE/REJECT BUTTON */}
-        {selectedRow.approval_status === "Pending" &&
-          selectedRow.clocked_out_time && (
-            <div className="attendanceCardApprovalContainer">
-              <Button
-                onClick={() => {
-                  setSelectedId(selectedRow.id);
-                  setModalType("approve");
-                  setModalOpen(true);
-                }}
-                icon={CheckIcon}
-                style="iconButton2 approval"
-              />
-              <Button
-                onClick={() => {
-                  setSelectedId(selectedRow.id);
-                  setModalType("reject");
-                  setModalOpen(true);
-                }}
-                icon={XIcon}
-                style="iconButton2 rejection"
-              />
-            </div>
-          )}
       </div>
 
       {/* CLOCK OUT BUTTON */}
@@ -110,7 +84,7 @@ function AttendanceSidebarHR({
         </div>
       )}
 
-      {/* APPROVAL */}
+      {/* REJECTION REASON */}
       {selectedRow.approval_status === "Approved" && (
         <div className="attendanceCardSidebarDetailsContainer">
           <div className="generalCard greenCard cardWidth cardPaddingSmall">
@@ -152,5 +126,3 @@ function AttendanceSidebarHR({
     </div>
   );
 }
-
-export default AttendanceSidebarHR;

@@ -20,19 +20,6 @@ export const attendanceActivitiesTableConfig = ({
     show: false,
   },
   {
-    key: "employee_id",
-    label: "Employee",
-    getValue: (activity) => activity.employee_id,
-    displayValue: (activity) => activity.employee?.full_name,
-    editable: true,
-    editor: "select",
-    options: employees.map((e) => ({
-      label: e.full_name,
-      value: e.id,
-    })),
-    required: true,
-  },
-  {
     key: "attendance_type_id",
     label: "Attendance Type",
     getValue: (activity) => activity.attendance_type_id,

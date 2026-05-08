@@ -18,20 +18,20 @@ import { AnimatePresence } from "framer-motion";
 import EmployeesList from "../../../../../components/employees/employeesList/EmployeesList";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import { employeesTableConfig } from "../tableConfig";
-import { getEmployeesFilterConfig } from "../filterConfig";
+import { employeesTableConfig } from "./tableConfig";
+import { getEmployeesFilterConfig } from "./filterConfig";
 import useEmployeeMutations from "../../../../../hooks/useEmployeeMutations";
 import { useSearchParams } from "react-router-dom";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import { getEmployeesOverviewConfig } from "../overviewConfig";
+import { getEmployeesOverviewConfig } from "../overview/overviewConfig";
 import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
-import { getEmployeesLayoutConfig } from "../layoutConfig";
+import { getEmployeesLayoutConfig } from "./layoutConfig";
 import { useQueryClient } from "@tanstack/react-query";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import { fetchEmployees } from "../../../../../services/employeesServices/employeesService";
-import { getEmployeesSortConfig } from "../sortConfig";
+import { getEmployeesSortConfig } from "./sortConfig";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import { useEmployeesMetadata } from "../../../../../hooks/employees/useEmployeesMetadata";
@@ -126,16 +126,6 @@ export default function EmployeeManagement() {
   // ==============
   const layoutOptions = getEmployeesLayoutConfig();
   const sortOptions = getEmployeesSortConfig();
-
-  // ==============
-  // DATA LOADING
-  // ==============
-  const isLoading = employeesLoading || metadataLoading;
-  const hasData = employees.length > 0;
-
-  // ==============
-  // TABLE CONFIG
-  // ==============
   const columns = employeesTableConfig({
     managers,
     profiles,
@@ -146,11 +136,8 @@ export default function EmployeeManagement() {
     terminationReasons,
     employmentStatuses,
   });
-
-  // ==============
-  // FILTER CONFIG
-  // ==============
   const filterConfig = getEmployeesFilterConfig({
+    managers,
     departments,
     nationalities,
     identificationTypes,
@@ -158,6 +145,12 @@ export default function EmployeeManagement() {
     terminationReasons,
     employmentStatuses,
   });
+
+  // ==============
+  // DATA LOADING
+  // ==============
+  const isLoading = employeesLoading || metadataLoading;
+  const hasData = employees.length > 0;
 
   // ==============
   // SIDEBAR OPEN & CLOSE

@@ -1,4 +1,5 @@
 export function getEmployeesFilterConfig({
+  managers,
   departments,
   nationalities,
   identificationTypes,
@@ -7,6 +8,11 @@ export function getEmployeesFilterConfig({
   employmentStatuses,
 }) {
   return [
+    {
+      key: "manager",
+      label: "Manager",
+      options: managers.map((e) => ({ label: e.full_name, value: e.id })),
+    },
     {
       key: "department",
       label: "Department",

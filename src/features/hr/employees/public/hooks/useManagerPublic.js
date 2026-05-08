@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import { useMessage } from "../../context/MessageContext";
+import { useMessage } from "../../../../../context/MessageContext";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 // Fetch Employee's Manager
 export default function useManagerPublic(employeeId) {

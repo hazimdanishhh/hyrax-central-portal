@@ -5,19 +5,11 @@ import CardLayout from "../../cardLayout/CardLayout";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import AttendanceType from "../../attendance/attendanceType/AttendanceType";
 
-export default function EmployeeList({
+export default function EmployeesPublicList({
   className,
   onClick,
-  src,
-  full_name,
-  position,
-  employee_id,
-  department_name,
-  email_work,
-  phone_work,
+  employee,
   isMyManager,
-  employment_status_name,
-  current_attendance_type_name,
 }) {
   return (
     <motion.div
@@ -28,22 +20,27 @@ export default function EmployeeList({
     >
       <div className="employeeCardHeaderContainer">
         <div className="employeeCardPhoto">
-          <img src={src || "/profilePhoto/default.webp"} alt={full_name} />
+          <img
+            src={employee.avatar_url || "/profilePhoto/default.webp"}
+            alt={employee.full_name}
+          />
         </div>
 
         <div className="employeeCardHeaderDetails">
-          <p className="textBold textXXS">{full_name}</p>
-          <p className="textRegular textXXXS">{department_name}</p>
-          <p className="textLight textXXXS">{position}</p>
+          <p className="textBold textXXS">{employee.full_name}</p>
+          <p className="textRegular textXXXS">{employee.department_name}</p>
+          <p className="textLight textXXXS">{employee.position}</p>
           {isMyManager && (
             <p className="managerBadge textXXXS">Reporting Manager</p>
           )}
         </div>
         <div className="employeeCardStatusContainer">
-          {current_attendance_type_name && (
-            <AttendanceType attendanceType={current_attendance_type_name} />
+          {employee.current_attendance_type_name && (
+            <AttendanceType
+              attendanceType={employee.current_attendance_type_name}
+            />
           )}
-          <StatusBadge status={employment_status_name} />
+          <StatusBadge status={employee.employment_status_name} />
           <button className="listArrow">
             <CaretCircleRightIcon size={28} weight="light" />
           </button>

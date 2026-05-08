@@ -13,64 +13,84 @@ import useEmployeesPublic from "../../../hooks/useEmployeesPublic";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Button from "../../../components/buttons/button/Button";
-import EmployeeList from "../../../components/employees/employeesPublicList/EmployeesPublicList";
-import useSearchFilter from "../../../hooks/useSearchFliter";
-import useDepartments from "../../../hooks/useDepartments";
-import useEmploymentStatus from "../../../hooks/useEmploymentStatus";
 import SearchFilterBar from "../../../components/searchFliterBar/SearchFilterBar";
 import PageHeader from "../../../components/crud/pageHeader/PageHeader";
 import ActiveFiltersBar from "../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import { useEmployee } from "../../../context/EmployeeContext";
+import usePaginatedQuery from "../../../hooks/usePaginatedQuery";
+import { fetchEmployeesPublic } from "../../../features/hr/employees/public/api/list";
+import { getEmployeesPublicSortConfig } from "./sortConfig";
+import { getEmployeesPublicFilterConfig } from "./filterConfig";
+import SortBar from "../../../components/crud/sortBar/SortBar";
+import PageResult from "../../../components/crud/pageResult/PageResult";
+import NoResult from "../../../components/crud/noResult/NoResult";
+import EmployeesPublicList from "../../../components/employees/employeesPublicList/EmployeesPublicList";
+import { useEmployeesPublicMetadata } from "../../../features/hr/employees/public/hooks/useEmployeesPublicMetadata";
 
 export default function EmployeesPublicPage() {
   const navigate = useNavigate();
-  const [layout, setLayout] = useState(1); // 1: List, 2: Card
   const { darkMode } = useTheme();
   const { employee } = useEmployee();
-  const { departments } = useDepartments();
-  const { statuses: employmentStatuses } = useEmploymentStatus();
-  const { employees, loading: employeesLoading } = useEmployeesPublic();
 
-  // Filter Config
-  const employeeFilterConfig = [
-    {
-      key: "department",
-      label: "Department",
-      options: departments.map((d) => d.name),
-    },
-    {
-      key: "status",
-      label: "Employment Status",
-      options: employmentStatuses.map((s) => s.name),
-    },
-  ];
+  // ==============
+  // HOOKS
+  // ==============
 
-  // Search Filter Bar
+  // MAIN PAGINATED DATA AND TABLE
   const {
-    search,
-    setSearch,
-    filters,
-    setFilters,
-    data: filteredEmployees,
-  } = useSearchFilter({
     data: employees,
-    searchFields: ["full_name", "email_work", "employee_id"],
-    filterMap: {
-      department: (emp, value) => emp.department_name === value,
-      status: (emp, value) => emp.employment_status_name === value,
-    },
+    totalCount,
+    page,
+    totalPages,
+    search,
+    filters,
+    sortBy,
+    sortOrder,
+    activeFilters,
+    hasActiveFilters,
+    setPage,
+    setSearch,
+    setFilters,
+    setSortBy,
+    setSortOrder,
+    resetParams,
+    isLoading: employeesLoading,
+    isFetching,
+    error,
+  } = usePaginatedQuery({
+    queryKey: "employees_public",
+    queryFn: fetchEmployeesPublic,
+    pageSize: 20,
+    defaultSortBy: "full_name",
   });
 
-  // Active Filters
-  const activeFilters = Object.entries(filters).filter(
-    ([_, value]) => value && value !== "",
-  );
-  const hasActiveFilters = search || activeFilters.length > 0;
+  // ==============
+  // METADATA
+  // ==============
+  const {
+    managers,
+    departments,
+    nationalities,
+    employmentTypes,
+    isLoading: metadataLoading,
+  } = useEmployeesPublicMetadata();
 
-  // Return Loading
-  if (employeesLoading) {
-    return <LoadingIcon />;
-  }
+  // ==============
+  // CONFIG
+  // ==============
+  const sortOptions = getEmployeesPublicSortConfig();
+  const filterConfig = getEmployeesPublicFilterConfig({
+    managers,
+    departments,
+    nationalities,
+    employmentTypes,
+  });
+
+  // ==============
+  // DATA LOADING
+  // ==============
+  const isLoading = employeesLoading || metadataLoading;
+  const hasData = employees.length > 0;
 
   return (
     <>
@@ -87,99 +107,67 @@ export default function EmployeesPublicPage() {
                   onSearchChange={setSearch}
                   filters={filters}
                   onFilterChange={setFilters}
-                  filterConfig={employeeFilterConfig}
+                  filterConfig={filterConfig}
                   placeholder="Search employees..."
                 />
               </PageHeader>
 
-              {/* LAYOUT UI */}
               <PageHeader>
-                {layout === 1 ? (
-                  <Button
-                    icon2={SquaresFourIcon}
-                    tooltipName="Card View"
-                    style="button buttonType3 textXXS"
-                    name="Card View"
-                    onClick={() => setLayout(2)}
-                  />
-                ) : (
-                  <Button
-                    icon2={ListBulletsIcon}
-                    tooltipName="List View"
-                    style="button buttonType3 textXXS"
-                    name="List View"
-                    onClick={() => setLayout(1)}
-                  />
-                )}
+                {/* SORTING ACTIONS */}
+                <SortBar
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  sortOptions={sortOptions}
+                  sortOrder={sortOrder}
+                  setSortOrder={setSortOrder}
+                />
               </PageHeader>
 
               {/* ACTIVE FILTERS */}
               {hasActiveFilters && (
-                <PageHeader>
-                  <ActiveFiltersBar
-                    search={search}
-                    setSearch={setSearch}
-                    filters={activeFilters}
-                    setFilters={setFilters}
-                    filterConfig={employeeFilterConfig}
-                  />
-                </PageHeader>
+                <ActiveFiltersBar
+                  search={search}
+                  setSearch={setSearch}
+                  filters={activeFilters}
+                  setFilters={setFilters}
+                  filterConfig={filterConfig}
+                  resetParams={resetParams}
+                />
               )}
 
-              {/* RESULT NUMBER */}
-              <PageHeader>
-                {!filteredEmployees.length ? (
-                  <p className="textRegular textXXS">No results found</p>
-                ) : (
-                  <p className="textRegular textXXS">
-                    <strong>Total Result: </strong>
-                    {filteredEmployees.length}
-                  </p>
-                )}
-              </PageHeader>
-              {layout === 1 ? (
-                <CardLayout style="cardLayout1">
-                  {filteredEmployees.map((emp) => {
-                    const isMyManager = emp.id === employee?.manager_id;
+              {/* RESULT NUMBER + NEXT AND PREVIOUS BUTTONS */}
+              <PageResult
+                data={employees}
+                totalCount={totalCount}
+                page={page}
+                setPage={setPage}
+                totalPages={totalPages}
+                error={error}
+              />
 
-                    return (
-                      <EmployeeList
+              {/* TABLE DISPLAY UI */}
+              <div className="cardWrapperScroll generalCard">
+                {isLoading || isFetching ? (
+                  <CardLayout style="cardLayoutFlexFull">
+                    <LoadingIcon />
+                  </CardLayout>
+                ) : !hasData ? (
+                  <NoResult />
+                ) : (
+                  // LIST LAYOUT
+                  <CardLayout style="cardLayout1 cardPaddingSmall">
+                    {employees.map((emp) => (
+                      <EmployeesPublicList
                         key={emp.id}
                         className="employeeList generalCard"
                         onClick={() => navigate(`/app/employees/${emp.id}`)}
-                        src={emp.avatar_url}
-                        full_name={emp.full_name}
-                        position={emp.position}
-                        employee_id={emp.employee_id}
-                        department_name={emp.department_name}
-                        email_work={emp.email_work}
-                        phone_work={emp.phone_work}
-                        isMyManager={isMyManager}
-                        employment_status_name={emp.employment_status_name}
-                        current_attendance_type_name={
-                          emp.current_attendance_type_name
-                        }
-                      />
-                    );
-                  })}
-                </CardLayout>
-              ) : (
-                <CardLayout style="cardLayout2">
-                  {filteredEmployees.map((emp) => {
-                    const isMyManager = emp.id === employee?.manager_id;
-
-                    return (
-                      <EmployeeCard
-                        key={emp.id}
-                        className="employeeCard"
-                        onClick={() => navigate(`/app/employees/${emp.id}`)}
                         employee={emp}
-                        isMyManager={isMyManager}
+                        isMyManager={emp.id === employee?.manager_id}
                       />
-                    );
-                  })}
-                </CardLayout>
-              )}
+                    ))}
+                  </CardLayout>
+                )}
+              </div>
             </CardWrapper>
           </div>
         </div>

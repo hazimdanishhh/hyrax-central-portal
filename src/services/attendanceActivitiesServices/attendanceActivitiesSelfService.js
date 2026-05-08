@@ -1,9 +1,12 @@
-// services/myAttendanceActivitiesService.js
+// services/attendanceActivitiesService.js
+
 import { supabase } from "../../lib/supabaseClient";
 
 /**
- * Fetch current logged in employee's attendance activities
+ * Service to fetch all attendance activities for HR Department
+ * Used by usePaginatedQuery
  */
+
 export async function fetchMyAttendanceActivities({
   employeeId,
   page,
@@ -16,32 +19,17 @@ export async function fetchMyAttendanceActivities({
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  console.log("🔥 fetchMyAttendanceActivities INPUT:", {
-    employeeId,
-    page,
-    pageSize,
-    search,
-    filters,
-    sortBy,
-    sortOrder,
-  });
-
   let query = supabase
-    .from("attendance_activities_hr_view")
+    .from("attendance_activities")
     .select(`*`, { count: "exact" })
-    .eq("employee_id", employeeId)
+    .eq(`id`, employeeId)
     .order(sortBy, { ascending: sortOrder === "ascending" });
-
-  if (!employeeId) {
-    return {
-      data: [],
-      totalCount: 0,
-    };
-  }
 
   // --- SEARCH ---
   if (search) {
-    query = query.or(`employee.full_name.ilike.%${search}%`);
+    query = query.or(
+      `employee_name.ilike.%${search}%,employee_code.ilike.%${search}%`,
+    );
   }
 
   // --- FILTERS ---

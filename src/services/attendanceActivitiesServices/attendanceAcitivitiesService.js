@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabaseClient";
 
 /**
  * Service to fetch all attendance activities for HR Department
- * Server-side filtering and pagination
+ * Used by usePaginatedQuery
  */
 
 export async function fetchAttendanceActivities({

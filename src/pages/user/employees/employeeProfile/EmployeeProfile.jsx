@@ -12,15 +12,33 @@ import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import EmployeeCard from "../../../../components/employeeCard/EmployeeCard";
 import AttendanceType from "../../../../components/attendance/attendanceType/AttendanceType";
-import useEmployeePublic from "../../../../hooks/employeesPublic/useEmployeePublic";
 import NoResult from "../../../../components/crud/noResult/NoResult";
+import { useEmployee } from "../../../../context/EmployeeContext";
+import useEmployeePublic from "../../../../features/hr/employees/public/hooks/useEmployeePublic";
 
 export default function EmployeeProfile() {
   const navigate = useNavigate();
   const { darkMode } = useTheme();
-
   const { employeeId } = useParams();
-  const { employee, loading, error } = useEmployeePublic(employeeId);
+  const { data: employee, isLoading, error } = useEmployeePublic(employeeId);
+  const { employee: currentEmployee } = useEmployee();
+
+  function mapManager(employee) {
+    return {
+      id: employee.manager_id,
+      full_name: employee.manager_name,
+      employee_id: employee.manager_employee_id,
+      profile_id: employee.manager_profile_id,
+      preferred_name: employee.manager_preferred_name,
+      position: employee.manager_position,
+      phone_work: employee.manager_phone,
+      email_work: employee.manager_email,
+      address_work: employee.manager_address_work,
+      avatar_url: employee.manager_avatar_url,
+      department_name: employee.manager_department_name,
+      employment_status_name: employee.manager_employment_status_name,
+    };
+  }
 
   return (
     <>
@@ -38,7 +56,7 @@ export default function EmployeeProfile() {
               name1="Employees"
             />
 
-            {loading ? (
+            {isLoading ? (
               <LoadingIcon />
             ) : error ? (
               <NoResult title="Employee Not Found" />
@@ -164,7 +182,10 @@ export default function EmployeeProfile() {
                           onClick={() =>
                             navigate(`/app/employees/${employee.manager_id}`)
                           }
-                          employee={employee}
+                          employee={mapManager(employee)}
+                          isMyManager={
+                            currentEmployee?.manager_id === employee?.manager_id
+                          }
                         />
                       </CardSection>
                     )}

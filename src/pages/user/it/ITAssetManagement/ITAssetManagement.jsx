@@ -22,7 +22,7 @@ import { AnimatePresence } from "framer-motion";
 import useEmployeesPublic from "../../../../hooks/useEmployeesPublic";
 import useDepartments from "../../../../hooks/useDepartments";
 import ITAssetList from "../../../../components/itAsset/itAssetList/ITAssetList";
-import useITAssetMutations from "../../../../hooks/useITAssetMutations";
+import useITAssetMutations from "../../../../hooks/itAssets/useITAssetMutations";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
 import { getITAssetsFilterConfig } from "./filterConfig";

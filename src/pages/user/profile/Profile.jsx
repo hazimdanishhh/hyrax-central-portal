@@ -10,7 +10,7 @@ import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import { useProfile } from "../../../context/ProfileContext";
 import { useEmployee } from "../../../context/EmployeeContext";
-import useEmployeePublic from "../../../hooks/employeesPublic/useEmployeePublic";
+import useEmployeePublic from "../../../features/hr/employees/public/hooks/useEmployeePublic";
 
 export default function Profile() {
   const { darkMode } = useTheme();
@@ -35,8 +35,8 @@ export default function Profile() {
 
   // Fetch Current Employee Public Manager Data
   const {
-    employee: employeePublic,
-    loading: employeePublicLoading,
+    data: employeePublic,
+    isLoading: employeePublicLoading,
     error: employeePublicError,
   } = useEmployeePublic(employee?.id);
 

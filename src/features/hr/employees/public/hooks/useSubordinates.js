@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import { useMessage } from "../../context/MessageContext";
-import { useEmployee } from "../../context/EmployeeContext";
+import { useMessage } from "../../../../../context/MessageContext";
+import { useEmployee } from "../../../../../context/EmployeeContext";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 export default function useSubordinates({ setMessage } = {}) {
   const { employee } = useEmployee();

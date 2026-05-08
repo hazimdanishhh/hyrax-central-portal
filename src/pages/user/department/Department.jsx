@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
 import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
-import useDepartmentEmployees from "../../../hooks/employeesPublic/useDepartmentEmployees";
 import CardSection from "../../../components/cardSection/CardSection";
 import CardLayout from "../../../components/cardLayout/CardLayout";
 import "./Department.scss";
@@ -11,10 +10,11 @@ import SectionHeader from "../../../components/sectionHeader/SectionHeader";
 import { UserCircleIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
-import useSubordinates from "../../../hooks/employeesPublic/useSubordinates";
-import useManagerPublic from "../../../hooks/employeesPublic/useManagerPublic";
+import useManagerPublic from "../../../features/hr/employees/public/hooks/useManagerPublic";
 import { useEmployee } from "../../../context/EmployeeContext";
 import NoResult from "../../../components/crud/noResult/NoResult";
+import useDepartmentEmployeesPublic from "../../../features/hr/employees/public/hooks/useDepartmentEmployeesPublic";
+import useSubordinates from "../../../features/hr/employees/public/hooks/useSubordinates";
 
 export default function Department() {
   const navigate = useNavigate();
@@ -32,10 +32,10 @@ export default function Department() {
   } = useManagerPublic(employee?.employee_id);
 
   const {
-    departmentEmployees,
-    loading: departmentEmployeesLoading,
+    data: departmentEmployees,
+    isLoading: departmentEmployeesLoading,
     error: departmentEmployeesError,
-  } = useDepartmentEmployees(employee?.department?.id);
+  } = useDepartmentEmployeesPublic(employee?.department?.id);
 
   const {
     subordinates,
