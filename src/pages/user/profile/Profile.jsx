@@ -11,6 +11,7 @@ import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import { useProfile } from "../../../context/ProfileContext";
 import { useEmployee } from "../../../context/EmployeeContext";
 import useEmployeePublic from "../../../features/hr/employees/public/hooks/useEmployeePublic";
+import NoResult from "../../../components/crud/noResult/NoResult";
 
 export default function Profile() {
   const { darkMode } = useTheme();
@@ -46,6 +47,8 @@ export default function Profile() {
   const loading =
     profileLoading || employeeLoading || employeePublicLoading || assetsLoading;
 
+  const error = profileError || employeeError;
+
   return (
     <>
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -56,6 +59,8 @@ export default function Profile() {
             <CardWrapper>
               {loading ? (
                 <LoadingIcon />
+              ) : error ? (
+                <NoResult title="Error Loading Results" />
               ) : profile ? (
                 <ProfileCard
                   profile={profile}
@@ -65,8 +70,7 @@ export default function Profile() {
                   role={role}
                 />
               ) : (
-                // No Profile UI
-                <p>No profile data found.</p>
+                <NoResult title="No Profile Data Found" />
               )}
             </CardWrapper>
           </div>

@@ -1,3 +1,4 @@
+// features/it/assets/private/api/itAssetMutations.js
 import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
@@ -8,10 +9,8 @@ function normalizeFields(rawFields) {
     Object.entries(rawFields)
       .filter(([_, value]) => value !== undefined)
       .map(([key, value]) => {
-        // Empty string -> null
         if (value === "") return [key, null];
 
-        // Foreign keys -> integer
         if (key.endsWith("_id") && value !== null) {
           const isNumeric = typeof value === "string" && /^\d+$/.test(value);
 
@@ -22,17 +21,16 @@ function normalizeFields(rawFields) {
       }),
   );
 }
-
 /**
  * UPDATE
  */
-export async function updateEmployee(updatedData) {
+export async function updateAsset(updatedData) {
   const { id, ...rawFields } = updatedData;
 
   const fields = normalizeFields(rawFields);
 
   const { data, error } = await supabase
-    .from("employees")
+    .from("it_assets")
     .update(fields)
     .eq("id", id)
     .select("*")
@@ -46,29 +44,30 @@ export async function updateEmployee(updatedData) {
 /**
  * BULK UPDATE
  */
-export async function bulkUpdateEmployees(ids, rawFields) {
+export async function bulkUpdateAssets(ids, rawFields) {
   const fields = normalizeFields(rawFields);
 
   const { data, error } = await supabase
-    .from("employees")
+    .from("it_assets")
     .update(fields)
     .in("id", ids)
     .select("*");
 
   if (error) throw error;
+
   return data;
 }
 
 /**
  * CREATE
  */
-export async function createEmployee(newData) {
+export async function createAsset(newData) {
   const { id, ...rawFields } = newData;
 
   const fields = normalizeFields(rawFields);
 
   const { data, error } = await supabase
-    .from("employees")
+    .from("it_assets")
     .insert(fields)
     .select("*")
     .single();
@@ -81,8 +80,8 @@ export async function createEmployee(newData) {
 /**
  * DELETE
  */
-export async function deleteEmployee(id) {
-  const { error } = await supabase.from("employees").delete().eq("id", id);
+export async function deleteAsset(id) {
+  const { error } = await supabase.from("it_assets").delete().eq("id", id);
 
   if (error) throw error;
 
@@ -92,8 +91,8 @@ export async function deleteEmployee(id) {
 /**
  * BULK DELETE
  */
-export async function bulkDeleteEmployees(ids) {
-  const { error } = await supabase.from("employees").delete().in("id", ids);
+export async function bulkDeleteAssets(ids) {
+  const { error } = await supabase.from("it_assets").delete().in("id", ids);
 
   if (error) throw error;
 

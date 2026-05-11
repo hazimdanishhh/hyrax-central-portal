@@ -1,186 +1,171 @@
-// src/hooks/useITAssetMutations.js
-import { useState } from "react";
-import { supabase } from "../../../../../lib/supabaseClient";
+// features/it/assets/private/hooks/useITAssetMutations.js
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  createAsset,
+  updateAsset,
+  deleteAsset,
+  bulkDeleteAssets,
+  bulkUpdateAssets,
+} from "../api/itAssetMutations";
 import { useMessage } from "../../../../../context/MessageContext";
 
 /**
- * Hook to Create, Update and Delete IT assets for IT department
+ * Friendly DB Errors
  */
+function getFriendlyError(err) {
+  switch (err.code) {
+    case "23505":
+      if (err.message.includes("serial_number")) {
+        return "An asset with this serial number already exists.";
+      }
+
+      if (err.message.includes("asset_tag")) {
+        return "This asset tag is already assigned.";
+      }
+
+      return "A record with this information already exists.";
+
+    case "23503":
+      return "This record is linked to other data and cannot be changed or removed.";
+
+    case "42501":
+      return "Permission denied. You aren't authorized to modify IT assets.";
+
+    default:
+      return err.message || "Something went wrong.";
+  }
+}
 
 export default function useITAssetMutations() {
+  const queryClient = useQueryClient();
   const { showMessage } = useMessage();
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState(null);
 
-  // =============
-  // UPDATE ASSET
-  // =============
-  const updateAsset = async (updatedData) => {
-    try {
-      setSaving(true);
-      setError(null);
-      showMessage("Updating asset", "loading");
+  /**
+   * CREATE
+   */
+  const createMutation = useMutation({
+    mutationFn: createAsset,
 
-      const { id, ...rawFields } = updatedData;
+    onMutate: () => {
+      showMessage("Creating asset...", "loading");
+    },
 
-      // Clean and normalize data before sending to Supabase
-      const updateFields = Object.fromEntries(
-        Object.entries(rawFields)
-          .filter(([_, value]) => value !== undefined) // remove undefined
-          .map(([key, value]) => {
-            // Convert empty strings to null
-            if (value === "") return [key, null];
-
-            // Convert *_id fields to integers
-            if (key.endsWith("_id") && value !== null) {
-              const isNumeric =
-                typeof value === "string" && /^\d+$/.test(value);
-
-              return [key, isNumeric ? Number(value) : value];
-            }
-
-            return [key, value];
-          }),
-      );
-
-      // Update +
-      const { data, error } = await supabase
-        .from("it_assets")
-        .update(updateFields)
-        .eq("id", id)
-        .select(
-          `
-          *,
-          asset_category:asset_category_id (id, name),
-          asset_subcategory:asset_subcategory_id (id, name, sub, icon),
-          asset_status:asset_status_id (id, name),
-          asset_user:asset_user_id (id,full_name,employee_id,
-            profile:profile_id (id, avatar_url)),
-          operating_system:operating_system_id (id, name, icon),
-          asset_condition:asset_condition_id (id, name),
-          asset_department:asset_department_id (id, name, sub),
-          asset_manufacturer:asset_manufacturer_id (id, name)
-          `,
-        )
-        .maybeSingle();
-
-      console.log("Supabase response:", { data, error });
-
-      if (error) throw error;
-      showMessage("Asset updated", "success");
-
-      return data;
-    } catch (err) {
-      console.error("Failed to update asset, please try again", err);
-      setError(err);
-      showMessage("Failed to update asset, please try again", "error");
-
-      throw err;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // =============
-  // CREATE ASSET
-  // =============
-  const createAsset = async (newData) => {
-    try {
-      setSaving(true);
-      setError(null);
-      showMessage("Creating asset", "loading");
-
-      const { id, ...rawFields } = newData; // ignore id if accidentally passed
-
-      const insertFields = Object.fromEntries(
-        Object.entries(rawFields)
-          .filter(([_, value]) => value !== undefined)
-          .map(([key, value]) => {
-            if (value === "") return [key, null];
-
-            if (key.endsWith("_id") && value !== null) {
-              const isNumeric =
-                typeof value === "string" && /^\d+$/.test(value);
-
-              return [key, isNumeric ? Number(value) : value];
-            }
-
-            return [key, value];
-          }),
-      );
-
-      const { data, error } = await supabase
-        .from("it_assets")
-        .insert(insertFields)
-        .select(
-          `
-          *,
-          asset_category:asset_category_id (id, name),
-          asset_subcategory:asset_subcategory_id (id, name),
-          asset_status:asset_status_id (id, name),
-          asset_user:asset_user_id (id,full_name,employee_id,
-            profile:profile_id (id, avatar_url)),
-          operating_system:operating_system_id (id, name),
-          asset_condition:asset_condition_id (id, name),
-          asset_department:asset_department_id (id, name, sub)
-          `,
-        )
-        .maybeSingle();
-
-      if (error) throw error;
-
+    onSuccess: () => {
       showMessage("Asset created", "success");
 
-      return data;
-    } catch (err) {
-      console.error("Failed to create asset, please try again:", err);
-      setError(err);
-      showMessage("Failed to create asset, please try again", "error");
+      queryClient.invalidateQueries({
+        queryKey: ["it-assets"],
+      });
+    },
 
-      throw err;
-    } finally {
-      setSaving(false);
-    }
-  };
+    onError: (err) => {
+      showMessage(getFriendlyError(err), "error");
+    },
+  });
 
-  // =============
-  // DELETE ASSET
-  // =============
-  const deleteAsset = async (assetId) => {
-    try {
-      setDeleting(true);
-      setError(null);
-      showMessage("Deleting asset", "loading");
+  /**
+   * UPDATE
+   */
+  const updateMutation = useMutation({
+    mutationFn: updateAsset,
 
-      const { error } = await supabase
-        .from("it_assets")
-        .delete()
-        .eq("id", assetId);
+    onMutate: () => {
+      showMessage("Updating asset...", "loading");
+    },
 
-      if (error) throw error;
+    onSuccess: () => {
+      showMessage("Asset updated", "success");
 
+      queryClient.invalidateQueries({
+        queryKey: ["it-assets"],
+      });
+    },
+
+    onError: (err) => {
+      showMessage(getFriendlyError(err), "error");
+    },
+  });
+
+  /**
+   * BULK UPDATE
+   */
+  const bulkUpdateMutation = useMutation({
+    mutationFn: ({ ids, fields }) => bulkUpdateAssets(ids, fields),
+
+    onMutate: () => {
+      showMessage("Updating assets...", "loading");
+    },
+
+    onSuccess: () => {
+      showMessage("Assets updated", "success");
+
+      queryClient.invalidateQueries({
+        queryKey: ["it-assets"],
+      });
+    },
+
+    onError: (err) => {
+      showMessage(getFriendlyError(err), "error");
+    },
+  });
+
+  /**
+   * DELETE
+   */
+  const deleteMutation = useMutation({
+    mutationFn: deleteAsset,
+
+    onMutate: () => {
+      showMessage("Deleting asset...", "loading");
+    },
+
+    onSuccess: () => {
       showMessage("Asset deleted", "success");
 
-      return true;
-    } catch (err) {
-      console.error("Failed to delete asset, please try again:", err);
-      setError(err);
+      queryClient.invalidateQueries({
+        queryKey: ["it-assets"],
+      });
+    },
 
-      showMessage("Failed to delete asset, please try again", "error");
+    onError: (err) => {
+      showMessage(getFriendlyError(err), "error");
+    },
+  });
 
-      throw err;
-    } finally {
-      setDeleting(false);
-    }
-  };
+  /**
+   * BULK DELETE
+   */
+  const bulkDeleteMutation = useMutation({
+    mutationFn: bulkDeleteAssets,
+
+    onMutate: () => {
+      showMessage("Deleting assets...", "loading");
+    },
+
+    onSuccess: () => {
+      showMessage("Assets deleted", "success");
+
+      queryClient.invalidateQueries({
+        queryKey: ["it-assets"],
+      });
+    },
+
+    onError: (err) => {
+      showMessage(getFriendlyError(err), "error");
+    },
+  });
 
   return {
-    createAsset,
-    updateAsset,
-    deleteAsset,
-    saving,
-    deleting,
-    error,
+    createAsset: createMutation.mutateAsync,
+    updateAsset: updateMutation.mutateAsync,
+    deleteAsset: deleteMutation.mutateAsync,
+    bulkDeleteAssets: bulkDeleteMutation.mutateAsync,
+    bulkUpdateAssets: bulkUpdateMutation.mutateAsync,
+
+    creating: createMutation.isPending,
+    updating: updateMutation.isPending,
+    deleting: deleteMutation.isPending,
+    bulkDeleting: bulkDeleteMutation.isPending,
+    bulkUpdating: bulkUpdateMutation.isPending,
   };
 }

@@ -1,4 +1,4 @@
-// pages/user/it/it_assets/IT_Assets.jsx
+// pages/user/it/ITAssetManagement/list/ITAssetManagement.jsx
 import {
   CheckCircleIcon,
   DesktopIcon,
@@ -20,7 +20,6 @@ import { itAssetTableConfig } from "./tableConfig";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
 import ITAssetList from "../../../../../components/itAsset/itAssetList/ITAssetList";
-import useITAssetMutations from "../../../../../features/it/assets/private/hooks/useITAssetMutations";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import { getITAssetsFilterConfig } from "./filterConfig";
@@ -47,6 +46,7 @@ import {
   STATUS_COLORS,
   UTILIZATION_COLORS,
 } from "../../../../../components/chartCard/chartColors";
+import useITAssetMutations from "../../../../../features/it/assets/private/hooks/useITAssetMutations";
 
 /**
  * IT Asset Management Page
@@ -88,7 +88,7 @@ export default function ITAssetManagement() {
     setSortOrder,
     resetParams,
     isLoading: assetsLoading,
-    isFetching,
+    isFetching: assetsFetching,
     error: assetsError,
   } = usePaginatedQuery({
     queryKey: "itAssets",
@@ -110,10 +110,21 @@ export default function ITAssetManagement() {
     departments,
     employees,
     isLoading: metadataLoading,
+    isFetching: metadataFetching,
     error: metadataError,
   } = useITAssetsMetadata();
-  const { createAsset, updateAsset, deleteAsset, saving, deleting } =
-    useITAssetMutations();
+  const {
+    createAsset,
+    updateAsset,
+    deleteAsset,
+    bulkDeleteAssets,
+    bulkUpdateAssets,
+    creating,
+    updating,
+    deleting,
+    bulkDeleting,
+    bulkUpdating,
+  } = useITAssetMutations();
 
   // ==============
   // CONFIG
@@ -126,6 +137,8 @@ export default function ITAssetManagement() {
   // ==============
   const isLoading = assetsLoading || metadataLoading;
   const error = assetsError || metadataError;
+  const isFetching = assetsFetching || metadataFetching;
+  const isSaving = creating || updating || bulkUpdating;
   const hasData = assets.length > 0;
 
   // ==============
@@ -301,13 +314,13 @@ export default function ITAssetManagement() {
             />
           ) : (
             // LIST LAYOUT
-            <CardLayout style="cardLayout1 cardPadding cardGapSmall">
+            <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
               {assets.map((asset) => (
                 <ITAssetList
                   key={asset.id}
                   asset={asset}
                   onClick={() => handleOpenSidebar(asset)}
-                  saving={saving}
+                  saving={isSaving}
                   deleting={deleting}
                 />
               ))}
@@ -328,7 +341,7 @@ export default function ITAssetManagement() {
             columns={columns}
             onSave={handleRequestSave}
             onDelete={handleRequestDelete}
-            saving={saving}
+            saving={isSaving}
             deleting={deleting}
             creating={!selectedRow?.id}
           />
@@ -345,7 +358,7 @@ export default function ITAssetManagement() {
             : "Are you sure you want to delete this asset?"
         }
         confirmText={modalType === "save" ? "Save" : "Delete"}
-        loading={modalType === "save" ? saving : deleting}
+        loading={modalType === "save" ? isSaving : deleting}
         onConfirm={handleConfirmAction}
         modalType={modalType}
       />

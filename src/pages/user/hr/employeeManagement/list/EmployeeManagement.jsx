@@ -103,10 +103,6 @@ export default function EmployeeManagement() {
   });
 
   // ==============
-  // ANALYTICS
-  // ==============
-
-  // ==============
   // METADATA
   // ==============
 

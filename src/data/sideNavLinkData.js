@@ -470,7 +470,12 @@ export const sideNavLinkData = [
     segmentCode: "HR",
 
     links: [
-      { label: "Overview", icon: ChartBarIcon, path: "hr/overview" },
+      {
+        label: "Overview",
+        icon: ChartBarIcon,
+        path: "hr/overview",
+        departments: ["HR"],
+      },
 
       {
         label: "Employee Management",
