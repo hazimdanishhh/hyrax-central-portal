@@ -19,7 +19,6 @@ import DataTable from "../../../../../components/dataTable/DataTable";
 import { itAssetTableConfig } from "./tableConfig";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
-import useDepartments from "../../../../../hooks/useDepartments";
 import ITAssetList from "../../../../../components/itAsset/itAssetList/ITAssetList";
 import useITAssetMutations from "../../../../../features/it/assets/private/hooks/useITAssetMutations";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchAttendanceActivitiesMetadata } from "../../services/attendanceActivitiesServices/attendanceActivitiesMetadataService";
+import { fetchAttendanceActivitiesMetadata } from "../api/attendanceActivitiesMetadataService";
 
 export function useAttendanceActivitiesMetadata() {
   const query = useQuery({

@@ -1,9 +1,12 @@
 // pages/user/hr/employees/Employees.jsx
 import "./EmployeeManagement.scss";
 import {
+  CheckIcon,
   PencilSimpleLineIcon,
   PlusCircleIcon,
+  TrashIcon,
   UsersFourIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
@@ -20,7 +23,6 @@ import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/Ac
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import { employeesTableConfig } from "./tableConfig";
 import { getEmployeesFilterConfig } from "./filterConfig";
-import useEmployeeMutations from "../../../../../hooks/useEmployeeMutations";
 import { useSearchParams } from "react-router-dom";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
@@ -28,7 +30,6 @@ import OverviewCards from "../../../../../components/crud/overviewCards/Overview
 import { getEmployeesOverviewConfig } from "../overview/overviewConfig";
 import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
 import { getEmployeesLayoutConfig } from "./layoutConfig";
-import { useQueryClient } from "@tanstack/react-query";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import { getEmployeesSortConfig } from "./sortConfig";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
@@ -47,6 +48,9 @@ import {
 import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 import { fetchEmployees } from "../../../../../features/hr/employees/private/api/employeesService";
 import { useEmployeesMetadata } from "../../../../../features/hr/employees/private/hooks/useEmployeesMetadata";
+import useEmployeeMutations from "../../../../../features/hr/employees/private/hooks/useEmployeeMutations";
+import EmployeeSidebar from "./item/EmployeeSidebar";
+import PageActions from "../../../../../components/crud/pageActions/PageActions";
 
 /**
  * HR Employee Management Page
@@ -54,7 +58,6 @@ import { useEmployeesMetadata } from "../../../../../features/hr/employees/priva
  * Server-side filtering and pagination
  */
 export default function EmployeeManagement() {
-  const queryClient = useQueryClient();
   const { darkMode } = useTheme();
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
   const [selectedRow, setSelectedRow] = useState(null);
@@ -64,6 +67,8 @@ export default function EmployeeManagement() {
   const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
   const [modalType, setModalType] = useState(null); // "save" | "reject"
   const [pendingSaveRow, setPendingSaveRow] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedRows, setSelectedRows] = useState([]);
 
   // ==============
   // HOOKS
@@ -88,7 +93,7 @@ export default function EmployeeManagement() {
     setSortOrder,
     resetParams,
     isLoading: employeesLoading,
-    isFetching,
+    isFetching: employeesFetching,
     error: employeesError,
   } = usePaginatedQuery({
     queryKey: "employees",
@@ -115,11 +120,22 @@ export default function EmployeeManagement() {
     terminationReasons,
     employmentStatuses,
     isLoading: metadataLoading,
+    isFetching: metadataFetching,
     error: metadataError,
   } = useEmployeesMetadata();
 
-  const { createEmployee, updateEmployee, deleteEmployee, saving, deleting } =
-    useEmployeeMutations();
+  const {
+    createEmployee,
+    updateEmployee,
+    deleteEmployee,
+    bulkDeleteEmployees,
+    bulkUpdateEmployees,
+    creating,
+    updating,
+    deleting,
+    bulkDeleting,
+    bulkUpdating,
+  } = useEmployeeMutations();
 
   // ==============
   // CONFIG
@@ -151,7 +167,24 @@ export default function EmployeeManagement() {
   // ==============
   const isLoading = employeesLoading || metadataLoading;
   const error = employeesError || metadataError;
+  const isFetching = employeesFetching || metadataFetching;
+  const isSaving = creating || updating || bulkUpdating;
   const hasData = employees.length > 0;
+
+  // ==============
+  // TOGGLE ROW SELECTION
+  // ==============
+  function toggleRowSelection(data) {
+    setSelectedRows((prev) => {
+      const exists = prev.find((r) => r.id === data.id);
+
+      if (exists) {
+        return prev.filter((r) => r.id !== data.id);
+      }
+
+      return [...prev, data];
+    });
+  }
 
   // ==============
   // SIDEBAR OPEN & CLOSE
@@ -164,6 +197,7 @@ export default function EmployeeManagement() {
   function handleCloseSidebar() {
     setSidebarOpen(false);
     setSelectedRow(null);
+    setIsEditing(false);
   }
 
   // ==============
@@ -185,6 +219,12 @@ export default function EmployeeManagement() {
     setModalOpen(true);
   }
 
+  function handleBulkDelete() {
+    setPendingDeleteRow(selectedRows);
+    setModalType("bulk-delete");
+    setModalOpen(true);
+  }
+
   // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
   // ==============
@@ -192,6 +232,12 @@ export default function EmployeeManagement() {
     try {
       if (modalType === "delete") {
         await deleteEmployee(selectedRowId);
+      }
+
+      if (modalType === "bulk-delete") {
+        await bulkDeleteEmployees(selectedRows.map((r) => r.id));
+
+        setSelectedRows([]);
       }
 
       if (modalType === "save") {
@@ -203,10 +249,6 @@ export default function EmployeeManagement() {
           await createEmployee(data);
         }
       }
-
-      await queryClient.invalidateQueries({
-        queryKey: ["employees"],
-      });
 
       setModalOpen(false);
       setSidebarOpen(false);
@@ -232,18 +274,39 @@ export default function EmployeeManagement() {
 
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
-        <PageLayout
+        <PageActions
           layout={layout}
           setLayout={setLayout}
           options={layoutOptions}
-          addButton={{
-            name: "Add Employee",
-            icon: PlusCircleIcon,
-            onClick: () => {
-              setSelectedRow({});
-              setSidebarOpen(true);
+          actionButtons={[
+            {
+              icon: PlusCircleIcon,
+              onClick: () => {
+                setSelectedRow({});
+                setSidebarOpen(true);
+                setIsEditing(true);
+              },
             },
-          }}
+            {
+              name: "Select All",
+              icon: CheckIcon,
+              onClick: () => setSelectedRows(employees),
+            },
+            {
+              name: "Unselect All",
+              icon: XIcon,
+              onClick: () => setSelectedRows([]),
+              disabled: selectedRows.length === 0,
+            },
+            {
+              name:
+                selectedRows.length !== 0 && `(${selectedRows.length} rows)`,
+              icon: TrashIcon,
+              style: "button buttonType5 rejection textXXS",
+              onClick: handleBulkDelete,
+              disabled: selectedRows.length === 0,
+            },
+          ]}
         />
 
         {/* SORTING ACTIONS */}
@@ -284,7 +347,7 @@ export default function EmployeeManagement() {
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />
           </CardLayout>
-        ) : !hasData ? (
+        ) : !hasData || error ? (
           <NoResult />
         ) : layout === 1 ? (
           // TABLE LAYOUT
@@ -296,14 +359,17 @@ export default function EmployeeManagement() {
           />
         ) : (
           // LIST LAYOUT
-          <CardLayout style="cardLayout1 cardPadding">
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
             {employees.map((employee) => (
               <EmployeesList
                 key={employee.id}
                 employee={employee}
                 onClick={() => handleOpenSidebar(employee)}
-                saving={saving}
+                saving={isSaving}
                 deleting={deleting}
+                setIsEditing={() => setIsEditing(true)}
+                selected={selectedRows.some((r) => r.id === employee.id)}
+                onSelect={() => toggleRowSelection(employee)}
               />
             ))}
           </CardLayout>
@@ -322,21 +388,18 @@ export default function EmployeeManagement() {
             columns={columns}
             onSave={handleRequestSave}
             onDelete={handleRequestDelete}
-            saving={saving}
+            saving={isSaving}
             deleting={deleting}
             creating={!selectedRow?.id}
+            isEditing={isEditing}
           >
             {/* PICTURE */}
             {selectedRow?.id && (
-              <div className="employeeCardPhotoSidebar">
-                <img
-                  src={
-                    selectedRow.profile?.avatar_url ||
-                    "/profilePhoto/default.webp"
-                  }
-                  alt={selectedRow.full_name}
-                />
-              </div>
+              <EmployeeSidebar
+                selectedRow={selectedRow}
+                isEditing={isEditing}
+                setIsEditing={setIsEditing}
+              />
             )}
           </DataSidebar>
         )}
@@ -353,7 +416,13 @@ export default function EmployeeManagement() {
             : "Are you sure you want to delete this employee?"
         }
         confirmText={modalType === "save" ? "Save" : "Delete"}
-        loading={modalType === "save" ? saving : deleting}
+        loading={
+          modalType === "save"
+            ? isSaving
+            : modalType === "bulk-delete"
+              ? bulkDeleting
+              : deleting
+        }
         onConfirm={handleConfirmAction}
         modalType={modalType}
       />

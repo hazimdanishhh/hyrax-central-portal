@@ -13,7 +13,7 @@ export default function OverviewCards({ items = [] }) {
         return (
           <Link to={to} key={item.label}>
             <CardLayout style={`generalCard ${item.variant || ""}`}>
-              <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+              <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding overviewCardLayout">
                 {Icon && <Icon size={24} weight="fill" />}
                 <h3 className="textRegular textS">{item.label}</h3>
               </CardLayout>

@@ -3,8 +3,6 @@ import { motion } from "framer-motion";
 import CardLayout from "../../cardLayout/CardLayout";
 
 export default function UserList({ user, onClick, saving, deleting }) {
-  console.log(user);
-
   return (
     <motion.div
       className="employeeList generalCard"

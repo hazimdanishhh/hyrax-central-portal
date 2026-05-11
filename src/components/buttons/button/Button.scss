@@ -37,6 +37,11 @@
     transition: background-color 0.1s;
   }
 
+  &.active {
+    background-color: $primary; // your primary color
+    border-color: $primary;
+  }
+
   // RED
   &.rejection {
     background-color: rgba($error600, 0.8);
@@ -88,6 +93,11 @@
   &:hover {
     background-color: $primary;
     transition: background-color 0.1s;
+  }
+
+  &.active {
+    background-color: $primary; // your primary color
+    border-color: $primary;
   }
 
   // Red

@@ -23,7 +23,7 @@ import { useAttendance } from "../../../context/AttendanceProvider";
 import AttendanceType from "../../attendance/attendanceType/AttendanceType";
 import AttendanceClock from "../../attendance/attendanceClock/AttendanceClock";
 import { useEmployee } from "../../../context/EmployeeContext";
-import useAttendanceActivityMutations from "../../../hooks/attendanceActivities/useAttendanceActivityMutations";
+import useAttendanceActivityMutations from "../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 
 export default function ClockinMini({ navIsOpen }) {
   const { darkMode, toggleMode } = useTheme();

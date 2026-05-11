@@ -87,11 +87,7 @@ export default function DataTable({
           const rowId = row[rowKey];
 
           return (
-            <tr
-              key={rowId}
-              onClick={() => onRowClick?.(row)}
-              className={onRowClick ? "clickableRow" : ""}
-            >
+            <tr key={rowId} className={onRowClick ? "clickableRow" : ""}>
               {columns.map((col) => {
                 const rawValue = getRawValue(row, col);
                 const displayValue = getDisplayValue(row, col, rawValue);

@@ -1,14 +1,14 @@
-import { SquaresFourIcon, TableIcon } from "@phosphor-icons/react";
+import { ListIcon, TableIcon } from "@phosphor-icons/react";
 
 export function getEmployeesLayoutConfig() {
   return [
     {
-      icon: SquaresFourIcon,
+      icon: TableIcon,
       tooltipName: "Card View",
       value: 1,
     },
     {
-      icon: TableIcon,
+      icon: ListIcon,
       tooltipName: "Table View",
       value: 2,
     },

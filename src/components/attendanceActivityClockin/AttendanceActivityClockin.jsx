@@ -25,7 +25,7 @@ import { useMessage } from "../../context/MessageContext";
 import { useAttendance } from "../../context/AttendanceProvider";
 import useEmployeeAttendanceActivities from "../../hooks/useEmployeeAttendanceActivities";
 import { useEmployee } from "../../context/EmployeeContext";
-import useAttendanceActivityMutations from "../../hooks/attendanceActivities/useAttendanceActivityMutations";
+import useAttendanceActivityMutations from "../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 
 export default function AttendanceActivityClockin() {
   const { darkMode, toggleMode } = useTheme();

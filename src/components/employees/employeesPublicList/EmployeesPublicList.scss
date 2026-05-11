@@ -11,9 +11,9 @@
     gap: 0.5rem;
     width: 100%;
 
-    @media screen and (max-width: 425px) {
-      align-items: start;
-    }
+    // @media screen and (max-width: 425px) {
+    //   align-items: start;
+    // }
 
     .employeeCardStatusContainer {
       display: flex;
@@ -21,10 +21,10 @@
       justify-content: end;
       gap: 0.2rem;
 
-      @media screen and (max-width: 425px) {
-        flex-direction: column;
-        align-items: end;
-      }
+      // @media screen and (max-width: 425px) {
+      //   flex-direction: column;
+      //   align-items: end;
+      // }
 
       .listArrow {
         display: flex;
@@ -62,10 +62,16 @@
       flex-wrap: wrap;
       width: 100%;
 
-      @media screen and (max-width: 768px) {
-        gap: 0.2rem;
-        flex-direction: column;
-      }
+      // @media screen and (max-width: 768px) {
+      //   gap: 0.2rem;
+      //   flex-direction: column;
+      // }
+    }
+  }
+
+  .employeeListMobile {
+    @media screen and (max-width: 768px) {
+      display: none;
     }
   }
 }

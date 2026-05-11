@@ -156,7 +156,7 @@ export default function EmployeesPublicPage() {
                   <NoResult />
                 ) : (
                   // LIST LAYOUT
-                  <CardLayout style="cardLayout1 cardPaddingSmall">
+                  <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
                     {employees.map((emp) => (
                       <EmployeesPublicList
                         key={emp.id}

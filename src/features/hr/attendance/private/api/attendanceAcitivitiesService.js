@@ -1,14 +1,13 @@
 // services/attendanceActivitiesService.js
 
-import { supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
  * Service to fetch all attendance activities for HR Department
  * Used by usePaginatedQuery
  */
 
-export async function fetchMyAttendanceActivities({
-  employeeId,
+export async function fetchAttendanceActivities({
   page,
   pageSize,
   search,
@@ -20,9 +19,8 @@ export async function fetchMyAttendanceActivities({
   const to = from + pageSize - 1;
 
   let query = supabase
-    .from("attendance_activities")
+    .from("attendance_activities_hr_view")
     .select(`*`, { count: "exact" })
-    .eq(`id`, employeeId)
     .order(sortBy, { ascending: sortOrder === "ascending" });
 
   // --- SEARCH ---
@@ -37,6 +35,8 @@ export async function fetchMyAttendanceActivities({
     if (!value) return;
 
     const map = {
+      employee: "employee_id",
+      department: "department_id",
       attendanceType: "attendance_type_id",
       approvedBy: "approved_by",
       approvalStatus: "approval_status",

@@ -28,8 +28,12 @@ export default function EmployeesPublicList({
 
         <div className="employeeCardHeaderDetails">
           <p className="textBold textXXS">{employee.full_name}</p>
-          <p className="textRegular textXXXS">{employee.department_name}</p>
-          <p className="textLight textXXXS">{employee.position}</p>
+          <p className="textRegular textXXXS employeeListMobile">
+            {employee.department_name}
+          </p>
+          <p className="textLight textXXXS employeeListMobile">
+            {employee.position}
+          </p>
           {isMyManager && (
             <p className="managerBadge textXXXS">Reporting Manager</p>
           )}

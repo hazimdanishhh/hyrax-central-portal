@@ -1,7 +1,7 @@
 // src/hooks/attendanceActivities/useAttendanceActivityMutations.js
 import { useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
-import { useMessage } from "../../context/MessageContext";
+import { supabase } from "../../../../../lib/supabaseClient";
+import { useMessage } from "../../../../../context/MessageContext";
 
 /**
  * Hook to Create, Update and Delete attendance activities for HR department

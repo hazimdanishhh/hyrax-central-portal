@@ -23,6 +23,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.id,
     editable: false,
     editor: "text",
+    show: false,
   },
   {
     key: "profile_id",

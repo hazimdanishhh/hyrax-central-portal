@@ -24,6 +24,7 @@ export default function DataSidebar({
   saving,
   deleting,
   cannotUpdate,
+  isEditing = true,
 }) {
   const { darkMode } = useTheme();
   const { showMessage } = useMessage();
@@ -128,20 +129,45 @@ export default function DataSidebar({
 
           {children}
 
-          <form
-            className="dataSidebarContent"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSave();
-            }}
-          >
-            {columns.map((col) => {
-              const Editor = editors[col.editor] ?? editors.text;
-              const value = localData[col.key];
+          {isEditing && (
+            <form
+              className="dataSidebarContent"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave();
+              }}
+            >
+              {columns.map((col) => {
+                const Editor = editors[col.editor] ?? editors.text;
+                const value = localData[col.key];
 
-              if (col.show === false) return null;
+                if (col.show === false) return null;
 
-              if (!col.editable)
+                if (!col.editable)
+                  return (
+                    <div key={col.key} className="dataSidebarField">
+                      <label
+                        className={
+                          col.required
+                            ? "textBold textXXS required"
+                            : "textBold textXXS"
+                        }
+                      >
+                        {col.label}
+                        <span className="dataSidebarRequired">
+                          {col.required && "*"}
+                        </span>
+                      </label>
+                      <Editor
+                        value={value}
+                        options={col.options}
+                        required={col.required}
+                        isSearchable={col.isSearchable}
+                        readOnly={true}
+                      />
+                    </div>
+                  );
+
                 return (
                   <div key={col.key} className="dataSidebarField">
                     <label
@@ -159,71 +185,48 @@ export default function DataSidebar({
                     <Editor
                       value={value}
                       options={col.options}
+                      onChange={(v) => handleChange(col.key, v)}
                       required={col.required}
                       isSearchable={col.isSearchable}
-                      readOnly={true}
                     />
                   </div>
                 );
+              })}
 
-              return (
-                <div key={col.key} className="dataSidebarField">
-                  <label
-                    className={
-                      col.required
-                        ? "textBold textXXS required"
-                        : "textBold textXXS"
-                    }
-                  >
-                    {col.label}
-                    <span className="dataSidebarRequired">
-                      {col.required && "*"}
-                    </span>
-                  </label>
-                  <Editor
-                    value={value}
-                    options={col.options}
-                    onChange={(v) => handleChange(col.key, v)}
-                    required={col.required}
-                    isSearchable={col.isSearchable}
+              <footer
+                className={
+                  darkMode
+                    ? "sectionDark dataSidebarFooter"
+                    : "sectionLight dataSidebarFooter"
+                }
+              >
+                {!creating && (
+                  <Button
+                    name="Delete"
+                    icon={TrashSimpleIcon}
+                    style="button buttonType5 rejection textXXS textRegular"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    type="button"
+                    size="14"
+                    weight="bold"
                   />
-                </div>
-              );
-            })}
-
-            <footer
-              className={
-                darkMode
-                  ? "sectionDark dataSidebarFooter"
-                  : "sectionLight dataSidebarFooter"
-              }
-            >
-              {!creating && (
-                <Button
-                  name="Delete"
-                  icon={TrashSimpleIcon}
-                  style="button buttonType5 rejection textXXS textRegular"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  type="button"
-                  size="14"
-                  weight="bold"
-                />
-              )}
-              {!cannotUpdate && (
-                <Button
-                  name="Save"
-                  icon={CheckIcon}
-                  style="button buttonType5 approval textXXS textRegular"
-                  onClick={handleSave}
-                  type="submit"
-                  disabled={saving}
-                  size="14"
-                  weight="bold"
-                />
-              )}
-            </footer>
-          </form>
+                )}
+                {!cannotUpdate && (
+                  <Button
+                    name="Save"
+                    icon={CheckIcon}
+                    style="button buttonType5 approval textXXS textRegular"
+                    onClick={handleSave}
+                    type="submit"
+                    disabled={saving}
+                    size="14"
+                    weight="bold"
+                  />
+                )}
+              </footer>
+            </form>
+          )}
         </CardLayout>
       </motion.div>
     </motion.div>
