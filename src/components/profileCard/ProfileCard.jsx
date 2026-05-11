@@ -17,8 +17,6 @@ export default function ProfileCard({
   assets,
   role,
 }) {
-  if (!profile || !employee) return null;
-
   const sources = {
     profile,
     employee,
