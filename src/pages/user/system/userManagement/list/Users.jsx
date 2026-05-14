@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useTheme } from "../../../../context/ThemeContext";
-import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchProfiles } from "../../../../features/superadmin/users/private/api/profiles";
-import { useProfilesMetadata } from "../../../../features/superadmin/users/private/hooks/useProfilesMetadata";
-import CardSection from "../../../../components/cardSection/CardSection";
-import SectionHeader from "../../../../components/sectionHeader/SectionHeader";
-import CardLayout from "../../../../components/cardLayout/CardLayout";
+import { useTheme } from "../../../../../context/ThemeContext";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import { fetchProfiles } from "../../../../../features/superadmin/users/private/api/profiles";
+import { useProfilesMetadata } from "../../../../../features/superadmin/users/private/hooks/useProfilesMetadata";
+import CardSection from "../../../../../components/cardSection/CardSection";
+import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
+import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import {
   PencilSimpleLineIcon,
   PlusCircleIcon,
@@ -15,22 +15,22 @@ import {
 import { getUsersSortConfig } from "./sortConfig";
 import { usersTableConfig } from "./tableConfig";
 import { getUsersFilterConfig } from "./filterConfig";
-import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
-import SearchFilterBar from "../../../../components/searchFliterBar/SearchFilterBar";
-import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
-import PageLayout from "../../../../components/crud/pageLayout/PageLayout";
+import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
+import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
+import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
+import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
+import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
 import { getUsersLayoutConfig } from "./layoutConfig";
-import SortBar from "../../../../components/crud/sortBar/SortBar";
-import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
-import PageResult from "../../../../components/crud/pageResult/PageResult";
-import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
-import NoResult from "../../../../components/crud/noResult/NoResult";
-import DataTable from "../../../../components/dataTable/DataTable";
+import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageResult from "../../../../../components/crud/pageResult/PageResult";
+import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import NoResult from "../../../../../components/crud/noResult/NoResult";
+import DataTable from "../../../../../components/dataTable/DataTable";
 import { AnimatePresence } from "framer-motion";
-import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
-import ActionModal from "../../../../components/modals/actionModal/ActionModal";
-import UserList from "../../../../components/users/userList/UserList";
+import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
+import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
+import UserList from "../../../../../components/users/userList/UserList";
 
 export default function Users() {
   const navigate = useNavigate();

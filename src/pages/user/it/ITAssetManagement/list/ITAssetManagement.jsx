@@ -14,7 +14,7 @@ import "./ITAssetManagement.scss";
 import { useMemo, useState } from "react";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../../components/searchFliterBar/SearchFilterBar";
+import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import { itAssetTableConfig } from "./tableConfig";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";

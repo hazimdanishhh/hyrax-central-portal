@@ -25,7 +25,6 @@ export default function ProfileCard({
 
   return (
     <div className="profileCard">
-      {/*  */}
       <CardSection>
         <div className="profileOverview">
           <div className="profilePhoto">

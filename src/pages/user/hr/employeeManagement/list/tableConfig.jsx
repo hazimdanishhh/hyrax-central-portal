@@ -28,8 +28,7 @@ export const employeesTableConfig = ({
   {
     key: "profile_id",
     label: "Profile",
-    getValue: (employee) => employee.profile?.id,
-    displayValue: (employee) => employee.profile?.full_name,
+    getValue: (employee) => employee.profile_id,
     editable: true,
     editor: "select",
     options: profiles.map((p) => ({

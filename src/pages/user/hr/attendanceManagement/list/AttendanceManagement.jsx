@@ -14,7 +14,7 @@ import { useTheme } from "../../../../../context/ThemeContext";
 import { useEffect, useState } from "react";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../../components/searchFliterBar/SearchFilterBar";
+import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";

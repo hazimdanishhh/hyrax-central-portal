@@ -46,7 +46,6 @@ export default function Profile() {
 
   const loading =
     profileLoading || employeeLoading || employeePublicLoading || assetsLoading;
-
   const error = profileError || employeeError;
 
   return (

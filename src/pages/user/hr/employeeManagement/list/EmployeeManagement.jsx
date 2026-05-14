@@ -14,7 +14,7 @@ import { useTheme } from "../../../../../context/ThemeContext";
 import { useEffect, useState } from "react";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../../components/searchFliterBar/SearchFilterBar";
+import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
@@ -343,8 +343,10 @@ export default function EmployeeManagement() {
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />
           </CardLayout>
-        ) : !hasData || error ? (
+        ) : !hasData ? (
           <NoResult />
+        ) : error ? (
+          <NoResult title="Error loading results" />
         ) : layout === 1 ? (
           // TABLE LAYOUT
           <DataTable

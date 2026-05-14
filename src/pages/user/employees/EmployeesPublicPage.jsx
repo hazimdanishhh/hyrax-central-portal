@@ -12,7 +12,7 @@ import {
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
 import Button from "../../../components/buttons/button/Button";
-import SearchFilterBar from "../../../components/searchFliterBar/SearchFilterBar";
+import SearchFilterBar from "../../../components/searchFilterBar/SearchFilterBar";
 import PageHeader from "../../../components/crud/pageHeader/PageHeader";
 import ActiveFiltersBar from "../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import { useEmployee } from "../../../context/EmployeeContext";

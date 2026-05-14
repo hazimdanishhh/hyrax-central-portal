@@ -1,6 +1,6 @@
 import { Navigate, Route } from "react-router";
 import AccessRoute from "./AccessRoute";
-import Users from "../pages/user/system/users/Users";
+import Users from "../pages/user/system/userManagement/list/Users";
 
 export default (
   <Route path="system">
