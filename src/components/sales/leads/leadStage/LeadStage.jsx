@@ -2,7 +2,7 @@ import "./LeadStage.scss";
 
 const PIPELINE_STAGES = ["DISCOVERY", "SAMPLE_TEST", "PROPOSAL", "NEGOTIATION"];
 
-function LeadStage({ selectedRow }) {
+function LeadStage({ selectedRow, list }) {
   const currentStage = selectedRow?.stage;
 
   const currentStageIndex = PIPELINE_STAGES.indexOf(currentStage);
@@ -27,7 +27,7 @@ function LeadStage({ selectedRow }) {
   const stageState = getStageState();
 
   return (
-    <div className="leadSidebarStageContainer">
+    <div className={`leadSidebarStageContainer ${list ? "list" : ""}`}>
       {/* MAIN PIPELINE */}
       {PIPELINE_STAGES.map((stage, index) => {
         const isActive = index <= currentStageIndex || isWon || isLost;

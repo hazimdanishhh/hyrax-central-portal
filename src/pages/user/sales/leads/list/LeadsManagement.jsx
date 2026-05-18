@@ -51,10 +51,17 @@ import { leadsTableConfig } from "./tableConfig";
 import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
 import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
 import { LEAD_ACTION_MODAL_CONFIG } from "../../../../../data/constants/leadActionModal";
-import { Link, NavLink, useSearchParams } from "react-router";
+import {
+  Link,
+  NavLink,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router";
 import { useEmployee } from "../../../../../context/EmployeeContext";
 import LeadStageTab from "../../../../../components/sales/leads/leadStageTab/LeadStageTab";
 import { stageTabsConfig } from "./tabConfig";
+import { useLead } from "../../../../../features/sales/leads/private/hooks/useLead";
 
 /**
  * SALES Leads Management Page
@@ -65,9 +72,9 @@ export default function LeadsManagement() {
   const queryClient = useQueryClient();
   const { darkMode } = useTheme();
   const { employee } = useEmployee();
+  const navigate = useNavigate();
+  const { leadId } = useParams();
   const [layout, setLayout] = useState(0); // 0: List, 1: Table
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState(null);
   const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
@@ -111,6 +118,24 @@ export default function LeadsManagement() {
     defaultSortBy: "created_at",
     defaultSortOrder: "descending",
   });
+  const { data: fetchedLead, isLoading: isLeadLoading } = useLead(leadId);
+
+  // Find selected row based on URL param.
+  // If "new", return empty object for creation.
+  // If not found, return null to show error state in sidebar
+  const selectedRow = useMemo(() => {
+    if (leadId === "new") return {};
+    if (!leadId) return null;
+
+    // 1. Check if it's already in our local paginated list (Instant UI)
+    const leadInList = leads?.find((lead) => lead.id === leadId);
+    if (leadInList) return leadInList;
+
+    // 2. Fall back to the newly fetched lead (For direct URL sharing)
+    return fetchedLead || null;
+  }, [leadId, leads, fetchedLead]);
+
+  const sidebarOpen = !!selectedRow;
 
   // ==============
   // METADATA
@@ -178,13 +203,11 @@ export default function LeadsManagement() {
   // SIDEBAR OPEN & CLOSE
   // ==============
   function handleOpenSidebar(lead) {
-    setSelectedRow(lead);
-    setSidebarOpen(true);
+    navigate(`${lead.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/sales/leads/list?${searchParams.toString()}`);
   }
 
   // ==============
@@ -289,9 +312,8 @@ export default function LeadsManagement() {
       });
 
       // RESET
+      handleCloseSidebar();
       setModalOpen(false);
-      setSidebarOpen(false);
-      setSelectedRow(null);
       setPendingSaveRow(null);
       setModalType(null);
       setPendingAction(null);
@@ -336,8 +358,7 @@ export default function LeadsManagement() {
               name: "Add Lead",
               icon: PlusCircleIcon,
               onClick: () => {
-                setSelectedRow({});
-                setSidebarOpen(true);
+                navigate(`new?${searchParams.toString()}`);
               },
             }}
           />

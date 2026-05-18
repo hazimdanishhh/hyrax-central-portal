@@ -76,7 +76,7 @@ export async function fetchLeads({
 }
 
 /**
- * Normalize returned attendance data
+ * Normalize returned data
  */
 function normalizeLeads(rows) {
   return rows.map((activity) => ({
