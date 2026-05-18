@@ -24,6 +24,8 @@ export default function StatusBadge({ status }) {
     approved: "approved",
     pending: "pending",
     rejected: "rejected",
+
+    onHold: "ON HOLD",
   };
 
   const normalizedStatus = status?.toLowerCase();

@@ -1,0 +1,40 @@
+.leadsListContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: start;
+  width: 100%;
+
+  .leadsListHeaderWrapper {
+    display: flex;
+    gap: 0.8rem;
+
+    .leadsListHeaderContainer {
+      display: flex;
+      flex-direction: column;
+      text-align: start;
+      gap: 0.4rem;
+
+      .leadsListStatusContainer {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: start;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .leadsListDateTimeContainer {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+    }
+  }
+}
+
+.leadsListImageContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}

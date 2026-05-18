@@ -1,0 +1,81 @@
+.statusBox {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid $neutral800;
+  width: fit-content;
+  min-width: fit-content;
+  height: min-content;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+
+  &.green {
+    border: 1px solid $success600;
+    color: $success600;
+    background-color: rgb($success300, 0.2);
+  }
+
+  &.yellow {
+    border: 1px solid $warning600;
+    color: $warning600;
+    background-color: rgb($warning600, 0.2);
+  }
+
+  &.grey {
+    border: 1px solid $neutral600;
+    color: $neutral600;
+    background-color: rgb($neutral600, 0.2);
+  }
+
+  &.blue {
+    border: 1px solid $info600;
+    color: $info600;
+    background-color: rgb($info600, 0.2);
+  }
+
+  &.red {
+    border: 1px solid $error600;
+    color: $error600;
+    background-color: rgb($error600, 0.2);
+  }
+
+  .statusLight {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid $neutral400;
+    background-color: $neutral400;
+
+    &.green {
+      border: 1px solid $success600;
+      background-color: $success600;
+    }
+
+    &.yellow {
+      border: 1px solid $warning600;
+      background-color: $warning600;
+    }
+
+    &.grey {
+      border: 1px solid $neutral600;
+      background-color: $neutral600;
+    }
+
+    &.blue {
+      border: 1px solid $info600;
+      background-color: $info600;
+    }
+
+    &.red {
+      border: 1px solid $error600;
+      background-color: $error600;
+    }
+  }
+
+  .statusName {
+    width: 100%;
+    text-align: start;
+  }
+}

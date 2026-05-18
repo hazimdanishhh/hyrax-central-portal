@@ -164,6 +164,10 @@ export default function DataSidebar({
                         required={col.required}
                         isSearchable={col.isSearchable}
                         readOnly={true}
+                        min={col.min}
+                        max={col.max}
+                        step={col.step}
+                        isClearable={col.isClearable}
                       />
                     </div>
                   );
@@ -188,6 +192,10 @@ export default function DataSidebar({
                       onChange={(v) => handleChange(col.key, v)}
                       required={col.required}
                       isSearchable={col.isSearchable}
+                      min={col.min}
+                      max={col.max}
+                      step={col.step}
+                      isClearable={col.isClearable}
                     />
                   </div>
                 );

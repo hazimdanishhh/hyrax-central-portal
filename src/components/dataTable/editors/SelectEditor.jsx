@@ -9,6 +9,7 @@ export default function SelectEditor({
   placeholder = "Select...",
   isSearchable,
   readOnly,
+  isClearable = true,
 }) {
   return (
     // <select
@@ -31,7 +32,7 @@ export default function SelectEditor({
       className="selectContainer"
       classNamePrefix="reactSelect"
       placeholder={placeholder}
-      isClearable={!readOnly}
+      isClearable={isClearable}
       readOnly={readOnly}
       isSearchable={isSearchable}
       options={options}

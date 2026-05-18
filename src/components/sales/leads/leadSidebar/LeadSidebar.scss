@@ -1,0 +1,48 @@
+.leadSidebarContainer {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0.8rem;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  gap: 0.8rem;
+
+  //   HEADER
+  .leadSidebarHeaderContainer {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: start;
+    text-align: start;
+
+    .leadSidebarDetails {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .leadSidebarDateTimeContainer {
+      display: flex;
+      flex-direction: column;
+      justify-content: start;
+      align-items: end;
+      text-wrap: nowrap;
+      gap: 0.4rem;
+    }
+  }
+
+  //   ON HOLD / CANCELLED
+  .leadSidebarOnHoldContainer {
+    display: flex;
+    gap: 0.8rem;
+  }
+
+  .leadSidebarActionsContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

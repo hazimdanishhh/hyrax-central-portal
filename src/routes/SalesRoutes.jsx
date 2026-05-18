@@ -1,9 +1,11 @@
 import { Navigate, Route } from "react-router-dom";
-import Opportunities from "../pages/user/sales/opportunities/Opportunities";
 import Clients from "../pages/user/sales/clients/Clients";
 import Quotations from "../pages/user/sales/quotations/Quotations";
 import Reports from "../pages/user/sales/reports/Reports";
 import AccessRoute from "./AccessRoute";
+import LeadsManagement from "../pages/user/sales/leads/list/LeadsManagement";
+import LeadsPageLayout from "../pages/user/sales/leads/LeadsPageLayout";
+import LeadsOverview from "../pages/user/sales/leads/overview/LeadsOverview";
 
 export default (
   <Route path="sales">
@@ -22,13 +24,32 @@ export default (
 
     {/* OPPORTUNITIES */}
     <Route
-      path="opportunities"
+      path="leads"
       element={
-        <AccessRoute departments={["SAL"]} roles={["manager"]}>
-          <Opportunities />
+        <AccessRoute departments={["SAL"]}>
+          <LeadsPageLayout />
         </AccessRoute>
       }
-    />
+    >
+      <Route index element={<Navigate to="overview" replace />} />
+      <Route
+        path="overview"
+        element={
+          <AccessRoute departments={["SAL"]}>
+            <LeadsOverview />
+          </AccessRoute>
+        }
+      />
+
+      <Route
+        path="list"
+        element={
+          <AccessRoute departments={["SAL"]}>
+            <LeadsManagement />
+          </AccessRoute>
+        }
+      />
+    </Route>
 
     {/* CLIENTS */}
     <Route

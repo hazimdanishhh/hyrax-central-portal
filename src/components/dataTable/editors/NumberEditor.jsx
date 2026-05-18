@@ -8,6 +8,9 @@ export default function NumberEditor({
   onBlur,
   required,
   readOnly,
+  min,
+  max,
+  step = 1,
 }) {
   const { showMessage } = useMessage();
 
@@ -32,6 +35,9 @@ export default function NumberEditor({
         onBlur={onBlur}
         required={required}
         readOnly={readOnly}
+        min={min}
+        max={max}
+        step={step}
       />
       {value && (
         <Button
