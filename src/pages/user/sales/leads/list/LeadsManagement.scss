@@ -1,0 +1,10 @@
+.stageTab {
+  display: flex;
+  width: 100%;
+  justify-content: start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+}

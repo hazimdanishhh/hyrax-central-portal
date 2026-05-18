@@ -2,6 +2,7 @@
 import {
   CheckCircleIcon,
   DesktopIcon,
+  ListIcon,
   PencilSimpleLineIcon,
   PlusCircleIcon,
   UserMinusIcon,
@@ -47,9 +48,13 @@ import { getLayoutConfig } from "./layoutConfig";
 import { getSortConfig } from "./sortConfig";
 import { getFilterConfig } from "./filterConfig";
 import { leadsTableConfig } from "./tableConfig";
-import LeadsList from "../../../../../components/sales/leads/LeadList/LeadsList";
+import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
 import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
 import { LEAD_ACTION_MODAL_CONFIG } from "../../../../../data/constants/leadActionModal";
+import { Link, NavLink, useSearchParams } from "react-router";
+import { useEmployee } from "../../../../../context/EmployeeContext";
+import LeadStageTab from "../../../../../components/sales/leads/leadStageTab/LeadStageTab";
+import { stageTabsConfig } from "./tabConfig";
 
 /**
  * SALES Leads Management Page
@@ -59,6 +64,7 @@ import { LEAD_ACTION_MODAL_CONFIG } from "../../../../../data/constants/leadActi
 export default function LeadsManagement() {
   const queryClient = useQueryClient();
   const { darkMode } = useTheme();
+  const { employee } = useEmployee();
   const [layout, setLayout] = useState(0); // 0: List, 1: Table
   const [selectedRow, setSelectedRow] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -68,6 +74,10 @@ export default function LeadsManagement() {
   const [modalType, setModalType] = useState(null); // "save" | "reject"
   const [pendingSaveRow, setPendingSaveRow] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
+  const [searchParams] = useSearchParams();
+  const currentStage = searchParams.get("stage");
+  const isCancelled = searchParams.get("cancelled") === "true";
+  const isOnHold = searchParams.get("onHold") === "true";
 
   // ==============
   // HOOKS
@@ -147,6 +157,7 @@ export default function LeadsManagement() {
   // TABLE CONFIG
   // ==============
   const columns = leadsTableConfig({
+    employee,
     owners,
     clients,
     clientContacts,
@@ -205,9 +216,27 @@ export default function LeadsManagement() {
   }
 
   // ==============
+  // MODAL INPUT CONFIG
+  // ==============
+  const isHoldAction =
+    pendingAction?.type === "toggle_hold" &&
+    pendingAction?.payload?.is_on_hold === true;
+  const isLostAction =
+    pendingAction?.type === "stage_change" &&
+    pendingAction?.payload?.stage === "LOST";
+  const isCancelAction = pendingAction?.type === "cancel";
+
+  const requireInput = isHoldAction || isLostAction || isCancelAction;
+
+  let dynamicPlaceholder = "Enter reason...";
+  if (isHoldAction) dynamicPlaceholder = "Why is this lead on hold?";
+  if (isLostAction) dynamicPlaceholder = "Why was this lead lost?";
+  if (isCancelAction) dynamicPlaceholder = "Why is this lead being cancelled?";
+
+  // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
   // ==============
-  async function handleConfirmAction() {
+  async function handleConfirmAction(reason) {
     try {
       // DELETE
       if (modalType === "delete") {
@@ -227,9 +256,31 @@ export default function LeadsManagement() {
 
       // ACTIONS
       if (pendingAction) {
+        const payloadToSubmit = { ...pendingAction.payload };
+
+        // Map the typed reason to the correct database column
+        if (isCancelAction) payloadToSubmit.cancel_reason = reason;
+        if (isHoldAction) payloadToSubmit.hold_reason = reason;
+        if (isLostAction) payloadToSubmit.lose_reason = reason;
+
+        // Clear the reason if they are reverting the state
+        if (
+          pendingAction.type === "toggle_hold" &&
+          !pendingAction.payload.is_on_hold
+        ) {
+          payloadToSubmit.hold_reason = null;
+        }
+        if (
+          pendingAction.type === "stage_change" &&
+          pendingAction.payload.stage !== "LOST"
+        ) {
+          payloadToSubmit.lose_reason = null;
+        }
+
+        // FIX: Pass payloadToSubmit instead of pendingAction.payload
         await updateLead({
-          id: pendingAction.payload.id,
-          ...pendingAction.payload,
+          id: payloadToSubmit.id,
+          ...payloadToSubmit,
         });
       }
 
@@ -243,6 +294,7 @@ export default function LeadsManagement() {
       setSelectedRow(null);
       setPendingSaveRow(null);
       setModalType(null);
+      setPendingAction(null);
     } catch (err) {
       console.error(err);
     }
@@ -309,6 +361,18 @@ export default function LeadsManagement() {
           totalPages={totalPages}
           error={error}
         />
+
+        <div className="stageTab">
+          {stageTabsConfig(currentStage, isCancelled, isOnHold).map((tab) => (
+            <LeadStageTab
+              key={tab.label}
+              to={tab.to}
+              label={tab.label}
+              themeType={tab.themeType}
+              isActive={tab.isActive}
+            />
+          ))}
+        </div>
 
         {/* TABLE DISPLAY UI */}
         <CardLayout style="cardWrapperScroll generalCard">
@@ -378,6 +442,8 @@ export default function LeadsManagement() {
         loading={isSaving || deleting}
         onConfirm={handleConfirmAction}
         modalType={modalConfig.modalType}
+        requireInput={requireInput}
+        inputPlaceholder={dynamicPlaceholder}
       />
     </>
   );

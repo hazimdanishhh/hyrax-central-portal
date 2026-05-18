@@ -5,6 +5,10 @@
   align-items: start;
   width: 100%;
 
+  @media screen and (max-width: 768px) {
+    // flex-direction: column;
+  }
+
   .leadsListHeaderWrapper {
     display: flex;
     gap: 0.8rem;
@@ -37,4 +41,10 @@
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
+
+  @media screen and (max-width: 768px) {
+    // flex-direction: row;
+    // width: 100%;
+    // padding-top: 0.4rem;
+  }
 }

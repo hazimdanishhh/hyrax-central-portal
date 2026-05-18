@@ -17,7 +17,7 @@ export const LEAD_ACTION_MODAL_CONFIG = {
     title: "Change Lead Stage",
     description: "Are you sure you want to change this lead stage?",
     confirmText: "Change Stage",
-    modalType: "approval",
+    modalType: "save",
   },
 
   toggle_hold: {

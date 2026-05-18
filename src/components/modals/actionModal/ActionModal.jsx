@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import "./ActionModal.scss";
 import Button from "../../buttons/button/Button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
 
 export default function ActionModal({
@@ -18,8 +18,13 @@ export default function ActionModal({
   modalType,
 }) {
   const { darkMode } = useTheme();
-
   const [inputValue, setInputValue] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setInputValue("");
+    }
+  }, [open]);
 
   if (!open) return null;
 

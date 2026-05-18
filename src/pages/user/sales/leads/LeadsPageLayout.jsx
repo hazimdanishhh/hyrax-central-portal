@@ -1,7 +1,7 @@
 import React from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import { ChartLineIcon, DesktopIcon, ListIcon } from "@phosphor-icons/react";
+import { ChartLineIcon, HandshakeIcon, ListIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { Link, NavLink, Outlet } from "react-router";
 
@@ -13,7 +13,7 @@ export default function ITAssetsPageLayout() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={DesktopIcon} current="IT Assets" />
+            <Breadcrumbs icon={HandshakeIcon} current="Leads Management" />
 
             <CardWrapper>
               <div className="pageTabContainer">

@@ -1,7 +1,7 @@
 // constants/leadStageTransitions.js
 
 export const LEAD_STAGE_TRANSITIONS = {
-  DISCOVERY: ["SAMPLE_TEST", "LOST"],
+  DISCOVERY: ["SAMPLE_TEST", "PROPOSAL", "LOST"],
 
   SAMPLE_TEST: ["PROPOSAL", "LOST"],
 

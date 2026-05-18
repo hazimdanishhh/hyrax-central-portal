@@ -48,7 +48,9 @@ export default (
             <LeadsManagement />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":leadId" element={null} />
+      </Route>
     </Route>
 
     {/* CLIENTS */}

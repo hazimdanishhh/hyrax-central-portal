@@ -158,6 +158,7 @@
   padding: 0.8rem 1.2rem;
   transition: 0.3s;
   width: fit-content;
+  text-wrap: nowrap;
 
   &.iconButton2 {
     padding: 0.4rem;
@@ -453,6 +454,13 @@
       transition: 0.3s;
     }
 
+    &.active {
+      background-color: $error600;
+      color: $neutral100;
+      border: 1px solid $error600;
+      transition: 0.3s;
+    }
+
     &:disabled {
       color: $neutral600;
       border: 1px solid $neutral600;
@@ -478,6 +486,13 @@
       transition: 0.3s;
     }
 
+    &.active {
+      background-color: $success600;
+      color: $neutral100;
+      border: 1px solid $success600;
+      transition: 0.3s;
+    }
+
     &:disabled {
       color: $neutral600;
       border: 1px solid $neutral600;
@@ -497,6 +512,13 @@
     color: $warning600;
 
     &:hover {
+      background-color: $warning600;
+      color: $neutral100;
+      border: 1px solid $warning600;
+      transition: 0.3s;
+    }
+
+    &.active {
       background-color: $warning600;
       color: $neutral100;
       border: 1px solid $warning600;

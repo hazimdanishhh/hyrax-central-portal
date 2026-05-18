@@ -13,6 +13,7 @@ import StatusBadge from "../../../../../components/status/statusBadge/StatusBadg
 // editable = boolean
 
 export const leadsTableConfig = ({
+  employee,
   owners,
   clients,
   clientContacts,
@@ -24,6 +25,7 @@ export const leadsTableConfig = ({
     getValue: "id",
     editable: false,
     editor: "text",
+    show: false,
   },
   {
     key: "client_id",
@@ -55,8 +57,8 @@ export const leadsTableConfig = ({
   {
     key: "lead_owner_id",
     label: "Lead Owner",
-    getValue: (lead) => lead.lead_owner?.id,
-    displayValue: (lead) => lead.lead_owner?.full_name,
+    getValue: (lead) => lead.lead_owner?.id || employee?.id,
+    displayValue: (lead) => lead.lead_owner?.full_name || employee?.full_name,
     editable: true,
     editor: "select",
     options: owners.map((s) => ({

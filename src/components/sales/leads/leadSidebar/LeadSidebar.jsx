@@ -15,6 +15,7 @@ import {
   PlayCircleIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
+import CardLayout from "../../../cardLayout/CardLayout";
 
 export default function LeadSidebar({
   selectedRow,
@@ -91,6 +92,30 @@ export default function LeadSidebar({
           <StatusBox status="CANCELLED" type="red" />
         )}
       </div>
+
+      {/* HOLD REASON */}
+      {selectedRow.hold_reason && (
+        <CardLayout style="generalCard yellowCard">
+          <p className="textBold textXS">Hold Reason:</p>
+          <p className="textRegular textXXS">{selectedRow.hold_reason}</p>
+        </CardLayout>
+      )}
+
+      {/* CANCEL REASON */}
+      {selectedRow.cancel_reason && (
+        <CardLayout style="generalCard redCard">
+          <p className="textBold textXS">Cancel Reason:</p>
+          <p className="textRegular textXXS">{selectedRow.cancel_reason}</p>
+        </CardLayout>
+      )}
+
+      {/* LOST REASON */}
+      {selectedRow.lose_reason && (
+        <CardLayout style="generalCard redCard">
+          <p className="textBold textXS">Lose Reason:</p>
+          <p className="textRegular textXXS">{selectedRow.lose_reason}</p>
+        </CardLayout>
+      )}
 
       {/* ACTIONS */}
       <div className="leadSidebarActionsContainer">
