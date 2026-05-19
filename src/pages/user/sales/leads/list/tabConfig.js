@@ -2,7 +2,7 @@ export const stageTabsConfig = (currentStage, isCancelled, isOnHold) => [
   {
     label: "ALL",
     to: "#",
-    themeType: "approval",
+    themeType: "",
     isActive: !currentStage && !isCancelled && !isOnHold,
   },
   {

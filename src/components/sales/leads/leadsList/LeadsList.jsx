@@ -1,4 +1,5 @@
 import {
+  BriefcaseIcon,
   CaretCircleRightIcon,
   CircleIcon,
   NotePencilIcon,
@@ -12,6 +13,7 @@ import StatusBox from "../../../status/statusBox/StatusBox";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import { useState } from "react";
 import LeadStage from "../leadStage/LeadStage";
+import IconCard from "../../../iconCard/IconCard";
 
 export default function LeadsList({
   lead,
@@ -35,6 +37,15 @@ export default function LeadsList({
       <div className="leadsListContainer">
         <div className="leadsListHeaderWrapper">
           <div className="leadsListHeaderContainer">
+            <div className="leadsListDateTimeContainer">
+              <p className="textRegular textXXS employeeListMobile">
+                {lead.created_date}
+              </p>
+              <p className="textLight textXXXS employeeListMobile">
+                {lead.created_time}
+              </p>
+            </div>
+
             <LeadStage selectedRow={lead} list={true} />
 
             <div className="leadsListStatusContainer">
@@ -52,33 +63,26 @@ export default function LeadsList({
               {lead.is_on_hold && <StatusBox status="ON HOLD" type="yellow" />}
               {lead.is_cancelled && <StatusBox status="CANCELLED" type="red" />}
             </div>
-            <p className="textRegular textS employeeListMobile">
-              {lead.client?.name}
-            </p>
-            <p className="textBold textXXS">{lead.title}</p>
-            <p className="textLight textXXXS employeeListMobile">
+
+            <p className="textBold textXS">{lead.title}</p>
+            <p className="textLight textXXS employeeListMobile">
               {lead.description}
             </p>
-            {lead.close_probability && (
-              <p className="textLight textXXXS employeeListMobile cardStyle">
-                <span className="textRegular">Success Probability: </span>
-                {lead.close_probability}%
-              </p>
-            )}
-            {lead.expected_revenue && (
-              <p className="textLight textXXXS employeeListMobile cardStyle">
-                <span className="textRegular">Expected Revenue: </span>
-                RM{lead.expected_revenue}
-              </p>
-            )}
-            <div className="leadsListDateTimeContainer">
-              <p className="textRegular textXXS employeeListMobile">
-                {lead.created_date}
-              </p>
-              <p className="textLight textXXXS employeeListMobile">
-                {lead.created_time}
-              </p>
-            </div>
+
+            <IconCard
+              name={lead.client?.name}
+              icon={BriefcaseIcon}
+              style="textLight textXXS"
+            />
+
+            <p className="textLight textXXXS employeeListMobile cardStyle">
+              <span className="textRegular">Success Probability: </span>
+              {lead.close_probability}%
+            </p>
+            <p className="textLight textXXXS employeeListMobile cardStyle">
+              <span className="textRegular">Expected Revenue: </span>
+              RM{lead.expected_revenue}
+            </p>
           </div>
         </div>
 

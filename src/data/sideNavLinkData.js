@@ -394,18 +394,19 @@ export const sideNavLinkData = [
         departments: ["SAL"],
         roles: ["manager"],
       },
-      {
-        label: "Leads",
-        icon: HandshakeIcon,
-        path: "sales/leads/list",
-
-        departments: ["SAL"],
-      },
 
       {
         label: "Clients",
         icon: UsersIcon,
         path: "sales/clients",
+
+        departments: ["SAL"],
+      },
+
+      {
+        label: "Leads",
+        icon: HandshakeIcon,
+        path: "sales/leads",
 
         departments: ["SAL"],
       },

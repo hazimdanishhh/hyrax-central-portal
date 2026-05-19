@@ -35,7 +35,6 @@ export function getFilterConfig({
         { label: "Negotiation", value: "NEGOTIATION" },
         { label: "Won", value: "WON" },
         { label: "Lost", value: "LOST" },
-        { label: "Cancelled", value: "CANCELLED" },
       ],
     },
     {

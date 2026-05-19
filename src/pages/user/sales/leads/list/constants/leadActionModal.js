@@ -8,14 +8,16 @@ export const LEAD_ACTION_MODAL_CONFIG = {
 
   delete: {
     title: "Delete Lead",
-    description: "Are you sure you want to delete this lead?",
+    description:
+      "Are you sure you want to delete this lead? You cannot undo this action.",
     confirmText: "Delete",
     modalType: "delete",
   },
 
   stage_change: {
     title: "Change Lead Stage",
-    description: "Are you sure you want to change this lead stage?",
+    description:
+      "Are you sure you want to change this lead stage? You cannot revert stages.",
     confirmText: "Change Stage",
     modalType: "save",
   },
@@ -29,7 +31,8 @@ export const LEAD_ACTION_MODAL_CONFIG = {
 
   cancel: {
     title: "Cancel Lead",
-    description: "Are you sure you want to cancel this lead?",
+    description:
+      "Are you sure you want to cancel this lead? You cannot undo this action.",
     confirmText: "Cancel Lead",
     modalType: "delete",
   },

@@ -110,6 +110,7 @@ export const leadsTableConfig = ({
     getValue: "expected_revenue",
     editable: true,
     editor: "number",
+    min: 1,
   },
   {
     key: "notes",

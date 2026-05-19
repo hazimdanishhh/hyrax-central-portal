@@ -11,11 +11,28 @@
     justify-content: start;
   }
 
+  &.vertical {
+    flex-direction: column;
+    padding: 0.4rem;
+  }
+
+  .leadSidebarStageWrapper {
+    display: flex;
+    width: 100%;
+    justify-content: start;
+    align-items: start;
+    gap: 0.8rem;
+  }
+
   .leadSidebarStageCircleContainer,
   .leadSidebarFinalStageContainer {
     display: flex;
     align-items: center;
     position: relative;
+
+    &.vertical {
+      flex-direction: column;
+    }
 
     .leadSidebarStageCircle {
       width: 20px;
@@ -24,6 +41,11 @@
       background-color: rgba($neutral500, 0.4);
       border: 1px solid $neutral500;
       transition: all 0.2s ease;
+
+      &.vertical {
+        align-self: start;
+        justify-self: start;
+      }
 
       &.active,
       &.won {
@@ -49,6 +71,11 @@
       background-color: rgba($neutral500, 0.4);
       transition: all 0.2s ease;
 
+      &.vertical {
+        width: 2px;
+        height: 60px;
+      }
+
       @media screen and (max-width: 768px) {
         width: 20px;
       }
@@ -65,6 +92,41 @@
       &.lost,
       &.cancelled {
         background-color: rgba($error600, 0.7);
+      }
+    }
+  }
+
+  .leadSidebarStageDetails {
+    display: flex;
+    flex-direction: row;
+
+    .leadSidebarStageLabel {
+      border: 1px solid $neutral500;
+      border-radius: 4px;
+      background-color: rgba($neutral500, 0.1);
+      padding: 0.4rem;
+
+      &.active,
+      &.won {
+        border: 1px solid $success600;
+        border-radius: 4px;
+        color: $success600;
+        background-color: rgba($success600, 0.1);
+      }
+
+      &.onHold {
+        border: 1px solid $warning600;
+        border-radius: 4px;
+        color: $warning600;
+        background-color: rgba($warning600, 0.1);
+      }
+
+      &.lost,
+      &.cancelled {
+        border: 1px solid $error600;
+        border-radius: 4px;
+        color: $error600;
+        background-color: rgba($error600, 0.1);
       }
     }
   }

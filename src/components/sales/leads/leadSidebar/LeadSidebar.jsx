@@ -8,19 +8,26 @@ import Button from "../../../buttons/button/Button";
 import {
   LEAD_STAGE_LABELS,
   LEAD_STAGE_TRANSITIONS,
-} from "../../../../data/constants/leadStageTransitions";
+} from "../../../../pages/user/sales/leads/list/constants/leadStageTransitions";
 import {
+  BriefcaseIcon,
   CheckCircleIcon,
   PauseCircleIcon,
+  PencilSimpleLineIcon,
   PlayCircleIcon,
+  TextTIcon,
+  UserCircleIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../cardLayout/CardLayout";
+import IconCard from "../../../iconCard/IconCard";
 
 export default function LeadSidebar({
   selectedRow,
   onRequestAction,
   updating,
+  isEditing,
+  setIsEditing,
 }) {
   const [showName, setShowName] = useState(false);
 
@@ -45,15 +52,55 @@ export default function LeadSidebar({
     <div className="leadSidebarContainer">
       <div className="leadSidebarHeaderContainer">
         <div className="leadSidebarDetails">
+          {/* STATUS */}
+          <div className="leadSidebarOnHoldContainer">
+            <StatusBox
+              status={selectedRow.stage}
+              type={
+                selectedRow.is_cancelled || selectedRow.stage === "LOST"
+                  ? "red"
+                  : selectedRow.is_on_hold
+                    ? "yellow"
+                    : "green"
+              }
+            />
+
+            {selectedRow.is_on_hold && (
+              <StatusBox status="ON HOLD" type="yellow" />
+            )}
+            {selectedRow.is_cancelled && (
+              <StatusBox status="CANCELLED" type="red" />
+            )}
+          </div>
+
           <p className="textBold textS">{selectedRow.title}</p>
 
           <p className="textRegular textXS">{selectedRow.description}</p>
 
-          <p className="textLight textXS">{selectedRow.client?.name}</p>
+          <IconCard
+            name={selectedRow.client?.name}
+            icon={BriefcaseIcon}
+            style="textLight textXS"
+          />
 
-          <p className="textLight textXXS">
-            {selectedRow.client_contact?.full_name}
-          </p>
+          <IconCard
+            name={selectedRow.client_contact?.full_name}
+            icon={UserCircleIcon}
+            style="textLight textXS"
+          />
+
+          {selectedRow.close_probability && (
+            <p className="textLight textXXXS employeeListMobile cardStyle">
+              <span className="textRegular">Success Probability: </span>
+              {selectedRow.close_probability}%
+            </p>
+          )}
+          {selectedRow.expected_revenue && (
+            <p className="textLight textXXXS employeeListMobile cardStyle">
+              <span className="textRegular">Expected Revenue: </span>
+              RM{selectedRow.expected_revenue}
+            </p>
+          )}
         </div>
 
         <div className="leadSidebarDateTimeContainer">
@@ -72,26 +119,15 @@ export default function LeadSidebar({
       </div>
 
       {/* PIPELINE */}
-      <LeadStage selectedRow={selectedRow} />
+      <LeadStage selectedRow={selectedRow} vertical={true} />
 
-      {/* STATUS */}
-      <div className="leadSidebarOnHoldContainer">
-        <StatusBox
-          status={selectedRow.stage}
-          type={
-            selectedRow.is_cancelled || selectedRow.stage === "LOST"
-              ? "red"
-              : selectedRow.is_on_hold
-                ? "yellow"
-                : "green"
-          }
-        />
-
-        {selectedRow.is_on_hold && <StatusBox status="ON HOLD" type="yellow" />}
-        {selectedRow.is_cancelled && (
-          <StatusBox status="CANCELLED" type="red" />
-        )}
-      </div>
+      {/* NOTES */}
+      {selectedRow.notes && (
+        <CardLayout style="generalCard blueCard">
+          <p className="textBold textXS">Notes:</p>
+          <p className="textRegular textXXS">{selectedRow.notes}</p>
+        </CardLayout>
+      )}
 
       {/* HOLD REASON */}
       {selectedRow.hold_reason && (
@@ -190,6 +226,15 @@ export default function LeadSidebar({
           />
         )}
       </div>
+
+      {!isEditing && (
+        <Button
+          name="Edit"
+          icon={PencilSimpleLineIcon}
+          style="button buttonType4"
+          onClick={() => setIsEditing(!isEditing)}
+        />
+      )}
     </div>
   );
 }

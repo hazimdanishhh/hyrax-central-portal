@@ -50,7 +50,7 @@ import { getFilterConfig } from "./filterConfig";
 import { leadsTableConfig } from "./tableConfig";
 import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
 import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
-import { LEAD_ACTION_MODAL_CONFIG } from "../../../../../data/constants/leadActionModal";
+import { LEAD_ACTION_MODAL_CONFIG } from "./constants/leadActionModal";
 import {
   Link,
   NavLink,
@@ -85,6 +85,7 @@ export default function LeadsManagement() {
   const currentStage = searchParams.get("stage");
   const isCancelled = searchParams.get("cancelled") === "true";
   const isOnHold = searchParams.get("onHold") === "true";
+  const [isEditing, setIsEditing] = useState(false);
 
   // ==============
   // HOOKS
@@ -207,6 +208,7 @@ export default function LeadsManagement() {
   }
 
   function handleCloseSidebar() {
+    setIsEditing(false);
     navigate(`/app/sales/leads/list?${searchParams.toString()}`);
   }
 
@@ -359,6 +361,7 @@ export default function LeadsManagement() {
               icon: PlusCircleIcon,
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
+                setIsEditing(true);
               },
             }}
           />
@@ -383,7 +386,7 @@ export default function LeadsManagement() {
           error={error}
         />
 
-        <div className="stageTab">
+        <div className="stageTab scrollbar">
           {stageTabsConfig(currentStage, isCancelled, isOnHold).map((tab) => (
             <LeadStageTab
               key={tab.label}
@@ -421,6 +424,7 @@ export default function LeadsManagement() {
                   onClick={() => handleOpenSidebar(lead)}
                   saving={isSaving}
                   deleting={deleting}
+                  setIsEditing={() => setIsEditing(true)}
                 />
               ))}
             </CardLayout>
@@ -443,11 +447,14 @@ export default function LeadsManagement() {
             saving={isSaving}
             deleting={deleting}
             creating={!selectedRow?.id}
+            isEditing={isEditing}
           >
             {selectedRow?.id && (
               <LeadSidebar
                 selectedRow={selectedRow}
                 onRequestAction={handleRequestLeadAction}
+                isEditing={isEditing}
+                setIsEditing={setIsEditing}
               />
             )}
           </DataSidebar>
