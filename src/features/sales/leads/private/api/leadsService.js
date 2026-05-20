@@ -40,6 +40,15 @@ export async function fetchLeads({
   Object.entries(filters).forEach(([key, value]) => {
     if (value === undefined || value === "") return;
 
+    // DATE RANGE FILTERS
+    if (key === "startDate") {
+      query = query.gte("created_at", `${value}T00:00:00`);
+    }
+
+    if (key === "endDate") {
+      query = query.lte("created_at", `${value}T23:59:59`);
+    }
+
     const map = {
       client: "client_id",
       clientContact: "client_contact_id",

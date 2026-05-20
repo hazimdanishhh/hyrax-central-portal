@@ -3,7 +3,7 @@ import {
   WindowsLogoIcon,
   LinuxLogoIcon,
 } from "@phosphor-icons/react";
-import StatusBadge from "../../../../../components/status/statusBadge/StatusBadge";
+import StatusBadge from "../../../../../../components/status/statusBadge/StatusBadge";
 
 // key = actual database field name
 // label = UI name
@@ -28,6 +28,21 @@ export const leadsTableConfig = ({
     show: false,
   },
   {
+    key: "title",
+    label: "Title",
+    getValue: "title",
+    editable: true,
+    editor: "text",
+    required: true,
+  },
+  {
+    key: "description",
+    label: "Description",
+    getValue: "description",
+    editable: true,
+    editor: "textarea",
+  },
+  {
     key: "client_id",
     label: "Client",
     getValue: (lead) => lead.client?.id,
@@ -39,10 +54,12 @@ export const leadsTableConfig = ({
       value: s.id,
     })),
     required: true,
+    half: true,
+    isClearable: false,
   },
   {
     key: "client_contact_id",
-    label: "Client Contact",
+    label: "Contact",
     getValue: (lead) => lead.client_contact?.id,
     displayValue: (lead) => lead.client_contact?.full_name,
     // render: (value) => <StatusBadge status={value} />,
@@ -53,6 +70,8 @@ export const leadsTableConfig = ({
       value: s.id,
     })),
     required: true,
+    half: true,
+    isClearable: false,
   },
   {
     key: "lead_owner_id",
@@ -66,6 +85,7 @@ export const leadsTableConfig = ({
       value: s.id,
     })),
     required: true,
+    isClearable: false,
   },
   {
     key: "lead_source_type_id",
@@ -79,30 +99,18 @@ export const leadsTableConfig = ({
       value: s.id,
     })),
   },
-  {
-    key: "title",
-    label: "Title",
-    getValue: "title",
-    editable: true,
-    editor: "text",
-    required: true,
-  },
-  {
-    key: "description",
-    label: "Description",
-    getValue: "description",
-    editable: true,
-    editor: "text",
-  },
+
   {
     key: "close_probability",
-    label: "Close Probability (%)",
+    label: "Success (%)",
     getValue: "close_probability",
     editable: true,
     editor: "number",
     min: 0,
     max: 100,
     step: 1,
+    section: "Test",
+    half: true,
   },
   {
     key: "expected_revenue",
@@ -111,13 +119,16 @@ export const leadsTableConfig = ({
     editable: true,
     editor: "number",
     min: 1,
+    section: "Test",
+    half: true,
   },
   {
     key: "notes",
     label: "Notes",
     getValue: "notes",
     editable: true,
-    editor: "text",
+    editor: "textarea",
+    section: "Notes",
   },
   //   {
   //     key: "stage",

@@ -77,6 +77,8 @@
   border-radius: 0.5rem;
   position: relative;
   border: 1px solid $neutral300;
+  width: max-content;
+  height: fit-content;
 
   // Disabled
   &:disabled {
@@ -437,7 +439,8 @@
 
   &.active {
     border: 1px solid $primary;
-    color: $primary;
+    background-color: $primary;
+    color: $neutral100;
   }
 
   // RED

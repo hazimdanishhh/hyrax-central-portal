@@ -24,13 +24,15 @@ export default function TextareaEditor({
   };
 
   return (
-    <div>
+    <div className="editorContainer">
       <textarea
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         required={required}
         readOnly={readOnly}
+        style={{ resize: "none", height: "auto" }}
+        rows={4}
       />
       {value && (
         <Button

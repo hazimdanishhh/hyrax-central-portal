@@ -390,9 +390,10 @@ export default function EmployeeManagement() {
             deleting={deleting}
             creating={!selectedRow?.id}
             isEditing={isEditing}
+            onCancel={() => setIsEditing(false)}
           >
             {/* PICTURE */}
-            {selectedRow?.id && (
+            {selectedRow?.id && !isEditing && (
               <EmployeeSidebar
                 selectedRow={selectedRow}
                 isEditing={isEditing}

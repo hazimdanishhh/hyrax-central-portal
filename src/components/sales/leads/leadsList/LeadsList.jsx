@@ -2,6 +2,8 @@ import {
   BriefcaseIcon,
   CaretCircleRightIcon,
   CircleIcon,
+  ClockClockwiseIcon,
+  ClockIcon,
   NotePencilIcon,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
@@ -26,7 +28,6 @@ export default function LeadsList({
 }) {
   const [showName, setShowName] = useState(false);
 
-  console.log(lead);
   return (
     <motion.div
       className="generalCard cardPaddingMedium"
@@ -38,12 +39,18 @@ export default function LeadsList({
         <div className="leadsListHeaderWrapper">
           <div className="leadsListHeaderContainer">
             <div className="leadsListDateTimeContainer">
-              <p className="textRegular textXXS employeeListMobile">
-                {lead.created_date}
-              </p>
-              <p className="textLight textXXXS employeeListMobile">
-                {lead.created_time}
-              </p>
+              <IconCard
+                name={lead.created_at}
+                icon={ClockIcon}
+                style="textLight textXXXS cardStyle"
+                size={14}
+              />
+              <IconCard
+                name={lead.updated_at}
+                icon={ClockClockwiseIcon}
+                style="textLight textXXXS cardStyle"
+                size={14}
+              />
             </div>
 
             <LeadStage selectedRow={lead} list={true} />

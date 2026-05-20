@@ -30,7 +30,7 @@ export async function updateLead(updatedData) {
   const { id, ...rawFields } = updatedData;
 
   const fields = normalizeFields(rawFields);
-
+  console.log(fields);
   const { data, error } = await supabase
     .from("sales_leads")
     .update(fields)

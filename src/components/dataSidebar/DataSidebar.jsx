@@ -9,6 +9,7 @@ import CardLayout from "../cardLayout/CardLayout";
 import SectionHeader from "../sectionHeader/SectionHeader";
 import { motion } from "framer-motion";
 import { useMessage } from "../../context/MessageContext";
+import DataForm from "../crud/dataForm/DataForm";
 
 export default function DataSidebar({
   title,
@@ -25,72 +26,9 @@ export default function DataSidebar({
   deleting,
   cannotUpdate,
   isEditing = true,
+  onCancel,
 }) {
   const { darkMode } = useTheme();
-  const { showMessage } = useMessage();
-  const [localData, setLocalData] = useState({});
-  const prevIdRef = useRef(null);
-
-  // ==============
-  // SYNC ROW DATA WHEN OPENING
-  // ==============
-  useEffect(() => {
-    if (!open) return;
-
-    const currentId = rowData?.id ?? "new";
-
-    // only reinitialize when opening or switching record
-    if (prevIdRef.current === currentId) return;
-
-    prevIdRef.current = currentId;
-
-    const initial = {};
-    columns.forEach((col) => {
-      const rawValue =
-        typeof col.getValue === "function"
-          ? col.getValue(rowData)
-          : typeof col.getValue === "string"
-            ? rowData?.[col.getValue]
-            : typeof col.accessor === "function"
-              ? col.accessor(rowData)
-              : typeof col.accessor === "string"
-                ? rowData?.[col.accessor]
-                : "";
-
-      initial[col.key] = rawValue ?? "";
-    });
-
-    setLocalData(initial);
-  }, [open, rowData?.id]);
-
-  // ==============
-  // HANDLE CHANGE
-  // ==============
-  function handleChange(key, value) {
-    setLocalData((prev) => ({ ...prev, [key]: value }));
-  }
-
-  // ==============
-  // HANDLE SAVE
-  // ==============
-  function handleSave() {
-    for (const col of columns) {
-      if (col.required && !localData[col.key]) {
-        showMessage(`${col.label} is required`, "warning");
-        return;
-      }
-    }
-
-    onSave?.(localData);
-    // onClose?.();
-  }
-
-  // ==============
-  // HANDLE DELETE
-  // ==============
-  function handleDelete() {
-    onDelete?.(rowData);
-  }
 
   return (
     <motion.div
@@ -127,114 +65,21 @@ export default function DataSidebar({
             <Button icon={XIcon} style="iconButton" onClick={onClose} />
           </header>
 
-          {children}
-
           {isEditing && (
-            <form
-              className="dataSidebarContent"
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSave();
-              }}
-            >
-              {columns.map((col) => {
-                const Editor = editors[col.editor] ?? editors.text;
-                const value = localData[col.key];
-
-                if (col.show === false) return null;
-
-                if (!col.editable)
-                  return (
-                    <div key={col.key} className="dataSidebarField">
-                      <label
-                        className={
-                          col.required
-                            ? "textBold textXXS required"
-                            : "textBold textXXS"
-                        }
-                      >
-                        {col.label}
-                        <span className="dataSidebarRequired">
-                          {col.required && "*"}
-                        </span>
-                      </label>
-                      <Editor
-                        value={value}
-                        options={col.options}
-                        required={col.required}
-                        isSearchable={col.isSearchable}
-                        readOnly={true}
-                        min={col.min}
-                        max={col.max}
-                        step={col.step}
-                        isClearable={col.isClearable}
-                      />
-                    </div>
-                  );
-
-                return (
-                  <div key={col.key} className="dataSidebarField">
-                    <label
-                      className={
-                        col.required
-                          ? "textBold textXXS required"
-                          : "textBold textXXS"
-                      }
-                    >
-                      {col.label}
-                      <span className="dataSidebarRequired">
-                        {col.required && "*"}
-                      </span>
-                    </label>
-                    <Editor
-                      value={value}
-                      options={col.options}
-                      onChange={(v) => handleChange(col.key, v)}
-                      required={col.required}
-                      isSearchable={col.isSearchable}
-                      min={col.min}
-                      max={col.max}
-                      step={col.step}
-                      isClearable={col.isClearable}
-                    />
-                  </div>
-                );
-              })}
-
-              <footer
-                className={
-                  darkMode
-                    ? "sectionDark dataSidebarFooter"
-                    : "sectionLight dataSidebarFooter"
-                }
-              >
-                {!creating && (
-                  <Button
-                    name="Delete"
-                    icon={TrashSimpleIcon}
-                    style="button buttonType5 rejection textXXS textRegular"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    type="button"
-                    size="14"
-                    weight="bold"
-                  />
-                )}
-                {!cannotUpdate && (
-                  <Button
-                    name="Save"
-                    icon={CheckIcon}
-                    style="button buttonType5 approval textXXS textRegular"
-                    onClick={handleSave}
-                    type="submit"
-                    disabled={saving}
-                    size="14"
-                    weight="bold"
-                  />
-                )}
-              </footer>
-            </form>
+            <DataForm
+              columns={columns}
+              rowData={rowData}
+              onSave={onSave}
+              onDelete={onDelete}
+              onCancel={onCancel}
+              creating={creating}
+              saving={saving}
+              deleting={deleting}
+              cannotUpdate={cannotUpdate}
+            />
           )}
+
+          {children}
         </CardLayout>
       </motion.div>
     </motion.div>

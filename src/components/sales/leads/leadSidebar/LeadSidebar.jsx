@@ -12,8 +12,12 @@ import {
 import {
   BriefcaseIcon,
   CheckCircleIcon,
+  ClockClockwiseIcon,
+  ClockCounterClockwiseIcon,
+  ClockIcon,
   PauseCircleIcon,
   PencilSimpleLineIcon,
+  PencilSimpleSlashIcon,
   PlayCircleIcon,
   TextTIcon,
   UserCircleIcon,
@@ -21,6 +25,7 @@ import {
 } from "@phosphor-icons/react";
 import CardLayout from "../../../cardLayout/CardLayout";
 import IconCard from "../../../iconCard/IconCard";
+import RouterButton from "../../../buttons/routerButton/RouterButton";
 
 export default function LeadSidebar({
   selectedRow,
@@ -50,7 +55,38 @@ export default function LeadSidebar({
 
   return (
     <div className="leadSidebarContainer">
-      <div className="leadSidebarHeaderContainer">
+      {!isEditing ? (
+        <Button
+          name="Edit"
+          icon={PencilSimpleLineIcon}
+          style="button buttonType4 textXS"
+          size={16}
+          onClick={() => setIsEditing(!isEditing)}
+        />
+      ) : (
+        <Button
+          name="Cancel Edit"
+          icon={PencilSimpleSlashIcon}
+          onClick={() => setIsEditing(!isEditing)}
+          style="button buttonType4 textXS"
+          size={16}
+        />
+      )}
+
+      <div className="leadSidebarDateTimeContainer">
+        <IconCard
+          name={selectedRow.created_at}
+          icon={ClockIcon}
+          style="textLight textXXXS cardStyle"
+        />
+        <IconCard
+          name={selectedRow.updated_at}
+          icon={ClockClockwiseIcon}
+          style="textLight textXXXS cardStyle"
+        />
+      </div>
+
+      <div className="leadSidebarHeaderContainer cardStyle">
         <div className="leadSidebarDetails">
           {/* STATUS */}
           <div className="leadSidebarOnHoldContainer">
@@ -89,25 +125,18 @@ export default function LeadSidebar({
             style="textLight textXS"
           />
 
-          {selectedRow.close_probability && (
-            <p className="textLight textXXXS employeeListMobile cardStyle">
-              <span className="textRegular">Success Probability: </span>
-              {selectedRow.close_probability}%
-            </p>
-          )}
-          {selectedRow.expected_revenue && (
-            <p className="textLight textXXXS employeeListMobile cardStyle">
-              <span className="textRegular">Expected Revenue: </span>
-              RM{selectedRow.expected_revenue}
-            </p>
-          )}
+          <p className="textLight textXXXS employeeListMobile cardStyle">
+            <span className="textRegular">Success Probability: </span>
+            {selectedRow.close_probability}%
+          </p>
+          <p className="textLight textXXXS employeeListMobile cardStyle">
+            <span className="textRegular">Expected Revenue: </span>
+            RM{selectedRow.expected_revenue}
+          </p>
         </div>
 
-        <div className="leadSidebarDateTimeContainer">
-          <p className="textRegular textXXS">{selectedRow.created_date}</p>
-
-          <p className="textLight textXXS">{selectedRow.created_time}</p>
-
+        {/* DATE TIME / IMAGE / HISTORY BUTTON */}
+        <div className="leadSidebarImageContainer">
           <EmployeeImage
             employee={selectedRow.lead_owner}
             employeeId={selectedRow.lead_owner?.id}
@@ -115,6 +144,12 @@ export default function LeadSidebar({
             setShowName={setShowName}
             position="left"
           />
+
+          {/* <RouterButton
+            name="History"
+            icon={ClockCounterClockwiseIcon}
+            style="button buttonType5 textXXXS"
+          /> */}
         </div>
       </div>
 
@@ -226,15 +261,6 @@ export default function LeadSidebar({
           />
         )}
       </div>
-
-      {!isEditing && (
-        <Button
-          name="Edit"
-          icon={PencilSimpleLineIcon}
-          style="button buttonType4"
-          onClick={() => setIsEditing(!isEditing)}
-        />
-      )}
     </div>
   );
 }

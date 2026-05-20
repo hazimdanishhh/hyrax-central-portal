@@ -49,7 +49,10 @@ export const itAssetTableConfig = ({
     getValue: "id",
     editable: false,
     editor: "text",
+    show: false,
   },
+
+  // BASIC INFORMATION
   {
     key: "asset_name",
     label: "Asset Name",
@@ -107,6 +110,21 @@ export const itAssetTableConfig = ({
     isSearchable: false,
   },
   {
+    key: "asset_condition_id",
+    label: "Condition",
+    getValue: (asset) => asset.asset_condition?.id,
+    displayValue: (asset) => asset.asset_condition?.name,
+    editable: true,
+    editor: "select",
+    options: conditions.map((c) => ({
+      label: c.name,
+      value: c.id,
+    })),
+    isSearchable: false,
+  },
+
+  // ASSIGNMENT & ORGANIZATION
+  {
     key: "asset_user_id",
     label: "Assigned To",
     getValue: (asset) => asset.asset_user?.id,
@@ -117,6 +135,43 @@ export const itAssetTableConfig = ({
       label: e.full_name,
       value: e.id,
     })),
+    section: "Assignment & Organization",
+  },
+  {
+    key: "asset_department_id",
+    label: "Department",
+    getValue: (asset) => asset.asset_department?.id,
+    displayValue: (asset) => asset.asset_department?.name,
+    editable: true,
+    editor: "select",
+    options: departments.map((d) => ({
+      label: d.name,
+      value: d.id,
+    })),
+    section: "Assignment & Organization",
+  },
+  {
+    key: "asset_location_id",
+    label: "Location",
+    getValue: (asset) => asset.location?.name,
+    editable: true,
+    editor: "text",
+    section: "Assignment & Organization",
+  },
+
+  // OPERATING SYSTEM & MDM
+  {
+    key: "operating_system_id",
+    label: "Operating System",
+    getValue: (asset) => asset.operating_system?.id,
+    displayValue: (asset) => asset.operating_system?.name,
+    editable: true,
+    editor: "select",
+    options: operatingSystems.map((o) => ({
+      label: o.name,
+      value: o.id,
+    })),
+    section: "Operating System & MDM",
   },
   {
     key: "mdm_status",
@@ -139,6 +194,7 @@ export const itAssetTableConfig = ({
         value: "Retired",
       },
     ],
+    section: "Operating System & MDM",
   },
   {
     key: "mdm_link",
@@ -146,14 +202,18 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.mdm_link,
     editable: true,
     editor: "link",
+    section: "Operating System & MDM",
   },
   {
-    key: "serial_number",
-    label: "Serial Number",
-    getValue: "serial_number",
+    key: "product_key",
+    label: "Product Key",
+    getValue: (asset) => asset.product_key,
     editable: true,
     editor: "text",
+    section: "Operating System & MDM",
   },
+
+  // DEVICE & HARDWARE
   {
     key: "asset_manufacturer_id",
     label: "Manufacturer",
@@ -165,6 +225,7 @@ export const itAssetTableConfig = ({
       label: m.name,
       value: m.id,
     })),
+    section: "Device & Hardware",
   },
   {
     key: "asset_model",
@@ -172,25 +233,15 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.asset_model,
     editable: true,
     editor: "text",
+    section: "Device & Hardware",
   },
   {
-    key: "operating_system_id",
-    label: "Operating System",
-    getValue: (asset) => asset.operating_system?.id,
-    displayValue: (asset) => asset.operating_system?.name,
-    editable: true,
-    editor: "select",
-    options: operatingSystems.map((o) => ({
-      label: o.name,
-      value: o.id,
-    })),
-  },
-  {
-    key: "product_key",
-    label: "Product Key",
-    getValue: (asset) => asset.product_key,
+    key: "serial_number",
+    label: "Serial Number",
+    getValue: "serial_number",
     editable: true,
     editor: "text",
+    section: "Device & Hardware",
   },
   {
     key: "mac_address",
@@ -198,6 +249,7 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.mac_address,
     editable: true,
     editor: "text",
+    section: "Device & Hardware",
   },
   {
     key: "management_ip",
@@ -205,45 +257,17 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.management_ip,
     editable: true,
     editor: "text",
+    section: "Device & Hardware",
   },
-  {
-    key: "asset_condition_id",
-    label: "Condition",
-    getValue: (asset) => asset.asset_condition?.id,
-    displayValue: (asset) => asset.asset_condition?.name,
-    editable: true,
-    editor: "select",
-    options: conditions.map((c) => ({
-      label: c.name,
-      value: c.id,
-    })),
-    isSearchable: false,
-  },
-  {
-    key: "asset_location_id",
-    label: "Location",
-    getValue: (asset) => asset.location?.name,
-    editable: true,
-    editor: "text",
-  },
-  {
-    key: "asset_department_id",
-    label: "Department",
-    getValue: (asset) => asset.asset_department?.id,
-    displayValue: (asset) => asset.asset_department?.name,
-    editable: true,
-    editor: "select",
-    options: departments.map((d) => ({
-      label: d.name,
-      value: d.id,
-    })),
-  },
+
+  // PROCUREMENT & FINANCIAL
   {
     key: "purchase_date",
     label: "Purchase Date",
     getValue: (asset) => asset.purchase_date,
     editable: true,
     editor: "date",
+    section: "Procurement & Financial",
   },
   {
     key: "purchase_cost",
@@ -251,6 +275,7 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.purchase_cost,
     editable: true,
     editor: "number",
+    section: "Procurement & Financial",
   },
   {
     key: "vendor_id",
@@ -258,6 +283,7 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.vendor?.name,
     editable: true,
     editor: "text",
+    section: "Procurement & Financial",
   },
   {
     key: "purchase_order",
@@ -265,6 +291,7 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.purchase_order,
     editable: true,
     editor: "text",
+    section: "Procurement & Financial",
   },
   {
     key: "warranty_expiry",
@@ -272,6 +299,7 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.warranty_expiry,
     editable: true,
     editor: "date",
+    section: "Procurement & Financial",
   },
   {
     key: "retire_date",
@@ -279,12 +307,16 @@ export const itAssetTableConfig = ({
     getValue: (asset) => asset.retire_date,
     editable: true,
     editor: "date",
+    section: "Procurement & Financial",
   },
+
+  // ADDITIONAL INFORMATION
   {
     key: "notes",
     label: "Notes",
     getValue: (asset) => asset.notes,
     editable: true,
-    editor: "text",
+    editor: "textarea",
+    section: "Additional Information",
   },
 ];

@@ -1,12 +1,12 @@
 import "./IconCard.scss";
 
-function IconCard({ name, icon, style, size }) {
+function IconCard({ name, icon, style, size, weight }) {
   const Icon = icon;
 
   return (
-    <div className="iconCardContainer">
-      {icon && <Icon size={size ? size : 16} />}
-      <p className={style}>{name}</p>
+    <div className={`iconCardContainer ${style}`}>
+      {icon && <Icon size={size ? size : 16} weight={weight} />}
+      <span>{name}</span>
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { supabase } from "../../../../../lib/supabaseClient";
+
 /**
  * Fetch a single lead by ID
  */

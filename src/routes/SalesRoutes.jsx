@@ -1,11 +1,14 @@
 import { Navigate, Route } from "react-router-dom";
-import Clients from "../pages/user/sales/clients/Clients";
 import Quotations from "../pages/user/sales/quotations/Quotations";
 import Reports from "../pages/user/sales/reports/Reports";
 import AccessRoute from "./AccessRoute";
 import LeadsManagement from "../pages/user/sales/leads/list/LeadsManagement";
 import LeadsPageLayout from "../pages/user/sales/leads/LeadsPageLayout";
 import LeadsOverview from "../pages/user/sales/leads/overview/LeadsOverview";
+import ClientsPageLayout from "../pages/user/sales/clients/ClientsPageLayout";
+import ClientsOverview from "../pages/user/sales/clients/overview/ClientsOverview";
+import ClientsManagement from "../pages/user/sales/clients/list/ClientsManagement";
+import ContactsManagement from "../pages/user/sales/clients/contacts/ContactsManagement";
 
 export default (
   <Route path="sales">
@@ -21,6 +24,48 @@ export default (
         </AccessRoute>
       }
     />
+
+    {/* CLIENTS */}
+    <Route
+      path="clients"
+      element={
+        <AccessRoute departments={["SAL"]}>
+          <ClientsPageLayout />
+        </AccessRoute>
+      }
+    >
+      <Route index element={<Navigate to="overview" replace />} />
+      <Route
+        path="overview"
+        element={
+          <AccessRoute departments={["SAL"]}>
+            <ClientsOverview />
+          </AccessRoute>
+        }
+      />
+
+      <Route
+        path="list"
+        element={
+          <AccessRoute departments={["SAL"]}>
+            <ClientsManagement />
+          </AccessRoute>
+        }
+      >
+        <Route path=":clientId" element={null} />
+      </Route>
+
+      <Route
+        path="contacts"
+        element={
+          <AccessRoute departments={["SAL"]}>
+            <ContactsManagement />
+          </AccessRoute>
+        }
+      >
+        <Route path=":contactId" element={null} />
+      </Route>
+    </Route>
 
     {/* OPPORTUNITIES */}
     <Route
@@ -52,16 +97,6 @@ export default (
         <Route path=":leadId" element={null} />
       </Route>
     </Route>
-
-    {/* CLIENTS */}
-    <Route
-      path="clients"
-      element={
-        <AccessRoute departments={["SAL"]} roles={["manager"]}>
-          <Clients />
-        </AccessRoute>
-      }
-    />
 
     {/* QUOTATIONS */}
     <Route

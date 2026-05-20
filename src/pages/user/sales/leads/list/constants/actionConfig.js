@@ -1,4 +1,4 @@
-export const LEAD_ACTION_MODAL_CONFIG = {
+export const getActionConfig = {
   save: {
     title: "Save Lead",
     description: "Are you sure you want to save these changes?",

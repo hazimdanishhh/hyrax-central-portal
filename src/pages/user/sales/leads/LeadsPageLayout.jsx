@@ -4,9 +4,11 @@ import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import { ChartLineIcon, HandshakeIcon, ListIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { Link, NavLink, Outlet } from "react-router";
+import { useEmployee } from "../../../../context/EmployeeContext";
 
-export default function ITAssetsPageLayout() {
+export default function LeadsPageLayout() {
   const { darkMode } = useTheme();
+  const { employee } = useEmployee();
 
   return (
     <>
@@ -45,36 +47,6 @@ export default function ITAssetsPageLayout() {
                     <ListIcon size={15} />
                   </div>
                   All Leads
-                </NavLink>
-
-                {/* MY LEADS */}
-                <NavLink
-                  to="/app/sales/leads/list"
-                  className={({ isActive }) =>
-                    `button buttonTypeTab textRegular textXS ${
-                      isActive ? "active" : ""
-                    }`
-                  }
-                >
-                  <div className="pageTabIcon">
-                    <ListIcon size={15} />
-                  </div>
-                  My Leads
-                </NavLink>
-
-                {/* APPROVALS */}
-                <NavLink
-                  to="/app/sales/leads/list"
-                  className={({ isActive }) =>
-                    `button buttonTypeTab textRegular textXS ${
-                      isActive ? "active" : ""
-                    }`
-                  }
-                >
-                  <div className="pageTabIcon">
-                    <ListIcon size={15} />
-                  </div>
-                  Approvals
                 </NavLink>
               </div>
               <Outlet />

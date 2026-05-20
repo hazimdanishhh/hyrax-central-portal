@@ -4,6 +4,10 @@ export const getSortConfig = () => [
     value: "created_at",
   },
   {
+    label: "Updated Date",
+    value: "updated_at",
+  },
+  {
     label: "Stage",
     value: "stage",
   },

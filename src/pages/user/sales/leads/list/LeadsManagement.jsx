@@ -12,14 +12,13 @@ import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import { useTheme } from "../../../../../context/ThemeContext";
 import "./LeadsManagement.scss";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
-import ITAssetList from "../../../../../components/itAsset/itAssetList/ITAssetList";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import PageTab from "../../../../../components/navigation/pageTab/PageTab";
@@ -44,13 +43,13 @@ import {
 import { fetchLeads } from "../../../../../features/sales/leads/private/api/leadsService";
 import { useLeadsMetadata } from "../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
 import useLeadMutations from "../../../../../features/sales/leads/private/hooks/useLeadMutations";
-import { getLayoutConfig } from "./layoutConfig";
-import { getSortConfig } from "./sortConfig";
-import { getFilterConfig } from "./filterConfig";
-import { leadsTableConfig } from "./tableConfig";
+import { getLayoutConfig } from "./constants/layoutConfig";
+import { getSortConfig } from "./constants/sortConfig";
+import { getFilterConfig } from "./constants/filterConfig";
+import { leadsTableConfig } from "./constants/tableConfig";
 import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
 import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
-import { LEAD_ACTION_MODAL_CONFIG } from "./constants/leadActionModal";
+import { getActionConfig } from "./constants/actionConfig";
 import {
   Link,
   NavLink,
@@ -60,8 +59,9 @@ import {
 } from "react-router";
 import { useEmployee } from "../../../../../context/EmployeeContext";
 import LeadStageTab from "../../../../../components/sales/leads/leadStageTab/LeadStageTab";
-import { stageTabsConfig } from "./tabConfig";
+import { stageTabsConfig } from "./constants/tabConfig";
 import { useLead } from "../../../../../features/sales/leads/private/hooks/useLead";
+import PageActions from "../../../../../components/crud/pageActions/PageActions";
 
 /**
  * SALES Leads Management Page
@@ -85,7 +85,17 @@ export default function LeadsManagement() {
   const currentStage = searchParams.get("stage");
   const isCancelled = searchParams.get("cancelled") === "true";
   const isOnHold = searchParams.get("onHold") === "true";
-  const [isEditing, setIsEditing] = useState(false);
+  const isCreating = leadId === "new";
+
+  const [isEditing, setIsEditing] = useState(isCreating);
+
+  useEffect(() => {
+    if (isCreating) {
+      setIsEditing(true);
+    } else {
+      setIsEditing(false);
+    }
+  }, [isCreating]);
 
   // ==============
   // HOOKS
@@ -116,7 +126,7 @@ export default function LeadsManagement() {
     queryKey: "sales_leads",
     queryFn: fetchLeads,
     pageSize: 20,
-    defaultSortBy: "created_at",
+    defaultSortBy: "updated_at",
     defaultSortOrder: "descending",
   });
   const { data: fetchedLead, isLoading: isLeadLoading } = useLead(leadId);
@@ -168,7 +178,7 @@ export default function LeadsManagement() {
   // ==============
   const layoutOptions = getLayoutConfig();
   const sortOptions = getSortConfig();
-  const modalConfig = LEAD_ACTION_MODAL_CONFIG[modalType] || {};
+  const modalConfig = getActionConfig[modalType] || {};
 
   // ==============
   // DATA LOADING
@@ -234,7 +244,7 @@ export default function LeadsManagement() {
   // ==============
   // STAGE CHANGE ACTION
   // ==============
-  function handleRequestLeadAction(action) {
+  function handleRequestAction(action) {
     setPendingAction(action);
     setModalType(action.type);
     setModalOpen(true);
@@ -288,13 +298,25 @@ export default function LeadsManagement() {
         if (isHoldAction) payloadToSubmit.hold_reason = reason;
         if (isLostAction) payloadToSubmit.lose_reason = reason;
 
-        // Clear the reason if they are reverting the state
+        // =========================
+        // CLEAR HOLD STATE
+        // =========================
         if (
           pendingAction.type === "toggle_hold" &&
           !pendingAction.payload.is_on_hold
         ) {
           payloadToSubmit.hold_reason = null;
         }
+
+        // Cancel action should also remove hold state
+        if (pendingAction.type === "cancel") {
+          payloadToSubmit.is_on_hold = false;
+          payloadToSubmit.hold_reason = null;
+        }
+
+        // =========================
+        // CLEAR LOST REASON
+        // =========================
         if (
           pendingAction.type === "stage_change" &&
           pendingAction.payload.stage !== "LOST"
@@ -326,111 +348,119 @@ export default function LeadsManagement() {
 
   return (
     <>
-      {/* TABLE LIST TAB */}
-      <>
-        {/* SEARCH AND FILTER BAR */}
-        <SearchFilterBar
+      {/* SEARCH AND FILTER BAR */}
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search leads..."
+        enableDateRange
+      />
+
+      {/* ACTIVE FILTERS */}
+      {hasActiveFilters && (
+        <ActiveFiltersBar
           search={search}
-          onSearchChange={setSearch}
-          filters={filters}
-          onFilterChange={setFilters}
+          setSearch={setSearch}
+          filters={activeFilters}
+          setFilters={setFilters}
           filterConfig={filterConfig}
-          placeholder="Search assets..."
+          resetParams={resetParams}
         />
+      )}
 
-        {/* ACTIVE FILTERS */}
-        {hasActiveFilters && (
-          <ActiveFiltersBar
-            search={search}
-            setSearch={setSearch}
-            filters={activeFilters}
-            setFilters={setFilters}
-            filterConfig={filterConfig}
-            resetParams={resetParams}
-          />
-        )}
-
-        <PageHeader>
-          {/* LAYOUT UI + ACTION BUTTONS */}
-          <PageLayout
-            layout={layout}
-            setLayout={setLayout}
-            options={layoutOptions}
-            addButton={{
-              name: "Add Lead",
+      <PageHeader>
+        {/* LAYOUT UI + ACTION BUTTONS */}
+        <PageActions
+          layout={layout}
+          setLayout={setLayout}
+          options={layoutOptions}
+          actionButtons={[
+            {
               icon: PlusCircleIcon,
+              name: "Add Lead",
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
-                setIsEditing(true);
               },
-            }}
-          />
-
-          {/* SORTING ACTIONS */}
-          <SortBar
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortOptions={sortOptions}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-          />
-        </PageHeader>
-
-        {/* RESULT NUMBER + NEXT AND PREVIOUS BUTTONS */}
-        <PageResult
-          data={leads}
-          totalCount={totalCount}
-          page={page}
-          setPage={setPage}
-          totalPages={totalPages}
-          error={error}
+            },
+            {
+              icon: PlusCircleIcon,
+              name: "Add Client",
+              onClick: () => {
+                navigate(`../../clients/list/new`);
+              },
+            },
+          ]}
         />
 
-        <div className="stageTab scrollbar">
-          {stageTabsConfig(currentStage, isCancelled, isOnHold).map((tab) => (
-            <LeadStageTab
-              key={tab.label}
-              to={tab.to}
-              label={tab.label}
-              themeType={tab.themeType}
-              isActive={tab.isActive}
-            />
-          ))}
-        </div>
+        {/* SORTING ACTIONS */}
+        <SortBar
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOptions={sortOptions}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+        />
+      </PageHeader>
 
-        {/* TABLE DISPLAY UI */}
-        <CardLayout style="cardWrapperScroll generalCard">
-          {isLoading || isFetching ? (
-            <CardLayout style="cardLayoutFlexFull">
-              <LoadingIcon />
-            </CardLayout>
-          ) : !hasData || error ? (
-            <NoResult />
-          ) : layout === 1 ? (
-            // TABLE LAYOUT
-            <DataTable
-              data={leads}
-              columns={columns}
-              rowKey="id"
-              onRowClick={handleOpenSidebar}
-            />
-          ) : (
-            // LIST LAYOUT
-            <CardLayout style="cardLayout2 cardPaddingSmall cardGapSmall">
-              {leads.map((lead) => (
-                <LeadsList
-                  key={lead.id}
-                  lead={lead}
-                  onClick={() => handleOpenSidebar(lead)}
-                  saving={isSaving}
-                  deleting={deleting}
-                  setIsEditing={() => setIsEditing(true)}
-                />
-              ))}
-            </CardLayout>
-          )}
-        </CardLayout>
-      </>
+      {/* RESULT NUMBER + NEXT AND PREVIOUS BUTTONS */}
+      <PageResult
+        data={leads}
+        totalCount={totalCount}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+        error={error}
+      />
+
+      <div className="stageTab scrollbar">
+        {stageTabsConfig(currentStage, isCancelled, isOnHold).map((tab) => (
+          <LeadStageTab
+            key={tab.label}
+            to={tab.to}
+            label={tab.label}
+            themeType={tab.themeType}
+            isActive={tab.isActive}
+          />
+        ))}
+      </div>
+
+      {/* TABLE DISPLAY UI */}
+      <CardLayout style="cardWrapperScroll generalCard">
+        {isLoading || isFetching ? (
+          <CardLayout style="cardLayoutFlexFull">
+            <LoadingIcon />
+          </CardLayout>
+        ) : !hasData ? (
+          <NoResult />
+        ) : error ? (
+          <NoResult title="Error loading results" />
+        ) : layout === 1 ? (
+          // TABLE LAYOUT
+          <DataTable
+            data={leads}
+            columns={columns}
+            rowKey="id"
+            onRowClick={handleOpenSidebar}
+          />
+        ) : (
+          // LIST LAYOUT
+          <CardLayout style="cardLayout2 cardPaddingSmall cardGapSmall">
+            {leads.map((lead) => (
+              <LeadsList
+                key={lead.id}
+                lead={lead}
+                onClick={() => handleOpenSidebar(lead)}
+                saving={isSaving}
+                deleting={deleting}
+                setIsEditing={() => setIsEditing(true)}
+              />
+            ))}
+          </CardLayout>
+        )}
+      </CardLayout>
 
       {/* DATA SIDEBAR */}
       <AnimatePresence>
@@ -448,11 +478,12 @@ export default function LeadsManagement() {
             deleting={deleting}
             creating={!selectedRow?.id}
             isEditing={isEditing}
+            onCancel={() => setIsEditing(false)}
           >
-            {selectedRow?.id && (
+            {selectedRow?.id && !isEditing && (
               <LeadSidebar
                 selectedRow={selectedRow}
-                onRequestAction={handleRequestLeadAction}
+                onRequestAction={handleRequestAction}
                 isEditing={isEditing}
                 setIsEditing={setIsEditing}
               />

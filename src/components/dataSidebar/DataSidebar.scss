@@ -49,29 +49,82 @@
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-  padding: 0.8rem;
+  padding: 0 0.8rem;
   padding-bottom: 0;
-}
+  width: 100%;
 
-.dataSidebarField {
-  display: flex;
-  gap: 0.3rem;
+  &.inlineForm {
+    padding: 0.2rem;
+    border: 1px solid $neutral500;
+    border-radius: 0.8rem;
 
-  @media screen and (max-width: 768px) {
-    flex-direction: column;
-  }
-
-  label {
-    text-align: start;
-    width: 20%;
-
-    @media screen and (max-width: 768px) {
-      width: 100%;
+    .dataSidebarSection {
+      gap: 0.4rem;
     }
   }
+}
 
-  .dataSidebarRequired {
-    color: $error600;
+// SECTION
+.dataSidebarSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+
+  // SECTION HEADER
+  .dataSidebarSectionHeader {
+    display: flex;
+    width: 100%;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid $neutral500;
+  }
+
+  // FIELDS SECTION
+  .dataSidebarSectionFields {
+    display: flex;
+    justify-content: space-between;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+
+    @media screen and (max-width: 768px) {
+      flex-direction: column;
+    }
+
+    // INDIVIDUAL FIELD
+    .dataSidebarField {
+      display: flex;
+      gap: 0.3rem;
+      width: 100%;
+
+      &.half {
+        width: 48%;
+
+        @media screen and (max-width: 768px) {
+          width: 100%;
+          flex-direction: column;
+        }
+      }
+
+      @media screen and (max-width: 768px) {
+        flex-direction: column;
+      }
+
+      label {
+        text-align: start;
+        min-width: 100px;
+        max-width: 100px;
+
+        @media screen and (max-width: 768px) {
+          min-width: 100%;
+          max-width: 100%;
+        }
+      }
+
+      .dataSidebarRequired {
+        color: $error600;
+      }
+    }
   }
 }
 

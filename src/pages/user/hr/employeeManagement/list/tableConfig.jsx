@@ -25,6 +25,7 @@ export const employeesTableConfig = ({
     editor: "text",
     show: false,
   },
+  // SYSTEM SETTINGS
   {
     key: "profile_id",
     label: "Profile",
@@ -35,6 +36,93 @@ export const employeesTableConfig = ({
       label: p.email,
       value: p.id,
     })),
+    section: "System Settings",
+  },
+
+  // PERSONAL INFORMATION
+  {
+    key: "full_name",
+    label: "Full Name",
+    getValue: (employee) => employee.full_name,
+    editable: true,
+    editor: "text",
+    required: true,
+    section: "Personal Information",
+  },
+  {
+    key: "preferred_name",
+    label: "Preferred Name",
+    getValue: (employee) => employee.preferred_name,
+    editable: true,
+    editor: "text",
+    section: "Personal Information",
+  },
+  {
+    key: "date_of_birth",
+    label: "Date of Birth",
+    getValue: (employee) => employee.date_of_birth,
+    editable: true,
+    editor: "date",
+    section: "Personal Information",
+    half: true,
+  },
+  {
+    key: "gender",
+    label: "Gender",
+    getValue: (employee) => employee.gender,
+    editable: true,
+    editor: "select",
+    options: [
+      {
+        label: "Male",
+        value: "Male",
+      },
+      {
+        label: "Female",
+        value: "Female",
+      },
+      { label: "Not Specified", value: "Not Specified" },
+    ],
+    isSearchable: false,
+    section: "Personal Information",
+    half: true,
+  },
+  {
+    key: "nationality_id",
+    label: "Nationality",
+    getValue: (employee) => employee.nationality?.id,
+    displayValue: (employee) => employee.nationality?.name,
+    editable: true,
+    editor: "select",
+    options: nationalities.map((n) => ({
+      label: n.name,
+      value: n.id,
+    })),
+    section: "Personal Information",
+  },
+  {
+    key: "identification_type_id",
+    label: "Identification Type",
+    getValue: (employee) => employee.identification_type?.id,
+    displayValue: (employee) => employee.identification_type?.name,
+    editable: true,
+    editor: "select",
+    options: identificationTypes.map((i) => ({
+      label: i.name,
+      value: i.id,
+    })),
+    isSearchable: false,
+    section: "Personal Information",
+    half: true,
+  },
+  {
+    key: "identification_number",
+    label: "Identification Number",
+    getValue: (employee) => employee.identification_number,
+    editable: true,
+    editor: "text",
+    section: "Personal Information",
+    half: true,
   },
   {
     key: "marital_status",
@@ -62,94 +150,18 @@ export const employeesTableConfig = ({
       },
     ],
     isSearchable: false,
-  },
-  {
-    key: "employee_id",
-    label: "Employee ID",
-    getValue: (employee) => employee.employee_id,
-    editable: true,
-    editor: "text",
-  },
-  {
-    key: "full_name",
-    label: "Full Name",
-    getValue: (employee) => employee.full_name,
-    editable: true,
-    editor: "text",
-    required: true,
-  },
-  {
-    key: "preferred_name",
-    label: "Preferred Name",
-    getValue: (employee) => employee.preferred_name,
-    editable: true,
-    editor: "text",
-  },
-  {
-    key: "date_of_birth",
-    label: "Date of Birth",
-    getValue: (employee) => employee.date_of_birth,
-    editable: true,
-    editor: "date",
-  },
-  {
-    key: "gender",
-    label: "Gender",
-    getValue: (employee) => employee.gender,
-    editable: true,
-    editor: "select",
-    options: [
-      {
-        label: "Male",
-        value: "Male",
-      },
-      {
-        label: "Female",
-        value: "Female",
-      },
-      { label: "Not Specified", value: "Not Specified" },
-    ],
-    isSearchable: false,
+    section: "Personal Information",
   },
 
-  {
-    key: "nationality_id",
-    label: "Nationality",
-    getValue: (employee) => employee.nationality?.id,
-    displayValue: (employee) => employee.nationality?.name,
-    editable: true,
-    editor: "select",
-    options: nationalities.map((n) => ({
-      label: n.name,
-      value: n.id,
-    })),
-  },
-  {
-    key: "identification_type_id",
-    label: "Identification Type",
-    getValue: (employee) => employee.identification_type?.id,
-    displayValue: (employee) => employee.identification_type?.name,
-    editable: true,
-    editor: "select",
-    options: identificationTypes.map((i) => ({
-      label: i.name,
-      value: i.id,
-    })),
-    isSearchable: false,
-  },
-  {
-    key: "identification_number",
-    label: "Identification Number",
-    getValue: (employee) => employee.identification_number,
-    editable: true,
-    editor: "text",
-  },
+  // CONTACT INFORMATION
   {
     key: "email_personal",
     label: "Email (Personal)",
     getValue: (employee) => employee.email_personal,
     editable: true,
     editor: "text",
+    section: "Contact Information",
+    half: true,
   },
   {
     key: "email_work",
@@ -157,6 +169,8 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.email_work,
     editable: true,
     editor: "text",
+    section: "Contact Information",
+    half: true,
   },
   {
     key: "phone_personal",
@@ -164,6 +178,8 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.phone_personal,
     editable: true,
     editor: "number",
+    section: "Contact Information",
+    half: true,
   },
   {
     key: "phone_work",
@@ -171,6 +187,8 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.phone_work,
     editable: true,
     editor: "number",
+    section: "Contact Information",
+    half: true,
   },
   {
     key: "emergency_contact_name",
@@ -178,6 +196,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.emergency_contact_name,
     editable: true,
     editor: "text",
+    section: "Contact Information",
   },
   {
     key: "emergency_contact_relationship",
@@ -200,6 +219,7 @@ export const employeesTableConfig = ({
       { label: "Other", value: "Other" },
     ],
     isSearchable: false,
+    section: "Contact Information",
   },
   {
     key: "emergency_contact_phone",
@@ -207,6 +227,17 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.emergency_contact_phone,
     editable: true,
     editor: "number",
+    section: "Contact Information",
+  },
+
+  // EMPLOYMENT DETAILS
+  {
+    key: "employee_id",
+    label: "Employee ID",
+    getValue: (employee) => employee.employee_id,
+    editable: true,
+    editor: "text",
+    section: "Personal Information",
   },
   {
     key: "department_id",
@@ -219,6 +250,7 @@ export const employeesTableConfig = ({
       label: d.name,
       value: d.id,
     })),
+    section: "Employment Details",
   },
   {
     key: "position",
@@ -226,18 +258,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.position,
     editable: true,
     editor: "text",
-  },
-  {
-    key: "manager_id",
-    label: "Manager",
-    getValue: (employee) => employee.manager?.id,
-    displayValue: (employee) => employee.manager?.full_name,
-    editable: true,
-    editor: "select",
-    options: managers.map((m) => ({
-      label: m.full_name,
-      value: m.id,
-    })),
+    section: "Employment Details",
   },
   {
     key: "employment_status_id",
@@ -252,6 +273,8 @@ export const employeesTableConfig = ({
     })),
     required: true,
     isSearchable: false,
+    section: "Employment Details",
+    half: true,
   },
   {
     key: "employment_type_id",
@@ -265,6 +288,8 @@ export const employeesTableConfig = ({
       value: e.id,
     })),
     isSearchable: false,
+    section: "Employment Details",
+    half: true,
   },
   {
     key: "join_date",
@@ -272,6 +297,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.join_date,
     editable: true,
     editor: "date",
+    section: "Employment Details",
   },
   {
     key: "confirmation_date",
@@ -279,6 +305,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.confirmation_date,
     editable: true,
     editor: "date",
+    section: "Employment Details",
   },
   {
     key: "end_date",
@@ -286,6 +313,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.end_date,
     editable: true,
     editor: "date",
+    section: "Employment Details",
   },
   {
     key: "resignation_date",
@@ -293,6 +321,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.resignation_date,
     editable: true,
     editor: "date",
+    section: "Employment Details",
   },
   {
     key: "termination_reason_id",
@@ -306,13 +335,32 @@ export const employeesTableConfig = ({
       value: t.id,
     })),
     isSearchable: false,
+    section: "Employment Details",
   },
+
+  // REPORTING MANAGER
+  {
+    key: "manager_id",
+    label: "Manager",
+    getValue: (employee) => employee.manager?.id,
+    displayValue: (employee) => employee.manager?.full_name,
+    editable: true,
+    editor: "select",
+    options: managers.map((m) => ({
+      label: m.full_name,
+      value: m.id,
+    })),
+    section: "Reporting Manager",
+  },
+
+  // ADDRESS INFORMATION
   {
     key: "address_work",
     label: "Address (Work)",
     getValue: (employee) => employee.address_work,
     editable: true,
     editor: "text",
+    section: "Address Information",
   },
   {
     key: "address_personal",
@@ -320,5 +368,6 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.address_personal,
     editable: true,
     editor: "text",
+    section: "Address Information",
   },
 ];

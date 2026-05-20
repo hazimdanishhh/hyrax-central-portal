@@ -1,0 +1,26 @@
+.clientSidebarContainer {
+  display: flex;
+  flex-direction: column;
+  padding: 0.8rem;
+  padding-top: 0;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  gap: 0.8rem;
+  text-align: start;
+
+  .clientSidebarDetailsContainer {
+    display: flex;
+    width: 100%;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .clientSidebarTabContainer {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    width: 100%;
+    gap: 0.4rem;
+  }
+}

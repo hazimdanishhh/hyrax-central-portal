@@ -4,7 +4,7 @@ export async function fetchEmployeesPublicMetadata() {
   const [managers, departments, nationalities, employmentTypes] =
     await Promise.all([
       supabase
-        .from("employees")
+        .from("employees_public")
         .select("id, full_name, employee_id")
         .order("full_name"),
       supabase.from("departments").select("*").order("name"),

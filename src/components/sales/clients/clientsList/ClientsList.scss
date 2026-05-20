@@ -1,0 +1,20 @@
+.clientsListContainer {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  cursor: pointer;
+
+  .clientsListHeader {
+    display: flex;
+    gap: 0.8rem;
+  }
+
+  .clientsListStatusContainer {
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    gap: 0.8rem;
+  }
+}
