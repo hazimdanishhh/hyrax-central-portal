@@ -41,14 +41,14 @@ export const getTableConfig = ({ industries }) => [
     label: "Address",
     getValue: "address",
     editable: true,
-    editor: "text",
+    editor: "textarea",
   },
   {
     key: "website_url",
     label: "Website",
     getValue: "website_url",
     editable: true,
-    editor: "text",
+    editor: "link",
   },
   {
     key: "industry_id",

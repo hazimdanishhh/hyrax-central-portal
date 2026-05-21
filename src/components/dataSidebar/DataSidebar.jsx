@@ -27,6 +27,7 @@ export default function DataSidebar({
   cannotUpdate,
   isEditing = true,
   onCancel,
+  fullPage = false,
 }) {
   const { darkMode } = useTheme();
 
@@ -40,9 +41,7 @@ export default function DataSidebar({
       transition={{ duration: 0.2 }}
     >
       <motion.div
-        className={
-          darkMode ? "dataSidebar sectionDark" : "dataSidebar sectionLight"
-        }
+        className={`dataSidebar ${darkMode ? "sectionDark" : "sectionLight"} ${fullPage ? "fullPage" : ""}`}
         initial={{ x: "100%", opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: "100%", opacity: 0 }}

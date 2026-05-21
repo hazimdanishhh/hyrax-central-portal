@@ -79,8 +79,24 @@ function DataForm({
   // ==============
   // HANDLE CHANGE
   // ==============
+  // function handleChange(key, value) {
+  //   setLocalData((prev) => ({ ...prev, [key]: value }));
+  // }
+
   function handleChange(key, value) {
-    setLocalData((prev) => ({ ...prev, [key]: value }));
+    setLocalData((prev) => {
+      const updated = {
+        ...prev,
+        [key]: value,
+      };
+
+      // Reset contact when client changes
+      if (key === "client_id") {
+        updated.client_contact_id = null;
+      }
+
+      return updated;
+    });
   }
 
   // ==============
@@ -158,7 +174,12 @@ function DataForm({
 
                     <Editor
                       value={value}
-                      options={col.options}
+                      // options={col.options}
+                      options={
+                        typeof col.options === "function"
+                          ? col.options(localData)
+                          : col.options
+                      }
                       required={col.required}
                       isSearchable={col.isSearchable}
                       readOnly={true}
@@ -166,6 +187,7 @@ function DataForm({
                       max={col.max}
                       step={col.step}
                       isClearable={col.isClearable}
+                      loadOptions={col.loadOptions}
                     />
                   </div>
                 );
@@ -191,7 +213,12 @@ function DataForm({
 
                   <Editor
                     value={value}
-                    options={col.options}
+                    // options={col.options}
+                    options={
+                      typeof col.options === "function"
+                        ? col.options(localData)
+                        : col.options
+                    }
                     onChange={(v) => handleChange(col.key, v)}
                     required={col.required}
                     isSearchable={col.isSearchable}
@@ -199,6 +226,7 @@ function DataForm({
                     max={col.max}
                     step={col.step}
                     isClearable={col.isClearable}
+                    loadOptions={col.loadOptions}
                   />
                 </div>
               );

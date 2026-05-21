@@ -63,35 +63,37 @@ export default function ClientSidebar({
 
   return (
     <div className="clientSidebarContainer">
-      {!isEditing ? (
-        <Button
-          name="Edit"
-          icon={PencilSimpleLineIcon}
-          style="button buttonType4 textXS"
-          size={16}
-          onClick={() => setIsEditing(!isEditing)}
-        />
-      ) : (
-        <Button
-          name="Cancel Edit"
-          icon={PencilSimpleSlashIcon}
-          onClick={() => setIsEditing(!isEditing)}
-          style="button buttonType4 textXS"
-          size={16}
-        />
-      )}
-
       {/* --- CLIENT DETAILS SECTION --- */}
-      <CardLayout>
+      <CardLayout style="cardLayout1 generalCard clientSidebarLeft">
+        {!isEditing ? (
+          <Button
+            name="Edit"
+            icon={PencilSimpleLineIcon}
+            style="button buttonType4 textXS"
+            size={16}
+            onClick={() => setIsEditing(!isEditing)}
+          />
+        ) : (
+          <Button
+            name="Cancel Edit"
+            icon={PencilSimpleSlashIcon}
+            onClick={() => setIsEditing(!isEditing)}
+            style="button buttonType4 textXS"
+            size={16}
+          />
+        )}
+        <p className="textBold">{selectedRow.name}</p>
+
         <div className="clientSidebarDetailsContainer">
           {selectedRow.sap_bp_id && (
-            <StatusBox status={`BP-${selectedRow.sap_bp_id}`} type="green" />
+            <StatusBox
+              status={`SAP-BP-ID-${selectedRow.sap_bp_id}`}
+              type="green"
+            />
           )}
-          <p className="textRegular textXS">{selectedRow.name}</p>
-        </div>
-
-        <div className="clientSidebarDetailsContainer">
-          <StatusBox status={selectedRow.industry?.name} type="blue" />
+          {selectedRow.industry_id && (
+            <StatusBox status={selectedRow.industry?.name} type="blue" />
+          )}
         </div>
         <div className="generalCard cardPaddingSmall">
           <span className="textBold textXS">Address: </span>
@@ -99,76 +101,78 @@ export default function ClientSidebar({
         </div>
       </CardLayout>
 
-      {/* TABS */}
-      <div className="pageTabContainer">
-        <Button
-          icon2={UsersIcon}
-          onClick={() => setTab("contacts")}
-          name="Contacts"
-          style={`button buttonTypeTab ${tab === "contacts" && "active"}`}
-        />
-        <Button
-          icon2={HandshakeIcon}
-          onClick={() => setTab("leads")}
-          name="Leads"
-          style={`button buttonTypeTab ${tab === "leads" && "active"}`}
-        />
-        <Button
-          onClick={() => setTab("orders")}
-          name="Orders"
-          style={`button buttonTypeTab ${tab === "orders" && "active"}`}
-        />
-      </div>
+      <CardLayout>
+        {/* TABS */}
+        <div className="pageTabContainer">
+          <Button
+            icon2={UsersIcon}
+            onClick={() => setTab("contacts")}
+            name="Contacts"
+            style={`button buttonTypeTab ${tab === "contacts" && "active"}`}
+          />
+          <Button
+            icon2={HandshakeIcon}
+            onClick={() => setTab("leads")}
+            name="Leads"
+            style={`button buttonTypeTab ${tab === "leads" && "active"}`}
+          />
+          <Button
+            onClick={() => setTab("orders")}
+            name="Orders"
+            style={`button buttonTypeTab ${tab === "orders" && "active"}`}
+          />
+        </div>
 
-      {/* --- CONTACT DETAILS SECTION --- */}
-      {tab === "contacts" && (
-        <CardLayout style="generalCard cardPaddingSmall">
-          <PageHeader>
-            <Breadcrumbs icon={UsersIcon} current="Contacts" />
-            {/* ADD BUTTON */}
-            <Button
-              icon={PlusIcon}
-              name="Add Contact"
-              style="button buttonType5 textXS"
-              size={16}
-              onClick={() => setIsAddingContact(true)}
-              disabled={isAddingContact}
-            />
-          </PageHeader>
+        {/* --- CONTACT DETAILS SECTION --- */}
+        {tab === "contacts" && (
+          <CardLayout style="generalCard cardPaddingSmall">
+            <PageHeader>
+              <Breadcrumbs icon={UsersIcon} current="Contacts" />
+              {/* ADD BUTTON */}
+              <Button
+                icon={PlusIcon}
+                name="Add Contact"
+                style="button buttonType5 textXS"
+                size={16}
+                onClick={() => setIsAddingContact(true)}
+                disabled={isAddingContact}
+              />
+            </PageHeader>
 
-          {/* INLINE ADD CONTACT FORM */}
-          {isAddingContact && (
-            <DataForm
-              columns={contactColumns}
-              rowData={{}}
-              onSave={handleAddContact}
-              onCancel={() => setIsAddingContact(false)}
-              creating={true}
-              saving={creating}
-              inlineForm
-            />
-          )}
-
-          <CardLayout style="cardWrapperScroll generalCard">
-            {contactsLoading ? (
-              <CardLayout style="cardLayoutFlexFull">
-                <LoadingIcon />
-              </CardLayout>
-            ) : contactsError ? (
-              <NoResult title="Error loading results" />
-            ) : contacts?.length === 0 ? (
-              <NoResult />
-            ) : (
-              <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
-                {/* CONTACTS LIST */}
-                {contacts?.map((contact) => (
-                  <ContactsList contact={contact} key={contact.id} />
-                ))}
-              </CardLayout>
+            {/* INLINE ADD CONTACT FORM */}
+            {isAddingContact && (
+              <DataForm
+                columns={contactColumns}
+                rowData={{}}
+                onSave={handleAddContact}
+                onCancel={() => setIsAddingContact(false)}
+                saving={creating}
+                creating
+                inlineForm
+              />
             )}
+
+            <CardLayout style="cardWrapperScroll generalCard">
+              {contactsLoading ? (
+                <CardLayout style="cardLayoutFlexFull">
+                  <LoadingIcon />
+                </CardLayout>
+              ) : contactsError ? (
+                <NoResult title="Error loading results" />
+              ) : contacts?.length === 0 ? (
+                <NoResult />
+              ) : (
+                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                  {/* CONTACTS LIST */}
+                  {contacts?.map((contact) => (
+                    <ContactsList contact={contact} key={contact.id} />
+                  ))}
+                </CardLayout>
+              )}
+            </CardLayout>
           </CardLayout>
-        </CardLayout>
-      )}
+        )}
+      </CardLayout>
     </div>
   );
 }

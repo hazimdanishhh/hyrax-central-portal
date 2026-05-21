@@ -7,6 +7,7 @@ import LinkEditor from "./LinkEditor";
 import "./Editors.scss";
 import DateTimeEditor from "./DateTimeEditor";
 import ImageUploadEditor from "./ImageUploadEditor";
+import AsyncSelectEditor from "./AsyncSelectEditor";
 
 export const editors = {
   text: TextEditor,
@@ -17,4 +18,5 @@ export const editors = {
   link: LinkEditor,
   dateTime: DateTimeEditor,
   image: ImageUploadEditor,
+  asyncSelect: AsyncSelectEditor,
 };

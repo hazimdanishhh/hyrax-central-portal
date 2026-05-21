@@ -55,24 +55,6 @@ export default function LeadSidebar({
 
   return (
     <div className="leadSidebarContainer">
-      {!isEditing ? (
-        <Button
-          name="Edit"
-          icon={PencilSimpleLineIcon}
-          style="button buttonType4 textXS"
-          size={16}
-          onClick={() => setIsEditing(!isEditing)}
-        />
-      ) : (
-        <Button
-          name="Cancel Edit"
-          icon={PencilSimpleSlashIcon}
-          onClick={() => setIsEditing(!isEditing)}
-          style="button buttonType4 textXS"
-          size={16}
-        />
-      )}
-
       <div className="leadSidebarDateTimeContainer">
         <IconCard
           name={selectedRow.created_at}
@@ -85,6 +67,9 @@ export default function LeadSidebar({
           style="textLight textXXXS cardStyle"
         />
       </div>
+
+      {/* PIPELINE */}
+      <LeadStage selectedRow={selectedRow} vertical={true} />
 
       <div className="leadSidebarHeaderContainer cardStyle">
         <div className="leadSidebarDetails">
@@ -153,9 +138,6 @@ export default function LeadSidebar({
         </div>
       </div>
 
-      {/* PIPELINE */}
-      <LeadStage selectedRow={selectedRow} vertical={true} />
-
       {/* NOTES */}
       {selectedRow.notes && (
         <CardLayout style="generalCard blueCard">
@@ -189,7 +171,7 @@ export default function LeadSidebar({
       )}
 
       {/* ACTIONS */}
-      <div className="leadSidebarActionsContainer">
+      <div className="cardLayout2">
         {/* STAGE TRANSITIONS */}
         {canTransitionStage &&
           allowedTransitions.map((stage) => (
@@ -205,8 +187,8 @@ export default function LeadSidebar({
               }
               style={
                 LEAD_STAGE_LABELS[stage] === "Mark as Lost"
-                  ? "button buttonType6 rejection mobile"
-                  : "button buttonType6 approval mobile"
+                  ? "button buttonType4 rejection mobile"
+                  : "button buttonType4 approval mobile"
               }
               disabled={updating || isClosedLead || selectedRow.is_on_hold}
               onClick={() =>
@@ -222,13 +204,13 @@ export default function LeadSidebar({
           ))}
       </div>
 
-      <div className="leadSidebarActionsContainer">
+      <CardLayout style="cardLayout2">
         {/* HOLD / RESUME */}
         {canToggleHold && (
           <Button
             icon={selectedRow.is_on_hold ? PlayCircleIcon : PauseCircleIcon}
             name={selectedRow.is_on_hold ? "Resume" : "Hold"}
-            style="button buttonType6 yellow mobile"
+            style="button buttonType4 yellow mobile"
             disabled={updating}
             onClick={() =>
               onRequestAction({
@@ -247,7 +229,7 @@ export default function LeadSidebar({
           <Button
             icon={XCircleIcon}
             name="Cancel"
-            style="button buttonType6 rejection mobile"
+            style="button buttonType4 rejection mobile"
             disabled={updating}
             onClick={() =>
               onRequestAction({
@@ -260,7 +242,26 @@ export default function LeadSidebar({
             }
           />
         )}
-      </div>
+      </CardLayout>
+
+      {/* EDIT BUTTON */}
+      {!isEditing ? (
+        <Button
+          name="Edit"
+          icon={PencilSimpleLineIcon}
+          style="button buttonType4 textXS"
+          size={16}
+          onClick={() => setIsEditing(!isEditing)}
+        />
+      ) : (
+        <Button
+          name="Cancel Edit"
+          icon={PencilSimpleSlashIcon}
+          onClick={() => setIsEditing(!isEditing)}
+          style="button buttonType4 textXS"
+          size={16}
+        />
+      )}
     </div>
   );
 }

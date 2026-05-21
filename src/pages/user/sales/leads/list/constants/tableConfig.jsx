@@ -4,6 +4,7 @@ import {
   LinuxLogoIcon,
 } from "@phosphor-icons/react";
 import StatusBadge from "../../../../../../components/status/statusBadge/StatusBadge";
+import { searchClients } from "../../../../../../features/sales/clients/private/api/clientSearch";
 
 // key = actual database field name
 // label = UI name
@@ -42,19 +43,43 @@ export const leadsTableConfig = ({
     editable: true,
     editor: "textarea",
   },
+  // {
+  //   key: "client_id",
+  //   label: "Client",
+  //   getValue: (lead) => lead.client?.id,
+  //   displayValue: (lead) => lead.client?.name,
+  //   editable: true,
+  //   editor: "select",
+  //   options: clients.map((s) => ({
+  //     label: s.name,
+  //     value: s.id,
+  //   })),
+  //   required: true,
+  //   half: true,
+  //   isClearable: false,
+  // },
+
   {
     key: "client_id",
     label: "Client",
-    getValue: (lead) => lead.client?.id,
+
+    getValue: (lead) =>
+      lead.client
+        ? {
+            value: lead.client.id,
+            label: lead.client.name,
+          }
+        : null,
+
     displayValue: (lead) => lead.client?.name,
+
     editable: true,
-    editor: "select",
-    options: clients.map((s) => ({
-      label: s.name,
-      value: s.id,
-    })),
+
+    editor: "asyncSelect",
+
+    loadOptions: searchClients,
+
     required: true,
-    half: true,
     isClearable: false,
   },
   {
@@ -65,12 +90,24 @@ export const leadsTableConfig = ({
     // render: (value) => <StatusBadge status={value} />,
     editable: true,
     editor: "select",
-    options: clientContacts.map((s) => ({
-      label: s.full_name,
-      value: s.id,
-    })),
+    // options: clientContacts.map((s) => ({
+    //   label: s.full_name,
+    //   value: s.id,
+    // })),
+    options: (formData) => {
+      const clientId =
+        typeof formData.client_id === "object"
+          ? formData.client_id?.value
+          : formData.client_id;
+
+      return clientContacts
+        .filter((contact) => contact.client_id === clientId)
+        .map((contact) => ({
+          label: contact.full_name,
+          value: contact.id,
+        }));
+    },
     required: true,
-    half: true,
     isClearable: false,
   },
   {
@@ -87,6 +124,32 @@ export const leadsTableConfig = ({
     required: true,
     isClearable: false,
   },
+
+  // SUCCESS & REVENUE
+  {
+    key: "close_probability",
+    label: "Success (%)",
+    getValue: "close_probability",
+    editable: true,
+    editor: "number",
+    min: 0,
+    max: 100,
+    step: 1,
+    section: "Success & Revenue",
+    half: true,
+  },
+  {
+    key: "expected_revenue",
+    label: "Expected Revenue (RM)",
+    getValue: "expected_revenue",
+    editable: true,
+    editor: "number",
+    min: 1,
+    section: "Success & Revenue",
+    half: true,
+  },
+
+  // ADDITIONAL INFORMATION
   {
     key: "lead_source_type_id",
     label: "Lead Source",
@@ -98,29 +161,7 @@ export const leadsTableConfig = ({
       label: s.name,
       value: s.id,
     })),
-  },
-
-  {
-    key: "close_probability",
-    label: "Success (%)",
-    getValue: "close_probability",
-    editable: true,
-    editor: "number",
-    min: 0,
-    max: 100,
-    step: 1,
-    section: "Test",
-    half: true,
-  },
-  {
-    key: "expected_revenue",
-    label: "Expected Revenue (RM)",
-    getValue: "expected_revenue",
-    editable: true,
-    editor: "number",
-    min: 1,
-    section: "Test",
-    half: true,
+    section: "Additional Information",
   },
   {
     key: "notes",
@@ -128,7 +169,7 @@ export const leadsTableConfig = ({
     getValue: "notes",
     editable: true,
     editor: "textarea",
-    section: "Notes",
+    section: "Additional Information",
   },
   //   {
   //     key: "stage",

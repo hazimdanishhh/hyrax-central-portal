@@ -1,3 +1,5 @@
+import { searchClients } from "../../../../../../features/sales/clients/private/api/clientSearch";
+
 export function getFilterConfig({
   owners,
   clients,
@@ -10,10 +12,32 @@ export function getFilterConfig({
       label: "Owner",
       options: owners.map((c) => ({ label: c.full_name, value: c.id })),
     },
+    // {
+    //   key: "client",
+    //   label: "Client",
+    //   options: clients.map((s) => ({ label: s.name, value: s.id })),
+    // },
     {
       key: "client",
       label: "Client",
-      options: clients.map((s) => ({ label: s.name, value: s.id })),
+      editor: "asyncSelect",
+      loadOptions: searchClients,
+
+      getOptionByValue: async (value) => {
+        if (!value) return null;
+
+        const results = await searchClients(value);
+
+        return results.find((option) => option.value === value) || null;
+      },
+
+      getDisplayValue: async (value) => {
+        if (!value) return value;
+
+        const results = await searchClients(value);
+
+        return results.find((option) => option.value === value)?.label || value;
+      },
     },
     {
       key: "clientContact",

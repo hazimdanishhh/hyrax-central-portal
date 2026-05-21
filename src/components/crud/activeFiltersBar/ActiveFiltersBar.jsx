@@ -1,6 +1,7 @@
 import Button from "../../buttons/button/Button";
 import { XIcon } from "@phosphor-icons/react";
 import "./ActiveFiltersBar.scss";
+import { useEffect, useState } from "react";
 
 /**
  * Active Filters Bar
@@ -16,6 +17,25 @@ export default function ActiveFiltersBar({
   filterConfig,
   resetParams,
 }) {
+  const [asyncLabels, setAsyncLabels] = useState({});
+
+  useEffect(() => {
+    async function loadLabels() {
+      const resolved = {};
+
+      for (const [key, value] of filters) {
+        const filter = filterConfig.find((f) => f.key === key);
+
+        if (filter?.editor === "asyncSelect" && filter.getDisplayValue) {
+          resolved[key] = await filter.getDisplayValue(value);
+        }
+      }
+
+      setAsyncLabels(resolved);
+    }
+
+    loadLabels();
+  }, [filters, filterConfig]);
   return (
     <div className="activeFiltersBar">
       <p className="textRegular textXXS">Filters: </p>
@@ -38,7 +58,7 @@ export default function ActiveFiltersBar({
           (opt) => String(opt.value) === String(value),
         )?.label;
 
-        const displayValue = optionLabel || value;
+        const displayValue = optionLabel || asyncLabels[key] || value;
 
         return (
           <Button

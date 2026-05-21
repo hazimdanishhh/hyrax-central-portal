@@ -1,4 +1,4 @@
-import { NotePencilIcon } from "@phosphor-icons/react";
+import { CaretCircleRightIcon, NotePencilIcon } from "@phosphor-icons/react";
 import Button from "../../../buttons/button/Button";
 import "./ClientsList.scss";
 import StatusBox from "../../../status/statusBox/StatusBox";
@@ -20,20 +20,23 @@ export default function ClientsList({
       <div className="clientsListContainer">
         <div className="clientsListHeader">
           {client.sap_bp_id && (
-            <StatusBox status={`BP-${client.sap_bp_id}`} type="green" />
+            <StatusBox status={`SAP-BP-ID-${client.sap_bp_id}`} type="green" />
           )}
           <p className="textRegular textXS">{client.name}</p>
         </div>
 
         <div className="clientsListStatusContainer">
-          <StatusBox status={client.industry?.name} type="blue" />
-          <Button
+          {client.industry_id && (
+            <StatusBox status={client.industry?.name} type="blue" />
+          )}
+          {/* <Button
             style="iconButton2"
             onClick={setIsEditing}
             icon={NotePencilIcon}
             size={16}
             weight="light"
-          />
+          /> */}
+          {/* <CaretCircleRightIcon size={24} /> */}
         </div>
       </div>
     </div>

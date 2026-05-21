@@ -9,6 +9,8 @@
   .clientsListHeader {
     display: flex;
     gap: 0.8rem;
+    text-align: start;
+    flex-wrap: wrap;
   }
 
   .clientsListStatusContainer {

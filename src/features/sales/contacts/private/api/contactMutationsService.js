@@ -13,6 +13,12 @@ function normalizeFields(rawFields) {
 
         // Foreign keys -> integer
         if (key.endsWith("_id") && value !== null) {
+          // Async select object
+          if (typeof value === "object" && value?.value) {
+            return [key, value.value];
+          }
+
+          // Numeric string support
           const isNumeric = typeof value === "string" && /^\d+$/.test(value);
 
           return [key, isNumeric ? Number(value) : value];

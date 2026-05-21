@@ -9,9 +9,17 @@ function normalizeFields(rawFields) {
     Object.entries(rawFields)
       .filter(([_, value]) => value !== undefined)
       .map(([key, value]) => {
+        // Empty string -> null
         if (value === "") return [key, null];
 
+        // Foreign keys -> integer
         if (key.endsWith("_id") && value !== null) {
+          // Async select object
+          if (typeof value === "object" && value?.value) {
+            return [key, value.value];
+          }
+
+          // Numeric string support
           const isNumeric = typeof value === "string" && /^\d+$/.test(value);
 
           return [key, isNumeric ? Number(value) : value];
@@ -21,6 +29,7 @@ function normalizeFields(rawFields) {
       }),
   );
 }
+
 /**
  * UPDATE
  */

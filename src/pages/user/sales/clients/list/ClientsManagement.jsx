@@ -397,6 +397,7 @@ export default function ClientsManagement() {
             creating={!selectedRow?.id}
             isEditing={isEditing}
             onCancel={() => setIsEditing(false)}
+            fullPage
           >
             {selectedRow?.id && !isEditing && (
               <ClientSidebar

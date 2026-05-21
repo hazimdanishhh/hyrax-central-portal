@@ -8,6 +8,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { AnimatePresence, motion } from "framer-motion";
 import Select from "react-select";
 import CardLayout from "../cardLayout/CardLayout";
+import AsyncSelectEditor from "../dataTable/editors/AsyncSelectEditor";
 
 export default function SearchFilterBar({
   search,
@@ -22,10 +23,29 @@ export default function SearchFilterBar({
   const { darkMode } = useTheme();
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(search || "");
+  const [asyncValues, setAsyncValues] = useState({});
 
   useEffect(() => {
     setSearchInput(search || "");
   }, [search]);
+
+  useEffect(() => {
+    async function loadAsyncValues() {
+      const resolved = {};
+
+      for (const filter of filterConfig) {
+        if (filter.editor === "asyncSelect" && filters[filter.key]) {
+          resolved[filter.key] = await filter.getOptionByValue?.(
+            filters[filter.key],
+          );
+        }
+      }
+
+      setAsyncValues(resolved);
+    }
+
+    loadAsyncValues();
+  }, [filters, filterConfig]);
 
   return (
     <>
@@ -123,27 +143,45 @@ export default function SearchFilterBar({
                   {filter.label}
                 </p>
 
-                <Select
-                  unstyled
-                  className="selectContainer"
-                  classNamePrefix="reactSelect"
-                  placeholder={`Select ${filter.label}`}
-                  isClearable
-                  isSearchable
-                  options={filter.options}
-                  value={
-                    filter.options.find(
-                      (opt) =>
-                        String(opt.value) === String(filters[filter.key]),
-                    ) || null
-                  }
-                  onChange={(selectedOption) =>
-                    onFilterChange({
-                      ...filters,
-                      [filter.key]: selectedOption ? selectedOption.value : "",
-                    })
-                  }
-                />
+                {filter.editor === "asyncSelect" ? (
+                  <AsyncSelectEditor
+                    placeholder={`Search ${filter.label}`}
+                    loadOptions={filter.loadOptions}
+                    value={asyncValues[filter.key] || null}
+                    onChange={(selectedOption) =>
+                      onFilterChange({
+                        ...filters,
+                        [filter.key]: selectedOption
+                          ? selectedOption.value
+                          : "",
+                      })
+                    }
+                  />
+                ) : (
+                  <Select
+                    unstyled
+                    className="selectContainer"
+                    classNamePrefix="reactSelect"
+                    placeholder={`Select ${filter.label}`}
+                    isClearable
+                    isSearchable
+                    options={filter.options}
+                    value={
+                      filter.options.find(
+                        (opt) =>
+                          String(opt.value) === String(filters[filter.key]),
+                      ) || null
+                    }
+                    onChange={(selectedOption) =>
+                      onFilterChange({
+                        ...filters,
+                        [filter.key]: selectedOption
+                          ? selectedOption.value
+                          : "",
+                      })
+                    }
+                  />
+                )}
               </div>
             ))}
           </motion.div>
