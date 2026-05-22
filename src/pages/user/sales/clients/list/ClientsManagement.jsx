@@ -244,45 +244,36 @@ export default function ClientsManagement() {
   // ==============
   async function handleConfirmAction(reason) {
     try {
-      // DELETE
       if (modalType === "delete") {
         await deleteClient(selectedRowId);
-      }
-
-      // SAVE
-      if (modalType === "save") {
+      } else if (modalType === "save") {
         const data = pendingSaveRow;
-
         if (data.id) {
           await updateClient(data);
         } else {
           await createClient(data);
         }
-      }
-
-      // ACTIONS
-      if (pendingAction) {
+      } else if (pendingAction) {
         const payloadToSubmit = { ...pendingAction.payload };
-
-        // FIX: Pass payloadToSubmit instead of pendingAction.payload
         await updateClient({
           id: payloadToSubmit.id,
           ...payloadToSubmit,
         });
       }
 
-      await queryClient.invalidateQueries({
-        queryKey: ["clients"],
-      });
+      handleCloseSidebar();
+      setModalOpen(false);
 
-      // RESET
+      await queryClient.invalidateQueries({ queryKey: ["clients"] });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      // ALWAYS clean up state so ghost actions don't linger
       handleCloseSidebar();
       setModalOpen(false);
       setPendingSaveRow(null);
       setModalType(null);
       setPendingAction(null);
-    } catch (err) {
-      console.error(err);
     }
   }
 
@@ -413,7 +404,11 @@ export default function ClientsManagement() {
 
       <ActionModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setModalType(null);
+          setPendingAction(null); // Kills the zombie state
+        }}
         title={modalConfig.title}
         description={modalConfig.description}
         confirmText={modalConfig.confirmText}

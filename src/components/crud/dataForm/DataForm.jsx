@@ -3,6 +3,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import {
   CheckIcon,
   PencilSimpleIcon,
+  PlusCircleIcon,
   TrashSimpleIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -13,6 +14,8 @@ import Breadcrumbs from "../../breadcrumbs/Breadcrumbs";
 import IconCard from "../../iconCard/IconCard";
 import PageHeader from "../pageHeader/PageHeader";
 import "./DataForm.scss";
+import SectionHeader from "../../sectionHeader/SectionHeader";
+import { useForm, Controller } from "react-hook-form";
 
 function DataForm({
   columns = [],
@@ -25,23 +28,16 @@ function DataForm({
   deleting,
   cannotUpdate,
   inlineForm = false,
+  title,
 }) {
   const { darkMode } = useTheme();
   const { showMessage } = useMessage();
-  const [localData, setLocalData] = useState({});
-  const prevIdRef = useRef(null);
 
   // ==============
-  // SYNC ROW DATA WHEN OPENING
+  // INITIALIZE DEFAULT VALUES
   // ==============
-  useEffect(() => {
-    const currentId = rowData?.id ?? "new";
-
-    // only reinitialize when opening or switching record
-    if (prevIdRef.current === currentId) return;
-
-    prevIdRef.current = currentId;
-
+  // This runs once when the component mounts (driven by the parent's `key` prop)
+  const getDefaultValues = () => {
     const initial = {};
     columns.forEach((col) => {
       const rawValue =
@@ -54,87 +50,52 @@ function DataForm({
               : typeof col.accessor === "string"
                 ? rowData?.[col.accessor]
                 : "";
-
       initial[col.key] = rawValue ?? "";
     });
+    return initial;
+  };
 
-    setLocalData(initial);
-  }, [rowData?.id, columns]);
+  // ==============
+  // REACT HOOK FORM SETUP
+  // ==============
+  const { control, handleSubmit, watch, setValue } = useForm({
+    defaultValues: getDefaultValues(),
+  });
+
+  // Watch all current values so we can pass them to dependent fields
+  const currentFormValues = watch();
 
   // ==============
   // GROUP COLUMNS BY SECTION
   // ==============
   const groupedColumns = columns.reduce((acc, col) => {
     const section = col.section || "Details";
-
-    if (!acc[section]) {
-      acc[section] = [];
-    }
-
+    if (!acc[section]) acc[section] = [];
     acc[section].push(col);
-
     return acc;
   }, {});
 
   // ==============
-  // HANDLE CHANGE
+  // SUBMIT HANDLER
   // ==============
-  // function handleChange(key, value) {
-  //   setLocalData((prev) => ({ ...prev, [key]: value }));
-  // }
+  const onSubmit = (data) => {
+    onSave?.(data);
+  };
 
-  function handleChange(key, value) {
-    setLocalData((prev) => {
-      const updated = {
-        ...prev,
-        [key]: value,
-      };
-
-      // Reset contact when client changes
-      if (key === "client_id") {
-        updated.client_contact_id = null;
-      }
-
-      return updated;
-    });
-  }
-
-  // ==============
-  // HANDLE SAVE
-  // ==============
-  function handleSave() {
-    for (const col of columns) {
-      if (col.required && !localData[col.key]) {
-        showMessage(`${col.label} is required`, "warning");
-        return;
-      }
-    }
-
-    onSave?.(localData);
-  }
-
-  // ==============
-  // HANDLE DELETE
-  // ==============
-  function handleDelete() {
-    onDelete?.(rowData);
-  }
-
-  // ==============
-  // HANDLE CANCEL
-  // ==============
-  function handleCancel() {
-    onCancel?.();
-  }
+  const onError = (errors) => {
+    // RHF handles validation, we just pop the toast for the first error
+    const firstErrorKey = Object.keys(errors)[0];
+    const column = columns.find((c) => c.key === firstErrorKey);
+    showMessage(`${column?.label || "A field"} is required`, "warning");
+  };
 
   return (
     <form
       className={`dataSidebarContent ${inlineForm ? "inlineForm" : ""}`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSave();
-      }}
+      onSubmit={handleSubmit(onSubmit, onError)}
     >
+      {title && <SectionHeader title={title} icon={PlusCircleIcon} />}
+
       {Object.entries(groupedColumns).map(([section, fields]) => (
         <div key={section} className="dataSidebarSection">
           <div className="dataSidebarSectionFields cardStyle">
@@ -143,54 +104,25 @@ function DataForm({
                 icon={PencilSimpleIcon}
                 name={section}
                 style="textXS textBold"
-                weight="fill"
               />
             </div>
 
             {fields.map((col) => {
               const Editor = editors[col.editor] ?? editors.text;
-              const value = localData[col.key];
-
               if (col.show === false) return null;
 
-              if (!col.editable)
-                return (
-                  <div
-                    key={col.key}
-                    className={`dataSidebarField ${col.half ? "half" : ""}`}
-                  >
-                    <label
-                      className={
-                        col.required
-                          ? "textBold textXXS required"
-                          : "textBold textXXS"
-                      }
-                    >
-                      {col.label}
-                      <span className="dataSidebarRequired">
-                        {col.required && "*"}
-                      </span>
-                    </label>
+              // 🔥 THE CACHE KILLER: Generate a dynamic React key based on dependencies
+              const dependencyString = col.dependsOn
+                ? col.dependsOn
+                    .map((dep) => {
+                      const val = currentFormValues[dep];
+                      return typeof val === "object" ? val?.value : val;
+                    })
+                    .join("-")
+                : "static";
 
-                    <Editor
-                      value={value}
-                      // options={col.options}
-                      options={
-                        typeof col.options === "function"
-                          ? col.options(localData)
-                          : col.options
-                      }
-                      required={col.required}
-                      isSearchable={col.isSearchable}
-                      readOnly={true}
-                      min={col.min}
-                      max={col.max}
-                      step={col.step}
-                      isClearable={col.isClearable}
-                      loadOptions={col.loadOptions}
-                    />
-                  </div>
-                );
+              // Unique key forces React to destroy and remount the field if a dependency changes
+              const componentKey = `${col.key}-${dependencyString}`;
 
               return (
                 <div
@@ -198,35 +130,53 @@ function DataForm({
                   className={`dataSidebarField ${col.half ? "half" : ""}`}
                 >
                   <label
-                    className={
-                      col.required
-                        ? "textBold textXXS required"
-                        : "textBold textXXS"
-                    }
+                    className={`textBold textXXS ${col.required ? "required" : ""}`}
                   >
                     {col.label}
-
                     <span className="dataSidebarRequired">
                       {col.required && "*"}
                     </span>
                   </label>
 
-                  <Editor
-                    value={value}
-                    // options={col.options}
-                    options={
-                      typeof col.options === "function"
-                        ? col.options(localData)
-                        : col.options
-                    }
-                    onChange={(v) => handleChange(col.key, v)}
-                    required={col.required}
-                    isSearchable={col.isSearchable}
-                    min={col.min}
-                    max={col.max}
-                    step={col.step}
-                    isClearable={col.isClearable}
-                    loadOptions={col.loadOptions}
+                  <Controller
+                    name={col.key}
+                    control={control}
+                    rules={{ required: col.required }}
+                    render={({ field }) => (
+                      <Editor
+                        {...field}
+                        key={componentKey} // Physically remounts to wipe AsyncSelect cache
+                        // Pass current form values so config can extract clientId
+                        loadOptions={
+                          col.loadOptions
+                            ? (search) =>
+                                col.loadOptions(search, currentFormValues)
+                            : undefined
+                        }
+                        options={
+                          typeof col.options === "function"
+                            ? col.options(currentFormValues)
+                            : col.options
+                        }
+                        // Wrap onChange to handle your "clears" logic
+                        onChange={(val) => {
+                          field.onChange(val); // Standard RHF update
+                          if (col.clears) {
+                            col.clears.forEach((clearKey) =>
+                              setValue(clearKey, null),
+                            );
+                          }
+                        }}
+                        required={col.required}
+                        isSearchable={col.isSearchable}
+                        readOnly={!col.editable}
+                        min={col.min}
+                        max={col.max}
+                        step={col.step}
+                        isClearable={col.isClearable}
+                        cacheOptions={col.cacheOptions}
+                      />
+                    )}
                   />
                 </div>
               );
@@ -236,36 +186,36 @@ function DataForm({
           {/* FOOTER FOR INLINE FORM */}
           {inlineForm && (
             <div className="dataFormFooter">
+              {/* Note: Update your Button types to ensure Save is type="submit" and Cancel/Delete are type="button" */}
               <Button
                 name="Cancel"
                 icon={XIcon}
-                style="button buttonType5 textXXS textRegular"
-                onClick={handleCancel}
+                onClick={onCancel}
                 type="button"
                 disabled={saving}
                 size="14"
+                style="button buttonType5 textXXS textRegular"
                 weight="bold"
               />
               {!creating && (
                 <Button
                   name="Delete"
                   icon={TrashSimpleIcon}
-                  style="button buttonType5 rejection textXXS textRegular"
-                  onClick={handleDelete}
-                  disabled={deleting}
+                  onClick={() => onDelete?.(rowData)}
                   type="button"
+                  disabled={deleting}
                   size="14"
+                  style="button buttonType5 rejection textXXS textRegular"
                   weight="bold"
                 />
               )}
               <Button
                 name="Save"
                 icon={CheckIcon}
-                style="button buttonType5 approval textXXS textRegular"
-                onClick={handleSave}
                 type="submit"
                 disabled={saving}
                 size="14"
+                style="button buttonType5 approval textXXS textRegular"
                 weight="bold"
               />
             </div>
@@ -274,7 +224,6 @@ function DataForm({
       ))}
 
       {/* SIDEBAR FOOTER */}
-
       {!inlineForm && (
         <footer
           className={`dataSidebarFooter ${darkMode ? "sectionDark" : "sectionLight"}`}
@@ -283,11 +232,11 @@ function DataForm({
             <Button
               name="Cancel"
               icon={XIcon}
-              style="button buttonType5 textXXS textRegular"
-              onClick={handleCancel}
+              onClick={onCancel}
               type="button"
               disabled={saving}
               size="14"
+              style="button buttonType5 textXXS textRegular"
               weight="bold"
             />
           )}
@@ -295,11 +244,14 @@ function DataForm({
             <Button
               name="Delete"
               icon={TrashSimpleIcon}
-              style="button buttonType5 rejection textXXS textRegular"
-              onClick={handleDelete}
-              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                onDelete?.(rowData);
+              }}
               type="button"
+              disabled={deleting}
               size="14"
+              style="button buttonType5 rejection textXXS textRegular"
               weight="bold"
             />
           )}
@@ -307,11 +259,10 @@ function DataForm({
             <Button
               name="Save"
               icon={CheckIcon}
-              style="button buttonType5 approval textXXS textRegular"
-              onClick={handleSave}
               type="submit"
               disabled={saving}
               size="14"
+              style="button buttonType5 approval textXXS textRegular"
               weight="bold"
             />
           )}

@@ -165,7 +165,11 @@ export default function SearchFilterBar({
                     placeholder={`Select ${filter.label}`}
                     isClearable
                     isSearchable
-                    options={filter.options}
+                    options={
+                      typeof filter.options === "function"
+                        ? filter.options(filters)
+                        : filter.options
+                    }
                     value={
                       filter.options.find(
                         (opt) =>

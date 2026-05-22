@@ -494,7 +494,11 @@ export default function LeadsManagement() {
 
       <ActionModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setModalType(null);
+          setPendingAction(null); // Kills the zombie state
+        }}
         title={modalConfig.title}
         description={modalConfig.description}
         confirmText={modalConfig.confirmText}

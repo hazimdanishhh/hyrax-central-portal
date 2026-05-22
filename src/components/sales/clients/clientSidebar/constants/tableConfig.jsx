@@ -13,6 +13,7 @@ export const getTableConfig = () => [
     getValue: "email",
     editable: true,
     editor: "text",
+    half: true,
   },
   {
     key: "phone",
@@ -20,6 +21,7 @@ export const getTableConfig = () => [
     getValue: "phone",
     editable: true,
     editor: "text",
+    half: true,
   },
   {
     key: "position",

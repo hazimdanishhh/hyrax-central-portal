@@ -95,6 +95,7 @@ export const itAssetTableConfig = ({
       value: c.id,
     })),
     isSearchable: false,
+    clears: ["asset_subcategory_id"],
   },
   {
     key: "asset_subcategory_id",
@@ -103,10 +104,23 @@ export const itAssetTableConfig = ({
     displayValue: (asset) => asset.asset_subcategory?.name,
     editable: true,
     editor: "select",
-    options: subcategories.map((s) => ({
-      label: s.name,
-      value: s.id,
-    })),
+    // options: subcategories.map((s) => ({
+    //   label: s.name,
+    //   value: s.id,
+    // })),
+    options: (formData) => {
+      const categoryId =
+        typeof formData.asset_category_id === "object"
+          ? formData.asset_category_id?.value
+          : formData.asset_category_id;
+
+      return subcategories
+        .filter((s) => String(s.category_id) === String(categoryId))
+        .map((s) => ({
+          label: s.name,
+          value: s.id,
+        }));
+    },
     isSearchable: false,
   },
   {
@@ -226,6 +240,7 @@ export const itAssetTableConfig = ({
       value: m.id,
     })),
     section: "Device & Hardware",
+    clears: ["asset_model"],
   },
   {
     key: "asset_model",

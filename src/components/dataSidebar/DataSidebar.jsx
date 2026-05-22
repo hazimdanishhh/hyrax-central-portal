@@ -66,6 +66,7 @@ export default function DataSidebar({
 
           {isEditing && (
             <DataForm
+              key={rowData?.id || "new-record"}
               columns={columns}
               rowData={rowData}
               onSave={onSave}

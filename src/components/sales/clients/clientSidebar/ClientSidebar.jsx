@@ -149,6 +149,7 @@ export default function ClientSidebar({
                 saving={creating}
                 creating
                 inlineForm
+                title="Add Contact"
               />
             )}
 

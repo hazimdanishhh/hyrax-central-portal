@@ -5,6 +5,10 @@ import {
 } from "@phosphor-icons/react";
 import StatusBadge from "../../../../../../components/status/statusBadge/StatusBadge";
 import { searchClients } from "../../../../../../features/sales/clients/private/api/clientSearch";
+import {
+  getContactById,
+  searchContacts,
+} from "../../../../../../features/sales/contacts/private/api/contactSearch";
 
 // key = actual database field name
 // label = UI name
@@ -62,7 +66,6 @@ export const leadsTableConfig = ({
   {
     key: "client_id",
     label: "Client",
-
     getValue: (lead) =>
       lead.client
         ? {
@@ -70,45 +73,51 @@ export const leadsTableConfig = ({
             label: lead.client.name,
           }
         : null,
-
     displayValue: (lead) => lead.client?.name,
+    editable: true,
+    editor: "asyncSelect",
+    loadOptions: searchClients,
+    required: true,
+    isClearable: false,
+    clears: ["client_contact_id"],
+  },
+  {
+    key: "client_contact_id",
+    label: "Contact",
+
+    getValue: (lead) =>
+      lead.client_contact
+        ? {
+            value: lead.client_contact.id,
+            label: lead.client_contact.full_name,
+          }
+        : null,
+
+    displayValue: (lead) => lead.client_contact?.full_name,
 
     editable: true,
 
     editor: "asyncSelect",
 
-    loadOptions: searchClients,
-
-    required: true,
-    isClearable: false,
-  },
-  {
-    key: "client_contact_id",
-    label: "Contact",
-    getValue: (lead) => lead.client_contact?.id,
-    displayValue: (lead) => lead.client_contact?.full_name,
-    // render: (value) => <StatusBadge status={value} />,
-    editable: true,
-    editor: "select",
-    // options: clientContacts.map((s) => ({
-    //   label: s.full_name,
-    //   value: s.id,
-    // })),
-    options: (formData) => {
+    loadOptions: (search, formData) => {
       const clientId =
         typeof formData.client_id === "object"
           ? formData.client_id?.value
           : formData.client_id;
 
-      return clientContacts
-        .filter((contact) => contact.client_id === clientId)
-        .map((contact) => ({
-          label: contact.full_name,
-          value: contact.id,
-        }));
+      return searchContacts(search, clientId);
     },
-    required: true,
+
+    getOptionByValue: getContactById,
+
+    getDisplayValue: async (value) => {
+      const option = await getContactById(value);
+      return option?.label || value;
+    },
+
     isClearable: false,
+    cacheOptions: false,
+    dependsOn: ["client_id"],
   },
   {
     key: "lead_owner_id",
