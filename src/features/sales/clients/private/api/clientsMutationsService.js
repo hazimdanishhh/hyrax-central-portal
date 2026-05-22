@@ -42,7 +42,7 @@ export async function updateClient(updatedData) {
     .update(fields)
     .eq("id", id)
     .select("*")
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
 
@@ -77,7 +77,7 @@ export async function createClient(newData) {
     .from("clients")
     .insert(fields)
     .select("*")
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
 

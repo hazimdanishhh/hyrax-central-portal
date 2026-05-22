@@ -384,6 +384,7 @@ export default function LeadsManagement() {
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
               },
+              style: "button buttonType5 approval textXXS",
             },
             {
               icon: PlusCircleIcon,
@@ -391,6 +392,7 @@ export default function LeadsManagement() {
               onClick: () => {
                 navigate(`../../clients/list/new`);
               },
+              style: "button buttonType5 approval textXXS",
             },
           ]}
         />

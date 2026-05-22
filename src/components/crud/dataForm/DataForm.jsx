@@ -182,46 +182,46 @@ function DataForm({
               );
             })}
           </div>
-
-          {/* FOOTER FOR INLINE FORM */}
-          {inlineForm && (
-            <div className="dataFormFooter">
-              {/* Note: Update your Button types to ensure Save is type="submit" and Cancel/Delete are type="button" */}
-              <Button
-                name="Cancel"
-                icon={XIcon}
-                onClick={onCancel}
-                type="button"
-                disabled={saving}
-                size="14"
-                style="button buttonType5 textXXS textRegular"
-                weight="bold"
-              />
-              {!creating && (
-                <Button
-                  name="Delete"
-                  icon={TrashSimpleIcon}
-                  onClick={() => onDelete?.(rowData)}
-                  type="button"
-                  disabled={deleting}
-                  size="14"
-                  style="button buttonType5 rejection textXXS textRegular"
-                  weight="bold"
-                />
-              )}
-              <Button
-                name="Save"
-                icon={CheckIcon}
-                type="submit"
-                disabled={saving}
-                size="14"
-                style="button buttonType5 approval textXXS textRegular"
-                weight="bold"
-              />
-            </div>
-          )}
         </div>
       ))}
+
+      {/* FOOTER FOR INLINE FORM */}
+      {inlineForm && (
+        <div className="dataFormFooter">
+          {/* Note: Update your Button types to ensure Save is type="submit" and Cancel/Delete are type="button" */}
+          <Button
+            name="Cancel"
+            icon={XIcon}
+            onClick={onCancel}
+            type="button"
+            disabled={saving}
+            size="14"
+            style="button buttonType5 textXXS textRegular"
+            weight="bold"
+          />
+          {!creating && (
+            <Button
+              name="Delete"
+              icon={TrashSimpleIcon}
+              onClick={() => onDelete?.(rowData)}
+              type="button"
+              disabled={deleting}
+              size="14"
+              style="button buttonType5 rejection textXXS textRegular"
+              weight="bold"
+            />
+          )}
+          <Button
+            name="Save"
+            icon={CheckIcon}
+            type="submit"
+            disabled={saving}
+            size="14"
+            style="button buttonType5 approval textXXS textRegular"
+            weight="bold"
+          />
+        </div>
+      )}
 
       {/* SIDEBAR FOOTER */}
       {!inlineForm && (

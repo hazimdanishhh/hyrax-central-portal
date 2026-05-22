@@ -1,9 +1,3 @@
-import { searchClients } from "../../../../../../features/sales/clients/private/api/clientSearch";
-import {
-  getContactById,
-  searchContacts,
-} from "../../../../../../features/sales/contacts/private/api/contactSearch";
-
 // key = actual database field name
 // label = UI name
 // getValue = data name
@@ -11,11 +5,10 @@ import {
 // options = for option input
 // editable = boolean
 
-export const leadsTableConfig = ({
+export const leadTableConfig = ({
   employee,
   owners,
-  clients,
-  clientContacts,
+  contacts,
   leadSourceTypes,
 }) => [
   {
@@ -41,77 +34,19 @@ export const leadsTableConfig = ({
     editable: true,
     editor: "textarea",
   },
-  // {
-  //   key: "client_id",
-  //   label: "Client",
-  //   getValue: (lead) => lead.client?.id,
-  //   displayValue: (lead) => lead.client?.name,
-  //   editable: true,
-  //   editor: "select",
-  //   options: clients.map((s) => ({
-  //     label: s.name,
-  //     value: s.id,
-  //   })),
-  //   required: true,
-  //   half: true,
-  //   isClearable: false,
-  // },
-
-  {
-    key: "client_id",
-    label: "Client",
-    getValue: (lead) =>
-      lead.client
-        ? {
-            value: lead.client.id,
-            label: lead.client.name,
-          }
-        : null,
-    displayValue: (lead) => lead.client?.name,
-    editable: true,
-    editor: "asyncSelect",
-    loadOptions: searchClients,
-    required: true,
-    isClearable: false,
-    clears: ["client_contact_id"],
-  },
   {
     key: "client_contact_id",
     label: "Contact",
-
-    getValue: (lead) =>
-      lead.client_contact
-        ? {
-            value: lead.client_contact.id,
-            label: lead.client_contact.full_name,
-          }
-        : null,
-
-    displayValue: (lead) => lead.client_contact?.full_name,
-
+    getValue: (lead) => lead.contact?.id,
+    displayValue: (lead) => lead.contact?.full_name,
     editable: true,
-
-    editor: "asyncSelect",
-
-    loadOptions: (search, formData) => {
-      const clientId =
-        typeof formData.client_id === "object"
-          ? formData.client_id?.value
-          : formData.client_id;
-
-      return searchContacts(search, clientId);
-    },
-
-    getOptionByValue: getContactById,
-
-    getDisplayValue: async (value) => {
-      const option = await getContactById(value);
-      return option?.label || value;
-    },
-
+    editor: "select",
+    options: (contacts || []).map((s) => ({
+      label: s.full_name,
+      value: s.id,
+    })),
+    required: true,
     isClearable: false,
-    cacheOptions: false,
-    dependsOn: ["client_id"],
   },
   {
     key: "lead_owner_id",

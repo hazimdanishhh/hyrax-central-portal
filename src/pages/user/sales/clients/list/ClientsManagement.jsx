@@ -59,7 +59,7 @@ import { useClientsMetadata } from "../../../../../features/sales/clients/privat
 import useClientMutations from "../../../../../features/sales/clients/private/hooks/useClientMutations";
 import { fetchClients } from "../../../../../features/sales/clients/private/api/clientsService";
 import ClientsList from "../../../../../components/sales/clients/clientsList/ClientsList";
-import ClientSidebar from "../../../../../components/sales/clients/clientSidebar/ClientSidebar";
+import ClientSidebar from "./detail/ClientSidebar";
 
 /**
  * SALES Clients Management Page
@@ -80,9 +80,6 @@ export default function ClientsManagement() {
   const [pendingSaveRow, setPendingSaveRow] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const [searchParams] = useSearchParams();
-  const currentStage = searchParams.get("stage");
-  const isCancelled = searchParams.get("cancelled") === "true";
-  const isOnHold = searchParams.get("onHold") === "true";
   const isCreating = clientId === "new";
 
   const [isEditing, setIsEditing] = useState(isCreating);
@@ -124,8 +121,8 @@ export default function ClientsManagement() {
     queryKey: "clients",
     queryFn: fetchClients,
     pageSize: 20,
-    defaultSortBy: "created_at",
-    defaultSortOrder: "descending",
+    defaultSortBy: "name",
+    defaultSortOrder: "ascending",
   });
   const { data: fetchedClient, isLoading: isClientLoading } =
     useClient(clientId);
@@ -261,19 +258,22 @@ export default function ClientsManagement() {
         });
       }
 
-      handleCloseSidebar();
-      setModalOpen(false);
+      // handleCloseSidebar();
+      // setModalOpen(false);
 
-      await queryClient.invalidateQueries({ queryKey: ["clients"] });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      // ALWAYS clean up state so ghost actions don't linger
+      await queryClient.invalidateQueries({
+        queryKey: ["clients"],
+        exact: true,
+      });
+
+      // RESET
       handleCloseSidebar();
       setModalOpen(false);
       setPendingSaveRow(null);
       setModalType(null);
       setPendingAction(null);
+    } catch (err) {
+      console.error(err);
     }
   }
 

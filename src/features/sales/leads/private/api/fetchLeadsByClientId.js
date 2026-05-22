@@ -1,27 +1,31 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
- * Fetch a single lead by ID
+ * Fetch all leads by Client ID
  */
-export async function fetchClientById(id) {
-  if (!id) return null;
+export async function fetchLeadsByClientId(clientId) {
+  if (!clientId || clientId === "new") return [];
 
   const { data, error } = await supabase
-    .from("clients")
+    .from("sales_leads")
     .select(
       `
       *,
-      industry:industry_id(*)
+      client:client_id(*),
+      client_contact:client_contact_id(*),
+      lead_owner:employees_public!lead_owner_id(*),
+      lead_source_type:lead_source_type_id(*)
     `,
     )
-    .eq("id", id)
-    .maybeSingle();
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(1);
 
   if (error) throw error;
 
   // We reuse your existing normalizeLeads function.
   // Since it expects an array, we wrap `data` in an array and return the first element.
-  return normalizeLeads([data])[0];
+  return normalizeLeads(data || []);
 }
 
 /**

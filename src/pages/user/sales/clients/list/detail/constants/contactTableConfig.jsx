@@ -1,4 +1,4 @@
-export const getTableConfig = () => [
+export const contactTableConfig = () => [
   {
     key: "full_name",
     label: "Contact Name",

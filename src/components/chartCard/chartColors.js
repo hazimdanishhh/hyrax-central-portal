@@ -59,3 +59,39 @@ export const GENDER_COLORS = {
   Female: "#EC4899", // pink
   "Not Specified": "#9CA3AF", // gray
 };
+
+// SALES LEAD STAGES
+
+export const LEAD_STAGE_COLORS = {
+  DISCOVERY: "#1abee4", // blue
+  SAMPLE_TEST: "#6763d7", // indigo
+  PROPOSAL: "#ffb74d", // yellow/orange
+  NEGOTIATION: "#ac41c7", // purple
+  WON: "#4bc793", // green
+  LOST: "#d76363", // red
+};
+
+// SALES LEAD STATUS
+
+export const LEAD_STATUS_COLORS = {
+  Active: "#1abee4", // blue
+  Won: "#4bc793", // green
+  Lost: "#d76363", // red
+  Hold: "#ffb74d", // yellow
+  Cancelled: "#9CA3AF", // gray
+};
+
+export const LEAD_UTILIZATION_COLORS = {
+  Open: "#1abee4", // blue
+  Won: "#4bc793", // green
+  Lost: "#d76363", // red
+  Hold: "#ffb74d", // yellow
+};
+
+export const LEAD_TREND_COLORS = {
+  Total: "#1abee4",
+  Won: "#4bc793",
+  Lost: "#d76363",
+  Active: "#6763d7",
+  Hold: "#ffb74d",
+};

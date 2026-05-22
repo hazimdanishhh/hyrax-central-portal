@@ -12,11 +12,11 @@ import Button from "../../../buttons/button/Button";
 import { useState } from "react";
 import useContactMutations from "../../../../features/sales/contacts/private/hooks/useContactMutations";
 import DataForm from "../../../crud/dataForm/DataForm";
-import { getTableConfig } from "../../clients/clientSidebar/constants/tableConfig";
 import { useMessage } from "../../../../context/MessageContext";
 import ActionModal from "../../../modals/actionModal/ActionModal";
 import { getActionConfig } from "./constants/actionConfig";
 import { useQueryClient } from "@tanstack/react-query";
+import { contactTableConfig } from "../../../../pages/user/sales/clients/list/detail/constants/contactTableConfig";
 
 export default function ContactsList({ contact }) {
   const queryClient = useQueryClient();
@@ -35,7 +35,7 @@ export default function ContactsList({ contact }) {
   // ==============
   // CONFIG
   // ==============
-  const contactColumns = getTableConfig();
+  const contactColumns = contactTableConfig();
   const modalConfig = getActionConfig[modalType] || {};
 
   // ==============
