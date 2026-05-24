@@ -1,0 +1,40 @@
+.clientDetailLayoutContainer {
+  display: flex;
+  justify-content: start;
+  align-items: start;
+  gap: 0.8rem;
+
+  @media screen and (max-width: 1024px) {
+    flex-direction: column;
+  }
+
+  //   LEFT
+  .clientDetailLayoutLeft {
+    height: fit-content;
+    width: 40%;
+
+    @media screen and (max-width: 1024px) {
+      width: 100%;
+    }
+
+    .clientDetailContainer {
+      display: flex;
+      flex-direction: column;
+      justify-content: start;
+      align-items: start;
+      gap: 0.4rem;
+      text-align: start;
+
+      .clientDetailSegment {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+    }
+  }
+
+  //   RIGHT
+  .clientDetailLayoutRight {
+    width: 100%;
+  }
+}

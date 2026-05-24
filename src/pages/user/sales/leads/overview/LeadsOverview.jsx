@@ -65,6 +65,30 @@ export default function LeadsOverview() {
         <>
           <OverviewCards items={overviewItems} />
 
+          <ChartCard title="Lead Trends Over Time" style="cardGapSmall">
+            <LineChartRenderer
+              data={leadsTrendData}
+              lines={[
+                {
+                  dataKey: "Total",
+                  color: LEAD_TREND_COLORS.Total,
+                },
+                {
+                  dataKey: "Won",
+                  color: LEAD_TREND_COLORS.Won,
+                },
+                {
+                  dataKey: "Lost",
+                  color: LEAD_TREND_COLORS.Lost,
+                },
+                {
+                  dataKey: "Active",
+                  color: LEAD_TREND_COLORS.Active,
+                },
+              ]}
+            />
+          </ChartCard>
+
           <CardLayout style="cardLayout2">
             <ChartCard title="Lead Stages" style="cardGapSmall">
               <PieChartRenderer
@@ -73,30 +97,6 @@ export default function LeadsOverview() {
                 colorMap={LEAD_STAGE_COLORS}
                 centerLabel={kpis.activeLeads}
                 centerSubLabel="Active Leads"
-              />
-            </ChartCard>
-
-            <ChartCard title="Lead Trends Over Time" style="cardGapSmall">
-              <LineChartRenderer
-                data={leadsTrendData}
-                lines={[
-                  {
-                    dataKey: "Total",
-                    color: LEAD_TREND_COLORS.Total,
-                  },
-                  {
-                    dataKey: "Won",
-                    color: LEAD_TREND_COLORS.Won,
-                  },
-                  {
-                    dataKey: "Lost",
-                    color: LEAD_TREND_COLORS.Lost,
-                  },
-                  {
-                    dataKey: "Active",
-                    color: LEAD_TREND_COLORS.Active,
-                  },
-                ]}
               />
             </ChartCard>
 

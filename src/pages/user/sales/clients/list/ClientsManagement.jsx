@@ -59,7 +59,6 @@ import { useClientsMetadata } from "../../../../../features/sales/clients/privat
 import useClientMutations from "../../../../../features/sales/clients/private/hooks/useClientMutations";
 import { fetchClients } from "../../../../../features/sales/clients/private/api/clientsService";
 import ClientsList from "../../../../../components/sales/clients/clientsList/ClientsList";
-import ClientSidebar from "./detail/ClientSidebar";
 
 /**
  * SALES Clients Management Page
@@ -200,7 +199,8 @@ export default function ClientsManagement() {
   // SIDEBAR OPEN & CLOSE
   // ==============
   function handleOpenSidebar(client) {
-    navigate(`${client.id}?${searchParams.toString()}`);
+    setIsEditing(false);
+    navigate(`/app/sales/clients/${client.id}`);
   }
 
   function handleCloseSidebar() {
@@ -389,16 +389,7 @@ export default function ClientsManagement() {
             isEditing={isEditing}
             onCancel={() => setIsEditing(false)}
             fullPage
-          >
-            {selectedRow?.id && !isEditing && (
-              <ClientSidebar
-                selectedRow={selectedRow}
-                onRequestAction={handleRequestAction}
-                isEditing={isEditing}
-                setIsEditing={setIsEditing}
-              />
-            )}
-          </DataSidebar>
+          ></DataSidebar>
         )}
       </AnimatePresence>
 

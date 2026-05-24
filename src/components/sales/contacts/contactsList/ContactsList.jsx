@@ -16,7 +16,7 @@ import { useMessage } from "../../../../context/MessageContext";
 import ActionModal from "../../../modals/actionModal/ActionModal";
 import { getActionConfig } from "./constants/actionConfig";
 import { useQueryClient } from "@tanstack/react-query";
-import { contactTableConfig } from "../../../../pages/user/sales/clients/list/detail/constants/contactTableConfig";
+import { contactTableConfig } from "../../../../pages/user/sales/clients/list/detail/tabs/clientContactsTab/constants/contactTableConfig";
 
 export default function ContactsList({ contact }) {
   const queryClient = useQueryClient();

@@ -7,7 +7,7 @@ import {
   UsersIcon,
 } from "@phosphor-icons/react";
 import Button from "../../../../../../components/buttons/button/Button";
-import "./ClientSidebar.scss";
+import "./ClientDetail.scss";
 import StatusBox from "../../../../../../components/status/statusBox/StatusBox";
 import { useContacts } from "../../../../../../features/sales/contacts/private/hooks/useContacts";
 import LoadingIcon from "../../../../../../components/loadingIcon/LoadingIcon";
@@ -17,7 +17,7 @@ import ContactsList from "../../../../../../components/sales/contacts/contactsLi
 import { useState } from "react";
 import Breadcrumbs from "../../../../../../components/breadcrumbs/Breadcrumbs";
 import PageHeader from "../../../../../../components/crud/pageHeader/PageHeader";
-import { useNavigate } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import DataForm from "../../../../../../components/crud/dataForm/DataForm";
 import useContactMutations from "../../../../../../features/sales/contacts/private/hooks/useContactMutations";
 import { useLeads } from "../../../../../../features/sales/leads/private/hooks/useLeads";
@@ -25,24 +25,30 @@ import useLeadMutations from "../../../../../../features/sales/leads/private/hoo
 import { useLeadsMetadata } from "../../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
 import { useEmployee } from "../../../../../../context/EmployeeContext";
 import LeadsList from "../../../../../../components/sales/leads/leadsList/LeadsList";
-import { contactTableConfig } from "./constants/contactTableConfig";
-import { leadTableConfig } from "./constants/leadTableConfig";
-import LeadsManagement from "../../../leads/list/LeadsManagement";
+import { contactTableConfig } from "./tabs/clientContactsTab/constants/contactTableConfig";
+import { leadTableConfig } from "./tabs/clientLeadsTab/constants/leadTableConfig";
+import LeadsManagement from "./tabs/clientLeadsTab/ClientLeadsTab";
 import CardWrapper from "../../../../../../components/cardWrapper/CardWrapper";
+import { useClient } from "../../../../../../features/sales/clients/private/hooks/useClient";
 
-export default function ClientSidebar({
-  selectedRow,
+export default function ClientDetail({
   onRequestAction,
   updating,
   isEditing,
   setIsEditing,
 }) {
+  const { clientId } = useParams();
   const navigate = useNavigate();
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [isAddingLead, setIsAddingLead] = useState(false);
   const [isEditingLead, setIsEditingLead] = useState(false);
   const [tab, setTab] = useState("contacts");
   const { employee } = useEmployee();
+  const {
+    data: selectedRow,
+    isLoading: clientLoading,
+    error: clientError,
+  } = useClient(clientId);
 
   // ==============
   // CONTACTS
@@ -97,6 +103,18 @@ export default function ClientSidebar({
 
     setIsAddingLead(false);
   };
+
+  if (clientLoading) {
+    return (
+      <CardLayout style="cardLayoutFlexFull">
+        <LoadingIcon />
+      </CardLayout>
+    );
+  }
+
+  if (clientError || !selectedRow) {
+    return <NoResult title="Client not found" />;
+  }
 
   return (
     <div className="clientSidebarContainer">
