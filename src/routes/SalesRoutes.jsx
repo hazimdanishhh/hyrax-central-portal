@@ -56,7 +56,9 @@ export default (
             <ClientsManagement />
           </AccessRoute>
         }
-      ></Route>
+      >
+        <Route path=":clientId" element={null} />
+      </Route>
 
       <Route
         path=":clientId"

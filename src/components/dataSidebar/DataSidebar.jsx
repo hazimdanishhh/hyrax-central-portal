@@ -79,7 +79,7 @@ export default function DataSidebar({
             />
           )}
 
-          {children}
+          {!isEditing && children}
         </CardLayout>
       </motion.div>
     </motion.div>

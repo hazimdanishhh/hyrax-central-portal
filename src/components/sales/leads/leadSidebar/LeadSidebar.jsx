@@ -1,40 +1,34 @@
-import { useState } from "react";
-import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
-import StatusBox from "../../../status/statusBox/StatusBox";
-import "./LeadSidebar.scss";
-import LeadStage from "../leadStage/LeadStage";
-import useLeadMutations from "../../../../features/sales/leads/private/hooks/useLeadMutations";
-import Button from "../../../buttons/button/Button";
-import {
-  LEAD_STAGE_LABELS,
-  LEAD_STAGE_TRANSITIONS,
-} from "../../../../pages/user/sales/leads/list/constants/leadStageTransitions";
 import {
   BriefcaseIcon,
   CheckCircleIcon,
   ClockClockwiseIcon,
-  ClockCounterClockwiseIcon,
   ClockIcon,
   PauseCircleIcon,
   PencilSimpleLineIcon,
-  PencilSimpleSlashIcon,
   PlayCircleIcon,
-  TextTIcon,
   UserCircleIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
+import { useState } from "react";
+import { useSidebar } from "../../../../context/SidebarContext"; // <-- IMPORT CONTEXT
+import {
+  LEAD_STAGE_LABELS,
+  LEAD_STAGE_TRANSITIONS,
+} from "../../../../pages/user/sales/leads/list/constants/leadStageTransitions";
+import Button from "../../../buttons/button/Button";
 import CardLayout from "../../../cardLayout/CardLayout";
+import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import IconCard from "../../../iconCard/IconCard";
-import RouterButton from "../../../buttons/routerButton/RouterButton";
+import StatusBox from "../../../status/statusBox/StatusBox";
+import LeadStage from "../leadStage/LeadStage";
+import "./LeadSidebar.scss";
 
-export default function LeadSidebar({
-  selectedRow,
-  onRequestAction,
-  updating,
-  isEditing,
-  setIsEditing,
-}) {
+export default function LeadSidebar({ selectedRow, onRequestAction }) {
   const [showName, setShowName] = useState(false);
+
+  // Grab state directly from the global sidebar context!
+  const { sidebar, updateSidebar } = useSidebar();
+  const updating = sidebar.saving; // Use this to disable buttons
 
   //   BOOLEANS
   const isWon = selectedRow.stage === "WON";
@@ -43,9 +37,7 @@ export default function LeadSidebar({
   const isClosedLead = isWon || isLost || isCancelled;
 
   const canTransitionStage = !isClosedLead && !selectedRow.is_on_hold;
-
   const canToggleHold = !isClosedLead;
-
   const canCancel = !isWon && !isLost && !isCancelled;
 
   /**
@@ -82,7 +74,9 @@ export default function LeadSidebar({
                   ? "red"
                   : selectedRow.is_on_hold
                     ? "yellow"
-                    : "green"
+                    : selectedRow.stage === "WON"
+                      ? "green"
+                      : "blue"
               }
             />
 
@@ -95,7 +89,6 @@ export default function LeadSidebar({
           </div>
 
           <p className="textBold textS">{selectedRow.title}</p>
-
           <p className="textRegular textXS">{selectedRow.description}</p>
 
           <IconCard
@@ -129,12 +122,6 @@ export default function LeadSidebar({
             setShowName={setShowName}
             position="left"
           />
-
-          {/* <RouterButton
-            name="History"
-            icon={ClockCounterClockwiseIcon}
-            style="button buttonType5 textXXXS"
-          /> */}
         </div>
       </div>
 
@@ -245,23 +232,14 @@ export default function LeadSidebar({
       </CardLayout>
 
       {/* EDIT BUTTON */}
-      {!isEditing ? (
-        <Button
-          name="Edit"
-          icon={PencilSimpleLineIcon}
-          style="button buttonType4 textXS"
-          size={16}
-          onClick={() => setIsEditing(!isEditing)}
-        />
-      ) : (
-        <Button
-          name="Cancel Edit"
-          icon={PencilSimpleSlashIcon}
-          onClick={() => setIsEditing(!isEditing)}
-          style="button buttonType4 textXS"
-          size={16}
-        />
-      )}
+      <Button
+        name="Edit"
+        icon={PencilSimpleLineIcon}
+        style="button buttonType4 textXS"
+        size={16}
+        // Tell context to swap directly to edit mode
+        onClick={() => updateSidebar({ isEditing: true, title: "Edit Lead" })}
+      />
     </div>
   );
 }

@@ -22,7 +22,7 @@ export default function LeadsList({
   onClick,
   saving,
   deleting,
-  setIsEditing,
+  onEdit,
   selected,
   onSelect,
 }) {
@@ -63,7 +63,9 @@ export default function LeadsList({
                     ? "red"
                     : lead.is_on_hold
                       ? "yellow"
-                      : "green"
+                      : lead.stage === "WON"
+                        ? "green"
+                        : "blue"
                 }
               />
 
@@ -72,24 +74,16 @@ export default function LeadsList({
             </div>
 
             <p className="textBold textXS">{lead.title}</p>
-            <p className="textLight textXXS employeeListMobile">
-              {lead.description}
-            </p>
-
+            {lead.description && (
+              <p className="textLight textXXS employeeListMobile">
+                {lead.description}
+              </p>
+            )}
             <IconCard
               name={lead.client?.name}
               icon={BriefcaseIcon}
               style="textLight textXXS"
             />
-
-            <p className="textLight textXXXS employeeListMobile cardStyle">
-              <span className="textRegular">Success Probability: </span>
-              {lead.close_probability}%
-            </p>
-            <p className="textLight textXXXS employeeListMobile cardStyle">
-              <span className="textRegular">Expected Revenue: </span>
-              RM{lead.expected_revenue}
-            </p>
           </div>
         </div>
 
@@ -103,7 +97,11 @@ export default function LeadsList({
           />
           <Button
             style="iconButton2"
-            onClick={setIsEditing}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation(); // <-- This stops the parent card from also being clicked!
+              onEdit();
+            }}
             icon={NotePencilIcon}
             size={16}
             weight="light"

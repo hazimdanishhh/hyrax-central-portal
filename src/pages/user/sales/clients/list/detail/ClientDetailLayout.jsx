@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   ChartLineIcon,
   HandshakeIcon,
   ListIcon,
+  PencilSimpleIcon,
+  PlusCircleIcon,
   UsersIcon,
 } from "@phosphor-icons/react";
-import { Link, NavLink, Outlet, useParams } from "react-router";
+import { Link, NavLink, Outlet, useNavigate, useParams } from "react-router";
 import CardWrapper from "../../../../../../components/cardWrapper/CardWrapper";
 import { useTheme } from "../../../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../../../components/breadcrumbs/Breadcrumbs";
@@ -15,8 +17,20 @@ import StatusBox from "../../../../../../components/status/statusBox/StatusBox";
 import LoadingIcon from "../../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../../components/crud/noResult/NoResult";
 import "./ClientDetailLayout.scss";
+import { useSidebar } from "../../../../../../context/SidebarContext";
+import { getClientActionConfig } from "./constants/actionConfig";
+import { getClientSidebarConfig } from "./constants/sidebarConfig";
+import useClientMutations from "../../../../../../features/sales/clients/private/hooks/useClientMutations";
+import { useClientsMetadata } from "../../../../../../features/sales/clients/private/hooks/useClientsMetadata";
+import { getTableConfig } from "../constants/tableConfig";
+import { useModal } from "../../../../../../context/ActionModalContext";
+import { useQueryClient } from "@tanstack/react-query";
+import Button from "../../../../../../components/buttons/button/Button";
+import PageTab from "../../../../../../components/navigation/pageTab/PageTab";
 
 export default function ClientDetailLayout() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { darkMode } = useTheme();
   const { clientId } = useParams();
   const {
@@ -24,6 +38,103 @@ export default function ClientDetailLayout() {
     isLoading: clientLoading,
     error: clientError,
   } = useClient(clientId);
+  const { sidebar, openSidebar, updateSidebar, closeSidebar } = useSidebar();
+  const { openModal, closeModal } = useModal();
+
+  // ==============
+  // METADATA
+  // ==============
+  const {
+    industries,
+    isLoading: metadataLoading,
+    isFetching: metadataFetching,
+    error: metadataError,
+  } = useClientsMetadata();
+
+  // MUTATIONS
+  const { updateClient, deleteClient, updating, deleting } =
+    useClientMutations();
+
+  // CONFIG
+  const columns = getTableConfig({
+    industries,
+  });
+
+  // ==============
+  // SYNC SIDEBAR STATE
+  // ==============
+  // This ensures the global sidebar knows when the local mutations are actively running
+  useEffect(() => {
+    if (sidebar.open) {
+      updateSidebar({
+        saving: updating,
+        deleting: deleting,
+      });
+    }
+  }, [updating, deleting, sidebar.open, updateSidebar]);
+
+  // ==============
+  // HANDLE EDIT
+  // ==============
+  function handleEdit(client) {
+    openSidebar(
+      getClientSidebarConfig({
+        client,
+        columns,
+        onSave: handleRequestSave,
+        onDelete: handleRequestDelete,
+        updating,
+        deleting,
+        onCancel: () => {
+          closeSidebar();
+        },
+      }),
+    );
+  }
+
+  // ==============
+  // HANDLE REQUEST SAVE
+  // ==============
+  function handleRequestSave(data) {
+    openModal({
+      ...getClientActionConfig.save,
+
+      onConfirm: async () => {
+        await updateClient(data);
+
+        await queryClient.invalidateQueries({
+          queryKey: ["clients", clientId],
+        });
+
+        closeSidebar();
+        navigate(`/app/sales/clients/${data.id}`);
+      },
+    });
+  }
+
+  // ==============
+  // HANDLE REQUEST DELETE
+  // ==============
+  function handleRequestDelete(client) {
+    openModal({
+      ...getClientActionConfig.delete,
+
+      onConfirm: async () => {
+        await deleteClient(client.id);
+
+        queryClient.invalidateQueries({
+          queryKey: ["clients", clientId],
+        });
+
+        queryClient.invalidateQueries({
+          queryKey: ["clients"],
+        });
+
+        closeSidebar();
+        navigate("/app/sales/clients/list");
+      },
+    });
+  }
 
   return (
     <>
@@ -37,6 +148,13 @@ export default function ClientDetailLayout() {
               <NoResult title="Error Loading Client" />
             ) : (
               <div className="clientDetailContainer">
+                <Button
+                  onClick={() => handleEdit(client)}
+                  name="Edit Client"
+                  icon={PencilSimpleIcon}
+                  size={16}
+                  style="button buttonType5 textXXS"
+                />
                 <p className="textBold">{client.name}</p>
 
                 <div className="clientDetailSegment">
@@ -61,67 +179,31 @@ export default function ClientDetailLayout() {
           {/* RIGHT COLUMN */}
           <div className="clientDetailLayoutRight">
             {/* TABS */}
-            <div className="pageTabContainer">
-              {/* DETAILS */}
-              <NavLink
-                to={`/app/sales/clients/${clientId}/overview`}
-                className={({ isActive }) =>
-                  `button buttonTypeTab textRegular textXS ${
-                    isActive ? "active" : ""
-                  }`
-                }
-              >
-                <div className="pageTabIcon">
-                  <ChartLineIcon size={15} />
-                </div>
-                Overview
-              </NavLink>
+            <PageTab
+              tabs={[
+                {
+                  name: "Overview",
+                  to: `/app/sales/clients/${clientId}/overview`,
+                  icon: ChartLineIcon,
+                },
+                {
+                  name: "Contacts",
+                  to: `/app/sales/clients/${clientId}/contacts`,
+                  icon: ListIcon,
+                },
+                {
+                  name: "Leads",
+                  to: `/app/sales/clients/${clientId}/leads`,
+                  icon: ListIcon,
+                },
+                {
+                  name: "Orders",
+                  to: `/app/sales/clients/${clientId}/orders`,
+                  icon: ListIcon,
+                },
+              ]}
+            />
 
-              {/* LEADS */}
-              <NavLink
-                to={`/app/sales/clients/${clientId}/contacts`}
-                className={({ isActive }) =>
-                  `button buttonTypeTab textRegular textXS ${
-                    isActive ? "active" : ""
-                  }`
-                }
-              >
-                <div className="pageTabIcon">
-                  <ListIcon size={15} />
-                </div>
-                Contacts
-              </NavLink>
-
-              {/* LEADS */}
-              <NavLink
-                to={`/app/sales/clients/${clientId}/leads`}
-                className={({ isActive }) =>
-                  `button buttonTypeTab textRegular textXS ${
-                    isActive ? "active" : ""
-                  }`
-                }
-              >
-                <div className="pageTabIcon">
-                  <ListIcon size={15} />
-                </div>
-                Leads
-              </NavLink>
-
-              {/* ORDERS */}
-              <NavLink
-                to={`/app/sales/clients/${clientId}/orders`}
-                className={({ isActive }) =>
-                  `button buttonTypeTab textRegular textXS ${
-                    isActive ? "active" : ""
-                  }`
-                }
-              >
-                <div className="pageTabIcon">
-                  <ListIcon size={15} />
-                </div>
-                Orders
-              </NavLink>
-            </div>
             <Outlet />
           </div>
         </div>

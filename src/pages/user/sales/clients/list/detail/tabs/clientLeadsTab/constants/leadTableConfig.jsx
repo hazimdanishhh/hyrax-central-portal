@@ -45,8 +45,6 @@ export const leadTableConfig = ({
       label: s.full_name,
       value: s.id,
     })),
-    required: true,
-    isClearable: false,
   },
   {
     key: "lead_owner_id",

@@ -1,67 +1,28 @@
-// pages/user/it/ITAssetManagement/list/ITAssetManagement.jsx
-import {
-  CheckCircleIcon,
-  DesktopIcon,
-  ListIcon,
-  PencilSimpleLineIcon,
-  PlusCircleIcon,
-  UserMinusIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
-import CardLayout from "../../../../../components/cardLayout/CardLayout";
-import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
-import { useTheme } from "../../../../../context/ThemeContext";
-import "./LeadsManagement.scss";
-import { useEffect, useMemo, useState } from "react";
-import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
-import DataTable from "../../../../../components/dataTable/DataTable";
-import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
-import { AnimatePresence } from "framer-motion";
-import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
-import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import PageTab from "../../../../../components/navigation/pageTab/PageTab";
-import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
-import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
-import PageResult from "../../../../../components/crud/pageResult/PageResult";
-import NoResult from "../../../../../components/crud/noResult/NoResult";
-import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import { PlusCircleIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
-import ChartCard from "../../../../../components/chartCard/ChartCard";
-import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
-import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
-import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
-import {
-  CONDITION_COLORS,
-  RISK_COLORS,
-  STATUS_COLORS,
-  UTILIZATION_COLORS,
-} from "../../../../../components/chartCard/chartColors";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
+import CardLayout from "../../../../../components/cardLayout/CardLayout";
+import CrudFunctions from "../../../../../components/crud/crudFunctions/CrudFunctions";
+import NoResult from "../../../../../components/crud/noResult/NoResult";
+import DataTable from "../../../../../components/dataTable/DataTable";
+import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
+import LeadStageTab from "../../../../../components/sales/leads/leadStageTab/LeadStageTab";
+import { useModal } from "../../../../../context/ActionModalContext";
+import { useEmployee } from "../../../../../context/EmployeeContext";
+import { useSidebar } from "../../../../../context/SidebarContext";
+import { useTheme } from "../../../../../context/ThemeContext";
 import { fetchLeads } from "../../../../../features/sales/leads/private/api/leadsService";
 import { useLeadsMetadata } from "../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
-import useLeadMutations from "../../../../../features/sales/leads/private/hooks/useLeadMutations";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import { getFilterConfig } from "./constants/filterConfig";
 import { getLayoutConfig } from "./constants/layoutConfig";
 import { getSortConfig } from "./constants/sortConfig";
-import { getFilterConfig } from "./constants/filterConfig";
-import { leadsTableConfig } from "./constants/tableConfig";
-import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
-import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
-import { getActionConfig } from "./constants/actionConfig";
-import {
-  Link,
-  NavLink,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router";
-import { useEmployee } from "../../../../../context/EmployeeContext";
-import LeadStageTab from "../../../../../components/sales/leads/leadStageTab/LeadStageTab";
 import { stageTabsConfig } from "./constants/tabConfig";
-import { useLead } from "../../../../../features/sales/leads/private/hooks/useLead";
-import PageActions from "../../../../../components/crud/pageActions/PageActions";
+import { leadsTableConfig } from "./constants/tableConfig";
+import { useLeadHandlers } from "./constants/useLeadHandlers";
+import "./LeadsManagement.scss";
 
 /**
  * SALES Leads Management Page
@@ -70,32 +31,21 @@ import PageActions from "../../../../../components/crud/pageActions/PageActions"
  */
 export default function LeadsManagement() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { darkMode } = useTheme();
   const { employee } = useEmployee();
-  const navigate = useNavigate();
   const { leadId } = useParams();
-  const [layout, setLayout] = useState(0); // 0: List, 1: Table
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState(null);
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [modalType, setModalType] = useState(null); // "save" | "reject"
-  const [pendingSaveRow, setPendingSaveRow] = useState(null);
-  const [pendingAction, setPendingAction] = useState(null);
+
+  // 1. IMPORT CONTEXTS
+  const { sidebar, openSidebar, updateSidebar, closeSidebar } = useSidebar();
+  const { openModal } = useModal();
+
   const [searchParams] = useSearchParams();
+  const [layout, setLayout] = useState(0);
+
   const currentStage = searchParams.get("stage");
   const isCancelled = searchParams.get("cancelled") === "true";
   const isOnHold = searchParams.get("onHold") === "true";
-  const isCreating = leadId === "new";
-
-  const [isEditing, setIsEditing] = useState(isCreating);
-
-  useEffect(() => {
-    if (isCreating) {
-      setIsEditing(true);
-    } else {
-      setIsEditing(false);
-    }
-  }, [isCreating]);
 
   // ==============
   // HOOKS
@@ -129,24 +79,6 @@ export default function LeadsManagement() {
     defaultSortBy: "updated_at",
     defaultSortOrder: "descending",
   });
-  const { data: fetchedLead, isLoading: isLeadLoading } = useLead(leadId);
-
-  // Find selected row based on URL param.
-  // If "new", return empty object for creation.
-  // If not found, return null to show error state in sidebar
-  const selectedRow = useMemo(() => {
-    if (leadId === "new") return {};
-    if (!leadId) return null;
-
-    // 1. Check if it's already in our local paginated list (Instant UI)
-    const leadInList = leads?.find((lead) => lead.id === leadId);
-    if (leadInList) return leadInList;
-
-    // 2. Fall back to the newly fetched lead (For direct URL sharing)
-    return fetchedLead || null;
-  }, [leadId, leads, fetchedLead]);
-
-  const sidebarOpen = !!selectedRow;
 
   // ==============
   // METADATA
@@ -160,37 +92,9 @@ export default function LeadsManagement() {
     isFetching: metadataFetching,
     error: metadataError,
   } = useLeadsMetadata();
-  const {
-    createLead,
-    updateLead,
-    deleteLead,
-    bulkDeleteLeads,
-    bulkUpdateLeads,
-    creating,
-    updating,
-    deleting,
-    bulkDeleting,
-    bulkUpdating,
-  } = useLeadMutations();
 
   // ==============
   // CONFIG
-  // ==============
-  const layoutOptions = getLayoutConfig();
-  const sortOptions = getSortConfig();
-  const modalConfig = getActionConfig[modalType] || {};
-
-  // ==============
-  // DATA LOADING
-  // ==============
-  const isLoading = leadsLoading || metadataLoading;
-  const error = leadsError || metadataError;
-  const isFetching = leadsFetching || metadataFetching;
-  const isSaving = creating || updating || bulkUpdating;
-  const hasData = leads.length > 0;
-
-  // ==============
-  // TABLE CONFIG
   // ==============
   const columns = leadsTableConfig({
     employee,
@@ -199,216 +103,93 @@ export default function LeadsManagement() {
     clientContacts,
     leadSourceTypes,
   });
-
-  // ==============
-  // FILTER CONFIG
-  // ==============
   const filterConfig = getFilterConfig({
     owners,
     clients,
     clientContacts,
     leadSourceTypes,
   });
+  const layoutOptions = getLayoutConfig();
+  const sortOptions = getSortConfig();
 
   // ==============
-  // SIDEBAR OPEN & CLOSE
+  // DATA LOADING
   // ==============
-  function handleOpenSidebar(lead) {
-    navigate(`${lead.id}?${searchParams.toString()}`);
-  }
-
-  function handleCloseSidebar() {
-    setIsEditing(false);
-    navigate(`/app/sales/leads/list?${searchParams.toString()}`);
-  }
+  const isLoading = leadsLoading || metadataLoading;
+  const error = leadsError || metadataError;
+  const isFetching = leadsFetching || metadataFetching;
+  const hasData = leads.length > 0;
 
   // ==============
-  // SAVE + UPDATE
+  // BUSINESS LOGIC & MUTATIONS
   // ==============
-  function handleRequestSave(data) {
-    setPendingSaveRow(data);
-    setModalType("save");
-    setModalOpen(true);
-  }
+  const { handleCreate, handleEdit, isSaving, deleting } = useLeadHandlers({
+    columns,
+  });
 
   // ==============
-  // DELETE
+  // DIRECT URL ACCESS (Open Sidebar automatically)
   // ==============
-  function handleRequestDelete(lead) {
-    setPendingDeleteRow(lead);
-    setSelectedRowId(lead.id);
-    setModalType("delete");
-    setModalOpen(true);
-  }
+  useEffect(() => {
+    if (isLoading || !leadId || sidebar.open) return;
 
-  // ==============
-  // STAGE CHANGE ACTION
-  // ==============
-  function handleRequestAction(action) {
-    setPendingAction(action);
-    setModalType(action.type);
-    setModalOpen(true);
-  }
-
-  // ==============
-  // MODAL INPUT CONFIG
-  // ==============
-  const isHoldAction =
-    pendingAction?.type === "toggle_hold" &&
-    pendingAction?.payload?.is_on_hold === true;
-  const isLostAction =
-    pendingAction?.type === "stage_change" &&
-    pendingAction?.payload?.stage === "LOST";
-  const isCancelAction = pendingAction?.type === "cancel";
-
-  const requireInput = isHoldAction || isLostAction || isCancelAction;
-
-  let dynamicPlaceholder = "Enter reason...";
-  if (isHoldAction) dynamicPlaceholder = "Why is this lead on hold?";
-  if (isLostAction) dynamicPlaceholder = "Why was this lead lost?";
-  if (isCancelAction) dynamicPlaceholder = "Why is this lead being cancelled?";
-
-  // ==============
-  // CONFIRM ACTION DELETE / SAVE / UPDATE
-  // ==============
-  async function handleConfirmAction(reason) {
-    try {
-      // DELETE
-      if (modalType === "delete") {
-        await deleteLead(selectedRowId);
+    if (leadId === "new") {
+      handleCreate();
+    } else {
+      const existingLead = leads?.find((l) => l.id === leadId);
+      if (existingLead) {
+        handleEdit(existingLead, false); // Open in view mode
       }
-
-      // SAVE
-      if (modalType === "save") {
-        const data = pendingSaveRow;
-
-        if (data.id) {
-          await updateLead(data);
-        } else {
-          await createLead(data);
-        }
-      }
-
-      // ACTIONS
-      if (pendingAction) {
-        const payloadToSubmit = { ...pendingAction.payload };
-
-        // Map the typed reason to the correct database column
-        if (isCancelAction) payloadToSubmit.cancel_reason = reason;
-        if (isHoldAction) payloadToSubmit.hold_reason = reason;
-        if (isLostAction) payloadToSubmit.lose_reason = reason;
-
-        // =========================
-        // CLEAR HOLD STATE
-        // =========================
-        if (
-          pendingAction.type === "toggle_hold" &&
-          !pendingAction.payload.is_on_hold
-        ) {
-          payloadToSubmit.hold_reason = null;
-        }
-
-        // Cancel action should also remove hold state
-        if (pendingAction.type === "cancel") {
-          payloadToSubmit.is_on_hold = false;
-          payloadToSubmit.hold_reason = null;
-        }
-
-        // =========================
-        // CLEAR LOST REASON
-        // =========================
-        if (
-          pendingAction.type === "stage_change" &&
-          pendingAction.payload.stage !== "LOST"
-        ) {
-          payloadToSubmit.lose_reason = null;
-        }
-
-        // FIX: Pass payloadToSubmit instead of pendingAction.payload
-        await updateLead({
-          id: payloadToSubmit.id,
-          ...payloadToSubmit,
-        });
-      }
-
-      await queryClient.invalidateQueries({
-        queryKey: ["sales_leads"],
-      });
-
-      // RESET
-      handleCloseSidebar();
-      setModalOpen(false);
-      setPendingSaveRow(null);
-      setModalType(null);
-      setPendingAction(null);
-    } catch (err) {
-      console.error(err);
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadId, isLoading]);
+
+  // ==============
+  // SYNC SIDEBAR STATE
+  // ==============
+  useEffect(() => {
+    if (sidebar.open) {
+      updateSidebar({
+        saving: isSaving,
+        deleting: deleting,
+      });
+    }
+  }, [isSaving, deleting, sidebar.open, updateSidebar]);
 
   return (
     <>
-      {/* SEARCH AND FILTER BAR */}
-      <SearchFilterBar
+      <CrudFunctions
         search={search}
-        onSearchChange={setSearch}
+        setSearch={setSearch}
         filters={filters}
-        onFilterChange={setFilters}
+        setFilters={setFilters}
         filterConfig={filterConfig}
-        placeholder="Search leads..."
-        enableDateRange
-      />
-
-      {/* ACTIVE FILTERS */}
-      {hasActiveFilters && (
-        <ActiveFiltersBar
-          search={search}
-          setSearch={setSearch}
-          filters={activeFilters}
-          setFilters={setFilters}
-          filterConfig={filterConfig}
-          resetParams={resetParams}
-        />
-      )}
-
-      <PageHeader>
-        {/* LAYOUT UI + ACTION BUTTONS */}
-        <PageActions
-          layout={layout}
-          setLayout={setLayout}
-          options={layoutOptions}
-          actionButtons={[
-            {
-              icon: PlusCircleIcon,
-              name: "Add Lead",
-              onClick: () => {
-                navigate(`new?${searchParams.toString()}`);
-              },
-              style: "button buttonType5 approval textXXS",
-            },
-            {
-              icon: PlusCircleIcon,
-              name: "Add Client",
-              onClick: () => {
-                navigate(`../../clients/list/new`);
-              },
-              style: "button buttonType5 approval textXXS",
-            },
-          ]}
-        />
-
-        {/* SORTING ACTIONS */}
-        <SortBar
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOptions={sortOptions}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-        />
-      </PageHeader>
-
-      {/* RESULT NUMBER + NEXT AND PREVIOUS BUTTONS */}
-      <PageResult
+        placeholder="Search companies..."
+        hasActiveFilters={hasActiveFilters}
+        activeFilters={activeFilters}
+        resetParams={resetParams}
+        layout={layout}
+        setLayout={setLayout}
+        layoutOptions={layoutOptions}
+        actionButtons={[
+          {
+            icon: PlusCircleIcon,
+            name: "Add Lead",
+            onClick: () => handleCreate(),
+            style: "button buttonType5 approval textXXS",
+          },
+          {
+            icon: PlusCircleIcon,
+            name: "Add Client",
+            onClick: () => navigate(`../../clients/list/new`),
+            style: "button buttonType5 approval textXXS",
+          },
+        ]}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        sortOptions={sortOptions}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
         data={leads}
         totalCount={totalCount}
         page={page}
@@ -445,7 +226,7 @@ export default function LeadsManagement() {
             data={leads}
             columns={columns}
             rowKey="id"
-            onRowClick={handleOpenSidebar}
+            onRowClick={(lead) => handleEdit(lead, false)}
           />
         ) : (
           // LIST LAYOUT
@@ -454,62 +235,15 @@ export default function LeadsManagement() {
               <LeadsList
                 key={lead.id}
                 lead={lead}
-                onClick={() => handleOpenSidebar(lead)}
+                onClick={() => handleEdit(lead, false)}
                 saving={isSaving}
                 deleting={deleting}
-                setIsEditing={() => setIsEditing(true)}
+                onEdit={() => handleEdit(lead, true)}
               />
             ))}
           </CardLayout>
         )}
       </CardLayout>
-
-      {/* DATA SIDEBAR */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <DataSidebar
-            title={selectedRow?.id ? "Edit Lead" : "Add Lead"}
-            icon={PencilSimpleLineIcon}
-            open={sidebarOpen}
-            onClose={handleCloseSidebar}
-            rowData={selectedRow}
-            columns={columns}
-            onSave={handleRequestSave}
-            onDelete={handleRequestDelete}
-            saving={isSaving}
-            deleting={deleting}
-            creating={!selectedRow?.id}
-            isEditing={isEditing}
-            onCancel={() => setIsEditing(false)}
-          >
-            {selectedRow?.id && !isEditing && (
-              <LeadSidebar
-                selectedRow={selectedRow}
-                onRequestAction={handleRequestAction}
-                isEditing={isEditing}
-                setIsEditing={setIsEditing}
-              />
-            )}
-          </DataSidebar>
-        )}
-      </AnimatePresence>
-
-      <ActionModal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setModalType(null);
-          setPendingAction(null); // Kills the zombie state
-        }}
-        title={modalConfig.title}
-        description={modalConfig.description}
-        confirmText={modalConfig.confirmText}
-        loading={isSaving || deleting}
-        onConfirm={handleConfirmAction}
-        modalType={modalConfig.modalType}
-        requireInput={requireInput}
-        inputPlaceholder={dynamicPlaceholder}
-      />
     </>
   );
 }

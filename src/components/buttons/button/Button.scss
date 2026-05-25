@@ -538,4 +538,36 @@
       }
     }
   }
+
+  // YELLOW
+  &.blue {
+    background-color: rgb($info600, 0.1);
+    border: 1px solid $info600;
+    transition: 0.3s;
+    color: $info600;
+
+    &:hover {
+      background-color: $info600;
+      color: $neutral100;
+      border: 1px solid $info600;
+      transition: 0.3s;
+    }
+
+    &.active {
+      background-color: $info600;
+      color: $neutral100;
+      border: 1px solid $info600;
+      transition: 0.3s;
+    }
+
+    &:disabled {
+      color: $neutral600;
+      border: 1px solid $neutral600;
+
+      &:hover {
+        border: 1px solid $neutral600;
+        cursor: not-allowed;
+      }
+    }
+  }
 }

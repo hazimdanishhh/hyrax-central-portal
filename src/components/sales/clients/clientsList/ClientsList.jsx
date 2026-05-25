@@ -6,9 +6,9 @@ import StatusBox from "../../../status/statusBox/StatusBox";
 export default function ClientsList({
   client,
   onClick,
+  onEdit,
   saving,
   deleting,
-  setIsEditing,
   selected,
   onSelect,
 }) {
@@ -29,13 +29,16 @@ export default function ClientsList({
           {client.industry_id && (
             <StatusBox status={client.industry?.name} type="blue" />
           )}
-          {/* <Button
+          <Button
             style="iconButton2"
-            onClick={setIsEditing}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
             icon={NotePencilIcon}
             size={16}
             weight="light"
-          /> */}
+          />
           {/* <CaretCircleRightIcon size={24} /> */}
         </div>
       </div>

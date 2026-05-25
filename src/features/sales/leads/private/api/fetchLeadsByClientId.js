@@ -19,7 +19,7 @@ export async function fetchLeadsByClientId(clientId) {
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
-    .limit(1);
+    .limit(5);
 
   if (error) throw error;
 

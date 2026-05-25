@@ -1,52 +1,31 @@
 // pages/user/it/ITAssetManagement/list/ITAssetManagement.jsx
-import {
-  CheckCircleIcon,
-  DesktopIcon,
-  PencilSimpleLineIcon,
-  PlusCircleIcon,
-  UserMinusIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
-import CardLayout from "../../../../../components/cardLayout/CardLayout";
-import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
-import { useTheme } from "../../../../../context/ThemeContext";
-import "./ITAssetManagement.scss";
-import { useMemo, useState } from "react";
-import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
-import DataTable from "../../../../../components/dataTable/DataTable";
-import { itAssetTableConfig } from "./tableConfig";
-import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
+import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import ITAssetList from "../../../../../components/itAsset/itAssetList/ITAssetList";
+import { useState } from "react";
+import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import NoResult from "../../../../../components/crud/noResult/NoResult";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import { getITAssetsFilterConfig } from "./filterConfig";
-import PageTab from "../../../../../components/navigation/pageTab/PageTab";
-import { getAssetsLayoutConfig } from "./layoutConfig";
-import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
-import NoResult from "../../../../../components/crud/noResult/NoResult";
-import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import { getITAssetsSortConfig } from "./sortConfig";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
-import { useQueryClient } from "@tanstack/react-query";
-import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
+import DataTable from "../../../../../components/dataTable/DataTable";
+import ITAssetList from "../../../../../components/itAsset/itAssetList/ITAssetList";
+import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
+import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
+import { useTheme } from "../../../../../context/ThemeContext";
 import { fetchITAssets } from "../../../../../features/it/assets/private/api/itAssets";
-import { useITAssetsMetadata } from "../../../../../features/it/assets/private/hooks/useITAssetsMetadata";
-import ChartCard from "../../../../../components/chartCard/ChartCard";
-import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
-import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
-import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
-import {
-  CONDITION_COLORS,
-  RISK_COLORS,
-  STATUS_COLORS,
-  UTILIZATION_COLORS,
-} from "../../../../../components/chartCard/chartColors";
 import useITAssetMutations from "../../../../../features/it/assets/private/hooks/useITAssetMutations";
+import { useITAssetsMetadata } from "../../../../../features/it/assets/private/hooks/useITAssetsMetadata";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import { getITAssetsFilterConfig } from "./filterConfig";
+import "./ITAssetManagement.scss";
+import { getAssetsLayoutConfig } from "./layoutConfig";
+import { getITAssetsSortConfig } from "./sortConfig";
+import { itAssetTableConfig } from "./tableConfig";
 
 /**
  * IT Asset Management Page

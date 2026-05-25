@@ -15,36 +15,42 @@ import ProtectedRoute from "./ProtectedRoute";
 import AppLayout from "../layouts/AppLayout";
 import WorkspaceRoutes from "./WorkspaceRoutes";
 import SuperadminRoutes from "./SuperadminRoutes";
+import { SidebarProvider } from "../context/SidebarContext";
+import { ModalProvider } from "../context/ActionModalContext";
 
 export default function AppRouter() {
   return (
     <BrowserRouter>
-      <Routes>
-        {PublicRoutes}
+      <SidebarProvider>
+        <ModalProvider>
+          <Routes>
+            {PublicRoutes}
 
-        <Route
-          path="/app"
-          element={
-            <ProtectedRoute>
-              <AppLayout />
-            </ProtectedRoute>
-          }
-        >
-          {GeneralRoutes}
-          {WorkspaceRoutes}
-          {SalesRoutes}
-          {HRRoutes}
-          {FinanceRoutes}
-          {EmployeeRoutes}
-          {ITRoutes}
-          {HelpRoutes}
-          {SuperadminRoutes}
+            <Route
+              path="/app"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              {GeneralRoutes}
+              {WorkspaceRoutes}
+              {SalesRoutes}
+              {HRRoutes}
+              {FinanceRoutes}
+              {EmployeeRoutes}
+              {ITRoutes}
+              {HelpRoutes}
+              {SuperadminRoutes}
 
-          <Route path="*" element={<Error404 />} />
-        </Route>
+              <Route path="*" element={<Error404 />} />
+            </Route>
 
-        <Route path="*" element={<Error404 />} />
-      </Routes>
+            <Route path="*" element={<Error404 />} />
+          </Routes>
+        </ModalProvider>
+      </SidebarProvider>
     </BrowserRouter>
   );
 }

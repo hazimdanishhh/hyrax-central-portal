@@ -9,6 +9,8 @@ import { EmployeeProvider } from "../context/EmployeeContext";
 import ThemeProvider from "../context/ThemeContext";
 import { MessageProvider } from "../context/MessageContext";
 import { AttendanceProvider } from "../context/AttendanceProvider";
+import { SidebarProvider } from "../context/SidebarContext";
+import { ModalProvider } from "../context/ActionModalContext";
 
 export default function AppProviders({ children }) {
   return (
