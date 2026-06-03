@@ -123,13 +123,35 @@ export function useLeadsOverview() {
   }, [data]);
 
   // ======================
+  // WIN / LOSS METRICS
+  // ======================
+  const winLossMetrics = useMemo(() => {
+    const wonCount = wonLeads.length;
+    const lostCount = lostLeads.length;
+    const totalClosed = wonCount + lostCount;
+
+    // Win Rate % (e.g., 62.5%) - Best for pie charts and KPI cards
+    const winRate =
+      totalClosed > 0 ? Number(((wonCount / totalClosed) * 100).toFixed(1)) : 0;
+
+    // Win/Loss Ratio (e.g., 1.5 means 1.5 wins for every 1 loss)
+    const winLossRatio =
+      lostCount > 0 ? Number((wonCount / lostCount).toFixed(2)) : wonCount;
+
+    return {
+      winRate,
+      winLossRatio,
+      totalClosed,
+    };
+  }, [wonLeads, lostLeads]);
+
+  // ======================
   // PIPELINE
   // ======================
-
   const pipelineDistributionData = useMemo(() => {
     return [
       {
-        name: "Open",
+        name: "Active",
         value: activeLeads.length,
       },
       {
@@ -144,8 +166,12 @@ export function useLeadsOverview() {
         name: "Hold",
         value: onHoldLeads.length,
       },
+      {
+        name: "Cancelled",
+        value: cancelledLeads.length,
+      },
     ];
-  }, [activeLeads, wonLeads, lostLeads, onHoldLeads]);
+  }, [activeLeads, wonLeads, lostLeads, onHoldLeads, cancelledLeads]);
 
   // ======================
   // REVENUE
@@ -235,6 +261,15 @@ export function useLeadsOverview() {
 
       cancelledLeads: cancelledLeads.length,
 
+      winRate: winLossMetrics.winRate,
+      winLossRatio: winLossMetrics.winLossRatio,
+      totalClosed: winLossMetrics.totalClosed,
+
+      winRateFormatted: new Intl.NumberFormat("en-MY", {
+        style: "percent",
+        maximumFractionDigits: 1,
+      }).format(winLossMetrics.winRate / 100),
+
       totalPipelineValue,
 
       weightedPipelineValue,
@@ -254,6 +289,7 @@ export function useLeadsOverview() {
     lostLeads,
     onHoldLeads,
     cancelledLeads,
+    winLossMetrics,
     totalPipelineValue,
     weightedPipelineValue,
     avgCloseProbability,

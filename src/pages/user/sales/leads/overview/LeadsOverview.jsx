@@ -90,20 +90,17 @@ export default function LeadsOverview() {
           </ChartCard>
 
           <CardLayout style="cardLayout2">
-            <ChartCard title="Lead Stages" style="cardGapSmall">
-              <PieChartRenderer
-                data={stageData}
-                mode="semantic"
-                colorMap={LEAD_STAGE_COLORS}
-                centerLabel={kpis.activeLeads}
-                centerSubLabel="Active Leads"
-              />
-            </ChartCard>
+            {/* <ChartCard title="Lead Stages" style="cardGapSmall">
+              <BarChartRenderer data={stageData} colorMap={GREEN_COLOR} />
+            </ChartCard> */}
 
             <ChartCard title="Pipeline Distribution" style="cardGapSmall">
-              <StackedBarRenderer
+              <PieChartRenderer
                 data={pipelineDistributionData}
-                colorMap={LEAD_UTILIZATION_COLORS}
+                mode="semantic"
+                colorMap={LEAD_STATUS_COLORS}
+                centerLabel={kpis.activeLeads}
+                centerSubLabel="Active Leads"
               />
             </ChartCard>
 
@@ -118,14 +115,6 @@ export default function LeadsOverview() {
             <ChartCard title="Top Clients" style="cardGapSmall">
               <BarChartRenderer data={topClientsData} colorMap={GREEN_COLOR} />
             </ChartCard>
-
-            {/* <ChartCard title="Lead Status Breakdown" style="cardGapSmall">
-              <PieChartRenderer
-                data={statusBreakdownData}
-                mode="semantic"
-                colorMap={LEAD_STATUS_COLORS}
-              />
-            </ChartCard> */}
           </CardLayout>
         </>
       )}

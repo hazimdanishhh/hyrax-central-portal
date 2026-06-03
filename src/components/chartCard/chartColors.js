@@ -82,10 +82,11 @@ export const LEAD_STATUS_COLORS = {
 };
 
 export const LEAD_UTILIZATION_COLORS = {
-  Open: "#1abee4", // blue
+  Active: "#1abee4", // blue
   Won: "#4bc793", // green
   Lost: "#d76363", // red
   Hold: "#ffb74d", // yellow
+  Cancelled: "#7f7f7f", // red
 };
 
 export const LEAD_TREND_COLORS = {
