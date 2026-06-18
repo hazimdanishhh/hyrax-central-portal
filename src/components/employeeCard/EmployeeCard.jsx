@@ -21,11 +21,7 @@ function EmployeeCard({ className, onClick, employee, isMyManager }) {
     >
       <div className="employeeCardStatusContainer">
         <StatusBadge status={employee.employment_status_name} />
-        <AttendanceType
-          attendanceType={
-            employee.current_attendance_type_name || "Not in Office"
-          }
-        />
+        <AttendanceType attendanceType={employee.current_status} />
         <button className="employeeCardArrow">
           <CaretCircleRightIcon size={28} weight="light" />
         </button>

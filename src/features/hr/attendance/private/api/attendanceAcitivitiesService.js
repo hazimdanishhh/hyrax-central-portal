@@ -1,4 +1,4 @@
-// services/attendanceActivitiesService.js
+// features/hr/attendance/private/api/attendanceActivitiesService.js
 
 import { supabase } from "../../../../../lib/supabaseClient";
 

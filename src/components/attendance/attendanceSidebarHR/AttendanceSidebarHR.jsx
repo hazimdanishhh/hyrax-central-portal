@@ -1,156 +1,118 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import AttendanceType from "../attendanceType/AttendanceType";
 import {
   CheckIcon,
   ClockUserIcon,
-  SignInIcon,
-  SignOutIcon,
   XIcon,
+  WarningCircleIcon,
+  CheckCircleIcon,
 } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
-import { Link } from "react-router";
 import "./AttendanceSidebarHR.scss";
+import LoadingIcon from "../../loadingIcon/LoadingIcon";
+import { fetchEmployeeDayDetails } from "../../../features/hr/attendance/private/api/attendanceOverviewService";
+import StatusBox from "../../status/statusBox/StatusBox";
 import AttendanceClock from "../attendanceClock/AttendanceClock";
+import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
+import StackedBarRenderer from "../../chartCard/StackedBarRenderer";
+import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineCard";
 
-// SIDEBAR UI FOR HR ATTENDANCE MANAGEMENT PAGE
-function AttendanceSidebarHR({
-  selectedRow,
+export default function AttendanceSidebarHR({
+  selectedRow, // This is now the Daily Summary Row
   setSelectedId,
   setModalType,
   setModalOpen,
   clockOutAttendanceActivity,
 }) {
+  // 1. Fetch the granular timeline for THIS employee on THIS day
+  const { data: timelineData, isLoading } = useQuery({
+    queryKey: [
+      "attendance_activities",
+      selectedRow?.employee_uuid,
+      selectedRow?.work_date,
+    ],
+    queryFn: () =>
+      fetchEmployeeDayDetails(
+        selectedRow?.employee_uuid,
+        selectedRow?.work_date,
+      ),
+    enabled: !!selectedRow?.employee_uuid && !!selectedRow?.work_date,
+  });
+
+  console.log("Timeline Data", timelineData);
+
+  const workDayData = [
+    {
+      name: "Worked",
+      value: selectedRow.hours_worked,
+    },
+    {
+      name: "Remaining",
+      value: Math.max(0, 8 - selectedRow.hours_worked).toFixed(2),
+    },
+  ];
+
   return (
     <div className="attendanceCardSidebarContainer">
-      {/* HEADER DATE & APPROVAL STATUS */}
+      {/* HEADER: EMPLOYEE & OVERALL DAY STATUS */}
       <div className="attendanceCardSidebarHeader">
-        <p className="textBold texS">{selectedRow.clocked_in_date}</p>
-        <StatusBadge status={selectedRow.approval_status} />
-      </div>
-
-      {/* EMPLOYEE AVATAR */}
-      <div className="attendanceCardSidebarSegment">
-        <div className="cardLayoutFlexFull cardGapMedium cardLayoutNoPadding">
-          <div className="generalCardPhoto mobile">
-            <img
-              src={selectedRow.avatar_url || "/profilePhoto/default.webp"}
-              alt={selectedRow.employee_name}
-            />
-          </div>
-
-          {/* EMPLOYEE NAME & CLOCKED IN/OUT TIME */}
-          <div className="attendanceCardSidebarDetailsContainer">
-            <div className="attendanceCardSidebarDetails">
-              <p className="textBold textS">{selectedRow.employee_name}</p>
-              <AttendanceType
-                attendanceType={selectedRow.attendance_type_name}
-              />
-            </div>
-
-            <div className="attendanceCardSidebarDetails">
-              <AttendanceClock
-                time={selectedRow.clocked_in_time}
-                type="clockin"
-              />
-
-              {selectedRow.clocked_out_at && (
-                <AttendanceClock
-                  time={selectedRow.clocked_out_time}
-                  type="clockout"
-                />
-              )}
-            </div>
-          </div>
+        <div>
+          <EmployeeImage employee={selectedRow} />
+          <p className="textBold textM">{selectedRow?.full_name}</p>
+          <p className="textRegular textS">{selectedRow?.work_date}</p>
         </div>
-
-        {/* APPROVE/REJECT BUTTON */}
-        {selectedRow.approval_status === "Pending" &&
-          selectedRow.clocked_out_time && (
-            <div className="attendanceCardApprovalContainer">
-              <Button
-                onClick={() => {
-                  setSelectedId(selectedRow.id);
-                  setModalType("approve");
-                  setModalOpen(true);
-                }}
-                icon={CheckIcon}
-                style="iconButton2 approval"
-              />
-              <Button
-                onClick={() => {
-                  setSelectedId(selectedRow.id);
-                  setModalType("reject");
-                  setModalOpen(true);
-                }}
-                icon={XIcon}
-                style="iconButton2 rejection"
-              />
-            </div>
-          )}
-      </div>
-
-      {/* CLOCK OUT BUTTON */}
-      {!selectedRow.clocked_out_at && (
-        <Button
-          style="button buttonType2Clockout textBold textXXS"
-          icon={ClockUserIcon}
-          name="Clock Out"
-          onClick={async () => {
-            await clockOutAttendanceActivity(selectedRow.id);
-          }}
+        {/* Show the Daily Macro Flag */}
+        <StatusBox
+          status={selectedRow?.hr_flag}
+          type={`${selectedRow?.hr_flag === "Review Required" ? "yellow" : selectedRow?.hr_flag === "Approved" || selectedRow?.hr_flag === "OK" ? "green" : "red"}`}
         />
-      )}
+      </div>
 
-      {/* NOTES */}
-      {selectedRow.notes && (
-        <div className="generalCard blueCard cardPaddingSmall">
-          <p className="textBold textXS">Notes:</p>
-          <p className="textRegular textXXS">{selectedRow.notes}</p>
-        </div>
-      )}
+      <StackedBarRenderer
+        data={workDayData}
+        colorMap={{
+          Worked: "#22c55e",
+          Remaining: "#a1a1a1",
+        }}
+        height={30}
+      />
 
-      {/* APPROVAL */}
-      {selectedRow.approval_status === "Approved" && (
-        <div className="attendanceCardSidebarDetailsContainer">
-          <div className="generalCard greenCard cardWidth cardPaddingSmall">
-            <Link
-              className="textBold textXXXS"
-              to={`/app/employees/${selectedRow.approved_by}`}
-            >
-              Approved By:{" "}
-              <span className="textRegular textXXXS">
-                {selectedRow.approved_by_name}
-              </span>
-            </Link>
-          </div>
-        </div>
-      )}
+      <p className="textBold textS">{selectedRow.hours_worked}h worked</p>
 
-      {/* REJECTION REASON */}
-      {selectedRow.approval_status === "Rejected" && (
-        <div className="attendanceCardSidebarDetailsContainer">
-          <div className="generalCard redCard cardWidth cardPaddingSmall">
-            <Link
-              className="textBold textXXXS"
-              to={`/app/employees/${selectedRow.approved_by}`}
-            >
-              Rejected By:{" "}
-              <span className="textRegular textXXXS">
-                {selectedRow.approved_by_name}
-              </span>
-            </Link>
-          </div>
-          <div className="generalCard redCard cardPaddingSmall">
-            <p className="textBold textXS">Rejection Reason:</p>
-            <p className="textRegular textXXS">
-              {selectedRow.rejection_reason}
-            </p>
-          </div>
+      <div className="attendanceCardClockWrapper">
+        {selectedRow.first_in_time && (
+          <AttendanceClock time={selectedRow.first_in_time} type="clockin" />
+        )}
+        {selectedRow.last_out_time && (
+          <AttendanceClock time={selectedRow.last_out_time} type="clockout" />
+        )}
+      </div>
+
+      <div className="divider"></div>
+      <p className="textBold textS mb-2">Activity Timeline</p>
+
+      {/* LOADING STATE */}
+      {isLoading ? (
+        <LoadingIcon />
+      ) : timelineData?.length === 0 ? (
+        <p className="textRegular textS">
+          No app activities logged for this day.
+        </p>
+      ) : (
+        /* 2. MAP THROUGH EACH ACTIVITY IN THE DAY */
+        <div className="cardLayout1 cardGapSmall cardLayoutNoPadding">
+          {timelineData.map((activity) => (
+            <AttendanceTimelineCard
+              key={activity.activity_id}
+              activity={activity}
+              setModalType={setModalType}
+              setModalOpen={setModalOpen}
+            />
+          ))}
         </div>
       )}
     </div>
   );
 }
-
-export default AttendanceSidebarHR;

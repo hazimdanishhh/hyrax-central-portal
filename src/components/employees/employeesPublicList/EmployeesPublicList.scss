@@ -4,27 +4,36 @@
   flex-wrap: wrap;
   cursor: pointer;
 
-  .employeeCardHeaderContainer {
+  .employeeListHeaderContainer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 0.5rem;
     width: 100%;
 
-    // @media screen and (max-width: 425px) {
-    //   align-items: start;
-    // }
+    @media screen and (max-width: 1024px) {
+      align-items: start;
+      flex-direction: column;
+    }
+
+    .employeeListHeader {
+      display: flex;
+      flex-direction: row;
+      justify-content: start;
+      align-items: center;
+      gap: 0.4rem;
+      text-align: start;
+    }
 
     .employeeCardStatusContainer {
       display: flex;
       align-items: center;
-      justify-content: end;
       gap: 0.2rem;
 
-      // @media screen and (max-width: 425px) {
-      //   flex-direction: column;
-      //   align-items: end;
-      // }
+      @media screen and (max-width: 1024px) {
+        align-items: end;
+        flex-wrap: wrap;
+      }
 
       .listArrow {
         display: flex;

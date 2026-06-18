@@ -7,6 +7,7 @@ import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import CardLayout from "../../cardLayout/CardLayout";
 import AttendanceType from "../attendanceType/AttendanceType";
 import AttendanceClock from "../attendanceClock/AttendanceClock";
+import StatusBox from "../../status/statusBox/StatusBox";
 
 // GENERAL REUSABLE ATTENDANCE CARD
 // WITH PHOTO, ATTENDANCE TYPE ICONS, CLOCK IN/OUT AND APPROVAL STATUS
@@ -24,21 +25,33 @@ function AttendanceCard({ activity, onClick }) {
           setShowName={setShowName}
           employee={activity}
         />
-        <p className="textBold textXS" title={activity.employee_name}>
-          {activity.employee_preferred_name}
+        <p className="textBold textXS" title={activity.full_name}>
+          {activity.full_name}
         </p>
-        <AttendanceType attendanceType={activity.attendance_type_name} />
+        {activity.daily_activities && (
+          <AttendanceType attendanceType={activity.daily_activities} />
+        )}
       </div>
       <div className="attendanceCardSegment">
         <div className="attendanceCardClockWrapper">
-          <AttendanceClock time={activity.clocked_in_time} type="clockin" />
-
-          {activity.clocked_out_at && (
-            <AttendanceClock time={activity.clocked_out_time} type="clockout" />
+          {activity.first_in_time && (
+            <AttendanceClock time={activity.first_in_time} type="clockin" />
+          )}
+          {activity.last_out_time && (
+            <AttendanceClock time={activity.last_out_time} type="clockout" />
           )}
         </div>
 
-        <StatusBadge status={activity.approval_status} />
+        <StatusBox
+          status={activity.hr_flag}
+          type={
+            activity.hr_flag === "Review Required"
+              ? "yellow"
+              : activity.hr_flag === "Approved" || activity.hr_flag === "OK"
+                ? "green"
+                : "red"
+          }
+        />
       </div>
     </button>
   );

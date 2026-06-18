@@ -9,6 +9,10 @@
   color: $info500;
   width: max-content;
 
+  p {
+    text-wrap: nowrap;
+  }
+
   &.red {
     background-color: rgba($error600, 0.2);
     color: $error600;
@@ -27,5 +31,10 @@
   &.yellow {
     background-color: rgba($warning600, 0.2);
     color: $warning600;
+  }
+
+  &.grey {
+    background-color: rgba($neutral500, 0.2);
+    color: inherit;
   }
 }

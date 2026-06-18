@@ -11,7 +11,7 @@ export const attendanceActivitiesChangeClockInTimeConfig = () => [
   {
     key: "id",
     label: "ID",
-    getValue: "id",
+    getValue: "activity_id",
     editable: false,
     editor: "text",
     show: false,

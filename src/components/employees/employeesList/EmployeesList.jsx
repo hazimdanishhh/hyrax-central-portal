@@ -25,7 +25,7 @@ export default function EmployeesList({
       initial={{ y: 0 }}
       whileHover={{ y: -3 }}
     >
-      <div className="employeeCardHeaderContainer">
+      <div className="employeeListHeaderContainer">
         <Button
           style={`iconButton ${selected ? "active" : ""}`}
           size={12}

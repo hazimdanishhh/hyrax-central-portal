@@ -14,6 +14,7 @@ export default function StackedBarRenderer({
   data = [],
   colorMap = {},
   height = 20,
+  noLegend = false,
 }) {
   const { darkMode } = useTheme();
 
@@ -50,7 +51,7 @@ export default function StackedBarRenderer({
           />
         </BarChart>
       </ResponsiveContainer>
-      <CustomLegend data={data} colorMap={colorMap} />
+      {!noLegend && <CustomLegend data={data} colorMap={colorMap} />}
     </>
   );
 }

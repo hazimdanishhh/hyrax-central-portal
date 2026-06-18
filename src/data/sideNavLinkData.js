@@ -290,17 +290,17 @@ export const sideNavLinkData = [
         path: "",
       },
 
-      {
-        label: "Announcements",
-        icon: MegaphoneIcon,
-        path: "announcements",
-      },
+      // {
+      //   label: "Announcements",
+      //   icon: MegaphoneIcon,
+      //   path: "announcements",
+      // },
 
-      {
-        label: "Notifications",
-        icon: BellIcon,
-        path: "notifications",
-      },
+      // {
+      //   label: "Notifications",
+      //   icon: BellIcon,
+      //   path: "notifications",
+      // },
 
       {
         label: "Profile",
@@ -325,58 +325,58 @@ export const sideNavLinkData = [
   // =================================================
   // WORKSPACE
   // =================================================
-  {
-    segmentTitle: "WORKSPACE",
-    segmentCode: "SPACE",
+  // {
+  //   segmentTitle: "WORKSPACE",
+  //   segmentCode: "SPACE",
 
-    links: [
-      {
-        label: "Projects",
-        icon: SquaresFourIcon,
-        path: "workspace/projects",
-      },
+  //   links: [
+  //     {
+  //       label: "Projects",
+  //       icon: SquaresFourIcon,
+  //       path: "workspace/projects",
+  //     },
 
-      {
-        label: "Tasks",
-        icon: ListDashesIcon,
-        path: "workspace/tasks",
-      },
+  //     {
+  //       label: "Tasks",
+  //       icon: ListDashesIcon,
+  //       path: "workspace/tasks",
+  //     },
 
-      {
-        label: "Documents",
-        icon: FoldersIcon,
-        path: "workspace/documents",
-      },
-    ],
-  },
+  //     {
+  //       label: "Documents",
+  //       icon: FoldersIcon,
+  //       path: "workspace/documents",
+  //     },
+  //   ],
+  // },
 
   // =================================================
   // EMPLOYEE
   // =================================================
-  {
-    segmentTitle: "EMPLOYEE",
-    segmentCode: "EMPLOYEE",
+  // {
+  //   segmentTitle: "EMPLOYEE",
+  //   segmentCode: "EMPLOYEE",
 
-    links: [
-      {
-        label: "Attendance",
-        icon: ClipboardTextIcon,
-        path: "employee/attendance",
-      },
+  //   links: [
+  //     {
+  //       label: "Attendance",
+  //       icon: ClipboardTextIcon,
+  //       path: "employee/attendance",
+  //     },
 
-      {
-        label: "Leave Request",
-        icon: CalendarIcon,
-        path: "employee/leave-request",
-      },
+  //     {
+  //       label: "Leave Request",
+  //       icon: CalendarIcon,
+  //       path: "employee/leave-request",
+  //     },
 
-      {
-        label: "Claims",
-        icon: WalletIcon,
-        path: "employee/claims",
-      },
-    ],
-  },
+  //     {
+  //       label: "Claims",
+  //       icon: WalletIcon,
+  //       path: "employee/claims",
+  //     },
+  //   ],
+  // },
 
   // =================================================
   // SALES
@@ -411,57 +411,57 @@ export const sideNavLinkData = [
         departments: ["SAL"],
       },
 
-      {
-        label: "Quotations",
-        icon: FileTextIcon,
-        path: "sales/quotations",
+      // {
+      //   label: "Quotations",
+      //   icon: FileTextIcon,
+      //   path: "sales/quotations",
 
-        departments: ["SAL"],
-      },
+      //   departments: ["SAL"],
+      // },
     ],
   },
 
   // =================================================
   // FINANCE
   // =================================================
-  {
-    segmentTitle: "FINANCE",
-    segmentCode: "FINANCE",
+  // {
+  //   segmentTitle: "FINANCE",
+  //   segmentCode: "FINANCE",
 
-    links: [
-      {
-        label: "Reports",
-        icon: ChartBarIcon,
-        path: "finance/reports",
+  //   links: [
+  //     {
+  //       label: "Reports",
+  //       icon: ChartBarIcon,
+  //       path: "finance/reports",
 
-        departments: ["FIN"],
-        roles: ["manager"],
-      },
+  //       departments: ["FIN"],
+  //       roles: ["manager"],
+  //     },
 
-      {
-        label: "Invoices",
-        icon: FileTextIcon,
-        path: "finance/invoices",
+  //     {
+  //       label: "Invoices",
+  //       icon: FileTextIcon,
+  //       path: "finance/invoices",
 
-        departments: ["FIN"],
-      },
+  //       departments: ["FIN"],
+  //     },
 
-      {
-        label: "Claims Management",
-        icon: ClipboardTextIcon,
-        path: "finance/claims-management",
+  //     {
+  //       label: "Claims Management",
+  //       icon: ClipboardTextIcon,
+  //       path: "finance/claims-management",
 
-        departments: ["FIN"],
-      },
+  //       departments: ["FIN"],
+  //     },
 
-      {
-        label: "Payments",
-        icon: CoinsIcon,
-        path: "finance/payments",
-        departments: ["FIN"],
-      },
-    ],
-  },
+  //     {
+  //       label: "Payments",
+  //       icon: CoinsIcon,
+  //       path: "finance/payments",
+  //       departments: ["FIN"],
+  //     },
+  //   ],
+  // },
 
   // =================================================
   // HR
@@ -472,9 +472,9 @@ export const sideNavLinkData = [
 
     links: [
       {
-        label: "Overview",
+        label: "Reports",
         icon: ChartBarIcon,
-        path: "hr/overview",
+        path: "hr/reports",
         departments: ["HR"],
       },
 
@@ -486,14 +486,14 @@ export const sideNavLinkData = [
         departments: ["HR"],
       },
 
-      {
-        label: "Department Management",
-        icon: UsersThreeIcon,
-        path: "hr/departments",
+      // {
+      //   label: "Department Management",
+      //   icon: UsersThreeIcon,
+      //   path: "hr/departments",
 
-        departments: ["HR"],
-        roles: ["manager"],
-      },
+      //   departments: ["HR"],
+      //   roles: ["manager"],
+      // },
 
       {
         label: "Attendance Management",
@@ -503,53 +503,53 @@ export const sideNavLinkData = [
         departments: ["HR"],
       },
 
-      {
-        label: "Leave Management",
-        icon: CalendarIcon,
-        path: "hr/leaves",
+      // {
+      //   label: "Leave Management",
+      //   icon: CalendarIcon,
+      //   path: "hr/leaves",
 
-        departments: ["HR"],
-      },
+      //   departments: ["HR"],
+      // },
 
-      {
-        label: "Recruitment",
-        icon: BriefcaseIcon,
-        path: "hr/recruitment",
+      // {
+      //   label: "Recruitment",
+      //   icon: BriefcaseIcon,
+      //   path: "hr/recruitment",
 
-        departments: ["HR"],
-        roles: ["manager"],
-      },
+      //   departments: ["HR"],
+      //   roles: ["manager"],
+      // },
 
-      {
-        label: "Onboarding Management",
-        icon: AddressBookIcon,
-        path: "hr/onboarding",
-        departments: ["HR"],
-      },
-      {
-        label: "Policy Management",
-        icon: FilesIcon,
-        path: "hr/policies",
-        departments: ["HR"],
-      },
-      {
-        label: "Forms & Templates",
-        icon: FilesIcon,
-        path: "hr/forms",
-        departments: ["HR"],
-      },
-      {
-        label: "Performance Management",
-        icon: GaugeIcon,
-        path: "hr/performance",
-        departments: ["HR"],
-      },
-      {
-        label: "Training & Development",
-        icon: BookBookmarkIcon,
-        path: "hr/training",
-        departments: ["HR"],
-      },
+      // {
+      //   label: "Onboarding Management",
+      //   icon: AddressBookIcon,
+      //   path: "hr/onboarding",
+      //   departments: ["HR"],
+      // },
+      // {
+      //   label: "Policy Management",
+      //   icon: FilesIcon,
+      //   path: "hr/policies",
+      //   departments: ["HR"],
+      // },
+      // {
+      //   label: "Forms & Templates",
+      //   icon: FilesIcon,
+      //   path: "hr/forms",
+      //   departments: ["HR"],
+      // },
+      // {
+      //   label: "Performance Management",
+      //   icon: GaugeIcon,
+      //   path: "hr/performance",
+      //   departments: ["HR"],
+      // },
+      // {
+      //   label: "Training & Development",
+      //   icon: BookBookmarkIcon,
+      //   path: "hr/training",
+      //   departments: ["HR"],
+      // },
     ],
   },
 
@@ -603,21 +603,21 @@ export const sideNavLinkData = [
         roles: ["superadmin"],
       },
 
-      {
-        label: "Audit Logs",
-        icon: FileTextIcon,
-        path: "admin/audit-logs",
+      // {
+      //   label: "Audit Logs",
+      //   icon: FileTextIcon,
+      //   path: "admin/audit-logs",
 
-        roles: ["superadmin"],
-      },
+      //   roles: ["superadmin"],
+      // },
 
-      {
-        label: "System Settings",
-        icon: GearIcon,
-        path: "admin/settings",
+      // {
+      //   label: "System Settings",
+      //   icon: GearIcon,
+      //   path: "admin/settings",
 
-        roles: ["superadmin"],
-      },
+      //   roles: ["superadmin"],
+      // },
     ],
   },
 

@@ -1,0 +1,81 @@
+.attendanceCardClock {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.8rem;
+  max-width: 120px;
+  width: fit-content;
+  padding: 0.2rem 0.4rem;
+
+  p {
+    text-wrap: nowrap;
+  }
+
+  &.green {
+    background-color: rgba($success600, 0.2);
+    color: $success600;
+    border-radius: 6px;
+
+    .attendanceCardIcon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background-color: $success600;
+      color: $neutral100;
+    }
+  }
+
+  &.yellow {
+    background-color: rgba($warning600, 0.2);
+    color: $warning600;
+    border-radius: 6px;
+
+    .attendanceCardIcon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background-color: $warning600;
+      color: $neutral100;
+    }
+  }
+
+  &.blue {
+    background-color: rgba($info600, 0.2);
+    color: $info600;
+    border-radius: 6px;
+
+    .attendanceCardIcon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background-color: $info600;
+      color: $neutral100;
+    }
+  }
+
+  &.red {
+    background-color: rgba($error600, 0.2);
+    color: $error600;
+    border-radius: 6px;
+
+    .attendanceCardIcon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      background-color: $error600;
+      color: $neutral100;
+    }
+  }
+}

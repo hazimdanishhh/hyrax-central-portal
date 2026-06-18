@@ -16,14 +16,14 @@ export function attendanceActivityConfig({
       })),
       required: true,
     },
-    {
-      key: "photo_url",
-      label: "Attendance Photo",
-      getValue: (activity) => activity.photo_url,
-      editable: true,
-      editor: "image",
-      required: true,
-    },
+    // {
+    //   key: "photo_url",
+    //   label: "Attendance Photo",
+    //   getValue: (activity) => activity.photo_url,
+    //   editable: true,
+    //   editor: "image",
+    //   required: true,
+    // },
     // {
     //   key: "location",
     //   label: "Location",

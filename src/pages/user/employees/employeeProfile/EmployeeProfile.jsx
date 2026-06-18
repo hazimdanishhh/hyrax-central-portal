@@ -15,6 +15,7 @@ import AttendanceType from "../../../../components/attendance/attendanceType/Att
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import { useEmployee } from "../../../../context/EmployeeContext";
 import useEmployeePublic from "../../../../features/hr/employees/public/hooks/useEmployeePublic";
+import AttendanceClock from "../../../../components/attendance/attendanceClock/AttendanceClock";
 
 export default function EmployeeProfile() {
   const navigate = useNavigate();
@@ -93,11 +94,20 @@ export default function EmployeeProfile() {
                             status={employee.employment_status_name}
                           />
                           <AttendanceType
-                            attendanceType={
-                              employee.current_attendance_type_name ||
-                              "Not In Office"
-                            }
+                            attendanceType={employee.current_status}
                           />
+                          {employee.first_arrival_time && (
+                            <AttendanceClock
+                              time={employee.first_arrival_time}
+                              type="clockin"
+                            />
+                          )}
+                          {employee.last_status_time && (
+                            <AttendanceClock
+                              time={employee.last_status_time}
+                              type="clockout"
+                            />
+                          )}
                         </div>
                       </div>
                     </CardSection>

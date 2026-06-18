@@ -10,6 +10,7 @@ import {
   GraduationCapIcon,
   AlarmIcon,
   SignOutIcon,
+  UserCircleDashedIcon,
 } from "@phosphor-icons/react";
 
 // ATTENDANCE TYPE COMPONENT WITH ICONS
@@ -21,6 +22,16 @@ function AttendanceType({ attendanceType = "" }) {
       icon: BuildingOfficeIcon,
       label: "Office",
       className: "green",
+    },
+    "offline / not arrived": {
+      icon: UserCircleDashedIcon,
+      label: "Absent",
+      className: "grey",
+    },
+    offline: {
+      icon: UserCircleDashedIcon,
+      label: "Offline",
+      className: "red",
     },
     "blending plant": {
       icon: FactoryIcon,

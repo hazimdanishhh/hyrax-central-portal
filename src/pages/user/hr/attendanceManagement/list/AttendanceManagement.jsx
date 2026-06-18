@@ -1,52 +1,38 @@
 // pages/user/hr/employees/attendanceManagement/list/AttendanceManagement.jsx
-import {
-  CheckIcon,
-  PencilSimpleLineIcon,
-  PlusCircleIcon,
-  SignInIcon,
-  SignOutIcon,
-  UsersFourIcon,
-  XIcon,
-} from "@phosphor-icons/react";
-import CardLayout from "../../../../../components/cardLayout/CardLayout";
-import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
-import { useTheme } from "../../../../../context/ThemeContext";
-import { useEffect, useState } from "react";
-import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
-import DataTable from "../../../../../components/dataTable/DataTable";
-import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
-import { AnimatePresence } from "framer-motion";
-import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
-import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import { useSearchParams } from "react-router-dom";
-import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
-import PageResult from "../../../../../components/crud/pageResult/PageResult";
-import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
+import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
-import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import { AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import AttendanceCard from "../../../../../components/attendance/attendanceCard/AttendanceCard";
+import AttendanceSidebarHR from "../../../../../components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
+import CardLayout from "../../../../../components/cardLayout/CardLayout";
+import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
+import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
+import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
+import PageResult from "../../../../../components/crud/pageResult/PageResult";
+import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
+import DataTable from "../../../../../components/dataTable/DataTable";
+import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
+import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
+import { useMessage } from "../../../../../context/MessageContext";
+import { useTheme } from "../../../../../context/ThemeContext";
 import { fetchAttendanceActivities } from "../../../../../features/hr/attendance/private/api/attendanceAcitivitiesService";
 import { useAttendanceActivitiesMetadata } from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
+import useAttendanceActivityMutations from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import { supabase } from "../../../../../lib/supabaseClient";
+import { uploadAttendancePhoto } from "../../../../../services/storage/uploadAttendancePhoto";
+import "./AttendanceManagement.scss";
+import { attendanceActivitiesChangeClockInTimeConfig } from "./changeClockInTimeConfig";
+import { attendanceActivitiesChangeClockOutTimeConfig } from "./changeClockOutTimeConfig";
+import { getAttendanceActivitiesFilterConfig } from "./filterConfig";
 import { getAttendanceActivitiesLayoutConfig } from "./layoutConfig";
 import { getAttendanceActivitiesSortConfig } from "./sortConfig";
 import { attendanceActivitiesTableConfig } from "./tableConfig";
-import { getAttendanceActivitiesFilterConfig } from "./filterConfig";
-import StatusBadge from "../../../../../components/status/statusBadge/StatusBadge";
-import "./AttendanceManagement.scss";
-import useAttendanceActivityMutations from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
-import { uploadAttendancePhoto } from "../../../../../services/storage/uploadAttendancePhoto";
-import AttendanceCard from "../../../../../components/attendance/attendanceCard/AttendanceCard";
-import Button from "../../../../../components/buttons/button/Button";
-import { supabase } from "../../../../../lib/supabaseClient";
-import { useMessage } from "../../../../../context/MessageContext";
-import AttendanceType from "../../../../../components/attendance/attendanceType/AttendanceType";
-import AttendanceSidebarHR from "../../../../../components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
-import { attendanceActivitiesChangeClockInTimeConfig } from "./changeClockInTimeConfig";
-import { attendanceActivitiesChangeClockOutTimeConfig } from "./changeClockOutTimeConfig";
+import { fetchUnifiedAttendance } from "../../../../../features/hr/attendance/private/api/attendanceOverviewService";
 
 /**
  * HR Attendance Management Page
@@ -95,9 +81,9 @@ export default function AttendanceManagement() {
     error,
   } = usePaginatedQuery({
     queryKey: "attendance_activities",
-    queryFn: fetchAttendanceActivities,
-    pageSize: 20,
-    defaultSortBy: "clocked_in_at",
+    queryFn: fetchUnifiedAttendance,
+    pageSize: 100,
+    defaultSortBy: "work_date",
     defaultSortOrder: "descending",
   });
 
@@ -160,7 +146,7 @@ export default function AttendanceManagement() {
   // GROUP BY DATE
   // ==============
   const groupedByDate = activities.reduce((acc, activity) => {
-    const date = activity.clocked_in_date || "Unknown Date";
+    const date = activity.work_date || "Unknown Date";
     if (!acc[date]) acc[date] = [];
     acc[date].push(activity);
     return acc;
@@ -446,6 +432,7 @@ export default function AttendanceManagement() {
             saving={saving}
             deleting={deleting}
             creating={!selectedRow?.id}
+            isEditing={!selectedRow?.id}
             // columns={!selectedRow?.id ? columns : []}
             // cannotUpdate={selectedRow?.id}
           >

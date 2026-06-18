@@ -59,7 +59,7 @@ export default function EmployeesPublicPage() {
   } = usePaginatedQuery({
     queryKey: "employees_public",
     queryFn: fetchEmployeesPublic,
-    pageSize: 20,
+    pageSize: 50,
     defaultSortBy: "full_name",
   });
 
