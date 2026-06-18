@@ -5,7 +5,7 @@ export default function CustomTooltip({
   payload,
   label,
   darkMode,
-  colorMap,
+  colorMap = {},
   barChart,
 }) {
   if (active && payload && payload.length) {
@@ -18,8 +18,15 @@ export default function CustomTooltip({
         }
       >
         {payload.map((entry) => {
-          // Recharts passes the original color down as entry.fill
-          const color = entry.fill || colorMap[entry.name];
+          // 1. LineCharts use `entry.color` or `entry.stroke`
+          // 2. BarCharts use `entry.fill`
+          // 3. Fallback to the passed colorMap using dataKey or name
+          const color =
+            entry.color ||
+            entry.fill ||
+            entry.stroke ||
+            colorMap[entry.dataKey] ||
+            colorMap[entry.name];
 
           return (
             <div key={entry.name} className="tooltipEntryContainer textXXXS">
@@ -35,4 +42,6 @@ export default function CustomTooltip({
       </div>
     );
   }
+
+  return null;
 }

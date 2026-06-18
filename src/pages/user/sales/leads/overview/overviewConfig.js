@@ -5,62 +5,68 @@ import {
   PercentIcon,
   WarningCircleIcon,
   XIcon,
+  ClockIcon,
+  ScalesIcon,
 } from "@phosphor-icons/react";
 
 export function getLeadsOverviewConfig(kpis) {
   return [
     {
       icon: FunnelIcon,
-      label: "Total Leads",
-      value: kpis.totalLeads,
-      filter: null,
-    },
-
-    {
-      icon: HandshakeIcon,
       label: "Active Leads",
       value: kpis.activeLeads,
       variant: "blueCard",
       filter: null,
     },
-
     {
-      icon: HandshakeIcon,
-      label: "Won Leads",
-      value: kpis.wonLeads,
-      variant: "greenCard",
-      filter: { stage: "WON" },
+      icon: CurrencyDollarIcon,
+      label: "Active Pipeline",
+      value: `RM ${(kpis.activePipelineValue || 0).toLocaleString()}`,
+      variant: "blueCard",
+      filter: null,
     },
-
+    {
+      icon: ScalesIcon,
+      label: "Weighted Pipeline",
+      value: `RM ${(kpis.weightedPipelineValue || 0).toLocaleString()}`,
+      variant: "blueCard",
+      filter: null,
+    },
     {
       icon: WarningCircleIcon,
-      label: "Lost Leads",
-      value: kpis.lostLeads,
+      label: "Lost Revenue",
+      value: `RM ${(kpis.lostRevenue || 0).toLocaleString()}`,
       variant: "redCard",
       filter: { stage: "LOST" },
     },
 
     {
-      icon: XIcon,
-      label: "Cancelled Leads",
-      value: kpis.lostLeads,
-      variant: "redCard",
-      filter: { cancelled: "true" },
+      icon: HandshakeIcon,
+      label: "Won Revenue",
+      value: `RM ${(kpis.wonRevenue || 0).toLocaleString()}`,
+      variant: "greenCard",
+      filter: { stage: "WON" },
     },
-
     {
-      icon: CurrencyDollarIcon,
-      label: "Pipeline Value",
-      value: kpis.totalPipelineValue,
+      icon: ClockIcon,
+      label: "Avg. Days to Close",
+      value: `${kpis.avgDaysToClose || 0} Days`,
       variant: "blueCard",
       filter: null,
     },
 
     {
+      icon: XIcon,
+      label: "Lost Leads",
+      value: kpis.lostLeads,
+      variant: "redCard",
+      filter: { stage: "LOST" },
+    },
+    {
       icon: PercentIcon,
-      label: "Ave. Close Rate",
-      value: kpis.avgCloseProbability,
-      variant: kpis.avgCloseProbability > 50 ? "greenCard" : "redCard",
+      label: "Win Rate",
+      value: `${kpis.winRate || 0}%`,
+      variant: kpis.winRate >= 50 ? "greenCard" : "redCard",
       filter: null,
     },
   ];

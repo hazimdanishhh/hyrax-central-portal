@@ -12,6 +12,7 @@ export async function fetchLeads({
   filters,
   sortBy,
   sortOrder,
+  isExport = false,
 }) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -72,7 +73,10 @@ export async function fetchLeads({
   });
 
   // paginate LAST
-  query = query.range(from, to);
+  // 2. ONLY PAGINATE IF IT IS NOT AN EXPORT
+  if (!isExport) {
+    query = query.range(from, to);
+  }
 
   const { data, count, error } = await query;
 
