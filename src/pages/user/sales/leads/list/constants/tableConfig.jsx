@@ -174,6 +174,46 @@ export const leadsTableConfig = ({
     editor: "textarea",
     section: "Additional Information",
   },
+  // {
+  //   key: "actual_revenue",
+  //   label: "Actual Revenue (RM)",
+  //   getValue: "actual_revenue",
+  //   editable: true,
+  //   editor: "number",
+  //   min: 0,
+  //   section: "Closing Details",
+  //   half: true,
+  // },
+  {
+    key: "po_number",
+    label: "PO Number (SAP)",
+    getValue: "po_number",
+    editable: true,
+    editor: "text",
+    section: "Closing Details",
+    half: true,
+  },
+
+  // ==========================================
+  // DOCUMENTS (Using your new Drive Picker)
+  // ==========================================
+  {
+    key: "quotation_url",
+    label: "Quotation Document",
+    getValue: "quotation_url",
+    editable: true,
+    editor: "drivePicker", // Uses the custom component we just registered
+    section: "Documents",
+  },
+  {
+    key: "po_document_url",
+    label: "Purchase Order Document",
+    getValue: "po_document_url",
+    editable: true,
+    editor: "drivePicker",
+    section: "Documents",
+  },
+
   //   {
   //     key: "stage",
   //     label: "Stage",

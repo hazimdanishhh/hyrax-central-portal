@@ -70,10 +70,10 @@ export default function ExportFullReport({
         scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
-        windowWidth: 1200,
+        windowWidth: 1300,
         onclone: (clonedDoc, clonedElement) => {
-          clonedElement.style.width = "1200px";
-          clonedElement.style.minWidth = "1200px";
+          clonedElement.style.width = "1300px";
+          clonedElement.style.minWidth = "1300px";
           clonedElement.style.padding = "20px";
         },
       });

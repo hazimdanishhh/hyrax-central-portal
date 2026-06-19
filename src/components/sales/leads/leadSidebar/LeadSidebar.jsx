@@ -15,6 +15,7 @@ import {
   ClockClockwiseIcon,
   ClockCounterClockwiseIcon,
   ClockIcon,
+  FilePdfIcon,
   PauseCircleIcon,
   PencilSimpleLineIcon,
   PencilSimpleSlashIcon,
@@ -110,14 +111,47 @@ export default function LeadSidebar({
             style="textLight textXS"
           />
 
-          <p className="textLight textXXXS employeeListMobile cardStyle">
-            <span className="textRegular">Success Probability: </span>
-            {selectedRow.close_probability}%
-          </p>
-          <p className="textLight textXXXS employeeListMobile cardStyle">
-            <span className="textRegular">Expected Revenue: </span>
-            RM{selectedRow.expected_revenue}
-          </p>
+          <CardLayout style="cardLayout2">
+            <p className="textLight textXXXS cardStyle">
+              <span className="textRegular">Success Probability: </span>
+              {selectedRow.close_probability}%
+            </p>
+            <p className="textLight textXXXS cardStyle">
+              <span className="textRegular">Expected Revenue: </span>
+              RM{selectedRow.expected_revenue}
+            </p>
+            {selectedRow.actual_revenue && (
+              <p className="textLight textXXXS cardStyle">
+                <span className="textRegular">Actual Revenue: </span>
+                RM{selectedRow.actual_revenue}
+              </p>
+            )}
+          </CardLayout>
+
+          <CardLayout style="cardLayout2">
+            {selectedRow.quotation_url && (
+              <a
+                href={selectedRow.quotation_url}
+                className="textLight textXXS button buttonType4"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="textLight textXXS">View Quotation</span>
+                <FilePdfIcon size={24} />
+              </a>
+            )}
+            {selectedRow.po_document_url && (
+              <a
+                href={selectedRow.po_document_url}
+                className="textLight textXXS button buttonType4"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="textLight textXXS">View PO</span>
+                <FilePdfIcon size={24} />
+              </a>
+            )}
+          </CardLayout>
         </div>
 
         {/* DATE TIME / IMAGE / HISTORY BUTTON */}

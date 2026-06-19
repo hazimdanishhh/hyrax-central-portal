@@ -20,7 +20,7 @@ import { fetchLeadsDashboard } from "../../../../../features/sales/leads/private
 import { useLeadsMetadata } from "../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
 import useDashboardQuery from "../../../../../hooks/useDashboardQuery";
 import { getFilterConfig } from "./config/filterConfig";
-import { getLeadsOverviewConfig } from "./overviewConfig";
+import { getLeadsOverviewConfig } from "./config/overviewConfig";
 import ExportActions from "../../../../../components/exportActions/ExportActions";
 import ExportData from "../../../../../components/exportActions/ExportData";
 import ExportFullReport from "../../../../../components/exportActions/ExportFullReport";
@@ -44,6 +44,8 @@ export default function LeadsOverview() {
     queryKey: "sales_leads",
     queryFn: fetchLeadsDashboard,
   });
+
+  console.log(dashboard);
 
   const kpis = dashboard?.kpis ?? {};
 
@@ -101,12 +103,23 @@ export default function LeadsOverview() {
   //     "Revenue Won ($)": d.revenue_won,
   //   })) ?? [];
 
+  // const trendData =
+  //   dashboard?.trendData?.map((d) => ({
+  //     name: d.period,
+  //     "Leads Generated": d.leads_created,
+  //     "Deals Won": d.deals_won,
+  //     "Deals Lost": d.deals_lost,
+  //   })) ?? [];
+
   const trendData =
     dashboard?.trendData?.map((d) => ({
       name: d.period,
       "Leads Generated": d.leads_created,
       "Deals Won": d.deals_won,
       "Deals Lost": d.deals_lost,
+      "Pipeline Generated (RM)": d.pipeline_generated, // NEW
+      "Revenue Won (RM)": d.revenue_won, // NEW
+      "Revenue Lost (RM)": d.revenue_lost, // NEW
     })) ?? [];
 
   const lossReasonData =
@@ -245,24 +258,30 @@ export default function LeadsOverview() {
               </ChartCard>
 
               <ChartCard
-                title="Pipeline Activity Over Time"
+                title="Pipeline Activity Over Time (Volume)"
                 style="cardGapSmall"
               >
                 <LineChartRenderer
                   data={trendData}
                   lines={[
-                    {
-                      dataKey: "Leads Generated",
-                      color: BLUE_COLOR,
-                    },
-                    {
-                      dataKey: "Deals Won",
-                      color: GREEN_COLOR,
-                    },
-                    {
-                      dataKey: "Deals Lost",
-                      color: LEAD_TREND_COLORS?.Lost || "#ef4444", // Red color for lost
-                    },
+                    { dataKey: "Leads Generated", color: BLUE_COLOR },
+                    { dataKey: "Deals Won", color: GREEN_COLOR },
+                    { dataKey: "Deals Lost", color: "#ef4444" },
+                  ]}
+                />
+              </ChartCard>
+
+              {/* NEW: FINANCIAL TREND CHART */}
+              <ChartCard
+                title="Revenue Trend Over Time (Actual RM)"
+                style="cardGapSmall"
+              >
+                <LineChartRenderer
+                  data={trendData}
+                  lines={[
+                    { dataKey: "Pipeline Generated (RM)", color: BLUE_COLOR },
+                    { dataKey: "Revenue Won (RM)", color: GREEN_COLOR },
+                    { dataKey: "Revenue Lost (RM)", color: "#ef4444" },
                   ]}
                 />
               </ChartCard>
@@ -284,9 +303,11 @@ export default function LeadsOverview() {
                 </ChartCard>
               )}
 
-              <ChartCard title="Lead Sources" style="cardGapSmall">
-                <BarChartRenderer data={sourceData} colorMap={YELLOW_COLOR} />
-              </ChartCard>
+              {!filters?.leadSourceType && (
+                <ChartCard title="Lead Sources" style="cardGapSmall">
+                  <BarChartRenderer data={sourceData} colorMap={YELLOW_COLOR} />
+                </ChartCard>
+              )}
 
               {!filters?.client && (
                 <ChartCard title="Top Clients" style="cardGapSmall">

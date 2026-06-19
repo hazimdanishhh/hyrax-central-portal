@@ -8,6 +8,7 @@ import "./Editors.scss";
 import DateTimeEditor from "./DateTimeEditor";
 import ImageUploadEditor from "./ImageUploadEditor";
 import AsyncSelectEditor from "./AsyncSelectEditor";
+import GoogleDriveEditor from "./GoogleDriveEditor";
 
 export const editors = {
   text: TextEditor,
@@ -19,4 +20,5 @@ export const editors = {
   dateTime: DateTimeEditor,
   image: ImageUploadEditor,
   asyncSelect: AsyncSelectEditor,
+  drivePicker: GoogleDriveEditor,
 };

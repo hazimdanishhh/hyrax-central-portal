@@ -1,67 +1,38 @@
 // pages/user/it/ITAssetManagement/list/ITAssetManagement.jsx
-import {
-  CheckCircleIcon,
-  DesktopIcon,
-  ListIcon,
-  PencilSimpleLineIcon,
-  PlusCircleIcon,
-  UserMinusIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
-import CardLayout from "../../../../../components/cardLayout/CardLayout";
-import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
-import { useTheme } from "../../../../../context/ThemeContext";
-import "./LeadsManagement.scss";
-import { useEffect, useMemo, useState } from "react";
-import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
-import DataTable from "../../../../../components/dataTable/DataTable";
-import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
-import { AnimatePresence } from "framer-motion";
-import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
-import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import PageTab from "../../../../../components/navigation/pageTab/PageTab";
-import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
-import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
-import PageResult from "../../../../../components/crud/pageResult/PageResult";
-import NoResult from "../../../../../components/crud/noResult/NoResult";
-import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
-import ChartCard from "../../../../../components/chartCard/ChartCard";
-import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
-import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
-import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
-import {
-  CONDITION_COLORS,
-  RISK_COLORS,
-  STATUS_COLORS,
-  UTILIZATION_COLORS,
-} from "../../../../../components/chartCard/chartColors";
+import { AnimatePresence } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
+import CardLayout from "../../../../../components/cardLayout/CardLayout";
+import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import NoResult from "../../../../../components/crud/noResult/NoResult";
+import PageActions from "../../../../../components/crud/pageActions/PageActions";
+import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
+import PageResult from "../../../../../components/crud/pageResult/PageResult";
+import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
+import DataTable from "../../../../../components/dataTable/DataTable";
+import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
+import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
+import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
+import LeadStageTab from "../../../../../components/sales/leads/leadStageTab/LeadStageTab";
+import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
+import { useEmployee } from "../../../../../context/EmployeeContext";
+import { useTheme } from "../../../../../context/ThemeContext";
 import { fetchLeads } from "../../../../../features/sales/leads/private/api/leadsService";
-import { useLeadsMetadata } from "../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
+import { useLead } from "../../../../../features/sales/leads/private/hooks/useLead";
 import useLeadMutations from "../../../../../features/sales/leads/private/hooks/useLeadMutations";
+import { useLeadsMetadata } from "../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import { getActionConfig } from "./constants/actionConfig";
+import { getFilterConfig } from "./constants/filterConfig";
 import { getLayoutConfig } from "./constants/layoutConfig";
 import { getSortConfig } from "./constants/sortConfig";
-import { getFilterConfig } from "./constants/filterConfig";
-import { leadsTableConfig } from "./constants/tableConfig";
-import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
-import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
-import { getActionConfig } from "./constants/actionConfig";
-import {
-  Link,
-  NavLink,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router";
-import { useEmployee } from "../../../../../context/EmployeeContext";
-import LeadStageTab from "../../../../../components/sales/leads/leadStageTab/LeadStageTab";
 import { stageTabsConfig } from "./constants/tabConfig";
-import { useLead } from "../../../../../features/sales/leads/private/hooks/useLead";
-import PageActions from "../../../../../components/crud/pageActions/PageActions";
+import { leadsTableConfig } from "./constants/tableConfig";
+import "./LeadsManagement.scss";
 
 /**
  * SALES Leads Management Page
@@ -260,6 +231,12 @@ export default function LeadsManagement() {
     pendingAction?.type === "stage_change" &&
     pendingAction?.payload?.stage === "LOST";
   const isCancelAction = pendingAction?.type === "cancel";
+  const isNegotiationAction =
+    pendingAction?.type === "stage_change" &&
+    pendingAction?.payload?.stage === "NEGOTIATION";
+  const isWonAction =
+    pendingAction?.type === "stage_change" &&
+    pendingAction?.payload?.stage === "WON";
 
   const requireInput = isHoldAction || isLostAction || isCancelAction;
 
@@ -271,7 +248,8 @@ export default function LeadsManagement() {
   // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
   // ==============
-  async function handleConfirmAction(reason) {
+  // CHANGE: Parameter is now `formValues` object instead of just `reason`
+  async function handleConfirmAction(formValues) {
     try {
       // DELETE
       if (modalType === "delete") {
@@ -293,10 +271,21 @@ export default function LeadsManagement() {
       if (pendingAction) {
         const payloadToSubmit = { ...pendingAction.payload };
 
-        // Map the typed reason to the correct database column
-        if (isCancelAction) payloadToSubmit.cancel_reason = reason;
-        if (isHoldAction) payloadToSubmit.hold_reason = reason;
-        if (isLostAction) payloadToSubmit.lose_reason = reason;
+        // Map the typed reason (from formValues.reason)
+        if (isCancelAction) payloadToSubmit.cancel_reason = formValues.reason;
+        if (isHoldAction) payloadToSubmit.hold_reason = formValues.reason;
+        if (isLostAction) payloadToSubmit.lose_reason = formValues.reason;
+
+        // MAP THE NEW STAGE DATA
+        if (isNegotiationAction) {
+          payloadToSubmit.quotation_url = formValues.quotation_url;
+        }
+
+        if (isWonAction) {
+          payloadToSubmit.po_number = formValues.po_number;
+          payloadToSubmit.po_document_url = formValues.po_document_url;
+          payloadToSubmit.actual_revenue = formValues.actual_revenue;
+        }
 
         // =========================
         // CLEAR HOLD STATE
@@ -308,7 +297,6 @@ export default function LeadsManagement() {
           payloadToSubmit.hold_reason = null;
         }
 
-        // Cancel action should also remove hold state
         if (pendingAction.type === "cancel") {
           payloadToSubmit.is_on_hold = false;
           payloadToSubmit.hold_reason = null;
@@ -324,7 +312,6 @@ export default function LeadsManagement() {
           payloadToSubmit.lose_reason = null;
         }
 
-        // FIX: Pass payloadToSubmit instead of pendingAction.payload
         await updateLead({
           id: payloadToSubmit.id,
           ...payloadToSubmit,
@@ -499,7 +486,7 @@ export default function LeadsManagement() {
         onClose={() => {
           setModalOpen(false);
           setModalType(null);
-          setPendingAction(null); // Kills the zombie state
+          setPendingAction(null);
         }}
         title={modalConfig.title}
         description={modalConfig.description}
@@ -509,6 +496,9 @@ export default function LeadsManagement() {
         modalType={modalConfig.modalType}
         requireInput={requireInput}
         inputPlaceholder={dynamicPlaceholder}
+        // ADD THESE TWO PROPS
+        requireQuotation={isNegotiationAction}
+        requireWonDetails={isWonAction}
       />
     </>
   );

@@ -18,6 +18,12 @@ export default function OverviewCards({ items = [] }) {
                 <h3 className="textRegular textS">{item.label}</h3>
               </CardLayout>
 
+              {item.sublabel && (
+                <p className="textXXS textLight" style={{ textAlign: "start" }}>
+                  {item.sublabel}
+                </p>
+              )}
+
               <h2 className="textXL overviewCardValue">{item.value}</h2>
             </CardLayout>
           </Link>
