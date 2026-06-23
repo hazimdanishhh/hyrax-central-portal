@@ -8,6 +8,7 @@ export function getFilterConfig({
   clients,
   clientContacts,
   leadSourceTypes,
+  loseReasons,
 }) {
   return [
     {
@@ -40,6 +41,20 @@ export function getFilterConfig({
       key: "leadSourceType",
       label: "Lead Source Type",
       options: leadSourceTypes.map((c) => ({ label: c.name, value: c.id })),
+    },
+    {
+      key: "loseReason",
+      label: "Lose Reason",
+      options: loseReasons.map((c) => ({ label: c.name, value: c.id })),
+    },
+    {
+      key: "productType",
+      label: "Product Type",
+      options: [
+        { label: "TRANSFORMER OILS", value: "TRANSFORMER OILS" },
+        { label: "LUBRICANTS", value: "LUBRICANTS" },
+        { label: "MIXED", value: "MIXED" },
+      ],
     },
     {
       key: "stage",

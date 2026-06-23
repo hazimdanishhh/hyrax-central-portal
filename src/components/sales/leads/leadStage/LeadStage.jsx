@@ -1,6 +1,11 @@
 import "./LeadStage.scss";
 
-const PIPELINE_STAGES = ["DISCOVERY", "SAMPLE_TEST", "PROPOSAL", "NEGOTIATION"];
+export const PIPELINE_STAGES = [
+  "DISCOVERY",
+  "SAMPLE_TEST",
+  "PROPOSAL",
+  "NEGOTIATION",
+];
 
 function LeadStage({ selectedRow, list, vertical }) {
   const currentStage = selectedRow?.stage;

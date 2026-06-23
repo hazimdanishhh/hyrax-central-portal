@@ -10,6 +10,7 @@ import {
   LEAD_STAGE_COLORS,
   LEAD_TREND_COLORS,
   YELLOW_COLOR,
+  PRODUCT_TYPE_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
@@ -57,23 +58,11 @@ export default function LeadsOverview() {
       value: d.count,
     })) ?? [];
 
-  // const leadOwnerData =
-  //   dashboard?.leadOwnerData?.map((d) => ({
-  //     name: d.name,
-  //     value: d.count,
-  //   })) ?? [];
-
   const leadOwnerData =
     dashboard?.leadOwnerData?.map((d) => ({
       name: d.name,
-      value: d.active_and_won_value, // Changed from d.count
+      value: d.won_revenue, // Changed from d.count
     })) ?? [];
-
-  // const sourceData =
-  //   dashboard?.sourceData?.map((d) => ({
-  //     name: d.name,
-  //     value: d.count,
-  //   })) ?? [];
 
   const sourceData =
     dashboard?.sourceData?.map((d) => ({
@@ -81,35 +70,11 @@ export default function LeadsOverview() {
       value: d.won_revenue, // Changed from d.count
     })) ?? [];
 
-  // const topClientsData =
-  //   dashboard?.topClientsData?.map((d) => ({
-  //     name: d.name,
-  //     value: d.count,
-  //   })) ?? [];
-
   const topClientsData =
     dashboard?.topClientsData?.map((d) => ({
       name: d.name,
-      value: d.total_value, // Changed from d.count
+      value: d.won_revenue, // Changed from d.count
     })) ?? [];
-
-  // Map the trend data to use clean labels for the chart tooltips and X-axis
-  // const trendData =
-  //   dashboard?.trendData?.map((d) => ({
-  //     name: d.period,
-  //     "Leads Created": d.leads_created,
-  //     "Pipeline Generated ($)": d.pipeline_generated,
-  //     "Deals Won": d.deals_won,
-  //     "Revenue Won ($)": d.revenue_won,
-  //   })) ?? [];
-
-  // const trendData =
-  //   dashboard?.trendData?.map((d) => ({
-  //     name: d.period,
-  //     "Leads Generated": d.leads_created,
-  //     "Deals Won": d.deals_won,
-  //     "Deals Lost": d.deals_lost,
-  //   })) ?? [];
 
   const trendData =
     dashboard?.trendData?.map((d) => ({
@@ -132,6 +97,12 @@ export default function LeadsOverview() {
     dashboard?.probabilityHealthData?.map((d) => ({
       name: d.name,
       value: d.total_value, // Visualizing the RM value in each probability bucket
+    })) ?? [];
+
+  const productTypeData =
+    dashboard?.productTypeData?.map((d) => ({
+      name: d.name,
+      value: d.won_revenue, // Showing RM value distribution by product
     })) ?? [];
 
   // ==============
@@ -162,6 +133,19 @@ export default function LeadsOverview() {
   const isError = dashboardError || metadataError;
 
   const overviewItems = getLeadsOverviewConfig(kpis);
+
+  const formatCurrency = (value) => {
+    if (!value && value !== 0) return "RM0";
+
+    if (value >= 1_000_000) {
+      return `RM${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+    }
+    if (value >= 1_000) {
+      return `RM${(value / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+    }
+
+    return `RM${value}`;
+  };
 
   return (
     <>
@@ -237,6 +221,7 @@ export default function LeadsOverview() {
             <OverviewCards items={overviewItems} />
 
             <CardLayout style="cardLayout3">
+              {/* LEAD STAGES */}
               <ChartCard title="Lead Stages" style="cardGapSmall">
                 <PieChartRenderer
                   data={stageData}
@@ -247,6 +232,23 @@ export default function LeadsOverview() {
                 />
               </ChartCard>
 
+              {/* PRODUCT TYPE */}
+              {!filters?.productType && (
+                <ChartCard
+                  title="Won Revenue by Product Type (RM)"
+                  style="cardGapSmall"
+                >
+                  <PieChartRenderer
+                    data={productTypeData}
+                    mode="semantic"
+                    colorMap={PRODUCT_TYPE_COLORS}
+                    centerLabel={formatCurrency(kpis.wonRevenue)}
+                    centerSubLabel="Total"
+                  />
+                </ChartCard>
+              )}
+
+              {/* PIPELINE HEALTH */}
               <ChartCard
                 title="Pipeline Health (Probability)"
                 style="cardGapSmall"
@@ -257,6 +259,7 @@ export default function LeadsOverview() {
                 />
               </ChartCard>
 
+              {/* PIPELINE ACTIVITY */}
               <ChartCard
                 title="Pipeline Activity Over Time (Volume)"
                 style="cardGapSmall"
@@ -271,7 +274,7 @@ export default function LeadsOverview() {
                 />
               </ChartCard>
 
-              {/* NEW: FINANCIAL TREND CHART */}
+              {/* FINANCIAL TREND CHART */}
               <ChartCard
                 title="Revenue Trend Over Time (Actual RM)"
                 style="cardGapSmall"
@@ -286,6 +289,7 @@ export default function LeadsOverview() {
                 />
               </ChartCard>
 
+              {/* REVENUE LOST REASON */}
               <ChartCard title="Revenue Lost by Reason" style="cardGapSmall">
                 <BarChartRenderer
                   data={lossReasonData}
@@ -294,8 +298,13 @@ export default function LeadsOverview() {
                 />
               </ChartCard>
 
+              {/* TOP LEAD OWNERS */}
               {!filters?.owner && (
-                <ChartCard title="Top Lead Owners" style="cardGapSmall">
+                <ChartCard
+                  title="Top Lead Owners"
+                  subtitle="by Won Revenue (RM)"
+                  style="cardGapSmall"
+                >
                   <BarChartRenderer
                     data={leadOwnerData}
                     colorMap={BLUE_COLOR}
@@ -304,13 +313,21 @@ export default function LeadsOverview() {
               )}
 
               {!filters?.leadSourceType && (
-                <ChartCard title="Lead Sources" style="cardGapSmall">
+                <ChartCard
+                  title="Lead Sources"
+                  subtitle="by Won Revenue (RM)"
+                  style="cardGapSmall"
+                >
                   <BarChartRenderer data={sourceData} colorMap={YELLOW_COLOR} />
                 </ChartCard>
               )}
 
               {!filters?.client && (
-                <ChartCard title="Top Clients" style="cardGapSmall">
+                <ChartCard
+                  title="Top Clients"
+                  subtitle="by Won Revenue (RM)"
+                  style="cardGapSmall"
+                >
                   <BarChartRenderer
                     data={topClientsData}
                     colorMap={GREEN_COLOR}

@@ -26,7 +26,8 @@ export async function fetchLeads({
       client:client_id(*),
       client_contact:client_contact_id(*),
       lead_owner:employees_public!lead_owner_id(*),
-      lead_source_type:lead_source_type_id(*)
+      lead_source_type:lead_source_type_id(*),
+      lose_reason:lose_reason_id(*)
     `,
       { count: "exact" },
     )
@@ -58,6 +59,8 @@ export async function fetchLeads({
       onHold: "is_on_hold",
       cancelled: "is_cancelled",
       leadSourceType: "lead_source_type_id",
+      productType: "product_type",
+      loseReason: "lose_reason_id",
     };
 
     const column = map[key];

@@ -18,6 +18,7 @@ export async function fetchLeadsDashboard({ filters }) {
     p_end_date: null,
     p_is_on_hold: null,
     p_is_cancelled: null,
+    p_product_type: null,
   };
 
   Object.entries(filters || {}).forEach(([key, value]) => {
@@ -54,6 +55,10 @@ export async function fetchLeadsDashboard({ filters }) {
 
       case "cancelled":
         rpcParams.p_is_cancelled = value;
+        break;
+
+      case "productType":
+        rpcParams.p_product_type = value === FILTER_NULL ? null : value;
         break;
 
       default:

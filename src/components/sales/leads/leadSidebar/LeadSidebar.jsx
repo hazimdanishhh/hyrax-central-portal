@@ -15,6 +15,7 @@ import {
   ClockClockwiseIcon,
   ClockCounterClockwiseIcon,
   ClockIcon,
+  DropIcon,
   FilePdfIcon,
   PauseCircleIcon,
   PencilSimpleLineIcon,
@@ -27,6 +28,7 @@ import {
 import CardLayout from "../../../cardLayout/CardLayout";
 import IconCard from "../../../iconCard/IconCard";
 import RouterButton from "../../../buttons/routerButton/RouterButton";
+import StatusIcon from "../../../status/statusIcon/StatusIcon";
 
 export default function LeadSidebar({
   selectedRow,
@@ -93,6 +95,12 @@ export default function LeadSidebar({
             {selectedRow.is_cancelled && (
               <StatusBox status="CANCELLED" type="red" />
             )}
+
+            <StatusIcon
+              status={selectedRow.product_type}
+              icon={DropIcon}
+              type="dark"
+            />
           </div>
 
           <p className="textBold textS">{selectedRow.title}</p>
@@ -111,7 +119,7 @@ export default function LeadSidebar({
             style="textLight textXS"
           />
 
-          <CardLayout style="cardLayout2">
+          <CardLayout style="cardLayout2 cardGapSmall">
             <p className="textLight textXXXS cardStyle">
               <span className="textRegular">Success Probability: </span>
               {selectedRow.close_probability}%
@@ -128,7 +136,7 @@ export default function LeadSidebar({
             )}
           </CardLayout>
 
-          <CardLayout style="cardLayout2">
+          <CardLayout style="cardLayout2 cardGapSmall">
             {selectedRow.quotation_url && (
               <a
                 href={selectedRow.quotation_url}
@@ -197,10 +205,10 @@ export default function LeadSidebar({
       )}
 
       {/* LOST REASON */}
-      {selectedRow.lose_reason && (
+      {selectedRow.lose_reason_id && (
         <CardLayout style="generalCard redCard">
           <p className="textBold textXS">Lose Reason:</p>
-          <p className="textRegular textXXS">{selectedRow.lose_reason}</p>
+          <p className="textRegular textXXS">{selectedRow.lose_reason?.name}</p>
         </CardLayout>
       )}
 
@@ -236,6 +244,24 @@ export default function LeadSidebar({
               }
             />
           ))}
+
+        {selectedRow.stage === "NEGOTIATION" && canTransitionStage && (
+          <Button
+            name="Edit Quotation"
+            icon={PencilSimpleLineIcon}
+            style="button buttonType4 mobile"
+            disabled={updating}
+            onClick={() =>
+              onRequestAction({
+                type: "edit_quotation",
+                payload: {
+                  id: selectedRow.id,
+                  quotation_url: selectedRow.quotation_url, // Pass existing URL to pre-fill if needed
+                },
+              })
+            }
+          />
+        )}
       </div>
 
       <CardLayout style="cardLayout2">

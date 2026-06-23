@@ -14,5 +14,6 @@ export function useLeadsMetadata() {
     clients: query.data?.clients || [],
     clientContacts: query.data?.clientContacts || [],
     leadSourceTypes: query.data?.leadSourceTypes || [],
+    loseReasons: query.data?.loseReasons || [],
   };
 }

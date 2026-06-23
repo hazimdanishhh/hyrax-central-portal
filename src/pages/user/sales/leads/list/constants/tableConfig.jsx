@@ -17,6 +17,7 @@ export const leadsTableConfig = ({
   clients,
   clientContacts,
   leadSourceTypes,
+  loseReasons,
 }) => [
   {
     key: "id",
@@ -140,6 +141,7 @@ export const leadsTableConfig = ({
     step: 1,
     section: "Success & Revenue",
     half: true,
+    required: true,
   },
   {
     key: "expected_revenue",
@@ -150,6 +152,7 @@ export const leadsTableConfig = ({
     min: 1,
     section: "Success & Revenue",
     half: true,
+    required: true,
   },
 
   // ADDITIONAL INFORMATION
@@ -165,6 +168,7 @@ export const leadsTableConfig = ({
       value: s.id,
     })),
     section: "Additional Information",
+    required: true,
   },
   {
     key: "notes",
@@ -174,6 +178,36 @@ export const leadsTableConfig = ({
     editor: "textarea",
     section: "Additional Information",
   },
+
+  {
+    key: "product_type",
+    label: "Product Type",
+    getValue: (lead) => lead.product_type,
+    editable: true,
+    editor: "select",
+    options: [
+      { label: "TRANSFORMER OILS", value: "TRANSFORMER OILS" },
+      { label: "LUBRICANTS", value: "LUBRICANTS" },
+      { label: "MIXED", value: "MIXED" },
+    ],
+    isClearable: false,
+    required: true,
+  },
+
+  // {
+  //   key: "lose_reason_id",
+  //   label: "Lose Reason",
+  //   getValue: (lead) => lead.lose_reason?.id,
+  //   displayValue: (lead) => lead.lose_reason?.name,
+  //   editable: true,
+  //   editor: "select",
+  //   options: loseReasons.map((s) => ({
+  //     label: s.name,
+  //     value: s.id,
+  //   })),
+  //   section: "Additional Information",
+  // },
+
   // {
   //   key: "actual_revenue",
   //   label: "Actual Revenue (RM)",
@@ -184,35 +218,35 @@ export const leadsTableConfig = ({
   //   section: "Closing Details",
   //   half: true,
   // },
-  {
-    key: "po_number",
-    label: "PO Number (SAP)",
-    getValue: "po_number",
-    editable: true,
-    editor: "text",
-    section: "Closing Details",
-    half: true,
-  },
+  // {
+  //   key: "po_number",
+  //   label: "PO Number (SAP)",
+  //   getValue: "po_number",
+  //   editable: true,
+  //   editor: "text",
+  //   section: "Closing Details",
+  //   half: true,
+  // },
 
   // ==========================================
   // DOCUMENTS (Using your new Drive Picker)
   // ==========================================
-  {
-    key: "quotation_url",
-    label: "Quotation Document",
-    getValue: "quotation_url",
-    editable: true,
-    editor: "drivePicker", // Uses the custom component we just registered
-    section: "Documents",
-  },
-  {
-    key: "po_document_url",
-    label: "Purchase Order Document",
-    getValue: "po_document_url",
-    editable: true,
-    editor: "drivePicker",
-    section: "Documents",
-  },
+  // {
+  //   key: "quotation_url",
+  //   label: "Quotation Document",
+  //   getValue: "quotation_url",
+  //   editable: true,
+  //   editor: "drivePicker", // Uses the custom component we just registered
+  //   section: "Documents",
+  // },
+  // {
+  //   key: "po_document_url",
+  //   label: "Purchase Order Document",
+  //   getValue: "po_document_url",
+  //   editable: true,
+  //   editor: "drivePicker",
+  //   section: "Documents",
+  // },
 
   //   {
   //     key: "stage",

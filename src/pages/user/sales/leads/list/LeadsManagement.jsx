@@ -127,6 +127,7 @@ export default function LeadsManagement() {
     clients,
     clientContacts,
     leadSourceTypes,
+    loseReasons,
     isLoading: metadataLoading,
     isFetching: metadataFetching,
     error: metadataError,
@@ -169,6 +170,7 @@ export default function LeadsManagement() {
     clients,
     clientContacts,
     leadSourceTypes,
+    loseReasons,
   });
 
   // ==============
@@ -179,6 +181,7 @@ export default function LeadsManagement() {
     clients,
     clientContacts,
     leadSourceTypes,
+    loseReasons,
   });
 
   // ==============
@@ -238,12 +241,74 @@ export default function LeadsManagement() {
     pendingAction?.type === "stage_change" &&
     pendingAction?.payload?.stage === "WON";
 
-  const requireInput = isHoldAction || isLostAction || isCancelAction;
+  // NEW: Identify our edit quotation action
+  const isEditQuotationAction = pendingAction?.type === "edit_quotation";
 
-  let dynamicPlaceholder = "Enter reason...";
-  if (isHoldAction) dynamicPlaceholder = "Why is this lead on hold?";
-  if (isLostAction) dynamicPlaceholder = "Why was this lead lost?";
-  if (isCancelAction) dynamicPlaceholder = "Why is this lead being cancelled?";
+  // Build the dynamic fields array for the generic ActionModal
+  let dynamicFields = [];
+
+  // HOLD AND CANCEL (Still text)
+  if (isHoldAction || isCancelAction) {
+    let reasonPlaceholder = isHoldAction
+      ? "Why is this lead on hold?"
+      : "Why is this lead being cancelled?";
+    dynamicFields.push({
+      name: "reason",
+      type: "text",
+      placeholder: reasonPlaceholder,
+      required: true,
+    });
+  }
+
+  // LOST (Now a select dropdown)
+  if (isLostAction) {
+    dynamicFields.push({
+      name: "lose_reason_id", // Changed from "reason"
+      type: "select", // Changed from "text"
+      label: "Reason for Loss",
+      placeholder: "Select a reason...",
+      required: true,
+      // Map the metadata into options for the modal
+      options: loseReasons?.map((r) => ({ label: r.name, value: r.id })) || [],
+    });
+  }
+
+  if (isNegotiationAction || isEditQuotationAction) {
+    dynamicFields.push({
+      name: "quotation_url",
+      type: "drive",
+      label: "Quotation Document",
+      required: true,
+      // If editing, pre-fill with the existing URL
+      defaultValue: pendingAction?.payload?.quotation_url || "",
+    });
+  }
+
+  if (isWonAction) {
+    dynamicFields.push(
+      {
+        name: "actual_revenue",
+        type: "number",
+        label: "Actual Revenue (RM)",
+        min: "0",
+        placeholder: "e.g. 50000",
+        required: true,
+      },
+      {
+        name: "po_number",
+        type: "text",
+        label: "PO Number (SAP)",
+        placeholder: "Enter PO Number",
+        required: true,
+      },
+      {
+        name: "po_document_url",
+        type: "drive",
+        label: "Purchase Order Document",
+        required: true,
+      },
+    );
+  }
 
   // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
@@ -271,13 +336,13 @@ export default function LeadsManagement() {
       if (pendingAction) {
         const payloadToSubmit = { ...pendingAction.payload };
 
-        // Map the typed reason (from formValues.reason)
         if (isCancelAction) payloadToSubmit.cancel_reason = formValues.reason;
         if (isHoldAction) payloadToSubmit.hold_reason = formValues.reason;
-        if (isLostAction) payloadToSubmit.lose_reason = formValues.reason;
+        if (isLostAction)
+          payloadToSubmit.lose_reason_id = formValues.lose_reason_id;
 
-        // MAP THE NEW STAGE DATA
-        if (isNegotiationAction) {
+        // Handles both Stage Change to Negotiation AND Edit Quotation
+        if (isNegotiationAction || isEditQuotationAction) {
           payloadToSubmit.quotation_url = formValues.quotation_url;
         }
 
@@ -309,7 +374,7 @@ export default function LeadsManagement() {
           pendingAction.type === "stage_change" &&
           pendingAction.payload.stage !== "LOST"
         ) {
-          payloadToSubmit.lose_reason = null;
+          payloadToSubmit.lose_reason_id = null; // Clear the ID instead of text
         }
 
         await updateLead({
@@ -488,17 +553,13 @@ export default function LeadsManagement() {
           setModalType(null);
           setPendingAction(null);
         }}
-        title={modalConfig.title}
+        title={modalConfig.title || "Confirm Action"}
         description={modalConfig.description}
         confirmText={modalConfig.confirmText}
         loading={isSaving || deleting}
         onConfirm={handleConfirmAction}
         modalType={modalConfig.modalType}
-        requireInput={requireInput}
-        inputPlaceholder={dynamicPlaceholder}
-        // ADD THESE TWO PROPS
-        requireQuotation={isNegotiationAction}
-        requireWonDetails={isWonAction}
+        fields={dynamicFields} // Pass the dynamic schema here
       />
     </>
   );

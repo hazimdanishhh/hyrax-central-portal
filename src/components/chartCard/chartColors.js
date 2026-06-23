@@ -95,3 +95,9 @@ export const LEAD_TREND_COLORS = {
   Active: "#6763d7",
   Hold: "#ffb74d",
 };
+
+export const PRODUCT_TYPE_COLORS = {
+  "TRANSFORMER OILS": "#6763d7",
+  LUBRICANTS: "#4bc793",
+  MIXED: "#ffb74d",
+};

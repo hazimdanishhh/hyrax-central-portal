@@ -10,7 +10,7 @@ export default function UserList({ user, onClick, saving, deleting }) {
       initial={{ y: 0 }}
       whileHover={{ y: -3 }}
     >
-      <div className="employeeCardHeaderContainer">
+      <div className="employeeListHeaderContainer">
         <div className="employeeCardPhoto">
           <img
             src={user.avatar_url || "/profilePhoto/default.webp"}

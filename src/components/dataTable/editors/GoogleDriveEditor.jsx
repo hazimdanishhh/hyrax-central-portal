@@ -4,11 +4,11 @@ import GoogleDrivePicker from "../../googleDrive/GoogleDrivePicker";
 const GoogleDriveEditor = forwardRef(
   ({ value, onChange, placeholder, readOnly, ...props }, ref) => {
     return (
-      <div className="flex items-center gap-2 w-full">
+      <div className="editorContainer">
         <input
           ref={ref}
           type="text"
-          className="inputField flex-1"
+          className=""
           value={value || ""}
           readOnly={true} // Always readonly so users don't type random text
           placeholder={placeholder || "No document selected..."}

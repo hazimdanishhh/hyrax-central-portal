@@ -4,6 +4,7 @@ import Button from "../../buttons/button/Button";
 import { useEffect, useState } from "react";
 import { useTheme } from "../../../context/ThemeContext";
 import GoogleDrivePicker from "../../googleDrive/GoogleDrivePicker";
+import { XIcon } from "@phosphor-icons/react";
 
 export default function ActionModal({
   open,
@@ -14,56 +15,39 @@ export default function ActionModal({
   cancelText = "Cancel",
   onConfirm,
   loading = false,
-  requireInput = false,
-  inputPlaceholder = "Enter reason...",
   modalType,
-  // ADD THESE PROPS
-  requireQuotation = false,
-  requireWonDetails = false,
+  fields = [], // NEW: Array of field configurations
 }) {
   const { darkMode } = useTheme();
+  const [formValues, setFormValues] = useState({});
 
-  // CHANGE STATE to an object to handle multiple fields
-  const [formValues, setFormValues] = useState({
-    reason: "",
-    quotation_url: "",
-    po_number: "",
-    po_document_url: "",
-    actual_revenue: "",
-  });
-
+  // Reset and initialize dynamic fields when modal opens
   useEffect(() => {
     if (open) {
-      setFormValues({
-        reason: "",
-        quotation_url: "",
-        po_number: "",
-        po_document_url: "",
-        actual_revenue: "",
+      const initialValues = {};
+      fields.forEach((field) => {
+        initialValues[field.name] = field.defaultValue || "";
       });
+      setFormValues(initialValues);
     }
-  }, [open]);
+  }, [open, fields]);
 
   if (!open) return null;
 
-  // DYNAMIC VALIDATION: Disable confirm if required fields are empty
+  // Dynamically check if required fields are filled
   const isConfirmDisabled = () => {
     if (loading) return true;
-    if (requireInput && !formValues.reason) return true;
-    if (requireQuotation && !formValues.quotation_url) return true;
-    if (
-      requireWonDetails &&
-      (!formValues.po_number ||
-        !formValues.po_document_url ||
-        !formValues.actual_revenue)
-    )
-      return true;
+    for (const field of fields) {
+      if (field.required && !formValues[field.name]) {
+        return true;
+      }
+    }
     return false;
   };
 
   const handleConfirm = () => {
     if (isConfirmDisabled()) return;
-    onConfirm(formValues); // Return the whole object instead of just 'reason'
+    onConfirm(formValues);
   };
 
   return (
@@ -84,105 +68,78 @@ export default function ActionModal({
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
         >
+          <button onClick={onClose} className="modalCloseButton">
+            <XIcon size={24} />
+          </button>
+
           <h3>{title}</h3>
-          <p>{description}</p>
+          {description && <p>{description}</p>}
 
-          <div className="flex flex-col gap-4 mt-4">
-            {/* ORIGINAL REASON INPUT */}
-            {requireInput && (
-              <input
-                type="text"
-                placeholder={inputPlaceholder}
-                value={formValues.reason}
-                onChange={(e) =>
-                  setFormValues({ ...formValues, reason: e.target.value })
-                }
-              />
-            )}
-
-            {/* QUOTATION INPUT (For PROPOSAL -> NEGOTIATION) */}
-            {requireQuotation && (
-              <div className="flex flex-col gap-1">
-                <label className="textXXS textBold">Quotation Document *</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    className="flex-1"
-                    placeholder="No document selected..."
-                    value={formValues.quotation_url}
-                  />
-                  <GoogleDrivePicker
-                    label="Attach"
-                    onSelect={(file) =>
-                      setFormValues({ ...formValues, quotation_url: file.url })
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* WON DETAILS INPUTS (For NEGOTIATION -> WON) */}
-            {requireWonDetails && (
-              <>
-                <div className="flex flex-col gap-1">
+          <div className="modalInputContainer">
+            {/* DYNAMIC FIELD RENDERING */}
+            {fields.map((field) => (
+              <div key={field.name} className="modalInputSegment">
+                {field.label && (
                   <label className="textXXS textBold">
-                    Actual Revenue (RM) *
+                    {field.label} {field.required && "*"}
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 50000"
-                    value={formValues.actual_revenue}
-                    onChange={(e) =>
-                      setFormValues({
-                        ...formValues,
-                        actual_revenue: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+                )}
 
-                <div className="flex flex-col gap-1">
-                  <label className="textXXS textBold">PO Number (SAP) *</label>
-                  <input
-                    type="text"
-                    placeholder="Enter PO Number"
-                    value={formValues.po_number}
-                    onChange={(e) =>
-                      setFormValues({
-                        ...formValues,
-                        po_number: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="textXXS textBold">
-                    Purchase Order Document *
-                  </label>
-                  <div className="flex items-center gap-2">
+                {field.type === "drive" ? (
+                  <div className="modalInput">
                     <input
                       type="text"
                       readOnly
                       className="flex-1"
-                      placeholder="No PO selected..."
-                      value={formValues.po_document_url}
+                      placeholder={
+                        field.placeholder || "No document selected..."
+                      }
+                      value={formValues[field.name] || ""}
                     />
                     <GoogleDrivePicker
                       label="Attach"
                       onSelect={(file) =>
-                        setFormValues({
-                          ...formValues,
-                          po_document_url: file.url,
-                        })
+                        setFormValues({ ...formValues, [field.name]: file.url })
                       }
                     />
                   </div>
-                </div>
-              </>
-            )}
+                ) : field.type === "select" ? (
+                  /* NEW: SELECT DROPDOWN LOGIC */
+                  <select
+                    className="inputField flex-1"
+                    value={formValues[field.name] || ""}
+                    onChange={(e) =>
+                      setFormValues({
+                        ...formValues,
+                        [field.name]: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="" disabled>
+                      {field.placeholder || "Select an option..."}
+                    </option>
+                    {field.options?.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={field.type || "text"}
+                    min={field.min}
+                    placeholder={field.placeholder}
+                    value={formValues[field.name] || ""}
+                    onChange={(e) =>
+                      setFormValues({
+                        ...formValues,
+                        [field.name]: e.target.value,
+                      })
+                    }
+                  />
+                )}
+              </div>
+            ))}
           </div>
 
           <div className="modalActions mt-6">
@@ -192,7 +149,6 @@ export default function ActionModal({
               onClick={onClose}
               disabled={loading}
             />
-
             <Button
               name={confirmText}
               style={

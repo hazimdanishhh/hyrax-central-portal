@@ -1,12 +1,12 @@
-import "./LoginPage.scss";
+import { GoogleLogoIcon } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import { useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "../../lib/supabaseClient";
+import { useLocation, useNavigate } from "react-router-dom";
+import Button from "../../components/buttons/button/Button";
 import { useAuth } from "../../context/AuthContext";
 import { fadeInWithEase, staggerContainer } from "../../functions/motionUtils";
-import { motion } from "framer-motion";
-import Button from "../../components/buttons/button/Button";
-import { GoogleLogoIcon } from "@phosphor-icons/react";
+import { supabase } from "../../lib/supabaseClient";
+import "./LoginPage.scss";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ export default function LoginPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/app`,
+        scopes: "https://www.googleapis.com/auth/drive.readonly",
       },
     });
 

@@ -29,12 +29,18 @@ export default function ExportData({ search, filters, sortBy, sortOrder }) {
         "Lead Title": lead.title,
         Client: lead.client?.name || "N/A",
         Owner: lead.lead_owner?.full_name || "Unassigned",
+        "Product Type": lead.product_type || "N/A", // NEW
         Stage: lead.stage,
         "Close Probability (%)": lead.close_probability || 0,
         "Expected Revenue (RM)": lead.expected_revenue || 0,
+        "Actual Revenue (RM)": lead.actual_revenue || 0, // NEW
+        "PO Number": lead.po_number || "", // NEW
         Source: lead.lead_source_type?.name || "Unknown",
         "On Hold": lead.is_on_hold ? "Yes" : "No",
+        "Hold Reason": lead.hold_reason || "", // NEW
         Cancelled: lead.is_cancelled ? "Yes" : "No",
+        "Cancel Reason": lead.cancel_reason || "", // NEW
+        "Lose Reason": lead.lose_reason?.name || "", // NEW (maps to the joined table)
         "Created Date": lead.created_date,
         "Updated Date": lead.updated_date,
       }));

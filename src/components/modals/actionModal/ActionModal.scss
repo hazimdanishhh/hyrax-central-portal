@@ -20,10 +20,47 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+
+  @media screen and (max-width: 768px) {
+    height: 100%;
+    width: 100%;
+    border-radius: 0;
+    overflow-y: auto;
+  }
+
+  .modalCloseButton {
+    background-color: $neutral900;
+    width: fit-content;
+    aspect-ratio: 1/1;
+    justify-content: center;
+    align-items: center;
+    color: $neutral100;
+    border-radius: 50%;
+    padding: 0.4rem;
+    align-self: end;
+    display: none;
+
+    @media screen and (max-width: 768px) {
+      display: flex;
+    }
+  }
 }
 
 .modalActions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.modalInputContainer {
+  display: flex;
+  flex-direction: column;
+  text-align: start;
+
+  .modalInputSegment {
+    .modalInput {
+      display: flex;
+      gap: 0.4rem;
+    }
+  }
 }

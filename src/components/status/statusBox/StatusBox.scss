@@ -40,6 +40,18 @@
     background-color: rgb($error600, 0.2);
   }
 
+  &.primary {
+    border: 1px solid $primary;
+    color: $primary;
+    background-color: rgb($primary, 0.2);
+  }
+
+  &.dark {
+    border: 1px solid $neutral500;
+    color: $neutral100;
+    background-color: $neutral900;
+  }
+
   .statusLight {
     width: 10px;
     height: 10px;
@@ -71,6 +83,16 @@
     &.red {
       border: 1px solid $error600;
       background-color: $error600;
+    }
+
+    &.primary {
+      border: 1px solid $primary;
+      background-color: $primary;
+    }
+
+    &.dark {
+      border: 1px solid $neutral900;
+      background-color: $neutral900;
     }
   }
 

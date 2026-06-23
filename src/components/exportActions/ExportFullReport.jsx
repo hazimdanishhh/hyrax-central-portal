@@ -56,9 +56,11 @@ export default function ExportFullReport({
         "Lead Title": lead.title,
         Client: lead.client?.name || "N/A",
         Owner: lead.lead_owner?.full_name || "Unassigned",
+        Product: lead.product_type || "N/A", // NEW
         Stage: lead.stage,
         "Prob. (%)": lead.close_probability || 0,
-        "Rev. (RM)": lead.expected_revenue || 0,
+        "Exp. Rev (RM)": lead.expected_revenue || 0, // Abbreviated
+        "Act. Rev (RM)": lead.actual_revenue || 0, // NEW
         Source: lead.lead_source_type?.name || "Unknown",
         Created: lead.created_date,
       }));

@@ -47,7 +47,11 @@
         justify-self: start;
       }
 
-      &.active,
+      &.active {
+        background-color: rgba($info600, 0.7);
+        border-color: $info600;
+      }
+
       &.won {
         background-color: rgba($success600, 0.7);
         border-color: $success600;
@@ -80,7 +84,10 @@
         width: 20px;
       }
 
-      &.active,
+      &.active {
+        background-color: rgba($info600, 0.7);
+      }
+
       &.won {
         background-color: rgba($success600, 0.7);
       }
@@ -106,7 +113,13 @@
       background-color: rgba($neutral500, 0.1);
       padding: 0.4rem;
 
-      &.active,
+      &.active {
+        border: 1px solid $info600;
+        border-radius: 4px;
+        color: $info600;
+        background-color: rgba($info600, 0.1);
+      }
+
       &.won {
         border: 1px solid $success600;
         border-radius: 4px;
