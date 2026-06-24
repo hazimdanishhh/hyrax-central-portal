@@ -11,7 +11,11 @@ export default function OverviewCards({ items = [] }) {
         const to = item.filter ? buildFilterUrl(item.filter) : "";
 
         return (
-          <Link to={to} key={item.label} className="overviewCardLink">
+          <Link
+            to={`../list${to}`}
+            key={item.label}
+            className="overviewCardLink"
+          >
             <CardLayout style={`generalCard ${item.variant || ""}`}>
               {/* CARD HEADER */}
               <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
