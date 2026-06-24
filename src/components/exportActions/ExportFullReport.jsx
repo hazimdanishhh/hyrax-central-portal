@@ -71,12 +71,11 @@ export default function ExportFullReport({
       const canvas = await html2canvas(targetRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: "#ffffff",
-        windowWidth: 1300,
+        windowWidth: 1025,
         onclone: (clonedDoc, clonedElement) => {
-          clonedElement.style.width = "1300px";
-          clonedElement.style.minWidth = "1300px";
-          clonedElement.style.padding = "20px";
+          clonedElement.style.width = "1200px";
+          clonedElement.style.minWidth = "1200px";
+          clonedElement.style.padding = "0";
         },
       });
       const imgData = canvas.toDataURL("image/png");
@@ -148,20 +147,45 @@ export default function ExportFullReport({
       currentY += 5;
 
       // ==========================================
-      // 4. DRAW DASHBOARD IMAGE ON PAGE 1
+      // 4. DRAW DASHBOARD IMAGE (WITH MULTI-PAGE SPLITTING)
       // ==========================================
+      const pageHeight = pdf.internal.pageSize.getHeight();
       const dashboardImageWidth = pageWidth - margin * 2;
       const dashboardImageHeight =
         (canvas.height * dashboardImageWidth) / canvas.width;
 
+      let heightLeft = dashboardImageHeight;
+      let position = currentY;
+
+      // Draw the first chunk of the image on Page 1
       pdf.addImage(
         imgData,
         "PNG",
         margin,
-        currentY,
+        position,
         dashboardImageWidth,
         dashboardImageHeight,
       );
+
+      // Calculate how much of the image we just consumed
+      heightLeft -= pageHeight - position;
+
+      // If the image is taller than the remaining space on page 1, loop and add pages
+      while (heightLeft > 0) {
+        pdf.addPage();
+        position -= pageHeight; // Shift the image UP by exactly one page height
+
+        pdf.addImage(
+          imgData,
+          "PNG",
+          margin,
+          position,
+          dashboardImageWidth,
+          dashboardImageHeight,
+        );
+
+        heightLeft -= pageHeight;
+      }
 
       // ==========================================
       // 5. ADD NEW PAGE & DRAW THE DATA TABLE

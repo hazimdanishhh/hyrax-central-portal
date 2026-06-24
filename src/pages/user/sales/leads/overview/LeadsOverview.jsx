@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 import ChartCard from "../../../../../components/chartCard/ChartCard";
@@ -25,6 +25,12 @@ import { getLeadsOverviewConfig } from "./config/overviewConfig";
 import ExportActions from "../../../../../components/exportActions/ExportActions";
 import ExportData from "../../../../../components/exportActions/ExportData";
 import ExportFullReport from "../../../../../components/exportActions/ExportFullReport";
+import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
+import HorizontalDualBarRenderer from "../../../../../components/chartCard/HorizontalDualBarRenderer";
+import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
+import Button from "../../../../../components/buttons/button/Button";
+import { getChartConfig } from "./config/chartConfig";
+import { fetchSalesTargets } from "../../../../../features/sales/leads/private/api/fetchSalesTargets";
 
 export default function LeadsOverview() {
   const dashboardRef = useRef(null);
@@ -46,7 +52,27 @@ export default function LeadsOverview() {
     queryFn: fetchLeadsDashboard,
   });
 
+  // FETCH PRORATED SALES TARGETS
+  const {
+    data: targetData,
+    isLoading: targetLoading,
+    isFetching: targetFetching,
+    error: targetError,
+  } = useDashboardQuery({
+    queryKey: "sales_targets",
+    queryFn: fetchSalesTargets,
+  });
+
   console.log(dashboard);
+
+  // ==============
+  // LEADERBOARD LENS STATE
+  // ==============
+  // "productivity" | "accuracy" | "execution"
+  const [leaderboardView, setLeaderboardView] = useState("productivity");
+
+  const chartConfig = getChartConfig(leaderboardView);
+  // ==============
 
   const kpis = dashboard?.kpis ?? {};
 
@@ -58,23 +84,23 @@ export default function LeadsOverview() {
       value: d.count,
     })) ?? [];
 
-  const leadOwnerData =
-    dashboard?.leadOwnerData?.map((d) => ({
-      name: d.name,
-      value: d.won_revenue, // Changed from d.count
-    })) ?? [];
+  // const leadOwnerData =
+  //   dashboard?.leadOwnerData?.map((d) => ({
+  //     name: d.name,
+  //     value: d.won_revenue, // Changed from d.count
+  //   })) ?? [];
 
-  const sourceData =
-    dashboard?.sourceData?.map((d) => ({
-      name: d.name,
-      value: d.won_revenue, // Changed from d.count
-    })) ?? [];
+  // const sourceData =
+  //   dashboard?.sourceData?.map((d) => ({
+  //     name: d.name,
+  //     value: d.won_revenue, // Changed from d.count
+  //   })) ?? [];
 
-  const topClientsData =
-    dashboard?.topClientsData?.map((d) => ({
-      name: d.name,
-      value: d.won_revenue, // Changed from d.count
-    })) ?? [];
+  // const topClientsData =
+  //   dashboard?.topClientsData?.map((d) => ({
+  //     name: d.name,
+  //     value: d.won_revenue, // Changed from d.count
+  //   })) ?? [];
 
   const trendData =
     dashboard?.trendData?.map((d) => ({
@@ -99,11 +125,16 @@ export default function LeadsOverview() {
       value: d.total_value, // Visualizing the RM value in each probability bucket
     })) ?? [];
 
-  const productTypeData =
-    dashboard?.productTypeData?.map((d) => ({
-      name: d.name,
-      value: d.won_revenue, // Showing RM value distribution by product
-    })) ?? [];
+  // const productTypeData =
+  //   dashboard?.productTypeData?.map((d) => ({
+  //     name: d.name,
+  //     value: d.won_revenue, // Showing RM value distribution by product
+  //   })) ?? [];
+
+  const productTypeData = dashboard?.productTypeData ?? [];
+  const leadOwnerData = dashboard?.leadOwnerData ?? [];
+  const sourceData = dashboard?.sourceData ?? [];
+  const topClientsData = dashboard?.topClientsData ?? [];
 
   // ==============
   // METADATA
@@ -128,11 +159,12 @@ export default function LeadsOverview() {
     leadSourceTypes,
   });
 
-  const isLoading = dashboardLoading || metadataLoading;
-  const isFetching = dashboardFetching || metadataFetching;
-  const isError = dashboardError || metadataError;
+  const isLoading = dashboardLoading || metadataLoading || targetLoading;
+  const isFetching = dashboardFetching || metadataFetching || targetFetching;
+  const isError = dashboardError || metadataError || targetError;
 
-  const overviewItems = getLeadsOverviewConfig(kpis);
+  // const overviewItems = getLeadsOverviewConfig(kpis);
+  const overviewItems = getLeadsOverviewConfig(kpis, targetData);
 
   const formatCurrency = (value) => {
     if (!value && value !== 0) return "RM0";
@@ -218,39 +250,34 @@ export default function LeadsOverview() {
           </CardLayout>
         ) : (
           <>
+            {/* TIER 1: THE HIGH-LEVEL SUMMARY */}
             <OverviewCards items={overviewItems} />
 
-            <CardLayout style="cardLayout3">
+            {/* TIER 2: FORWARD-LOOKING FUNNEL (What is coming next?) */}
+            <div style={{ marginTop: "1rem", marginBottom: "0.5rem" }}>
+              <h2 className="textL textBold">Pipeline Health & Funnel</h2>
+              <p className="textXS textLight">
+                Leading indicators and current pipeline distribution.
+              </p>
+            </div>
+
+            <CardLayout style="cardLayout2">
               {/* LEAD STAGES */}
-              <ChartCard title="Lead Stages" style="cardGapSmall">
-                <PieChartRenderer
+              <ChartCard
+                title="Lead Stages"
+                subtitle="Active Pipeline Drop-off"
+                style="cardGapSmall"
+              >
+                <HorizontalBarChartRenderer
                   data={stageData}
-                  mode="semantic"
-                  colorMap={LEAD_STAGE_COLORS}
-                  centerLabel={kpis.activeLeads}
-                  centerSubLabel="Active Leads"
+                  colorMap={BLUE_COLOR}
                 />
               </ChartCard>
 
-              {/* PRODUCT TYPE */}
-              {!filters?.productType && (
-                <ChartCard
-                  title="Won Revenue by Product Type (RM)"
-                  style="cardGapSmall"
-                >
-                  <PieChartRenderer
-                    data={productTypeData}
-                    mode="semantic"
-                    colorMap={PRODUCT_TYPE_COLORS}
-                    centerLabel={formatCurrency(kpis.wonRevenue)}
-                    centerSubLabel="Total"
-                  />
-                </ChartCard>
-              )}
-
               {/* PIPELINE HEALTH */}
               <ChartCard
-                title="Pipeline Health (Probability)"
+                title="Active Pipeline Health"
+                subtitle="By Probability (%)"
                 style="cardGapSmall"
               >
                 <BarChartRenderer
@@ -258,10 +285,24 @@ export default function LeadsOverview() {
                   colorMap={BLUE_COLOR}
                 />
               </ChartCard>
+            </CardLayout>
 
-              {/* PIPELINE ACTIVITY */}
+            {/* TIER 3: BACKWARD-LOOKING DIAGNOSTICS (Why did it happen?) */}
+            <div style={{ marginTop: "1.5rem", marginBottom: "0.5rem" }}>
+              <h2 className="textL textBold">
+                Historical Diagnostics & Performance
+              </h2>
+              <p className="textXS textLight">
+                Lagging indicators tracking revenue, speed, accuracy, and
+                leaderboards.
+              </p>
+            </div>
+
+            {/* TREND LINES: Side-by-side for correlation */}
+            <CardLayout style="cardLayout3">
               <ChartCard
-                title="Pipeline Activity Over Time (Volume)"
+                title="Pipeline Activity Over Time"
+                subtitle="Volume"
                 style="cardGapSmall"
               >
                 <LineChartRenderer
@@ -274,9 +315,9 @@ export default function LeadsOverview() {
                 />
               </ChartCard>
 
-              {/* FINANCIAL TREND CHART */}
               <ChartCard
-                title="Revenue Trend Over Time (Actual RM)"
+                title="Revenue Trend Over Time"
+                subtitle="Actual RM"
                 style="cardGapSmall"
               >
                 <LineChartRenderer
@@ -289,48 +330,132 @@ export default function LeadsOverview() {
                 />
               </ChartCard>
 
-              {/* REVENUE LOST REASON */}
-              <ChartCard title="Revenue Lost by Reason" style="cardGapSmall">
-                <BarChartRenderer
+              {/* REVENUE LOST (Static - Always shows reasons) */}
+              <ChartCard
+                title="Revenue Lost"
+                subtitle="By Reason"
+                style="cardGapSmall"
+              >
+                <HorizontalBarChartRenderer
                   data={lossReasonData}
-                  colorMap="#ef4444" // Using red to indicate loss
-                  layout="vertical" // Vertical bars are usually better for long text reasons
+                  colorMap="#ef4444"
                 />
               </ChartCard>
+            </CardLayout>
+
+            {/* LENS TOGGLE UI */}
+            <div
+              style={{
+                marginTop: "2.5rem",
+                marginBottom: "1rem",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "10px",
+              }}
+            >
+              <div>
+                <h3 className="textL textBold">Executive Leaderboards</h3>
+                <p className="textXS textLight">
+                  Select a lens to analyze rep, product, and client performance.
+                </p>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  justifyContent: "center",
+                }}
+                className="pageTabContainer"
+              >
+                <Button
+                  onClick={() => setLeaderboardView("productivity")}
+                  name="Productivity (Input/Output)"
+                  style={
+                    leaderboardView === "productivity"
+                      ? "textXS button buttonType5 active"
+                      : "textXS button buttonType5"
+                  }
+                  className="textXXS"
+                />
+                <Button
+                  onClick={() => setLeaderboardView("accuracy")}
+                  name="Accuracy (Forecast/Actual)"
+                  style={
+                    leaderboardView === "accuracy"
+                      ? "textXS button buttonType5 active"
+                      : "textXS button buttonType5"
+                  }
+                  className="textXXS"
+                />
+                <Button
+                  onClick={() => setLeaderboardView("execution")}
+                  name="Execution (Won/Lost)"
+                  style={
+                    leaderboardView === "execution"
+                      ? "textXS button buttonType5 active"
+                      : "textXS button buttonType5"
+                  }
+                  className="textXXS"
+                />
+              </div>
+            </div>
+
+            {/* LEADERBOARDS: 2-column grid dynamically controlled by the toggle */}
+            <CardLayout style="cardLayout2">
+              {/* PRODUCT TYPE */}
+              {!filters?.productType && (
+                <ChartCard
+                  title="Product Performance"
+                  subtitle={chartConfig.subtitle}
+                  style="cardGapSmall"
+                >
+                  <HorizontalMultiBarRenderer
+                    data={productTypeData}
+                    bars={chartConfig.bars}
+                  />
+                </ChartCard>
+              )}
 
               {/* TOP LEAD OWNERS */}
               {!filters?.owner && (
                 <ChartCard
                   title="Top Lead Owners"
-                  subtitle="by Won Revenue (RM)"
+                  subtitle={chartConfig.subtitle}
                   style="cardGapSmall"
                 >
-                  <BarChartRenderer
+                  <HorizontalMultiBarRenderer
                     data={leadOwnerData}
-                    colorMap={BLUE_COLOR}
+                    bars={chartConfig.bars}
                   />
                 </ChartCard>
               )}
 
+              {/* TOP LEAD SOURCES */}
               {!filters?.leadSourceType && (
                 <ChartCard
-                  title="Lead Sources"
-                  subtitle="by Won Revenue (RM)"
+                  title="Top Lead Sources"
+                  subtitle={chartConfig.subtitle}
                   style="cardGapSmall"
                 >
-                  <BarChartRenderer data={sourceData} colorMap={YELLOW_COLOR} />
+                  <HorizontalMultiBarRenderer
+                    data={sourceData}
+                    bars={chartConfig.bars}
+                  />
                 </ChartCard>
               )}
 
+              {/* TOP CLIENTS */}
               {!filters?.client && (
                 <ChartCard
                   title="Top Clients"
-                  subtitle="by Won Revenue (RM)"
+                  subtitle={chartConfig.subtitle}
                   style="cardGapSmall"
                 >
-                  <BarChartRenderer
+                  <HorizontalMultiBarRenderer
                     data={topClientsData}
-                    colorMap={GREEN_COLOR}
+                    bars={chartConfig.bars}
                   />
                 </ChartCard>
               )}

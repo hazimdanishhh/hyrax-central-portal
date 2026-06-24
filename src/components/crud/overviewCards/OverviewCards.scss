@@ -6,3 +6,46 @@
   width: 100%;
   text-align: end;
 }
+
+.metricsCardLayout {
+  border-top: 1px solid rgb($neutral400, 0.5);
+  padding-top: 0.4rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.8rem;
+  width: 100%;
+
+  // @media screen and (max-width: 768px) {
+  //   grid-template-columns: repeat(1, 1fr);
+  // }
+}
+
+.metricsCard {
+  display: flex;
+  flex-direction: column;
+  text-align: start;
+
+  .metricsContent {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: nowrap;
+  }
+}
+
+.overviewCard4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8rem;
+  // padding: 0.8rem;
+  width: 100%;
+
+  @media screen and (max-width: 1280px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem;
+  }
+
+  @media screen and (max-width: 768px) {
+    grid-template-columns: repeat(1, 1fr);
+  }
+}

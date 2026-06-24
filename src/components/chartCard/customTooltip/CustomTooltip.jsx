@@ -7,6 +7,7 @@ export default function CustomTooltip({
   darkMode,
   colorMap = {},
   barChart,
+  multiBar,
 }) {
   if (active && payload && payload.length) {
     return (
@@ -17,10 +18,13 @@ export default function CustomTooltip({
             : "customTooltipContainer sectionLight"
         }
       >
+        {multiBar && label && (
+          <div className="textBold mb-1" style={{ marginBottom: "4px" }}>
+            {label}
+          </div>
+        )}
+
         {payload.map((entry) => {
-          // 1. LineCharts use `entry.color` or `entry.stroke`
-          // 2. BarCharts use `entry.fill`
-          // 3. Fallback to the passed colorMap using dataKey or name
           const color =
             entry.color ||
             entry.fill ||
@@ -28,13 +32,20 @@ export default function CustomTooltip({
             colorMap[entry.dataKey] ||
             colorMap[entry.name];
 
+          // NEW LOGIC: If multiBar, use the bar's name. Otherwise fallback to old logic.
+          const displayLabel = multiBar
+            ? entry.name
+            : barChart
+              ? label
+              : entry.name;
+
           return (
             <div key={entry.name} className="tooltipEntryContainer textXXXS">
               <span
                 style={{ backgroundColor: color }}
                 className="tooltipEntryCircle"
               />
-              <span className="textBold">{barChart ? label : entry.name}:</span>
+              <span className="textBold">{displayLabel}:</span>
               <span>{entry.value}</span>
             </div>
           );
