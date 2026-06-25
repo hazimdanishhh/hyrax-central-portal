@@ -1,0 +1,39 @@
+.leadsScoreCard {
+  flex-direction: row;
+  flex-wrap: wrap;
+
+  .quotaSegment {
+    display: flex;
+    flex: 2 1 250px;
+    flex-direction: column;
+    gap: 6px;
+
+    .quotaText {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .quotaBarContainer {
+      width: 100%;
+      height: 8px;
+      background-color: $neutral100;
+      border: 1px solid $neutral500;
+      border-radius: 4px;
+      overflow: hidden;
+
+      .quotaBarFill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+      }
+    }
+  }
+
+  .actualWonSegment {
+    display: flex;
+    flex: 1 1 100px;
+    flex-direction: column;
+    text-align: right;
+    color: $success600;
+  }
+}

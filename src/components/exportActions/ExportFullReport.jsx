@@ -69,16 +69,18 @@ export default function ExportFullReport({
       // 2. CAPTURE DASHBOARD SNAPSHOT
       // ==========================================
       const canvas = await html2canvas(targetRef.current, {
-        scale: 2,
+        scale: 1.5, // CHANGED: Reduced from 2. (1.5 is a great balance of size and crispness)
         useCORS: true,
         windowWidth: 1025,
         onclone: (clonedDoc, clonedElement) => {
-          clonedElement.style.width = "1200px";
-          clonedElement.style.minWidth = "1200px";
+          clonedElement.style.width = "1220px";
+          clonedElement.style.minWidth = "1220px";
           clonedElement.style.padding = "0";
         },
       });
-      const imgData = canvas.toDataURL("image/png");
+
+      // CHANGED: Use JPEG instead of PNG and set quality to 75%
+      const imgData = canvas.toDataURL("image/jpeg", 0.75);
 
       // ==========================================
       // 3. INITIALIZE PDF & DRAW HEADER
@@ -160,28 +162,31 @@ export default function ExportFullReport({
       // Draw the first chunk of the image on Page 1
       pdf.addImage(
         imgData,
-        "PNG",
+        "JPEG", // CHANGED: from "PNG"
         margin,
         position,
         dashboardImageWidth,
         dashboardImageHeight,
+        undefined, // alias (leave as undefined)
+        "FAST", // CHANGED: Apply FAST compression
       );
 
-      // Calculate how much of the image we just consumed
       heightLeft -= pageHeight - position;
 
       // If the image is taller than the remaining space on page 1, loop and add pages
       while (heightLeft > 0) {
         pdf.addPage();
-        position -= pageHeight; // Shift the image UP by exactly one page height
+        position -= pageHeight;
 
         pdf.addImage(
           imgData,
-          "PNG",
+          "JPEG", // CHANGED: from "PNG"
           margin,
           position,
           dashboardImageWidth,
           dashboardImageHeight,
+          undefined, // alias
+          "FAST", // CHANGED: Apply FAST compression
         );
 
         heightLeft -= pageHeight;

@@ -31,6 +31,7 @@ import HorizontalMultiBarRenderer from "../../../../../components/chartCard/Hori
 import Button from "../../../../../components/buttons/button/Button";
 import { getChartConfig } from "./config/chartConfig";
 import { fetchSalesTargets } from "../../../../../features/sales/leads/private/api/fetchSalesTargets";
+import ScorecardList from "../../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard";
 
 export default function LeadsOverview() {
   const dashboardRef = useRef(null);
@@ -223,8 +224,7 @@ export default function LeadsOverview() {
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: "0.8rem",
-          padding: "10px",
+          gap: "2rem",
           backgroundColor: "inherit",
         }}
       >
@@ -253,101 +253,121 @@ export default function LeadsOverview() {
             {/* TIER 1: THE HIGH-LEVEL SUMMARY */}
             <OverviewCards items={overviewItems} />
 
+            {/* THE NEW SCORECARD COMPONENT */}
+            {dashboard?.scorecardData && dashboard.scorecardData.length > 0 && (
+              <div style={{ marginTop: "4rem" }}>
+                <div style={{ marginBottom: "1rem" }}>
+                  <h2 className="textL textBold">
+                    Sales Performance Scorecard
+                  </h2>
+                  <p className="textXS textLight">
+                    Live quota attainment and period-over-period rep
+                    performance.
+                  </p>
+                </div>
+
+                <ScorecardList data={dashboard.scorecardData} />
+              </div>
+            )}
+
             {/* TIER 2: FORWARD-LOOKING FUNNEL (What is coming next?) */}
-            <div style={{ marginTop: "1rem", marginBottom: "0.5rem" }}>
-              <h2 className="textL textBold">Pipeline Health & Funnel</h2>
-              <p className="textXS textLight">
-                Leading indicators and current pipeline distribution.
-              </p>
+            <div style={{ marginTop: "4rem" }}>
+              <div style={{ marginBottom: "1rem" }}>
+                <h2 className="textL textBold">Pipeline Health & Funnel</h2>
+                <p className="textXS textLight">
+                  Leading indicators and current pipeline distribution.
+                </p>
+              </div>
+
+              <CardLayout style="cardLayout2">
+                {/* LEAD STAGES */}
+                <ChartCard
+                  title="Lead Stages"
+                  subtitle="Active Pipeline Drop-off"
+                  style="cardGapSmall"
+                >
+                  <HorizontalBarChartRenderer
+                    data={stageData}
+                    colorMap={BLUE_COLOR}
+                  />
+                </ChartCard>
+
+                {/* PIPELINE HEALTH */}
+                <ChartCard
+                  title="Active Pipeline Health"
+                  subtitle="By Probability (%)"
+                  style="cardGapSmall"
+                >
+                  <BarChartRenderer
+                    data={probabilityHealthData}
+                    colorMap={BLUE_COLOR}
+                  />
+                </ChartCard>
+              </CardLayout>
             </div>
-
-            <CardLayout style="cardLayout2">
-              {/* LEAD STAGES */}
-              <ChartCard
-                title="Lead Stages"
-                subtitle="Active Pipeline Drop-off"
-                style="cardGapSmall"
-              >
-                <HorizontalBarChartRenderer
-                  data={stageData}
-                  colorMap={BLUE_COLOR}
-                />
-              </ChartCard>
-
-              {/* PIPELINE HEALTH */}
-              <ChartCard
-                title="Active Pipeline Health"
-                subtitle="By Probability (%)"
-                style="cardGapSmall"
-              >
-                <BarChartRenderer
-                  data={probabilityHealthData}
-                  colorMap={BLUE_COLOR}
-                />
-              </ChartCard>
-            </CardLayout>
 
             {/* TIER 3: BACKWARD-LOOKING DIAGNOSTICS (Why did it happen?) */}
-            <div style={{ marginTop: "1.5rem", marginBottom: "0.5rem" }}>
-              <h2 className="textL textBold">
-                Historical Diagnostics & Performance
-              </h2>
-              <p className="textXS textLight">
-                Lagging indicators tracking revenue, speed, accuracy, and
-                leaderboards.
-              </p>
+            <div style={{ marginTop: "4rem" }}>
+              <div style={{ marginBottom: "1rem" }}>
+                <h2 className="textL textBold">
+                  Historical Diagnostics & Performance
+                </h2>
+                <p className="textXS textLight">
+                  Lagging indicators tracking revenue, speed, accuracy, and
+                  leaderboards.
+                </p>
+              </div>
+
+              {/* TREND LINES: Side-by-side for correlation */}
+              <CardLayout style="cardLayout3">
+                <ChartCard
+                  title="Pipeline Activity Over Time"
+                  subtitle="Volume"
+                  style="cardGapSmall"
+                >
+                  <LineChartRenderer
+                    data={trendData}
+                    lines={[
+                      { dataKey: "Leads Generated", color: BLUE_COLOR },
+                      { dataKey: "Deals Won", color: GREEN_COLOR },
+                      { dataKey: "Deals Lost", color: "#ef4444" },
+                    ]}
+                  />
+                </ChartCard>
+
+                <ChartCard
+                  title="Revenue Trend Over Time"
+                  subtitle="Actual RM"
+                  style="cardGapSmall"
+                >
+                  <LineChartRenderer
+                    data={trendData}
+                    lines={[
+                      { dataKey: "Pipeline Generated (RM)", color: BLUE_COLOR },
+                      { dataKey: "Revenue Won (RM)", color: GREEN_COLOR },
+                      { dataKey: "Revenue Lost (RM)", color: "#ef4444" },
+                    ]}
+                  />
+                </ChartCard>
+
+                {/* REVENUE LOST (Static - Always shows reasons) */}
+                <ChartCard
+                  title="Revenue Lost"
+                  subtitle="By Reason"
+                  style="cardGapSmall"
+                >
+                  <HorizontalBarChartRenderer
+                    data={lossReasonData}
+                    colorMap="#ef4444"
+                  />
+                </ChartCard>
+              </CardLayout>
             </div>
-
-            {/* TREND LINES: Side-by-side for correlation */}
-            <CardLayout style="cardLayout3">
-              <ChartCard
-                title="Pipeline Activity Over Time"
-                subtitle="Volume"
-                style="cardGapSmall"
-              >
-                <LineChartRenderer
-                  data={trendData}
-                  lines={[
-                    { dataKey: "Leads Generated", color: BLUE_COLOR },
-                    { dataKey: "Deals Won", color: GREEN_COLOR },
-                    { dataKey: "Deals Lost", color: "#ef4444" },
-                  ]}
-                />
-              </ChartCard>
-
-              <ChartCard
-                title="Revenue Trend Over Time"
-                subtitle="Actual RM"
-                style="cardGapSmall"
-              >
-                <LineChartRenderer
-                  data={trendData}
-                  lines={[
-                    { dataKey: "Pipeline Generated (RM)", color: BLUE_COLOR },
-                    { dataKey: "Revenue Won (RM)", color: GREEN_COLOR },
-                    { dataKey: "Revenue Lost (RM)", color: "#ef4444" },
-                  ]}
-                />
-              </ChartCard>
-
-              {/* REVENUE LOST (Static - Always shows reasons) */}
-              <ChartCard
-                title="Revenue Lost"
-                subtitle="By Reason"
-                style="cardGapSmall"
-              >
-                <HorizontalBarChartRenderer
-                  data={lossReasonData}
-                  colorMap="#ef4444"
-                />
-              </ChartCard>
-            </CardLayout>
 
             {/* LENS TOGGLE UI */}
             <div
               style={{
-                marginTop: "2.5rem",
-                marginBottom: "1rem",
+                marginTop: "4rem",
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
