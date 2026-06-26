@@ -35,14 +35,27 @@ import ScorecardList from "../../../../../components/sales/leads/leadsScoreCard/
 import {
   ChartBarHorizontalIcon,
   ChartLineIcon,
+  CheckCircleIcon,
+  CrosshairSimpleIcon,
   GaugeIcon,
+  LightbulbIcon,
   PulseIcon,
   RankingIcon,
   TrendUpIcon,
 } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
+import AISummary from "../../../../../components/aiSummary/AISummary";
+import GenerateAiButton from "../../../../../components/aiSummary/generateAIButton/GenerateAIButton";
 
 export default function LeadsOverview() {
+  const queryClient = useQueryClient();
   const dashboardRef = useRef(null);
+
+  // AI
+  const handleAiComplete = () => {
+    // Force TanStack query to fetch the newly generated summary
+    queryClient.invalidateQueries(["ai_summary", "leads"]);
+  };
 
   const {
     data: dashboard,
@@ -202,6 +215,15 @@ export default function LeadsOverview() {
         dashboardRef={dashboardRef}
       />
 
+      {/* AI BUTTON */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <GenerateAiButton
+          type="leads"
+          filters={filters}
+          onComplete={handleAiComplete}
+        />
+      </div>
+
       <div
         ref={dashboardRef}
         style={{
@@ -233,6 +255,8 @@ export default function LeadsOverview() {
           </CardLayout>
         ) : (
           <>
+            <AISummary type="leads" filters={filters} />
+
             {/* TIER 1: THE HIGH-LEVEL SUMMARY */}
             <div
               style={{
@@ -364,8 +388,8 @@ export default function LeadsOverview() {
                   </h2>
                 </div>
                 <p className="textXS textLight">
-                  Lagging indicators tracking revenue, speed, accuracy, and
-                  leaderboards.
+                  Lagging indicators tracking activity, revenue, and
+                  performance.
                 </p>
               </div>
 
@@ -446,30 +470,36 @@ export default function LeadsOverview() {
                 <Button
                   onClick={() => setLeaderboardView("productivity")}
                   name="Productivity (Input/Output)"
+                  icon={LightbulbIcon}
+                  weight="fill"
                   style={
                     leaderboardView === "productivity"
-                      ? "textXS button buttonType5 active"
-                      : "textXS button buttonType5"
+                      ? "textXS button buttonType3 active"
+                      : "textXS button buttonType3 "
                   }
                   className="textXXS"
                 />
                 <Button
                   onClick={() => setLeaderboardView("accuracy")}
                   name="Accuracy (Forecast/Actual)"
+                  icon={CrosshairSimpleIcon}
+                  weight="fill"
                   style={
                     leaderboardView === "accuracy"
-                      ? "textXS button buttonType5 active"
-                      : "textXS button buttonType5"
+                      ? "textXS button buttonType3 active"
+                      : "textXS button buttonType3 "
                   }
                   className="textXXS"
                 />
                 <Button
                   onClick={() => setLeaderboardView("execution")}
                   name="Execution (Won/Lost)"
+                  icon={CheckCircleIcon}
+                  weight="fill"
                   style={
                     leaderboardView === "execution"
-                      ? "textXS button buttonType5 active"
-                      : "textXS button buttonType5"
+                      ? "textXS button buttonType3 active"
+                      : "textXS button buttonType3 "
                   }
                   className="textXXS"
                 />

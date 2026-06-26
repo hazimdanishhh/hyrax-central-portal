@@ -1,0 +1,41 @@
+.AISummaryCard {
+  border: 1px solid #9240ce;
+  background-color: rgba(#b077da, 0.1);
+}
+
+.AISummaryHeaderContainer {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: start;
+  color: #9240ce;
+
+  .AISummaryHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+}
+
+.AISummaryBody {
+  border: 1px solid #9240ce;
+  background-color: rgba($neutral100, 0.1);
+  padding: 0.8rem;
+  border-radius: 0.4rem;
+  text-align: justify;
+}
+
+.markdown-body p {
+  margin-bottom: 1rem;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+
+  li {
+    list-style-type: disc;
+    margin-bottom: 1rem;
+  }
+}

@@ -175,6 +175,18 @@ li {
     background-color: rgb($info600, 0.1);
   }
 
+  &.blueCardFill {
+    color: $neutral100;
+    border: 1px solid $secondary;
+    background-color: $secondary;
+  }
+
+  &.greenCardFill {
+    color: $neutral100;
+    border: 1px solid $success600;
+    background-color: $success600;
+  }
+
   &.cardWidth {
     width: fit-content;
   }
