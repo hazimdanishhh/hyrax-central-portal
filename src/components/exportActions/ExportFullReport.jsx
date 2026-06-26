@@ -240,12 +240,12 @@ export default function ExportFullReport({
     <button
       onClick={handleExportFullPDF}
       disabled={isExporting}
-      className="button buttonType5 textXXS"
+      className="button buttonType4 approval textXXS"
     >
       {isExporting ? (
         <Spinner className="animate-spin" />
       ) : (
-        <FilePdf weight="bold" />
+        <FilePdf weight="fill" />
       )}
       {isExporting ? "Generating Report..." : "Export PDF Report"}
     </button>

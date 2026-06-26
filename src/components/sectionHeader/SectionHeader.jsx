@@ -1,11 +1,11 @@
 import "./SectionHeader.scss";
 
-function SectionHeader({ icon, title }) {
+function SectionHeader({ icon, title, style }) {
   const Icon = icon;
   return (
     <div className="sectionHeader">
       {Icon && <Icon size="16" weight="bold" />}
-      <p className="textBold textXXS">{title}</p>
+      <p className={`textBold textXXS ${style}`}>{title}</p>
     </div>
   );
 }

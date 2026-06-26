@@ -2,13 +2,22 @@
 
 import { useEffect, useState } from "react";
 import "./SearchFilterBar.scss";
-import { FunnelIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import {
+  CaretDownIcon,
+  CaretUpIcon,
+  DownloadSimpleIcon,
+  FunnelIcon,
+  MagnifyingGlassIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import Button from "../buttons/button/Button";
 import { useTheme } from "../../context/ThemeContext";
 import { AnimatePresence, motion } from "framer-motion";
 import Select from "react-select";
 import CardLayout from "../cardLayout/CardLayout";
 import AsyncSelectEditor from "../dataTable/editors/AsyncSelectEditor";
+import ExportData from "../exportActions/ExportData";
+import ExportFullReport from "../exportActions/ExportFullReport";
 
 export default function SearchFilterBar({
   search,
@@ -19,11 +28,18 @@ export default function SearchFilterBar({
   placeholder = "Search...",
   enableDateRange,
   disableSearch,
+
+  // NEW
+  enableExport,
+  isLoading,
+  isError,
+  dashboardRef,
 }) {
   const { darkMode } = useTheme();
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(search || "");
   const [asyncValues, setAsyncValues] = useState({});
+  const [exportIsOpen, setExportIsOpen] = useState(false);
 
   useEffect(() => {
     setSearchInput(search || "");
@@ -93,6 +109,44 @@ export default function SearchFilterBar({
             style="button buttonType5 textLight textXXS"
           />
         </div>
+
+        {/* EXPORT BUTTON */}
+        {enableExport && (
+          <div>
+            <Button
+              name="Export"
+              icon={exportIsOpen === true ? CaretUpIcon : CaretDownIcon}
+              icon2={DownloadSimpleIcon}
+              style="textXXS button buttonType5 approval"
+              size={20}
+              onClick={() => setExportIsOpen(!exportIsOpen)}
+            />
+            {exportIsOpen && (
+              <div
+                className={
+                  darkMode
+                    ? "sectionDark exportSection"
+                    : "sectionLight exportSection"
+                }
+              >
+                <ExportData search={search} filters={filters} />
+                <ExportFullReport
+                  targetRef={dashboardRef}
+                  search={search}
+                  filters={filters}
+                  fileName="Sales_Leads_Report"
+                  reportTitle="Sales Leads Report"
+                  logoUrl="/logos/logo.png"
+                  subtitle={`Filters Applied: ${
+                    filters.startDate && filters.endDate
+                      ? `${filters.startDate} to ${filters.endDate}`
+                      : "All Time"
+                  }`}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* DATE RANGE */}

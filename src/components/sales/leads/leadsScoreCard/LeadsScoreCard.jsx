@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { BLUE_COLOR, GREEN_COLOR } from "../../../chartCard/chartColors";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import "./LeadsScoreCard.scss";
 
 export default function ScorecardList({ data = [] }) {
+  const [showName, setShowName] = useState(false);
   if (!data || data.length === 0) return null;
 
   const formatRM = (val) => `RM ${Math.round(val).toLocaleString()}`;
@@ -36,34 +38,18 @@ export default function ScorecardList({ data = [] }) {
         return (
           <div key={idx} className="generalCard leadsScoreCard">
             {/* 1. AVATAR & NAME */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                flex: "1 1 200px",
+            <EmployeeImage
+              // Pass the specific iteration's data, mapping the keys to match
+              // what EmployeeImage likely expects based on your database schema.
+              employee={{
+                id: row.lead_owner_id,
+                full_name: row.rep_name,
+                avatar_url: row.avatar_url,
               }}
-            >
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "50%",
-                  backgroundColor: "#f1f5f9",
-                  color: "#475569",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                  fontSize: "14px",
-                }}
-              >
-                {getInitials(rep_name).toUpperCase()}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span className="textBold textS">{rep_name}</span>
-              </div>
-            </div>
+              displayName={true}
+              showName={showName}
+              setShowName={setShowName}
+            />
 
             {/* 2. QUOTA PROGRESS BAR */}
             <div className="quotaSegment">

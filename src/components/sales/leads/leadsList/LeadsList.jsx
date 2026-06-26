@@ -31,6 +31,11 @@ export default function LeadsList({
   onSelect,
 }) {
   const [showName, setShowName] = useState(false);
+  //   BOOLEANS
+  const isWon = lead.stage === "WON";
+  const isLost = lead.stage === "LOST";
+  const isCancelled = lead.is_cancelled;
+  const isClosedLead = isWon || isLost || isCancelled;
 
   return (
     <motion.div
@@ -153,13 +158,16 @@ export default function LeadsList({
                 <FilePdfIcon size={16} />
               </a>
             )}
-            <Button
-              style="iconButton2"
-              onClick={setIsEditing}
-              icon={NotePencilIcon}
-              size={16}
-              weight="light"
-            />
+
+            {!isClosedLead && (
+              <Button
+                style="iconButton2"
+                onClick={setIsEditing}
+                icon={NotePencilIcon}
+                size={16}
+                weight="light"
+              />
+            )}
           </CardLayout>
         </div>
       </div>

@@ -29,6 +29,7 @@ import CardLayout from "../../../cardLayout/CardLayout";
 import IconCard from "../../../iconCard/IconCard";
 import RouterButton from "../../../buttons/routerButton/RouterButton";
 import StatusIcon from "../../../status/statusIcon/StatusIcon";
+import { useAccessControl } from "../../../../context/AccessControlContext";
 
 export default function LeadSidebar({
   selectedRow,
@@ -38,6 +39,7 @@ export default function LeadSidebar({
   setIsEditing,
 }) {
   const [showName, setShowName] = useState(false);
+  const { canAccess, isManager, isSuperAdmin } = useAccessControl();
 
   //   BOOLEANS
   const isWon = selectedRow.stage === "WON";
@@ -151,7 +153,7 @@ export default function LeadSidebar({
             {selectedRow.po_document_url && (
               <a
                 href={selectedRow.po_document_url}
-                className="textLight textXXS button buttonType4"
+                className="textLight textXXS button buttonType4 approval"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -213,6 +215,25 @@ export default function LeadSidebar({
       )}
 
       {/* ACTIONS */}
+
+      {selectedRow.stage === "NEGOTIATION" && canTransitionStage && (
+        <Button
+          name="Edit Quotation"
+          icon={PencilSimpleLineIcon}
+          style="button buttonType4 mobile"
+          disabled={updating}
+          onClick={() =>
+            onRequestAction({
+              type: "edit_quotation",
+              payload: {
+                id: selectedRow.id,
+                quotation_url: selectedRow.quotation_url, // Pass existing URL to pre-fill if needed
+              },
+            })
+          }
+        />
+      )}
+
       <div className="cardLayout2">
         {/* STAGE TRANSITIONS */}
         {canTransitionStage &&
@@ -244,24 +265,6 @@ export default function LeadSidebar({
               }
             />
           ))}
-
-        {selectedRow.stage === "NEGOTIATION" && canTransitionStage && (
-          <Button
-            name="Edit Quotation"
-            icon={PencilSimpleLineIcon}
-            style="button buttonType4 mobile"
-            disabled={updating}
-            onClick={() =>
-              onRequestAction({
-                type: "edit_quotation",
-                payload: {
-                  id: selectedRow.id,
-                  quotation_url: selectedRow.quotation_url, // Pass existing URL to pre-fill if needed
-                },
-              })
-            }
-          />
-        )}
       </div>
 
       <CardLayout style="cardLayout2">
@@ -305,21 +308,13 @@ export default function LeadSidebar({
       </CardLayout>
 
       {/* EDIT BUTTON */}
-      {!isEditing ? (
+      {!isClosedLead && (
         <Button
           name="Edit"
           icon={PencilSimpleLineIcon}
           style="button buttonType4 textXS"
           size={16}
           onClick={() => setIsEditing(!isEditing)}
-        />
-      ) : (
-        <Button
-          name="Cancel Edit"
-          icon={PencilSimpleSlashIcon}
-          onClick={() => setIsEditing(!isEditing)}
-          style="button buttonType4 textXS"
-          size={16}
         />
       )}
     </div>

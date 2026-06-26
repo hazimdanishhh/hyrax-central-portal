@@ -9,16 +9,27 @@ function EmployeeImage({
   employee,
   position = "right",
   employeeId,
+  displayName,
 }) {
+  console.log(employee);
+
   return (
     <Link
       className="employeeLinkWrapper"
       onClick={(e) => e.stopPropagation()}
-      to={`/app/employees/${employeeId || employee.employee_id}`}
+      to={`/app/employees/${employeeId || employee.employee_id || employee.id}`}
       onMouseEnter={() => setShowName(true)}
       onMouseLeave={() => setShowName(false)}
       target="_blank"
       rel="noopener noreferrer"
+      style={
+        displayName && {
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          flex: "1 1 200px",
+        }
+      }
     >
       <div className="listEmployeePhoto">
         <img
@@ -46,6 +57,12 @@ function EmployeeImage({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {displayName && (
+        <p className="textRegular textXS" style={{ textAlign: "start" }}>
+          {employee.employee_name || employee.full_name}
+        </p>
+      )}
     </Link>
   );
 }

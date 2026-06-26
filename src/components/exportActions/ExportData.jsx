@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Papa from "papaparse";
-import { DownloadSimple, Spinner } from "@phosphor-icons/react";
+import { DownloadSimple, FileCsvIcon, Spinner } from "@phosphor-icons/react";
 import { fetchLeads } from "../../features/sales/leads/private/api/leadsService";
 
 export default function ExportData({ search, filters, sortBy, sortOrder }) {
@@ -72,12 +72,12 @@ export default function ExportData({ search, filters, sortBy, sortOrder }) {
     <button
       onClick={handleExportCSV}
       disabled={isExporting}
-      className="button buttonType5 approval textXXS"
+      className="button buttonType4 approval textXXS"
     >
       {isExporting ? (
         <Spinner className="animate-spin" />
       ) : (
-        <DownloadSimple weight="bold" />
+        <FileCsvIcon weight="fill" />
       )}
       {isExporting ? "Exporting..." : "Export CSV"}
     </button>

@@ -32,6 +32,14 @@ import Button from "../../../../../components/buttons/button/Button";
 import { getChartConfig } from "./config/chartConfig";
 import { fetchSalesTargets } from "../../../../../features/sales/leads/private/api/fetchSalesTargets";
 import ScorecardList from "../../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard";
+import {
+  ChartBarHorizontalIcon,
+  ChartLineIcon,
+  GaugeIcon,
+  PulseIcon,
+  RankingIcon,
+  TrendUpIcon,
+} from "@phosphor-icons/react";
 
 export default function LeadsOverview() {
   const dashboardRef = useRef(null);
@@ -63,8 +71,6 @@ export default function LeadsOverview() {
     queryKey: "sales_targets",
     queryFn: fetchSalesTargets,
   });
-
-  console.log(dashboard);
 
   // ==============
   // LEADERBOARD LENS STATE
@@ -190,34 +196,11 @@ export default function LeadsOverview() {
         placeholder="Search leads..."
         enableDateRange
         disableSearch={true}
+        enableExport={true}
+        isLoading={isLoading}
+        isError={isError}
+        dashboardRef={dashboardRef}
       />
-
-      {/* EXPORT BUTTON */}
-      {!isLoading && !isError && (
-        <div
-          style={{
-            display: "flex",
-            gap: "10px",
-            justifyContent: "flex-end",
-            marginBottom: "1rem",
-          }}
-        >
-          <ExportData search={search} filters={filters} />
-          <ExportFullReport
-            targetRef={dashboardRef}
-            search={search}
-            filters={filters}
-            fileName="Sales_Leads_Report"
-            reportTitle="Sales Leads Report"
-            logoUrl="/logos/logo.png"
-            subtitle={`Filters Applied: ${
-              filters.startDate && filters.endDate
-                ? `${filters.startDate} to ${filters.endDate}`
-                : "All Time"
-            }`}
-          />
-        </div>
-      )}
 
       <div
         ref={dashboardRef}
@@ -251,15 +234,53 @@ export default function LeadsOverview() {
         ) : (
           <>
             {/* TIER 1: THE HIGH-LEVEL SUMMARY */}
-            <OverviewCards items={overviewItems} />
+            <div
+              style={{
+                justifyContent: "start",
+                textAlign: "start",
+              }}
+            >
+              <div style={{ marginBottom: "1rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.8rem",
+                  }}
+                >
+                  <GaugeIcon size={24} />
+                  <h2 className="textL textBold">Sales KPIs</h2>
+                </div>
+                <p className="textXS textLight">
+                  Live pipeline health and performance.
+                </p>
+              </div>
+
+              <OverviewCards items={overviewItems} />
+            </div>
 
             {/* THE NEW SCORECARD COMPONENT */}
             {dashboard?.scorecardData && dashboard.scorecardData.length > 0 && (
-              <div style={{ marginTop: "4rem" }}>
+              <div
+                style={{
+                  marginTop: "4rem",
+                  justifyContent: "start",
+                  textAlign: "start",
+                }}
+              >
                 <div style={{ marginBottom: "1rem" }}>
-                  <h2 className="textL textBold">
-                    Sales Performance Scorecard
-                  </h2>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.8rem",
+                    }}
+                  >
+                    <RankingIcon size={24} />
+                    <h2 className="textL textBold">
+                      Sales Performance Scorecard
+                    </h2>
+                  </div>
                   <p className="textXS textLight">
                     Live quota attainment and period-over-period rep
                     performance.
@@ -271,9 +292,24 @@ export default function LeadsOverview() {
             )}
 
             {/* TIER 2: FORWARD-LOOKING FUNNEL (What is coming next?) */}
-            <div style={{ marginTop: "4rem" }}>
+            <div
+              style={{
+                marginTop: "4rem",
+                justifyContent: "start",
+                textAlign: "start",
+              }}
+            >
               <div style={{ marginBottom: "1rem" }}>
-                <h2 className="textL textBold">Pipeline Health & Funnel</h2>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.8rem",
+                  }}
+                >
+                  <PulseIcon size={24} />
+                  <h2 className="textL textBold">Pipeline Health & Funnel</h2>
+                </div>
                 <p className="textXS textLight">
                   Leading indicators and current pipeline distribution.
                 </p>
@@ -307,11 +343,26 @@ export default function LeadsOverview() {
             </div>
 
             {/* TIER 3: BACKWARD-LOOKING DIAGNOSTICS (Why did it happen?) */}
-            <div style={{ marginTop: "4rem" }}>
+            <div
+              style={{
+                marginTop: "4rem",
+                justifyContent: "start",
+                textAlign: "start",
+              }}
+            >
               <div style={{ marginBottom: "1rem" }}>
-                <h2 className="textL textBold">
-                  Historical Diagnostics & Performance
-                </h2>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.8rem",
+                  }}
+                >
+                  <ChartLineIcon size={24} />
+                  <h2 className="textL textBold">
+                    Historical Diagnostics & Performance
+                  </h2>
+                </div>
                 <p className="textXS textLight">
                   Lagging indicators tracking revenue, speed, accuracy, and
                   leaderboards.
@@ -369,26 +420,29 @@ export default function LeadsOverview() {
               style={{
                 marginTop: "4rem",
                 display: "flex",
-                justifyContent: "center",
+                justifyContent: "start",
+                textAlign: "start",
                 alignItems: "center",
                 flexWrap: "wrap",
                 gap: "10px",
               }}
             >
               <div>
-                <h3 className="textL textBold">Executive Leaderboards</h3>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.8rem",
+                  }}
+                >
+                  <ChartBarHorizontalIcon size={24} />
+                  <h2 className="textL textBold">Executive Leaderboards</h2>
+                </div>
                 <p className="textXS textLight">
                   Select a lens to analyze rep, product, and client performance.
                 </p>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  justifyContent: "center",
-                }}
-                className="pageTabContainer"
-              >
+              <div className="pageTabContainer">
                 <Button
                   onClick={() => setLeaderboardView("productivity")}
                   name="Productivity (Input/Output)"
