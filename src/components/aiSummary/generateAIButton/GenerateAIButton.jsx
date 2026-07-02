@@ -18,6 +18,8 @@ export default function GenerateAiButton({
     setError(null);
 
     try {
+      showMessage("Generating new AI summary...", "loading");
+
       const { data, error: invokeError } = await supabase.functions.invoke(
         "generate-ai-summary",
         {

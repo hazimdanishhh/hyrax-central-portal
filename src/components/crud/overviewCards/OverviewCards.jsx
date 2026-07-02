@@ -15,6 +15,7 @@ export default function OverviewCards({ items = [] }) {
             to={`../list${to}`}
             key={item.label}
             className="overviewCardLink"
+            title={item.title}
           >
             <CardLayout style={`generalCard ${item.variant || ""}`}>
               {/* CARD HEADER */}

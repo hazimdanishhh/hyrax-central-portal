@@ -1,0 +1,10 @@
+.pdfOverviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4rem;
+  margin-bottom: 4rem;
+
+  &.leaderboardsOverviewSection {
+    gap: 0;
+  }
+}

@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; // NEW IMPORT
+import autoTable from "jspdf-autotable";
 import { FilePdf, Spinner } from "@phosphor-icons/react";
-import { fetchLeads } from "../../features/sales/leads/private/api/leadsService"; // Adjust path as needed
+import { fetchLeads } from "../../features/sales/leads/private/api/leadsService";
+import { useMessage } from "../../context/MessageContext";
 
-// Helper to convert an image URL into Base64
 const getBase64ImageFromUrl = async (url) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -35,12 +35,14 @@ export default function ExportFullReport({
   logoUrl = null,
 }) {
   const [isExporting, setIsExporting] = useState(false);
+  const { showMessage } = useMessage();
 
   const handleExportFullPDF = async () => {
     if (!targetRef.current) return;
     setIsExporting(true);
 
     try {
+      showMessage("Exporting PDF Report...", "loading");
       // ==========================================
       // 1. FETCH RAW DATA FOR THE TABLE
       // ==========================================
@@ -56,37 +58,21 @@ export default function ExportFullReport({
         "Lead Title": lead.title,
         Client: lead.client?.name || "N/A",
         Owner: lead.lead_owner?.full_name || "Unassigned",
-        Product: lead.product_type || "N/A", // NEW
+        Product: lead.product_type || "N/A",
         Stage: lead.stage,
         "Prob. (%)": lead.close_probability || 0,
-        "Exp. Rev (RM)": lead.expected_revenue || 0, // Abbreviated
-        "Act. Rev (RM)": lead.actual_revenue || 0, // NEW
+        "Exp. Rev (RM)": lead.expected_revenue || 0,
+        "Act. Rev (RM)": lead.actual_revenue || 0,
         Source: lead.lead_source_type?.name || "Unknown",
         Created: lead.created_date,
       }));
 
       // ==========================================
-      // 2. CAPTURE DASHBOARD SNAPSHOT
-      // ==========================================
-      const canvas = await html2canvas(targetRef.current, {
-        scale: 1.5, // CHANGED: Reduced from 2. (1.5 is a great balance of size and crispness)
-        useCORS: true,
-        windowWidth: 1025,
-        onclone: (clonedDoc, clonedElement) => {
-          clonedElement.style.width = "1220px";
-          clonedElement.style.minWidth = "1220px";
-          clonedElement.style.padding = "0";
-        },
-      });
-
-      // CHANGED: Use JPEG instead of PNG and set quality to 75%
-      const imgData = canvas.toDataURL("image/jpeg", 0.75);
-
-      // ==========================================
-      // 3. INITIALIZE PDF & DRAW HEADER
+      // 2. INITIALIZE PDF & DRAW HEADER
       // ==========================================
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
       let currentY = 15;
 
@@ -149,88 +135,97 @@ export default function ExportFullReport({
       currentY += 5;
 
       // ==========================================
-      // 4. DRAW DASHBOARD IMAGE (WITH MULTI-PAGE SPLITTING)
+      // 3. CAPTURE & DRAW DASHBOARD SECTIONS
       // ==========================================
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const dashboardImageWidth = pageWidth - margin * 2;
-      const dashboardImageHeight =
-        (canvas.height * dashboardImageWidth) / canvas.width;
-
-      let heightLeft = dashboardImageHeight;
-      let position = currentY;
-
-      // Draw the first chunk of the image on Page 1
-      pdf.addImage(
-        imgData,
-        "JPEG", // CHANGED: from "PNG"
-        margin,
-        position,
-        dashboardImageWidth,
-        dashboardImageHeight,
-        undefined, // alias (leave as undefined)
-        "FAST", // CHANGED: Apply FAST compression
+      const sections = Array.from(
+        targetRef.current.querySelectorAll(".pdfOverviewSection"),
       );
 
-      heightLeft -= pageHeight - position;
+      const dashboardImageWidth = pageWidth - margin * 2;
 
-      // If the image is taller than the remaining space on page 1, loop and add pages
-      while (heightLeft > 0) {
-        pdf.addPage();
-        position -= pageHeight;
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
 
+        const canvas = await html2canvas(section, {
+          scale: 1.5,
+          useCORS: true,
+          windowWidth: 1025,
+          onclone: (clonedDoc, clonedElement) => {
+            clonedElement.style.width = "1220px";
+            clonedElement.style.minWidth = "1220px";
+            clonedElement.style.padding = "0";
+            // Ensure white background so transparency doesn't render black
+            clonedElement.style.backgroundColor = "#ffffff";
+          },
+        });
+
+        const imgData = canvas.toDataURL("image/jpeg", 0.75);
+        const dashboardImageHeight =
+          (canvas.height * dashboardImageWidth) / canvas.width;
+
+        // Smart Pagination: If this section exceeds page bounds, break to next page
+        if (
+          currentY + dashboardImageHeight > pageHeight - margin &&
+          currentY > margin + 20
+        ) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        // Draw the section
         pdf.addImage(
           imgData,
-          "JPEG", // CHANGED: from "PNG"
+          "JPEG",
           margin,
-          position,
+          currentY,
           dashboardImageWidth,
           dashboardImageHeight,
-          undefined, // alias
-          "FAST", // CHANGED: Apply FAST compression
+          undefined,
+          "FAST",
         );
 
-        heightLeft -= pageHeight;
+        // Move cursor down for the next section with a 10mm gap
+        currentY += dashboardImageHeight + 10;
       }
 
       // ==========================================
-      // 5. ADD NEW PAGE & DRAW THE DATA TABLE
+      // 4. ADD NEW PAGE & DRAW THE DATA TABLE
       // ==========================================
       if (flattenedData.length > 0) {
         pdf.addPage();
 
-        // Extract headers from the object keys
         const tableHeaders = Object.keys(flattenedData[0]);
-        // Map the data into an array of arrays for autoTable
         const tableRows = flattenedData.map(Object.values);
 
         autoTable(pdf, {
           head: [tableHeaders],
           body: tableRows,
-          startY: 15, // Start slightly down from the top of the new page
+          startY: 15,
           theme: "striped",
           styles: {
             fontSize: 8,
             cellPadding: 3,
           },
           headStyles: {
-            fillColor: [30, 41, 59], // Slate 800 to match your dashboard vibe
+            fillColor: [30, 41, 59],
             textColor: [255, 255, 255],
             fontStyle: "bold",
           },
           alternateRowStyles: {
-            fillColor: [248, 250, 252], // Slate 50
+            fillColor: [248, 250, 252],
           },
           margin: { top: 15, left: margin, right: margin },
         });
       }
 
       // ==========================================
-      // 6. SAVE THE PDF
+      // 5. SAVE THE PDF
       // ==========================================
       pdf.save(`${fileName}_${new Date().toISOString().split("T")[0]}.pdf`);
+      showMessage("PDF Exported", "success");
     } catch (error) {
       console.error("Failed to generate Full Report:", error);
-      alert("An error occurred while generating the report.");
+      showMessage("Failed to generate PDF Report", "error");
     } finally {
       setIsExporting(false);
     }

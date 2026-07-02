@@ -2,14 +2,18 @@ import React, { useState } from "react";
 import Papa from "papaparse";
 import { DownloadSimple, FileCsvIcon, Spinner } from "@phosphor-icons/react";
 import { fetchLeads } from "../../features/sales/leads/private/api/leadsService";
+import { useMessage } from "../../context/MessageContext";
 
 export default function ExportData({ search, filters, sortBy, sortOrder }) {
   const [isExporting, setIsExporting] = useState(false);
+  const { showMessage } = useMessage();
 
   const handleExportCSV = async () => {
     setIsExporting(true);
 
     try {
+      showMessage("Exporting CSV Data...", "loading");
+
       // 1. Fetch ALL data matching current filters (bypassing pagination)
       const { data } = await fetchLeads({
         search,
@@ -60,9 +64,11 @@ export default function ExportData({ search, filters, sortBy, sortOrder }) {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      showMessage("CSV Data Exported", "success");
     } catch (error) {
       console.error("Failed to export data:", error);
-      alert("Failed to export data. Please try again.");
+      showMessage("Failed to export CSV Data", "error");
     } finally {
       setIsExporting(false);
     }

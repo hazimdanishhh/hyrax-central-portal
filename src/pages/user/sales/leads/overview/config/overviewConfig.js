@@ -57,46 +57,14 @@ export function getLeadsOverviewConfig(kpis, targetData) {
 
   return [
     // ==========================================
-    // PILLAR 1: Top of Funnel (What came in?)
-    // ==========================================
-    {
-      icon: FunnelIcon,
-      label: "Pipeline Generated",
-      sublabel: "Total Generated Expected Revenue",
-      value: `RM ${(kpis.pipelineGenerated || 0).toLocaleString()}`,
-      variant: "blueCardFill",
-      filter: null,
-      metrics: [
-        {
-          label: "Leads Created",
-          value: kpis.totalLeadsCreated || 0,
-        },
-        {
-          label: "Avg. Deal Size",
-          value: `RM ${(kpis.avgGeneratedDealSize || 0).toLocaleString()}`,
-        },
-        {
-          label: "Avg. Probability",
-          value: `${kpis.avgGeneratedProbability || 0}%`,
-          icon: PercentIcon,
-        },
-        {
-          label: "Fast Track Deals",
-          value: kpis.fastTrackDeals || 0,
-          icon: LightningIcon,
-        },
-      ],
-    },
-
-    // ==========================================
-    // PILLAR 2: Current Health (What are we working on?)
+    // PILLAR 1: Current Health (What are we working on?)
     // ==========================================
     {
       icon: CurrencyDollarIcon,
       label: "Active Pipeline",
       sublabel: "Total Active Expected Revenue",
       value: `RM ${(kpis.activePipelineValue || 0).toLocaleString()}`,
-      variant: "blueCard",
+      variant: "blueCardFill",
       filter: null,
       metrics: [
         {
@@ -117,6 +85,39 @@ export function getLeadsOverviewConfig(kpis, targetData) {
           label: "On-Hold Cash",
           value: `RM ${(kpis.onHoldPipeline || 0).toLocaleString()}`,
           icon: PauseCircleIcon,
+        },
+      ],
+      title: "Current Pipeline Health (Not based on filters)",
+    },
+
+    // ==========================================
+    // PILLAR 2: Top of Funnel (What came in?)
+    // ==========================================
+    {
+      icon: FunnelIcon,
+      label: "Pipeline Generated",
+      sublabel: "Total Generated Expected Revenue",
+      value: `RM ${(kpis.pipelineGenerated || 0).toLocaleString()}`,
+      variant: "blueCard",
+      filter: null,
+      metrics: [
+        {
+          label: "Leads Created",
+          value: kpis.totalLeadsCreated || 0,
+        },
+        {
+          label: "Avg. Deal Size",
+          value: `RM ${(kpis.avgGeneratedDealSize || 0).toLocaleString()}`,
+        },
+        {
+          label: "Avg. Probability",
+          value: `${kpis.avgGeneratedProbability || 0}%`,
+          icon: PercentIcon,
+        },
+        {
+          label: "Fast Track Deals",
+          value: kpis.fastTrackDeals || 0,
+          icon: LightningIcon,
         },
       ],
     },

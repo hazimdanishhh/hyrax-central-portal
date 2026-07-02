@@ -1,8 +1,7 @@
-import React from "react";
+import { SparkleIcon } from "@phosphor-icons/react";
 import ReactMarkdown from "react-markdown";
 import { useAiSummary } from "../../features/aiSummary/hooks/useAiSummary";
 import "./AISummary.scss";
-import { SparkleIcon } from "@phosphor-icons/react";
 
 export default function AISummary({ type = "leads", filters = {} }) {
   // Extract the active dates from the dashboard filters
@@ -42,17 +41,20 @@ export default function AISummary({ type = "leads", filters = {} }) {
 
         <div>
           <div className="textXXXS textLight">
-            Period: {summary.period_start_formatted} to{" "}
-            {summary.period_end_formatted}
+            <span className="textBold">Period: </span>
+            {summary.period_start_formatted && summary.period_end_formatted
+              ? `${summary.period_start_formatted} to ${summary.period_end_formatted}`
+              : "All Time"}
           </div>
           <div className="textXXXS textLight">
-            Generated: {summary.created_at}
+            <span className="textBold">Generated: </span>
+            {summary.created_at}
           </div>
         </div>
       </div>
 
       {/* Replaced <p> with a <div> wrapper to avoid invalid HTML nesting */}
-      <div className="textS markdown-body AISummaryBody">
+      <div className="textS AISummaryBody">
         <ReactMarkdown>{summary.summary_text}</ReactMarkdown>
       </div>
     </div>

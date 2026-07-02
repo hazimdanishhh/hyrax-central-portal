@@ -7,8 +7,10 @@
   display: flex;
   justify-content: space-between;
   width: 100%;
-  align-items: start;
+  align-items: center;
   color: #9240ce;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 
   .AISummaryHeader {
     display: flex;
@@ -23,19 +25,23 @@
   padding: 0.8rem;
   border-radius: 0.4rem;
   text-align: justify;
-}
 
-.markdown-body p {
-  margin-bottom: 1rem;
-}
+  h3 {
+    font-size: 20px;
+  }
 
-.markdown-body ul,
-.markdown-body ol {
-  margin-left: 1.5rem;
-  margin-bottom: 1rem;
-
-  li {
-    list-style-type: disc;
+  p {
     margin-bottom: 1rem;
+  }
+
+  ul,
+  ol {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+
+    li {
+      list-style-type: disc;
+      margin-bottom: 1rem;
+    }
   }
 }
