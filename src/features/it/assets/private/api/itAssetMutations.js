@@ -1,34 +1,6 @@
 // features/it/assets/private/api/itAssetMutations.js
 import { supabase } from "../../../../../lib/supabaseClient";
-
-/**
- * Normalize form values before sending to Supabase
- */
-function normalizeFields(rawFields) {
-  return Object.fromEntries(
-    Object.entries(rawFields)
-      .filter(([_, value]) => value !== undefined)
-      .map(([key, value]) => {
-        // Empty string -> null
-        if (value === "") return [key, null];
-
-        // Foreign keys -> integer
-        if (key.endsWith("_id") && value !== null) {
-          // Async select object
-          if (typeof value === "object" && value?.value) {
-            return [key, value.value];
-          }
-
-          // Numeric string support
-          const isNumeric = typeof value === "string" && /^\d+$/.test(value);
-
-          return [key, isNumeric ? Number(value) : value];
-        }
-
-        return [key, value];
-      }),
-  );
-}
+import { normalizeFields } from "@/features/_shared/normalizeFields";
 
 /**
  * UPDATE
@@ -71,7 +43,7 @@ export async function bulkUpdateAssets(ids, rawFields) {
  * CREATE
  */
 export async function createAsset(newData) {
-  const { id, ...rawFields } = newData;
+  const { id: _id, ...rawFields } = newData;
 
   const fields = normalizeFields(rawFields);
 

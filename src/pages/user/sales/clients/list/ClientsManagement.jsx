@@ -1,58 +1,30 @@
-// pages/user/it/ITAssetManagement/list/ITAssetManagement.jsx
-import {
-  CheckCircleIcon,
-  DesktopIcon,
-  ListIcon,
-  PencilSimpleLineIcon,
-  PlusCircleIcon,
-  UserMinusIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+// pages/user/sales/clients/list/ClientsManagement.jsx
+import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import { useTheme } from "../../../../../context/ThemeContext";
 import "./ClientsManagement.scss";
 import { useEffect, useMemo, useState } from "react";
-import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
-import ITAssetList from "../../../../../components/itAsset/itAssetList/ITAssetList";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import PageTab from "../../../../../components/navigation/pageTab/PageTab";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
-import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
+import PageActions from "../../../../../components/crud/pageActions/PageActions";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import { useQueryClient } from "@tanstack/react-query";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
-import ChartCard from "../../../../../components/chartCard/ChartCard";
-import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
-import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
-import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
-import {
-  CONDITION_COLORS,
-  RISK_COLORS,
-  STATUS_COLORS,
-  UTILIZATION_COLORS,
-} from "../../../../../components/chartCard/chartColors";
+import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { getLayoutConfig } from "./constants/layoutConfig";
 import { getSortConfig } from "./constants/sortConfig";
 import { getFilterConfig } from "./constants/filterConfig";
 import { getTableConfig } from "./constants/tableConfig";
 import { getActionConfig } from "./constants/actionConfig";
-import {
-  Link,
-  NavLink,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useEmployee } from "../../../../../context/EmployeeContext";
 import { useClient } from "../../../../../features/sales/clients/private/hooks/useClient";
 import { useClientsMetadata } from "../../../../../features/sales/clients/private/hooks/useClientsMetadata";
@@ -73,14 +45,21 @@ export default function ClientsManagement() {
   const navigate = useNavigate();
   const { clientId } = useParams();
   const [layout, setLayout] = useState(0); // 0: List, 1: Table
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState(null);
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [modalType, setModalType] = useState(null); // "save" | "reject"
-  const [pendingSaveRow, setPendingSaveRow] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const [searchParams] = useSearchParams();
   const isCreating = clientId === "new";
+
+  const {
+    modalOpen,
+    setModalOpen,
+    selectedRowId,
+    modalType,
+    setModalType,
+    pendingSaveRow,
+    handleRequestSave,
+    handleRequestDelete,
+    closeActionModal,
+  } = useCrudActionState();
 
   const [isEditing, setIsEditing] = useState(isCreating);
 
@@ -209,25 +188,6 @@ export default function ClientsManagement() {
   }
 
   // ==============
-  // SAVE + UPDATE
-  // ==============
-  function handleRequestSave(data) {
-    setPendingSaveRow(data);
-    setModalType("save");
-    setModalOpen(true);
-  }
-
-  // ==============
-  // DELETE
-  // ==============
-  function handleRequestDelete(client) {
-    setPendingDeleteRow(client);
-    setSelectedRowId(client.id);
-    setModalType("delete");
-    setModalOpen(true);
-  }
-
-  // ==============
   // STAGE CHANGE ACTION
   // ==============
   function handleRequestAction(action) {
@@ -258,9 +218,6 @@ export default function ClientsManagement() {
         });
       }
 
-      // handleCloseSidebar();
-      // setModalOpen(false);
-
       await queryClient.invalidateQueries({
         queryKey: ["clients"],
         exact: true,
@@ -268,9 +225,7 @@ export default function ClientsManagement() {
 
       // RESET
       handleCloseSidebar();
-      setModalOpen(false);
-      setPendingSaveRow(null);
-      setModalType(null);
+      closeActionModal();
       setPendingAction(null);
     } catch (err) {
       console.error(err);
@@ -303,17 +258,19 @@ export default function ClientsManagement() {
 
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
-        <PageLayout
+        <PageActions
           layout={layout}
           setLayout={setLayout}
           options={layoutOptions}
-          addButton={{
-            name: "Add Client",
-            icon: PlusCircleIcon,
-            onClick: () => {
-              navigate(`new?${searchParams.toString()}`);
+          actionButtons={[
+            {
+              name: "Add Client",
+              icon: PlusCircleIcon,
+              onClick: () => {
+                navigate(`new?${searchParams.toString()}`);
+              },
             },
-          }}
+          ]}
         />
 
         {/* SORTING ACTIONS */}
@@ -405,8 +362,7 @@ export default function ClientsManagement() {
       <ActionModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false);
-          setModalType(null);
+          closeActionModal();
           setPendingAction(null); // Kills the zombie state
         }}
         title={modalConfig.title}

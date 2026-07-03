@@ -1,5 +1,6 @@
 // features/sales/leads/private/api/leads.js
 import { supabase } from "../../../../../lib/supabaseClient";
+import { formatDate, formatDateTime, formatTime } from "@/functions/formatDate";
 
 /**
  * Service to fetch Sales Leads for Sales department
@@ -107,29 +108,4 @@ function normalizeLeads(rows) {
     updated_date: formatDate(activity.updated_at),
     updated_time: formatTime(activity.updated_at),
   }));
-}
-
-function formatDateTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleString("en-MY", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatDate(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleDateString("en-MY", {
-    dateStyle: "medium",
-  });
-}
-
-function formatTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleTimeString("en-MY", {
-    timeStyle: "short",
-  });
 }

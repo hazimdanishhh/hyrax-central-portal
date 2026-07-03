@@ -43,7 +43,7 @@ export async function fetchITAssets({
 
   // --- FILTERS ---
   Object.entries(filters).forEach(([key, value]) => {
-    if (!value) return;
+    if (value === undefined || value === "") return;
 
     const map = {
       category: "asset_category_id",

@@ -1,4 +1,4 @@
-// pages/user/hr/employees/attendanceManagement/list/AttendanceManagement.jsx
+// pages/user/hr/attendanceManagement/list/AttendanceManagement.jsx
 import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
@@ -9,7 +9,7 @@ import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
+import PageActions from "../../../../../components/crud/pageActions/PageActions";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
@@ -19,15 +19,13 @@ import ActionModal from "../../../../../components/modals/actionModal/ActionModa
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import { useMessage } from "../../../../../context/MessageContext";
 import { useTheme } from "../../../../../context/ThemeContext";
-import { fetchAttendanceActivities } from "../../../../../features/hr/attendance/private/api/attendanceAcitivitiesService";
 import { useAttendanceActivitiesMetadata } from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import useAttendanceActivityMutations from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { uploadAttendancePhoto } from "../../../../../services/storage/uploadAttendancePhoto";
 import "./AttendanceManagement.scss";
-import { attendanceActivitiesChangeClockInTimeConfig } from "./changeClockInTimeConfig";
-import { attendanceActivitiesChangeClockOutTimeConfig } from "./changeClockOutTimeConfig";
 import { getAttendanceActivitiesFilterConfig } from "./filterConfig";
 import { getAttendanceActivitiesLayoutConfig } from "./layoutConfig";
 import { getAttendanceActivitiesSortConfig } from "./sortConfig";
@@ -45,14 +43,20 @@ export default function AttendanceManagement() {
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
   const [selectedRow, setSelectedRow] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState(null);
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [modalType, setModalType] = useState(null); // "save" | "reject"
-  const [pendingSaveRow, setPendingSaveRow] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const { showMessage } = useMessage();
-  const [columnMode, setColumnMode] = useState("default");
+
+  const {
+    modalOpen,
+    setModalOpen,
+    selectedRowId,
+    modalType,
+    setModalType,
+    pendingSaveRow,
+    handleRequestSave,
+    handleRequestDelete,
+    closeActionModal,
+  } = useCrudActionState();
 
   // ==============
   // HOOKS
@@ -118,23 +122,11 @@ export default function AttendanceManagement() {
     employees,
     attendanceTypes,
   });
-  const clockInColumns = attendanceActivitiesChangeClockInTimeConfig();
-  const clockOutColumns = attendanceActivitiesChangeClockOutTimeConfig();
   const filterConfig = getAttendanceActivitiesFilterConfig({
     employees,
     departments,
     attendanceTypes,
   });
-
-  // ==============
-  // COLUMNS
-  // ==============
-  const currentColumns =
-    columnMode === "clockIn"
-      ? clockInColumns
-      : columnMode === "clockOut"
-        ? clockOutColumns
-        : columns;
 
   // ==============
   // DATA LOADING
@@ -166,25 +158,6 @@ export default function AttendanceManagement() {
   }
 
   // ==============
-  // SAVE + UPDATE
-  // ==============
-  function handleRequestSave(data) {
-    setPendingSaveRow(data);
-    setModalType("save");
-    setModalOpen(true);
-  }
-
-  // ==============
-  // DELETE
-  // ==============
-  function handleRequestDelete(data) {
-    setPendingDeleteRow(data);
-    setSelectedRowId(data.id);
-    setModalType("delete");
-    setModalOpen(true);
-  }
-
-  // ==============
   // CLOCKING OUT
   // ==============
   const handleClockOut = async (id) => {
@@ -210,9 +183,9 @@ export default function AttendanceManagement() {
         activity_id: id,
       });
 
-      showMessage("Attendance approved successfully", "success");
-
       if (error) throw error;
+
+      showMessage("Attendance approved successfully", "success");
     } catch (err) {
       console.error("Approve error:", err.message);
       showMessage("Error approving attendance", "error");
@@ -232,9 +205,10 @@ export default function AttendanceManagement() {
         activity_id: id,
         reason,
       });
-      showMessage("Attendance rejected successfully", "success");
 
       if (error) throw error;
+
+      showMessage("Attendance rejected successfully", "success");
     } catch (err) {
       console.error("Reject error:", err.message);
       showMessage("Error rejecting attendance", "error");
@@ -295,11 +269,9 @@ export default function AttendanceManagement() {
         queryKey: ["attendance_activities"],
       });
 
-      setModalOpen(false);
       setSidebarOpen(false);
       setSelectedRow(null);
-      setPendingSaveRow(null);
-      setModalType(null);
+      closeActionModal();
     } catch (err) {
       console.error(err);
     }
@@ -321,19 +293,20 @@ export default function AttendanceManagement() {
 
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
-        <PageLayout
-          noLayout={true}
+        <PageActions
           layout={layout}
           setLayout={setLayout}
           options={layoutOptions}
-          addButton={{
-            name: "Add Attendance",
-            icon: PlusCircleIcon,
-            onClick: () => {
-              setSelectedRow({});
-              setSidebarOpen(true);
+          actionButtons={[
+            {
+              name: "Add Attendance",
+              icon: PlusCircleIcon,
+              onClick: () => {
+                setSelectedRow({});
+                setSidebarOpen(true);
+              },
             },
-          }}
+          ]}
         />
 
         {/* SORTING ACTIONS */}
@@ -399,12 +372,6 @@ export default function AttendanceManagement() {
                     key={activity.id}
                     activity={activity}
                     onClick={() => handleOpenSidebar(activity)}
-                    // onClick={() => setColumnMode("clockIn")}
-                    // onClick={() => {
-                    //   setSelectedRow(activity);
-                    //   setColumnMode("clockIn");
-                    //   setSidebarOpen(true);
-                    // }}
                   />
                 ))}
               </CardLayout>
@@ -426,15 +393,13 @@ export default function AttendanceManagement() {
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             rowData={selectedRow}
-            columns={currentColumns}
+            columns={columns}
             onSave={handleRequestSave}
             onDelete={handleRequestDelete}
             saving={saving}
             deleting={deleting}
             creating={!selectedRow?.id}
             isEditing={!selectedRow?.id}
-            // columns={!selectedRow?.id ? columns : []}
-            // cannotUpdate={selectedRow?.id}
           >
             {/* PICTURE */}
             {selectedRow?.id && (
@@ -453,7 +418,7 @@ export default function AttendanceManagement() {
       {/* ACTION MODAL */}
       <ActionModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={closeActionModal}
         title={
           modalType === "save"
             ? "Save Attendance"

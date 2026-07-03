@@ -6,7 +6,7 @@ import { fetchEmployeesPublicMetadata } from "../api/employeesPublicMetadata";
  */
 export function useEmployeesPublicMetadata() {
   const query = useQuery({
-    queryKey: ["employeesMetadata"],
+    queryKey: ["employeesPublicMetadata"],
     queryFn: fetchEmployeesPublicMetadata,
     staleTime: 1000 * 60 * 10,
   });

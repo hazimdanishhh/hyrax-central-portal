@@ -28,7 +28,6 @@ import ActionModal from "../../../../../components/modals/actionModal/ActionModa
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import { getEmployeesOverviewConfig } from "../overview/overviewConfig";
-import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
 import { getEmployeesLayoutConfig } from "./layoutConfig";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import { getEmployeesSortConfig } from "./sortConfig";

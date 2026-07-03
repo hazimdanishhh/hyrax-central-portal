@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabaseClient";
+import { formatDate, formatDateTime } from "@/functions/formatDate";
 
 /**
  * Fetch the AI summary matching the current date filters,
@@ -42,19 +43,4 @@ function normalizeSummary(rows) {
     period_start_formatted: formatDate(summary.period_start),
     period_end_formatted: formatDate(summary.period_end),
   }));
-}
-
-function formatDateTime(value) {
-  if (!value) return null;
-  return new Date(value).toLocaleString("en-MY", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatDate(value) {
-  if (!value) return null;
-  return new Date(value).toLocaleDateString("en-MY", {
-    dateStyle: "medium",
-  });
 }

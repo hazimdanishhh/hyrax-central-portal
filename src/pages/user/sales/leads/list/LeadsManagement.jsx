@@ -1,4 +1,4 @@
-// pages/user/it/ITAssetManagement/list/ITAssetManagement.jsx
+// pages/user/sales/leads/list/LeadsManagement.jsx
 import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
@@ -26,6 +26,7 @@ import { useLead } from "../../../../../features/sales/leads/private/hooks/useLe
 import useLeadMutations from "../../../../../features/sales/leads/private/hooks/useLeadMutations";
 import { useLeadsMetadata } from "../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { getActionConfig } from "./constants/actionConfig";
 import { getFilterConfig } from "./constants/filterConfig";
 import { getLayoutConfig } from "./constants/layoutConfig";
@@ -46,11 +47,6 @@ export default function LeadsManagement() {
   const navigate = useNavigate();
   const { leadId } = useParams();
   const [layout, setLayout] = useState(0); // 0: List, 1: Table
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState(null);
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [modalType, setModalType] = useState(null); // "save" | "reject"
-  const [pendingSaveRow, setPendingSaveRow] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const [searchParams] = useSearchParams();
   const currentStage = searchParams.get("stage");
@@ -59,6 +55,18 @@ export default function LeadsManagement() {
   const isCreating = leadId === "new";
 
   const [isEditing, setIsEditing] = useState(isCreating);
+
+  const {
+    modalOpen,
+    setModalOpen,
+    selectedRowId,
+    modalType,
+    setModalType,
+    pendingSaveRow,
+    handleRequestSave,
+    handleRequestDelete,
+    closeActionModal,
+  } = useCrudActionState();
 
   useEffect(() => {
     if (isCreating) {
@@ -194,25 +202,6 @@ export default function LeadsManagement() {
   function handleCloseSidebar() {
     setIsEditing(false);
     navigate(`/app/sales/leads/list?${searchParams.toString()}`);
-  }
-
-  // ==============
-  // SAVE + UPDATE
-  // ==============
-  function handleRequestSave(data) {
-    setPendingSaveRow(data);
-    setModalType("save");
-    setModalOpen(true);
-  }
-
-  // ==============
-  // DELETE
-  // ==============
-  function handleRequestDelete(lead) {
-    setPendingDeleteRow(lead);
-    setSelectedRowId(lead.id);
-    setModalType("delete");
-    setModalOpen(true);
   }
 
   // ==============
@@ -389,9 +378,7 @@ export default function LeadsManagement() {
 
       // RESET
       handleCloseSidebar();
-      setModalOpen(false);
-      setPendingSaveRow(null);
-      setModalType(null);
+      closeActionModal();
       setPendingAction(null);
     } catch (err) {
       console.error(err);
@@ -549,8 +536,7 @@ export default function LeadsManagement() {
       <ActionModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false);
-          setModalType(null);
+          closeActionModal();
           setPendingAction(null);
         }}
         title={modalConfig.title || "Confirm Action"}

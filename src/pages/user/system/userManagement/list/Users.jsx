@@ -1,17 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { useTheme } from "../../../../../context/ThemeContext";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { fetchProfiles } from "../../../../../features/superadmin/users/private/api/profiles";
 import { useProfilesMetadata } from "../../../../../features/superadmin/users/private/hooks/useProfilesMetadata";
-import CardSection from "../../../../../components/cardSection/CardSection";
-import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
+import useProfileMutations from "../../../../../features/superadmin/users/private/hooks/useProfileMutations";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
-import {
-  PencilSimpleLineIcon,
-  PlusCircleIcon,
-  UsersIcon,
-} from "@phosphor-icons/react";
+import { PencilSimpleLineIcon, UsersIcon } from "@phosphor-icons/react";
 import { getUsersSortConfig } from "./sortConfig";
 import { usersTableConfig } from "./tableConfig";
 import { getUsersFilterConfig } from "./filterConfig";
@@ -19,7 +14,7 @@ import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
+import PageActions from "../../../../../components/crud/pageActions/PageActions";
 import { getUsersLayoutConfig } from "./layoutConfig";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -33,16 +28,20 @@ import ActionModal from "../../../../../components/modals/actionModal/ActionModa
 import UserList from "../../../../../components/users/userList/UserList";
 
 export default function Users() {
-  const navigate = useNavigate();
   const { darkMode } = useTheme();
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
   const [selectedRow, setSelectedRow] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState(null);
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [modalType, setModalType] = useState(null); // "save" | "reject"
-  const [pendingSaveRow, setPendingSaveRow] = useState(null);
+
+  const {
+    modalOpen,
+    selectedRowId,
+    modalType,
+    pendingSaveRow,
+    handleRequestSave,
+    handleRequestDelete,
+    closeActionModal,
+  } = useCrudActionState();
 
   // ==============
   // HOOKS
@@ -87,6 +86,12 @@ export default function Users() {
   } = useProfilesMetadata();
 
   // ==============
+  // MUTATIONS
+  // ==============
+  const { updateProfile, deleteProfile, updating, deleting } =
+    useProfileMutations();
+
+  // ==============
   // CONFIG
   // ==============
   const layoutOptions = getUsersLayoutConfig();
@@ -121,29 +126,23 @@ export default function Users() {
   }
 
   // ==============
-  // SAVE + UPDATE
-  // ==============
-  function handleRequestSave(data) {
-    setPendingSaveRow(data);
-    setModalType("save");
-    setModalOpen(true);
-  }
-
-  // ==============
-  // DELETE
-  // ==============
-  function handleRequestDelete(data) {
-    setPendingDeleteRow(data);
-    setSelectedRowId(data.id);
-    setModalType("delete");
-    setModalOpen(true);
-  }
-
-  // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
   // ==============
   async function handleConfirmAction() {
-    console.log("test");
+    try {
+      if (modalType === "delete") {
+        await deleteProfile(selectedRowId);
+      }
+
+      if (modalType === "save") {
+        await updateProfile(pendingSaveRow);
+      }
+
+      handleCloseSidebar();
+      closeActionModal();
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   return (
@@ -165,19 +164,11 @@ export default function Users() {
               />
 
               <PageHeader>
-                {/* LAYOUT UI + ACTION BUTTONS */}
-                <PageLayout
+                {/* LAYOUT UI */}
+                <PageActions
                   layout={layout}
                   setLayout={setLayout}
                   options={layoutOptions}
-                  addButton={{
-                    name: "Add User",
-                    icon: PlusCircleIcon,
-                    onClick: () => {
-                      setSelectedRow({});
-                      setSidebarOpen(true);
-                    },
-                  }}
                 />
 
                 {/* SORTING ACTIONS */}
@@ -237,8 +228,8 @@ export default function Users() {
                           key={user.id}
                           user={user}
                           onClick={() => handleOpenSidebar(user)}
-                          // saving={saving}
-                          // deleting={deleting}
+                          saving={updating}
+                          deleting={deleting}
                         />
                       );
                     })}
@@ -250,7 +241,7 @@ export default function Users() {
               <AnimatePresence>
                 {sidebarOpen && (
                   <DataSidebar
-                    title={selectedRow?.id ? "Edit User" : "Add User"}
+                    title="Edit User"
                     icon={PencilSimpleLineIcon}
                     open={sidebarOpen}
                     onClose={handleCloseSidebar}
@@ -258,9 +249,8 @@ export default function Users() {
                     columns={columns}
                     onSave={handleRequestSave}
                     onDelete={handleRequestDelete}
-                    // saving={saving}
-                    // deleting={deleting}
-                    creating={!selectedRow?.id}
+                    saving={updating}
+                    deleting={deleting}
                   >
                     {/* DATA SIDEBAR INTERNAL */}
                   </DataSidebar>
@@ -270,7 +260,7 @@ export default function Users() {
               {/* ACTION MODAL */}
               <ActionModal
                 open={modalOpen}
-                onClose={() => setModalOpen(false)}
+                onClose={closeActionModal}
                 title={modalType === "save" ? "Save User" : "Delete User"}
                 description={
                   modalType === "save"
@@ -278,7 +268,7 @@ export default function Users() {
                     : "Are you sure you want to delete this user?"
                 }
                 confirmText={modalType === "save" ? "Save" : "Delete"}
-                // loading={modalType === "save" ? saving : deleting}
+                loading={modalType === "save" ? updating : deleting}
                 onConfirm={handleConfirmAction}
                 modalType={modalType}
               />

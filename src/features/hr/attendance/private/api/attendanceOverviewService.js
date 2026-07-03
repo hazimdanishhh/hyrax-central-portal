@@ -1,6 +1,7 @@
 // features/hr/attendance/private/api/attendanceOverviewService.js
 
 import { supabase } from "../../../../../lib/supabaseClient";
+import { formatDate, formatDateTime, formatTime } from "@/functions/formatDate";
 
 /**
  * Unified Daily Attendance View
@@ -122,31 +123,6 @@ function normalizeUnifiedAttendance(rows) {
     hours_worked:
       row.hours_worked !== null ? Number(row.hours_worked).toFixed(2) : null,
   }));
-}
-
-function formatDateTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleString("en-MY", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatDate(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleDateString("en-MY", {
-    dateStyle: "medium",
-  });
-}
-
-function formatTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleTimeString("en-MY", {
-    timeStyle: "short",
-  });
 }
 
 // API function for the Sidebar

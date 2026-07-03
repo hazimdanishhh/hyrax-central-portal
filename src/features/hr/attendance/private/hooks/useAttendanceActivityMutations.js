@@ -2,6 +2,18 @@
 import { useState } from "react";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { useMessage } from "../../../../../context/MessageContext";
+import { normalizeFields } from "@/features/_shared/normalizeFields";
+import { getFriendlyError } from "@/features/_shared/getFriendlyError";
+
+const errorConfig = {
+  entity: "attendance record",
+  constraints: {
+    clock_in_at: "An attendance with this clock in date already exists.",
+    clock_out_at: "An attendance with this clock out date already exists.",
+  },
+  duplicateMessage:
+    "A record with this information already exists. Only one active attendance activity per employee",
+};
 
 /**
  * Hook to Create, Update and Delete attendance activities for HR department
@@ -25,24 +37,7 @@ export default function useAttendanceActivityMutations() {
       const { id, ...rawFields } = updatedData;
 
       // Clean and normalize data before sending to Supabase
-      const updateFields = Object.fromEntries(
-        Object.entries(rawFields)
-          .filter(([_, value]) => value !== undefined) // remove undefined
-          .map(([key, value]) => {
-            // Convert empty strings to null
-            if (value === "") return [key, null];
-
-            // Convert *_id fields to integers
-            if (key.endsWith("_id") && value !== null) {
-              const isNumeric =
-                typeof value === "string" && /^\d+$/.test(value);
-
-              return [key, isNumeric ? Number(value) : value];
-            }
-
-            return [key, value];
-          }),
-      );
+      const updateFields = normalizeFields(rawFields);
 
       // Update +
       const { data, error } = await supabase
@@ -59,39 +54,7 @@ export default function useAttendanceActivityMutations() {
     } catch (err) {
       console.error("Failed to update attendance, please try again", err);
       setError(err);
-      let userFriendlyMessage = "An unexpected error occurred.";
-
-      // Handle specific Postgres codes
-      switch (err.code) {
-        case "23505":
-          // Extract the field name from the error detail or message
-          if (err.message.includes("clock_in_at")) {
-            userFriendlyMessage =
-              "An attendance with this clock in date already exists.";
-          } else if (err.message.includes("clock_out_at")) {
-            userFriendlyMessage =
-              "An attendance with this clock out date already exists.";
-          } else {
-            userFriendlyMessage =
-              "A record with this information already exists. Only one active attendance activity per employee";
-          }
-          break;
-
-        case "23503":
-          userFriendlyMessage =
-            "This record is linked to other data and cannot be changed or removed.";
-          break;
-
-        case "42501":
-          userFriendlyMessage =
-            "Permission denied. You aren't authorized to modify attendance.";
-          break;
-
-        default:
-          userFriendlyMessage = err.message || "Failed to save changes.";
-      }
-
-      showMessage(userFriendlyMessage, "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
     } finally {
       setSaving(false);
     }
@@ -106,24 +69,9 @@ export default function useAttendanceActivityMutations() {
       setError(null);
       showMessage("Creating attendance", "loading");
 
-      const { id, ...rawFields } = newData; // ignore id if accidentally passed
+      const { id: _id, ...rawFields } = newData; // ignore id if accidentally passed
 
-      const insertFields = Object.fromEntries(
-        Object.entries(rawFields)
-          .filter(([_, value]) => value !== undefined)
-          .map(([key, value]) => {
-            if (value === "") return [key, null];
-
-            if (key.endsWith("_id") && value !== null) {
-              const isNumeric =
-                typeof value === "string" && /^\d+$/.test(value);
-
-              return [key, isNumeric ? Number(value) : value];
-            }
-
-            return [key, value];
-          }),
-      );
+      const insertFields = normalizeFields(rawFields);
 
       const { data, error } = await supabase
         .from("attendance_activities")
@@ -140,39 +88,7 @@ export default function useAttendanceActivityMutations() {
       console.error("Failed to create attendance:", err);
       setError(err);
 
-      let userFriendlyMessage = "An unexpected error occurred.";
-
-      // Handle specific Postgres codes
-      switch (err.code) {
-        case "23505":
-          // Extract the field name from the error detail or message
-          if (err.message.includes("clock_in_at")) {
-            userFriendlyMessage =
-              "An attendance with this clock in date already exists.";
-          } else if (err.message.includes("clock_out_at")) {
-            userFriendlyMessage =
-              "An attendance with this clock out date already exists.";
-          } else {
-            userFriendlyMessage =
-              "A record with this information already exists. Only one active attendance activity per employee";
-          }
-          break;
-
-        case "23503":
-          userFriendlyMessage =
-            "This record is linked to other data and cannot be changed or removed.";
-          break;
-
-        case "42501":
-          userFriendlyMessage =
-            "Permission denied. You aren't authorized to modify attendance.";
-          break;
-
-        default:
-          userFriendlyMessage = err.message || "Failed to save changes.";
-      }
-
-      showMessage(userFriendlyMessage, "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
       throw err;
     } finally {
       setSaving(false);
@@ -219,24 +135,9 @@ export default function useAttendanceActivityMutations() {
       setError(null);
       showMessage("Clocking in...", "loading");
 
-      const { id, ...rawFields } = newData; // ignore id if accidentally passed
+      const { id: _id, ...rawFields } = newData; // ignore id if accidentally passed
 
-      const insertFields = Object.fromEntries(
-        Object.entries(rawFields)
-          .filter(([_, value]) => value !== undefined)
-          .map(([key, value]) => {
-            if (value === "") return [key, null];
-
-            if (key.endsWith("_id") && value !== null) {
-              const isNumeric =
-                typeof value === "string" && /^\d+$/.test(value);
-
-              return [key, isNumeric ? Number(value) : value];
-            }
-
-            return [key, value];
-          }),
-      );
+      const insertFields = normalizeFields(rawFields);
 
       const { data, error } = await supabase
         .from("attendance_activities")

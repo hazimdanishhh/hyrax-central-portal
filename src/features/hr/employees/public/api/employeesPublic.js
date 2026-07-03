@@ -32,7 +32,7 @@ export async function fetchEmployeesPublic({
 
   // --- FILTERS ---
   Object.entries(filters).forEach(([key, value]) => {
-    if (!value) return;
+    if (value === undefined || value === "") return;
 
     const map = {
       department: "department_id",

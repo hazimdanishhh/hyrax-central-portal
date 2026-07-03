@@ -1,7 +1,8 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { formatDate, formatDateTime, formatTime } from "@/functions/formatDate";
 
 /**
- * Fetch a single lead by ID
+ * Fetch a single client by ID
  */
 export async function fetchClientById(id) {
   if (!id) return null;
@@ -19,15 +20,14 @@ export async function fetchClientById(id) {
 
   if (error) throw error;
 
-  // We reuse your existing normalizeLeads function.
-  // Since it expects an array, we wrap `data` in an array and return the first element.
-  return normalizeLeads([data])[0];
+  // normalizeClients expects an array, so wrap `data` and take the first element.
+  return normalizeClients([data])[0];
 }
 
 /**
  * Normalize returned data
  */
-function normalizeLeads(rows) {
+function normalizeClients(rows) {
   return rows.map((activity) => ({
     ...activity,
 
@@ -40,29 +40,4 @@ function normalizeLeads(rows) {
     updated_date: formatDate(activity.updated_at),
     updated_time: formatTime(activity.updated_at),
   }));
-}
-
-function formatDateTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleString("en-MY", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatDate(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleDateString("en-MY", {
-    dateStyle: "medium",
-  });
-}
-
-function formatTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleTimeString("en-MY", {
-    timeStyle: "short",
-  });
 }

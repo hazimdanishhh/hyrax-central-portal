@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { formatDate, formatDateTime, formatTime } from "@/functions/formatDate";
 
 /**
  * Fetch all leads by Client ID
@@ -23,8 +24,6 @@ export async function fetchLeadsByClientId(clientId) {
 
   if (error) throw error;
 
-  // We reuse your existing normalizeLeads function.
-  // Since it expects an array, we wrap `data` in an array and return the first element.
   return normalizeLeads(data || []);
 }
 
@@ -44,29 +43,4 @@ function normalizeLeads(rows) {
     updated_date: formatDate(activity.updated_at),
     updated_time: formatTime(activity.updated_at),
   }));
-}
-
-function formatDateTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleString("en-MY", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatDate(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleDateString("en-MY", {
-    dateStyle: "medium",
-  });
-}
-
-function formatTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleTimeString("en-MY", {
-    timeStyle: "short",
-  });
 }

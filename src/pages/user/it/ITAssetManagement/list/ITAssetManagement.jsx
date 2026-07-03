@@ -1,19 +1,10 @@
 // pages/user/it/ITAssetManagement/list/ITAssetManagement.jsx
-import {
-  CheckCircleIcon,
-  DesktopIcon,
-  PencilSimpleLineIcon,
-  PlusCircleIcon,
-  UserMinusIcon,
-  WarningIcon,
-} from "@phosphor-icons/react";
+import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import { useTheme } from "../../../../../context/ThemeContext";
 import "./ITAssetManagement.scss";
-import { useMemo, useState } from "react";
-import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
+import { useState } from "react";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import { itAssetTableConfig } from "./tableConfig";
@@ -23,29 +14,18 @@ import ITAssetList from "../../../../../components/itAsset/itAssetList/ITAssetLi
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import { getITAssetsFilterConfig } from "./filterConfig";
-import PageTab from "../../../../../components/navigation/pageTab/PageTab";
 import { getAssetsLayoutConfig } from "./layoutConfig";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
-import PageLayout from "../../../../../components/crud/pageLayout/PageLayout";
+import PageActions from "../../../../../components/crud/pageActions/PageActions";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import { getITAssetsSortConfig } from "./sortConfig";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import { useQueryClient } from "@tanstack/react-query";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { fetchITAssets } from "../../../../../features/it/assets/private/api/itAssets";
 import { useITAssetsMetadata } from "../../../../../features/it/assets/private/hooks/useITAssetsMetadata";
-import ChartCard from "../../../../../components/chartCard/ChartCard";
-import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
-import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
-import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
-import {
-  CONDITION_COLORS,
-  RISK_COLORS,
-  STATUS_COLORS,
-  UTILIZATION_COLORS,
-} from "../../../../../components/chartCard/chartColors";
 import useITAssetMutations from "../../../../../features/it/assets/private/hooks/useITAssetMutations";
 
 /**
@@ -59,11 +39,16 @@ export default function ITAssetManagement() {
   const [layout, setLayout] = useState(0); // 0: List, 1: Table
   const [selectedRow, setSelectedRow] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState(null);
-  const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
-  const [modalType, setModalType] = useState(null); // "save" | "reject"
-  const [pendingSaveRow, setPendingSaveRow] = useState(null);
+
+  const {
+    modalOpen,
+    selectedRowId,
+    modalType,
+    pendingSaveRow,
+    handleRequestSave,
+    handleRequestDelete,
+    closeActionModal,
+  } = useCrudActionState();
 
   // ==============
   // HOOKS
@@ -183,25 +168,6 @@ export default function ITAssetManagement() {
   }
 
   // ==============
-  // SAVE + UPDATE
-  // ==============
-  function handleRequestSave(data) {
-    setPendingSaveRow(data);
-    setModalType("save");
-    setModalOpen(true);
-  }
-
-  // ==============
-  // DELETE
-  // ==============
-  function handleRequestDelete(asset) {
-    setPendingDeleteRow(asset);
-    setSelectedRowId(asset.id);
-    setModalType("delete");
-    setModalOpen(true);
-  }
-
-  // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
   // ==============
   async function handleConfirmAction() {
@@ -224,11 +190,9 @@ export default function ITAssetManagement() {
         queryKey: ["itAssets"],
       });
 
-      setModalOpen(false);
       setSidebarOpen(false);
       setSelectedRow(null);
-      setPendingSaveRow(null);
-      setModalType(null);
+      closeActionModal();
     } catch (err) {
       console.error(err);
     }
@@ -262,18 +226,20 @@ export default function ITAssetManagement() {
 
         <PageHeader>
           {/* LAYOUT UI + ACTION BUTTONS */}
-          <PageLayout
+          <PageActions
             layout={layout}
             setLayout={setLayout}
             options={layoutOptions}
-            addButton={{
-              name: "Add Asset",
-              icon: PlusCircleIcon,
-              onClick: () => {
-                setSelectedRow({});
-                setSidebarOpen(true);
+            actionButtons={[
+              {
+                name: "Add Asset",
+                icon: PlusCircleIcon,
+                onClick: () => {
+                  setSelectedRow({});
+                  setSidebarOpen(true);
+                },
               },
-            }}
+            ]}
           />
 
           {/* SORTING ACTIONS */}
@@ -350,7 +316,7 @@ export default function ITAssetManagement() {
 
       <ActionModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={closeActionModal}
         title={modalType === "save" ? "Save Asset" : "Delete Asset"}
         description={
           modalType === "save"

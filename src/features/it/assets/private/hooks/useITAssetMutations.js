@@ -8,33 +8,15 @@ import {
   bulkUpdateAssets,
 } from "../api/itAssetMutations";
 import { useMessage } from "../../../../../context/MessageContext";
+import { getFriendlyError } from "@/features/_shared/getFriendlyError";
 
-/**
- * Friendly DB Errors
- */
-function getFriendlyError(err) {
-  switch (err.code) {
-    case "23505":
-      if (err.message.includes("serial_number")) {
-        return "An asset with this serial number already exists.";
-      }
-
-      if (err.message.includes("asset_tag")) {
-        return "This asset tag is already assigned.";
-      }
-
-      return "A record with this information already exists.";
-
-    case "23503":
-      return "This record is linked to other data and cannot be changed or removed.";
-
-    case "42501":
-      return "Permission denied. You aren't authorized to modify IT assets.";
-
-    default:
-      return err.message || "Something went wrong.";
-  }
-}
+const errorConfig = {
+  entity: "IT asset",
+  constraints: {
+    serial_number: "An asset with this serial number already exists.",
+    asset_tag: "This asset tag is already assigned.",
+  },
+};
 
 export default function useITAssetMutations() {
   const queryClient = useQueryClient();
@@ -54,12 +36,12 @@ export default function useITAssetMutations() {
       showMessage("Asset created", "success");
 
       queryClient.invalidateQueries({
-        queryKey: ["it-assets"],
+        queryKey: ["itAssets"],
       });
     },
 
     onError: (err) => {
-      showMessage(getFriendlyError(err), "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
     },
   });
 
@@ -77,12 +59,12 @@ export default function useITAssetMutations() {
       showMessage("Asset updated", "success");
 
       queryClient.invalidateQueries({
-        queryKey: ["it-assets"],
+        queryKey: ["itAssets"],
       });
     },
 
     onError: (err) => {
-      showMessage(getFriendlyError(err), "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
     },
   });
 
@@ -100,12 +82,12 @@ export default function useITAssetMutations() {
       showMessage("Assets updated", "success");
 
       queryClient.invalidateQueries({
-        queryKey: ["it-assets"],
+        queryKey: ["itAssets"],
       });
     },
 
     onError: (err) => {
-      showMessage(getFriendlyError(err), "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
     },
   });
 
@@ -123,12 +105,12 @@ export default function useITAssetMutations() {
       showMessage("Asset deleted", "success");
 
       queryClient.invalidateQueries({
-        queryKey: ["it-assets"],
+        queryKey: ["itAssets"],
       });
     },
 
     onError: (err) => {
-      showMessage(getFriendlyError(err), "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
     },
   });
 
@@ -146,12 +128,12 @@ export default function useITAssetMutations() {
       showMessage("Assets deleted", "success");
 
       queryClient.invalidateQueries({
-        queryKey: ["it-assets"],
+        queryKey: ["itAssets"],
       });
     },
 
     onError: (err) => {
-      showMessage(getFriendlyError(err), "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
     },
   });
 

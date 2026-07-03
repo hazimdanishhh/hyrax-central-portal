@@ -1,6 +1,7 @@
 // features/hr/attendance/private/api/attendanceActivitiesService.js
 
 import { supabase } from "../../../../../lib/supabaseClient";
+import { formatDate, formatDateTime, formatTime } from "@/functions/formatDate";
 
 /**
  * Service to fetch all attendance activities for HR Department
@@ -32,7 +33,7 @@ export async function fetchAttendanceActivities({
 
   // --- FILTERS ---
   Object.entries(filters).forEach(([key, value]) => {
-    if (!value) return;
+    if (value === undefined || value === "") return;
 
     const map = {
       employee: "employee_id",
@@ -84,29 +85,4 @@ function normalizeAttendanceActivities(rows) {
     clocked_out_date: formatDate(activity.clocked_out_at),
     clocked_out_time: formatTime(activity.clocked_out_at),
   }));
-}
-
-function formatDateTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleString("en-MY", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatDate(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleDateString("en-MY", {
-    dateStyle: "medium",
-  });
-}
-
-function formatTime(value) {
-  if (!value) return null;
-
-  return new Date(value).toLocaleTimeString("en-MY", {
-    timeStyle: "short",
-  });
 }
