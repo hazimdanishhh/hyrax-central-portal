@@ -424,44 +424,44 @@ export const sideNavLinkData = [
   // =================================================
   // FINANCE
   // =================================================
-  // {
-  //   segmentTitle: "FINANCE",
-  //   segmentCode: "FINANCE",
+  {
+    segmentTitle: "FINANCE",
+    segmentCode: "FINANCE",
 
-  //   links: [
-  //     {
-  //       label: "Reports",
-  //       icon: ChartBarIcon,
-  //       path: "finance/reports",
+    links: [
+      {
+        label: "Reports",
+        icon: ChartBarIcon,
+        path: "finance/reports",
 
-  //       departments: ["FIN"],
-  //       roles: ["manager"],
-  //     },
+        departments: ["FIN", "SAL"],
+        roles: ["manager"],
+      },
 
-  //     {
-  //       label: "Invoices",
-  //       icon: FileTextIcon,
-  //       path: "finance/invoices",
+      {
+        label: "Invoices",
+        icon: FileTextIcon,
+        path: "finance/invoices",
 
-  //       departments: ["FIN"],
-  //     },
+        departments: ["FIN"],
+      },
 
-  //     {
-  //       label: "Claims Management",
-  //       icon: ClipboardTextIcon,
-  //       path: "finance/claims-management",
+      {
+        label: "Claims Management",
+        icon: ClipboardTextIcon,
+        path: "finance/claims-management",
 
-  //       departments: ["FIN"],
-  //     },
+        departments: ["FIN"],
+      },
 
-  //     {
-  //       label: "Payments",
-  //       icon: CoinsIcon,
-  //       path: "finance/payments",
-  //       departments: ["FIN"],
-  //     },
-  //   ],
-  // },
+      {
+        label: "Payments",
+        icon: CoinsIcon,
+        path: "finance/payments",
+        departments: ["FIN"],
+      },
+    ],
+  },
 
   // =================================================
   // HR

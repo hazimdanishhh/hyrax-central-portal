@@ -44,7 +44,7 @@ export default (
     <Route
       path="reports"
       element={
-        <AccessRoute departments={["FIN"]}>
+        <AccessRoute departments={["FIN", "SAL"]} roles={["manager"]}>
           <FinancialReports />
         </AccessRoute>
       }
