@@ -62,7 +62,9 @@ export default function LineChartRenderer({
             stroke: "rgba(120,120,120,0.35)",
             strokeWidth: 1,
           }}
-          content={<CustomTooltip darkMode={darkMode} colorMap={colorMap} />}
+          content={
+            <CustomTooltip darkMode={darkMode} colorMap={colorMap} multiBar />
+          }
         />
 
         {showLegend && (

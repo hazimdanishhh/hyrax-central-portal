@@ -11,6 +11,7 @@ import ChartCard from "../../../../components/chartCard/ChartCard";
 import HorizontalBarChartRenderer from "../../../../components/chartCard/HorizontalBarChartRenderer";
 import HorizontalMultiBarRenderer from "../../../../components/chartCard/HorizontalMultiBarRenderer";
 import LineChartRenderer from "../../../../components/chartCard/LineChartRenderer";
+import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer";
 import {
   BLUE_COLOR,
   GREEN_COLOR,
@@ -130,11 +131,11 @@ export default function FinancialReports() {
                 gap: "0.8rem",
               }}
             >
-              <GenerateAiButton
+              {/* <GenerateAiButton
                 type="finance"
                 filters={filters}
                 onComplete={handleAiComplete}
-              />
+              /> */}
               <ExportActions
                 targetRef={dashboardRef}
                 fileName="Finance_Dashboard_Report"
@@ -253,6 +254,36 @@ export default function FinancialReports() {
                           <HorizontalBarChartRenderer
                             data={topOverdueCustomersData}
                             colorMap="#ef4444"
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Collection Rate"
+                          subtitle="Collected vs Outstanding (This Period)"
+                          style="cardGapSmall"
+                        >
+                          <PieChartRenderer
+                            data={[
+                              {
+                                name: "Collected",
+                                value: kpis.totalCollected || 0,
+                              },
+                              {
+                                name: "Outstanding",
+                                value: Math.max(
+                                  0,
+                                  (kpis.periodInvoicedRevenue || 0) -
+                                    (kpis.totalCollected || 0),
+                                ),
+                              },
+                            ]}
+                            mode="semantic"
+                            colorMap={{
+                              Collected: GREEN_COLOR,
+                              Outstanding: BLUE_COLOR,
+                            }}
+                            centerLabel={`${kpis.collectionRatePct || 0}%`}
+                            centerSubLabel="Collection Rate"
                           />
                         </ChartCard>
                       </CardLayout>

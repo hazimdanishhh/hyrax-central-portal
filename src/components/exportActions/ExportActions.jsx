@@ -17,29 +17,14 @@ export default function ExportActions({
     setIsExporting(true);
 
     try {
-      // 1. Take snapshot of the dashboard (Forcing Desktop Layout)
-      const canvas = await html2canvas(targetRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        // Force the virtual window to be desktop size so media queries trigger
-        windowWidth: 1200,
-        onclone: (clonedDoc, clonedElement) => {
-          // Force the cloned container to maintain desktop width
-          clonedElement.style.width = "1200px";
-          clonedElement.style.minWidth = "1200px";
-          clonedElement.style.padding = "20px"; // Optional: adds breathing room
-        },
-      });
-      const imgData = canvas.toDataURL("image/png");
-
-      // 2. Initialize jsPDF
+      // 1. Initialize jsPDF
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
       let currentY = 15; // Start drawing 15mm from the top
 
-      // 3. Add Logo (If provided)
+      // 2. Add Logo (If provided)
       if (logoUrl) {
         try {
           const img = new Image();
@@ -71,14 +56,14 @@ export default function ExportActions({
         }
       }
 
-      // 4. Add Report Title
+      // 3. Add Report Title
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(18);
       pdf.setTextColor(30, 41, 59); // Dark slate color
       pdf.text(reportTitle, margin, currentY);
       currentY += 6;
 
-      // 5. Add Subtitle / Metadata (e.g., Date and Filters)
+      // 4. Add Subtitle / Metadata (e.g., Date and Filters)
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
       pdf.setTextColor(100, 116, 139); // Lighter gray
@@ -108,22 +93,56 @@ export default function ExportActions({
       pdf.line(margin, currentY, pageWidth - margin, currentY);
       currentY += 5; // Add some breathing room before the charts start
 
-      // 6. Calculate the remaining space for the Dashboard Image
+      // 5. Capture and draw each dashboard section individually, breaking to a
+      // new page when a section wouldn't fit -- avoids a single giant image
+      // getting cut off at the page edge.
       const dashboardImageWidth = pageWidth - margin * 2;
-      const dashboardImageHeight =
-        (canvas.height * dashboardImageWidth) / canvas.width;
-
-      // 7. Add the Dashboard snapshot onto the PDF below the header
-      pdf.addImage(
-        imgData,
-        "PNG",
-        margin,
-        currentY,
-        dashboardImageWidth,
-        dashboardImageHeight,
+      const sections = Array.from(
+        targetRef.current.querySelectorAll(".pdfOverviewSection"),
       );
+      const sectionsToCapture = sections.length ? sections : [targetRef.current];
 
-      // 8. Download the file
+      for (const section of sectionsToCapture) {
+        const canvas = await html2canvas(section, {
+          scale: 1.5,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          windowWidth: 1220,
+          onclone: (clonedDoc, clonedElement) => {
+            clonedElement.style.width = "1220px";
+            clonedElement.style.minWidth = "1220px";
+            clonedElement.style.backgroundColor = "#ffffff";
+          },
+        });
+
+        const imgData = canvas.toDataURL("image/jpeg", 0.85);
+        const dashboardImageHeight =
+          (canvas.height * dashboardImageWidth) / canvas.width;
+
+        // Smart pagination: if this section would overflow the page, start a new one
+        if (
+          currentY + dashboardImageHeight > pageHeight - margin &&
+          currentY > margin + 20
+        ) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        pdf.addImage(
+          imgData,
+          "JPEG",
+          margin,
+          currentY,
+          dashboardImageWidth,
+          dashboardImageHeight,
+          undefined,
+          "FAST",
+        );
+
+        currentY += dashboardImageHeight + 10;
+      }
+
+      // 6. Download the file
       pdf.save(`${fileName}_${new Date().toISOString().split("T")[0]}.pdf`);
     } catch (error) {
       console.error("Failed to generate PDF:", error);

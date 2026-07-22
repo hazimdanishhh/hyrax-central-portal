@@ -10,6 +10,7 @@ import {
   HourglassHighIcon,
   CoinsIcon,
 } from "@phosphor-icons/react";
+import { compactCurrency } from "../../../../../functions/formatNumber";
 
 export function getFinanceOverviewConfig(kpis) {
   const formatRM = (value) => `RM ${Math.round(value || 0).toLocaleString()}`;
@@ -53,8 +54,9 @@ export function getFinanceOverviewConfig(kpis) {
       icon: ReceiptIcon,
       label: "Revenue Invoiced",
       sublabel: "Total Invoiced This Period",
-      value: formatRM(kpis.periodInvoicedRevenue),
+      value: compactCurrency(kpis.periodInvoicedRevenue),
       variant: "blueCardFill",
+      to: "../invoices",
       filter: null,
       metrics: [
         {
@@ -72,7 +74,7 @@ export function getFinanceOverviewConfig(kpis) {
                 : TrendDownIcon,
         },
       ],
-      title: "Total invoiced revenue in the selected period",
+      title: `Total invoiced revenue in the selected period — ${formatRM(kpis.periodInvoicedRevenue)}`,
     },
 
     // ==========================================
@@ -82,8 +84,12 @@ export function getFinanceOverviewConfig(kpis) {
       icon: WalletIcon,
       label: "Cash Collected",
       sublabel: "Total Collected This Period",
-      value: formatRM(kpis.totalCollected),
+      value: compactCurrency(kpis.totalCollected),
       variant: "greenCard",
+      // No invoice-level view maps cleanly to a payment-collection list --
+      // Payments list stays out of scope this pass, so this card stays
+      // non-clickable rather than linking somewhere misleading.
+      to: null,
       filter: null,
       metrics: [
         {
@@ -102,7 +108,7 @@ export function getFinanceOverviewConfig(kpis) {
                 : TrendDownIcon,
         },
       ],
-      title: "Cash actually applied against invoices via incoming payments",
+      title: `Cash actually applied against invoices via incoming payments — ${formatRM(kpis.totalCollected)}`,
     },
 
     // ==========================================
@@ -112,9 +118,10 @@ export function getFinanceOverviewConfig(kpis) {
       icon: BankIcon,
       label: "Outstanding AR",
       sublabel: "Open Invoice Balance (Not based on filters)",
-      value: formatRM(kpis.outstandingAR),
+      value: compactCurrency(kpis.outstandingAR),
       variant: "blueCard",
-      filter: null,
+      to: "../invoices",
+      filter: { statusCode: "O" },
       metrics: [
         {
           label: "DSO",
@@ -127,7 +134,7 @@ export function getFinanceOverviewConfig(kpis) {
           icon: CoinsIcon,
         },
       ],
-      title: "Current open AR balance across all customers, as of today",
+      title: `Current open AR balance across all customers, as of today — ${formatRM(kpis.outstandingAR)}`,
     },
 
     // ==========================================
@@ -137,9 +144,10 @@ export function getFinanceOverviewConfig(kpis) {
       icon: WarningCircleIcon,
       label: "Overdue Risk",
       sublabel: "Value Past Due Date (Not based on filters)",
-      value: formatRM(kpis.overdueValue),
+      value: compactCurrency(kpis.overdueValue),
       variant: "redCard",
-      filter: null,
+      to: "../invoices",
+      filter: { statusCode: "O", overdueOnly: "true" },
       metrics: [
         {
           label: "Overdue Invoices",
@@ -147,7 +155,7 @@ export function getFinanceOverviewConfig(kpis) {
           icon: HourglassHighIcon,
         },
       ],
-      title: "Open invoices past their due date, as of today",
+      title: `Open invoices past their due date, as of today — ${formatRM(kpis.overdueValue)}`,
     },
   ];
 }

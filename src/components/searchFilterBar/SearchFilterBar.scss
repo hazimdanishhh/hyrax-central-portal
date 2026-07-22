@@ -1,4 +1,4 @@
-.searchFilterBar {
+s.searchFilterBar {
   display: flex;
   align-items: center;
   gap: 0.8rem;
@@ -31,6 +31,13 @@
     padding: 4px 8px;
     width: fit-content;
   }
+}
+
+.dateRangePresets {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.8rem;
 }
 
 .searchInputWrapper {

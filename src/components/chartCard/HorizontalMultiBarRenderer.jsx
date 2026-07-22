@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import CustomTooltip from "./customTooltip/CustomTooltip";
+import CustomYAxisTick from "./CustomYAxisTick";
 import { useTheme } from "../../context/ThemeContext";
 
 export default function HorizontalMultiBarRenderer({ data, bars = [] }) {
@@ -33,7 +34,9 @@ export default function HorizontalMultiBarRenderer({ data, bars = [] }) {
           type="category"
           dataKey="name"
           stroke={axisColor}
-          tick={{ fill: textColor, fontSize: 12 }}
+          tick={(props) => (
+            <CustomYAxisTick {...props} fill={textColor} fontSize={12} />
+          )}
           tickLine={false}
           width={100}
         />

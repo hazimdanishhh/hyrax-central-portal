@@ -18,6 +18,7 @@ import CardLayout from "../cardLayout/CardLayout";
 import AsyncSelectEditor from "../dataTable/editors/AsyncSelectEditor";
 import ExportData from "../exportActions/ExportData";
 import ExportFullReport from "../exportActions/ExportFullReport";
+import { DATE_RANGE_PRESETS } from "../../functions/dateRangePresets";
 
 export default function SearchFilterBar({
   search,
@@ -148,6 +149,22 @@ export default function SearchFilterBar({
           </div>
         )}
       </div>
+
+      {/* DATE SELECTOR - This month, This quarter, etc. */}
+      {enableDateRange && (
+        <div className="dateRangePresets">
+          {DATE_RANGE_PRESETS.map((preset) => (
+            <Button
+              key={preset.label}
+              name={preset.label}
+              style="textXXS button buttonType4"
+              onClick={() =>
+                onFilterChange({ ...filters, ...preset.getRange() })
+              }
+            />
+          ))}
+        </div>
+      )}
 
       {/* DATE RANGE */}
       {enableDateRange && (

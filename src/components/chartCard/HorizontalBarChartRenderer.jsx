@@ -7,6 +7,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import CustomTooltip from "./customTooltip/CustomTooltip";
+import CustomYAxisTick from "./CustomYAxisTick";
 import { useTheme } from "../../context/ThemeContext";
 
 export default function HorizontalBarChartRenderer({ data, colorMap }) {
@@ -32,9 +33,11 @@ export default function HorizontalBarChartRenderer({ data, colorMap }) {
           type="category"
           dataKey="name"
           stroke={axisColor}
-          tick={{ fill: textColor, fontSize: 12 }}
+          tick={(props) => (
+            <CustomYAxisTick {...props} fill={textColor} fontSize={12} />
+          )}
           tickLine={false}
-          width={100} // Ensures text labels aren't truncated
+          width={100}
         />
         <Tooltip
           cursor={{ fill: "rgba(27, 27, 27, 0.3)" }}
