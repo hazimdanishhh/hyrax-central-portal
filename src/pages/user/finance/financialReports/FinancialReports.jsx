@@ -3,7 +3,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   GaugeIcon,
   ChartBarHorizontalIcon,
+  ChartBarIcon,
   RankingIcon,
+  WarningIcon,
 } from "@phosphor-icons/react";
 
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -21,6 +23,8 @@ import NoResult from "../../../../components/crud/noResult/NoResult";
 import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
+import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
+import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import ExportActions from "../../../../components/exportActions/ExportActions";
 import AISummary from "../../../../components/aiSummary/AISummary";
 import GenerateAiButton from "../../../../components/aiSummary/generateAIButton/GenerateAIButton";
@@ -31,6 +35,7 @@ import { getFilterConfig } from "./config/filterConfig";
 import { getFinanceOverviewConfig } from "./config/overviewConfig";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
+import { formatDateTime } from "../../../../functions/formatDate";
 
 export default function FinancialReports() {
   const { darkMode } = useTheme();
@@ -58,6 +63,7 @@ export default function FinancialReports() {
 
   const {
     salesReps,
+    dataFreshness,
     isLoading: metadataLoading,
     isFetching: metadataFetching,
     error: metadataError,
@@ -111,6 +117,29 @@ export default function FinancialReports() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
+          <Breadcrumbs icon={ChartBarIcon} current="Financial Reports" />
+
+          {dataFreshness?.asOf && (
+            <p
+              className="textXXS textLight"
+              style={{ padding: "0 1rem" }}
+              title={
+                dataFreshness.hasFailedPipeline
+                  ? "One or more data syncs failed — figures may be more stale than this timestamp suggests"
+                  : undefined
+              }
+            >
+              Data as of {formatDateTime(dataFreshness.asOf)}
+              {dataFreshness.hasFailedPipeline && (
+                <>
+                  {" "}
+                  <WarningIcon size={12} weight="fill" color="#d76363" />{" "}
+                  Sync issue detected
+                </>
+              )}
+            </p>
+          )}
+
           <CardWrapper>
             {/* SEARCH AND FILTER BAR */}
             <SearchFilterBar
@@ -122,6 +151,9 @@ export default function FinancialReports() {
               isLoading={isLoading}
               isError={isError}
             />
+
+            {/* FISCAL YEAR FILTER */}
+            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
             {/* AI BUTTON + EXPORT */}
             <div
@@ -178,7 +210,7 @@ export default function FinancialReports() {
               ) : (
                 <>
                   <div className="pdfOverviewSection">
-                    <AISummary type="finance" filters={filters} />
+                    {/* <AISummary type="finance" filters={filters} /> */}
 
                     {/* TIER 1: THE HIGH-LEVEL SUMMARY */}
                     <div
@@ -234,7 +266,7 @@ export default function FinancialReports() {
                         </p>
                       </div>
 
-                      <CardLayout style="cardLayout3">
+                      <CardLayout style="cardLayout2">
                         <ChartCard
                           title="AR Aging"
                           subtitle="As of today — not affected by date filter"
@@ -286,24 +318,22 @@ export default function FinancialReports() {
                             centerSubLabel="Collection Rate"
                           />
                         </ChartCard>
+
+                        <ChartCard
+                          title="Revenue Trend"
+                          subtitle="Invoiced vs Collected (RM)"
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={revenueTrendData}
+                            lines={[
+                              { dataKey: "Invoiced (RM)", color: BLUE_COLOR },
+                              { dataKey: "Collected (RM)", color: GREEN_COLOR },
+                            ]}
+                          />
+                        </ChartCard>
                       </CardLayout>
                     </div>
-
-                    <CardLayout>
-                      <ChartCard
-                        title="Revenue Trend"
-                        subtitle="Invoiced vs Collected (RM)"
-                        style="cardGapSmall"
-                      >
-                        <LineChartRenderer
-                          data={revenueTrendData}
-                          lines={[
-                            { dataKey: "Invoiced (RM)", color: BLUE_COLOR },
-                            { dataKey: "Collected (RM)", color: GREEN_COLOR },
-                          ]}
-                        />
-                      </ChartCard>
-                    </CardLayout>
 
                     {/* TIER 3: SALESPERSON HEALTH & TOP CUSTOMERS */}
                     <div

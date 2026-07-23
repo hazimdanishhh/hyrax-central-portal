@@ -1,4 +1,5 @@
 import "./CustomLegend.scss";
+import { preciseNumber } from "../../../functions/formatNumber";
 
 export default function CustomLegend({ data, colorMap }) {
   const total = data.reduce((sum, d) => sum + d.value, 0);
@@ -23,7 +24,8 @@ export default function CustomLegend({ data, colorMap }) {
               </span>
             </div>
             <span className="textBold">
-              {item.value} <span className="textLight">({percent}%)</span>
+              {preciseNumber(item.value)}{" "}
+              <span className="textLight">({percent}%)</span>
             </span>
           </div>
         );

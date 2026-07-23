@@ -9,6 +9,7 @@ import {
 import CustomTooltip from "./customTooltip/CustomTooltip";
 import CustomYAxisTick from "./CustomYAxisTick";
 import { useTheme } from "../../context/ThemeContext";
+import { compactNumber } from "../../functions/formatNumber";
 
 export default function HorizontalBarChartRenderer({ data, colorMap }) {
   const { darkMode } = useTheme();
@@ -28,6 +29,7 @@ export default function HorizontalBarChartRenderer({ data, colorMap }) {
           stroke={axisColor}
           tick={{ fill: textColor, fontSize: 12 }}
           tickLine={false}
+          tickFormatter={compactNumber}
         />
         <YAxis
           type="category"

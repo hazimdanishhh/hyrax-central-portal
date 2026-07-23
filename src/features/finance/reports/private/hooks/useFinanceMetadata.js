@@ -11,5 +11,6 @@ export function useFinanceMetadata() {
   return {
     ...query,
     salesReps: query.data?.salesReps || [],
+    dataFreshness: query.data?.dataFreshness || null,
   };
 }

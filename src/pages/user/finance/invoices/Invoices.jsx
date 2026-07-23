@@ -1,7 +1,10 @@
+import { FileTextIcon } from "@phosphor-icons/react";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
+import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
+import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataTable from "../../../../components/dataTable/DataTable";
@@ -65,6 +68,8 @@ export default function Invoices() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
+          <Breadcrumbs icon={FileTextIcon} current="Invoices" />
+
           <CardWrapper>
             <SearchFilterBar
               search={search}
@@ -75,6 +80,8 @@ export default function Invoices() {
               placeholder="Search invoices..."
               enableDateRange
             />
+
+            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
             {hasActiveFilters && (
               <ActiveFiltersBar
@@ -106,7 +113,11 @@ export default function Invoices() {
               ) : error ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <DataTable data={invoices} columns={columns} rowKey="doc_entry" />
+                <DataTable
+                  data={invoices}
+                  columns={columns}
+                  rowKey="doc_entry"
+                />
               )}
             </div>
           </CardWrapper>

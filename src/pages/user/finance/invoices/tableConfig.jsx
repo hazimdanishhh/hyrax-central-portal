@@ -37,7 +37,8 @@ export const invoicesTableConfig = () => [
   {
     key: "total_amount_myr",
     label: "Total (RM)",
-    getValue: (row) => `RM ${Math.round(row.total_amount_myr || 0).toLocaleString()}`,
+    getValue: (row) =>
+      `RM ${Math.round(row.total_amount_myr || 0).toLocaleString()}`,
     editable: false,
   },
   {

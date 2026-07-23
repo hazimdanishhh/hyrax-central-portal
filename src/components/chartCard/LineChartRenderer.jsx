@@ -13,6 +13,7 @@ import {
 
 import { useTheme } from "../../context/ThemeContext";
 import CustomTooltip from "./customTooltip/CustomTooltip";
+import { compactNumber } from "../../functions/formatNumber";
 
 export default function LineChartRenderer({
   data = [],
@@ -55,6 +56,7 @@ export default function LineChartRenderer({
           stroke={axisColor}
           tick={{ fill: textColor, fontSize: 12 }}
           tickLine={false}
+          tickFormatter={compactNumber}
         />
 
         <Tooltip

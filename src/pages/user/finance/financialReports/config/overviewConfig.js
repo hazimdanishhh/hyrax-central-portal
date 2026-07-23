@@ -117,7 +117,7 @@ export function getFinanceOverviewConfig(kpis) {
     {
       icon: BankIcon,
       label: "Outstanding AR",
-      sublabel: "Open Invoice Balance (Not based on filters)",
+      sublabel: "Open Invoice Balance (Not based on period)",
       value: compactCurrency(kpis.outstandingAR),
       variant: "blueCard",
       to: "../invoices",
@@ -143,7 +143,7 @@ export function getFinanceOverviewConfig(kpis) {
     {
       icon: WarningCircleIcon,
       label: "Overdue Risk",
-      sublabel: "Value Past Due Date (Not based on filters)",
+      sublabel: "Value Past Due Date (Not based on period)",
       value: compactCurrency(kpis.overdueValue),
       variant: "redCard",
       to: "../invoices",

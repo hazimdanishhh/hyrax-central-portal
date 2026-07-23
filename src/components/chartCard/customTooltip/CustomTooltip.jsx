@@ -1,4 +1,5 @@
 import "./CustomTooltip.scss";
+import { preciseNumber } from "../../../functions/formatNumber";
 
 export default function CustomTooltip({
   active,
@@ -46,7 +47,7 @@ export default function CustomTooltip({
                 className="tooltipEntryCircle"
               />
               <span className="textBold">{displayLabel}:</span>
-              <span>{entry.value}</span>
+              <span>{preciseNumber(entry.value)}</span>
             </div>
           );
         })}

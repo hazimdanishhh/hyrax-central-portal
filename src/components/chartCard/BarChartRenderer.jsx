@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import CustomTooltip from "./customTooltip/CustomTooltip";
 import { useTheme } from "../../context/ThemeContext";
+import { compactNumber } from "../../functions/formatNumber";
 
 export default function BarChartRenderer({ data, colorMap }) {
   const { darkMode } = useTheme();
@@ -28,6 +29,7 @@ export default function BarChartRenderer({ data, colorMap }) {
           stroke={axisColor}
           tick={{ fill: textColor, fontSize: 12 }}
           tickLine={false}
+          tickFormatter={compactNumber}
         />
         <Tooltip
           cursor={{ fill: "rgba(27, 27, 27, 0.3)" }}

@@ -1,16 +1,45 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
+// Pipelines that feed get_finance_dashboard -- the oldest of these last_run_at
+// values is the true "how stale can this dashboard be" bottleneck.
+const FINANCE_PIPELINE_NAMES = [
+  "sap_invoices",
+  "sap_sales_orders",
+  "sap_payments",
+  "sap_payment_applications",
+];
+
 export async function fetchFinanceMetadata() {
-  const [salesReps] = await Promise.all([
+  const [salesReps, pipelineState] = await Promise.all([
     supabase
       .from("sap_sales_persons")
       .select("sales_rep_code, sales_rep_name")
       .eq("is_active", "Y")
       .order("sales_rep_name"),
+    supabase
+      .from("sap_pipeline_state")
+      .select("pipeline_name, last_run_at, last_run_status")
+      .in("pipeline_name", FINANCE_PIPELINE_NAMES),
   ]);
+
+  const pipelineRows = pipelineState.data || [];
+
+  const asOf = pipelineRows.reduce((oldest, row) => {
+    if (!row.last_run_at) return oldest;
+    if (!oldest || new Date(row.last_run_at) < new Date(oldest)) {
+      return row.last_run_at;
+    }
+
+    return oldest;
+  }, null);
+
+  const hasFailedPipeline = pipelineRows.some(
+    (row) => row.last_run_status === "error",
+  );
 
   return {
     salesReps: salesReps.data || [],
+    dataFreshness: { asOf, hasFailedPipeline },
   };
 }
 
