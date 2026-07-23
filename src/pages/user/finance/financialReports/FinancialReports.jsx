@@ -113,6 +113,14 @@ export default function FinancialReports() {
       value: d.revenue_myr,
     })) ?? [];
 
+  // Drill-down for the "Cash Collected"/"Unallocated Payments" KPI tile --
+  // who's actually sitting on unapplied cash. Always "as of today".
+  const unallocatedPaymentsData =
+    dashboard?.unallocatedPaymentsData?.map((d) => ({
+      name: d.customer_name,
+      value: d.unallocated_amount,
+    })) ?? [];
+
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
@@ -325,7 +333,7 @@ export default function FinancialReports() {
 
                         <ChartCard
                           title="Revenue Trend"
-                          subtitle="Invoiced vs Collected (RM)"
+                          subtitle="Invoiced vs Collected (RM) — gross of returns/credit memos, not yet netted"
                           style="cardGapSmall"
                         >
                           <LineChartRenderer
@@ -336,7 +344,27 @@ export default function FinancialReports() {
                             ]}
                           />
                         </ChartCard>
+
+                        <ChartCard
+                          title="Unallocated Payments"
+                          subtitle="Customers sitting on unapplied cash (RM)"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={unallocatedPaymentsData}
+                            colorMap={GREEN_COLOR}
+                          />
+                        </ChartCard>
                       </CardLayout>
+
+                      <p
+                        className="textXXS textLight"
+                        style={{ marginTop: "0.8rem" }}
+                      >
+                        Accounts Payable — blocked pending vendor-PO/AP
+                        extraction (see docs/DEPARTMENT-DASHBOARD-BLUEPRINT.md
+                        §5.2, §7).
+                      </p>
                     </div>
 
                     {/* TIER 3: SALESPERSON HEALTH & TOP CUSTOMERS */}

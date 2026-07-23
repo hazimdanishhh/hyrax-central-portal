@@ -7,6 +7,7 @@ import SalesRoutes from "./SalesRoutes";
 import HRRoutes from "./HRRoutes";
 import GeneralRoutes from "./GeneralRoutes";
 import FinanceRoutes from "./FinanceRoutes";
+import OperationsRoutes from "./OperationsRoutes";
 import EmployeeRoutes from "./EmployeeRoutes";
 import ITRoutes from "./ITRoutes";
 import HelpRoutes from "./HelpRoutes";
@@ -35,6 +36,7 @@ export default function AppRouter() {
           {SalesRoutes}
           {HRRoutes}
           {FinanceRoutes}
+          {OperationsRoutes}
           {EmployeeRoutes}
           {ITRoutes}
           {HelpRoutes}

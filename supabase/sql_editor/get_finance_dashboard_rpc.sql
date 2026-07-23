@@ -275,7 +275,33 @@ select json_build_object(
             order by revenue_myr desc
             limit 10
         ) x
-    )
+    ),
+
+    -- Gives the existing "unallocatedPayments" KPI tile a drill-down list --
+    -- who's actually sitting on unapplied cash. Always "as of today", same
+    -- as AR aging (not bounded by p_start_date/p_end_date).
+    'unallocatedPaymentsData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from (
+            select
+                customer_code,
+                customer_name,
+                payment_date,
+                unallocated_amount
+            from base_payments
+            where unallocated_amount > 0.01
+            order by unallocated_amount desc
+            limit 10
+        ) x
+    ),
+
+    -- Contract placeholder for AP Aging (mirrors the existing AR Aging bucket
+    -- shape). Blocked on OPOR/POR1 + OPCH/PCH1 + OVPM extraction -- returns
+    -- null (not '[]') to distinguish "not available yet" from "available but
+    -- empty". Fill this CTE in once that data lands; the RPC signature, this
+    -- key, and the consuming chart never need to change.
+    -- See hyrax-central-portal/docs/DEPARTMENT-DASHBOARD-BLUEPRINT.md §5.2, §7.
+    'apAgingData', null
 
 )
 into result;
