@@ -119,7 +119,7 @@ export function getFinanceOverviewConfig(kpis) {
       label: "Outstanding AR",
       sublabel: "Open Invoice Balance (Not based on period)",
       value: compactCurrency(kpis.outstandingAR),
-      variant: "blueCard",
+      variant: "yellowCard",
       to: "../invoices",
       filter: { statusCode: "O" },
       metrics: [

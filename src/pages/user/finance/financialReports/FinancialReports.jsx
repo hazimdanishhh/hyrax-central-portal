@@ -119,28 +119,29 @@ export default function FinancialReports() {
         <div className="sectionContent">
           <Breadcrumbs icon={ChartBarIcon} current="Financial Reports" />
 
-          {dataFreshness?.asOf && (
-            <p
-              className="textXXS textLight"
-              style={{ padding: "0 1rem" }}
-              title={
-                dataFreshness.hasFailedPipeline
-                  ? "One or more data syncs failed — figures may be more stale than this timestamp suggests"
-                  : undefined
-              }
-            >
-              Data as of {formatDateTime(dataFreshness.asOf)}
-              {dataFreshness.hasFailedPipeline && (
-                <>
-                  {" "}
-                  <WarningIcon size={12} weight="fill" color="#d76363" />{" "}
-                  Sync issue detected
-                </>
-              )}
-            </p>
-          )}
-
           <CardWrapper>
+            {/* LAST UPDATED BAR */}
+            {dataFreshness?.asOf && (
+              <p
+                className="textXXS textLight"
+                style={{ padding: "0 1rem" }}
+                title={
+                  dataFreshness.hasFailedPipeline
+                    ? "One or more data syncs failed — figures may be more stale than this timestamp suggests"
+                    : undefined
+                }
+              >
+                <span className="textBold">Last Updated:</span>{" "}
+                {formatDateTime(dataFreshness.asOf)}
+                {dataFreshness.hasFailedPipeline && (
+                  <>
+                    <WarningIcon size={12} weight="fill" color="#d76363" /> Sync
+                    issue detected
+                  </>
+                )}
+              </p>
+            )}
+
             {/* SEARCH AND FILTER BAR */}
             <SearchFilterBar
               filters={filters}
@@ -153,7 +154,10 @@ export default function FinancialReports() {
             />
 
             {/* FISCAL YEAR FILTER */}
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {/* AI BUTTON + EXPORT */}
             <div

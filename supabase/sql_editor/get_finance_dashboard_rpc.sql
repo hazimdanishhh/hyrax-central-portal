@@ -42,7 +42,20 @@ with base_invoices as (
 
 base_orders as (
     -- feeds salesRepRevenueData only (order_count/GP live on ORDR, not on invoices)
-    select so.*
+    select
+        so.*,
+        -- SAP's own GrosProfit occasionally contains impossible values (item
+        -- cost/price master-data defect -- confirmed against the real SAP
+        -- extract: legitimate gp/total_amount_myr ratios top out around 2.7x,
+        -- defective rows run 900x-1000x+ in the same currency). Excluded from
+        -- sums below; revenue_myr/order_count for the order are untouched --
+        -- only its GP contribution is dropped.
+        case
+            when so.total_amount_myr <> 0
+             and abs(so.gross_profit) > abs(so.total_amount_myr) * 5
+            then null
+            else so.gross_profit
+        end as gross_profit_sanitized
     from sap_sales_orders so
     where so.is_cancelled = v_is_cancelled_text
       and (p_customer_code  is null or so.customer_code  = p_customer_code)
@@ -233,9 +246,9 @@ select json_build_object(
                 sp.sales_rep_name,
                 count(distinct bo.doc_entry) as order_count,
                 coalesce(sum(bo.total_amount_myr), 0) as revenue_myr,
-                coalesce(sum(bo.gross_profit), 0) as gross_profit_myr,
+                coalesce(sum(bo.gross_profit_sanitized), 0) as gross_profit_myr,
                 case when coalesce(sum(bo.total_amount_myr),0) > 0
-                     then round((sum(bo.gross_profit) / sum(bo.total_amount_myr)) * 100, 1)
+                     then round((coalesce(sum(bo.gross_profit_sanitized),0) / sum(bo.total_amount_myr)) * 100, 1)
                      else 0 end as gp_pct
             from base_orders bo
             join sap_sales_persons sp on sp.sales_rep_code = bo.sales_rep_code
