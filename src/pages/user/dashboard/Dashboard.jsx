@@ -1,34 +1,37 @@
 // pages/user/dashboard/Dashboard.jsx
 
-import { useEffect, useState } from "react";
+import { HouseIcon } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
+import AttendanceActivityClockin from "../../../components/attendanceActivityClockin/AttendanceActivityClockin";
+import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
+import CardLayout from "../../../components/cardLayout/CardLayout";
+import CardWrapper from "../../../components/cardWrapper/CardWrapper";
+import DepartmentLinkCard from "../../../components/departmentLinkCard/DepartmentLinkCard";
 import PageTransition from "../../../components/pageTransition/PageTransition";
-import { useTheme } from "../../../context/ThemeContext";
 import QuickActions from "../../../components/quickActions/QuickActions";
 import SectionHeader from "../../../components/sectionHeader/SectionHeader";
-import {
-  CalendarDotsIcon,
-  CaretRightIcon,
-  HouseIcon,
-  MegaphoneIcon,
-} from "@phosphor-icons/react";
-import CardSection from "../../../components/cardSection/CardSection";
-import AnnouncementCard from "../../../components/announcementCard/AnnouncementCard";
-import { announcementData } from "../../../data/announcementData";
-import CardLayout from "../../../components/cardLayout/CardLayout";
-import { Link } from "react-router";
-import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
-import CardWrapper from "../../../components/cardWrapper/CardWrapper";
-import AttendanceActivityClockin from "../../../components/attendanceActivityClockin/AttendanceActivityClockin";
+import { useAccessControl } from "../../../context/AccessControlContext";
 import { useMessage } from "../../../context/MessageContext";
-import {
-  quickActionsHome,
-  quickActionsIT,
-} from "../../../data/quickActionsCardData";
+import { useTheme } from "../../../context/ThemeContext";
+import { departmentLinkCardData } from "../../../data/departmentLinkCardData";
+import { quickActionsHome } from "../../../data/quickActionsCardData";
 
 function Dashboard() {
   const { darkMode } = useTheme();
   const { showMessage } = useMessage();
+  const { canAccess, role, departmentSub } = useAccessControl();
   const [showExitTransition, setShowExitTransition] = useState(true);
+
+  const departmentLinkSections = useMemo(() => {
+    return departmentLinkCardData
+      .map((segment) => ({
+        ...segment,
+        links: segment.links.filter((link) =>
+          canAccess({ roles: link.roles, departments: link.departments }),
+        ),
+      }))
+      .filter((segment) => segment.links.length > 0);
+  }, [role, departmentSub]);
 
   // Page Transition Animation + Message
   useEffect(() => {
@@ -55,78 +58,30 @@ function Dashboard() {
                 title="Web Services"
               />
 
+              {departmentLinkSections.map((segment) => (
+                <div className="sectionContent" key={segment.segmentCode}>
+                  <SectionHeader
+                    icon={segment.icon}
+                    title={segment.segmentTitle}
+                  />
+                  <CardLayout style="cardLayout3">
+                    {segment.links.map((link) => (
+                      <DepartmentLinkCard
+                        key={link.path}
+                        icon={link.icon}
+                        label={link.label}
+                        description={link.description}
+                        path={link.path}
+                      />
+                    ))}
+                  </CardLayout>
+                </div>
+              ))}
+
               {/* ATTENDANCE SYSTEM */}
-              <CardLayout style="cardLayout1">
+              {/* <CardLayout style="cardLayout1">
                 <AttendanceActivityClockin />
-              </CardLayout>
-
-              <CardLayout style="cardLayout2">
-                <div className="sectionContent">
-                  <SectionHeader
-                    icon={MegaphoneIcon}
-                    title="Latest Announcements"
-                  />
-                  <CardLayout style="cardLayout1">
-                    {announcementData
-                      .reverse()
-                      .slice(0, 2)
-                      .map((announcement, index) => (
-                        <AnnouncementCard
-                          key={index}
-                          name={announcement.name}
-                          position={announcement.position}
-                          date={announcement.date}
-                          time={announcement.time}
-                          title={announcement.title}
-                          message={announcement.message}
-                          link={announcement.link}
-                          avatarUrl={announcement.avatarUrl}
-                          truncate
-                        />
-                      ))}
-                    <Link
-                      to="/app/announcements"
-                      className="button buttonType2"
-                    >
-                      View All
-                      <CaretRightIcon weight="bold" />
-                    </Link>
-                  </CardLayout>
-                </div>
-
-                <div className="sectionContent">
-                  <SectionHeader
-                    icon={MegaphoneIcon}
-                    title="Latest Announcements"
-                  />
-                  <CardLayout style="cardLayout1">
-                    {announcementData
-                      .reverse()
-                      .slice(0, 2)
-                      .map((announcement, index) => (
-                        <AnnouncementCard
-                          key={index}
-                          name={announcement.name}
-                          position={announcement.position}
-                          date={announcement.date}
-                          time={announcement.time}
-                          title={announcement.title}
-                          message={announcement.message}
-                          link={announcement.link}
-                          avatarUrl={announcement.avatarUrl}
-                          truncate
-                        />
-                      ))}
-                    <Link
-                      to="/app/announcements"
-                      className="button buttonType2"
-                    >
-                      View All
-                      <CaretRightIcon weight="bold" />
-                    </Link>
-                  </CardLayout>
-                </div>
-              </CardLayout>
+              </CardLayout> */}
             </CardWrapper>
           </div>
         </div>

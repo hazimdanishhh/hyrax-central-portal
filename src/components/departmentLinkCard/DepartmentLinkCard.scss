@@ -1,0 +1,59 @@
+.departmentLinkCard {
+  justify-content: space-between;
+  gap: 0.8rem;
+  transition: 0.2s;
+
+  &:hover {
+    color: $primary;
+    border: 1px solid $primary;
+    transition: 0.2s;
+
+    .departmentLinkCardIcon {
+      background-color: $primary;
+      color: $neutral100;
+      transition: 0.2s;
+    }
+
+    .departmentLinkCardArrow {
+      opacity: 1;
+      transform: translateX(2px);
+      transition: 0.2s;
+    }
+  }
+
+  .departmentLinkCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .departmentLinkCardIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background-color: $neutral900;
+    color: $neutral100;
+    transition: 0.2s;
+  }
+
+  .departmentLinkCardArrow {
+    opacity: 0;
+    transition: 0.2s;
+  }
+
+  .departmentLinkCardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    text-align: start;
+    width: 100%;
+
+    p {
+      margin: 0;
+    }
+  }
+}
