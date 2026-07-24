@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { CoinsIcon } from "@phosphor-icons/react";
+import { ReceiptIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
+import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataTable from "../../../../components/dataTable/DataTable";
@@ -13,24 +14,25 @@ import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchPayments } from "../../../../features/finance/payments/private/api/paymentsService";
-import { getPaymentsFilterConfig } from "./filterConfig";
-import { paymentsTableConfig } from "./tableConfig";
-import PaymentSidebar from "./detail/PaymentSidebar";
+import { fetchSalesOrders } from "../../../../features/sales/orders/private/api/salesOrdersService";
+import { useSalesOrdersMetadata } from "../../../../features/sales/orders/private/hooks/useSalesOrdersMetadata";
+import { getSalesOrdersFilterConfig } from "./filterConfig";
+import { salesOrdersTableConfig } from "./tableConfig";
+import SalesOrderSidebar from "./detail/SalesOrderSidebar";
 
 /**
- * Read-only payments list -- SAP is the system of record, so there's no
+ * Read-only sales orders list -- SAP is the system of record, so there's no
  * create/edit/delete here, just search/filter/sort/paginate over
- * sap_payments. This is the drill-through target for the Finance dashboard's
- * Cash Collected KPI and the Unallocated Payments chart.
+ * sap_sales_orders. This is the drill-through target for the Sales Reports
+ * dashboard's Order Book KPI card and Order Book by Rep chart.
  */
-export default function Payments() {
+export default function Orders() {
   const { darkMode } = useTheme();
   const [selectedRow, setSelectedRow] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
-    data: payments,
+    data: salesOrders,
     totalCount,
     page,
     totalPages,
@@ -42,20 +44,31 @@ export default function Payments() {
     setSearch,
     setFilters,
     resetParams,
-    isLoading,
-    isFetching,
-    error,
+    isLoading: ordersLoading,
+    isFetching: ordersFetching,
+    error: ordersError,
   } = usePaginatedQuery({
-    queryKey: "finance_payments",
-    queryFn: fetchPayments,
+    queryKey: "sales_orders",
+    queryFn: fetchSalesOrders,
     pageSize: 20,
-    defaultSortBy: "payment_date",
+    defaultSortBy: "order_date",
     defaultSortOrder: "descending",
   });
 
-  const filterConfig = getPaymentsFilterConfig();
-  const columns = paymentsTableConfig();
-  const hasData = payments.length > 0;
+  const {
+    salesReps,
+    isLoading: metadataLoading,
+    isFetching: metadataFetching,
+    error: metadataError,
+  } = useSalesOrdersMetadata();
+
+  const filterConfig = getSalesOrdersFilterConfig({ salesReps });
+  const columns = salesOrdersTableConfig();
+
+  const isLoading = ordersLoading || metadataLoading;
+  const isFetching = ordersFetching || metadataFetching;
+  const error = ordersError || metadataError;
+  const hasData = salesOrders.length > 0;
 
   function handleOpenSidebar(row) {
     setSelectedRow(row);
@@ -70,7 +83,7 @@ export default function Payments() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <Breadcrumbs icon={CoinsIcon} current="Payments" />
+          <Breadcrumbs icon={ReceiptIcon} current="Sales Orders" />
 
           <CardWrapper>
             <SearchFilterBar
@@ -79,9 +92,11 @@ export default function Payments() {
               filters={filters}
               onFilterChange={setFilters}
               filterConfig={filterConfig}
-              placeholder="Search payments..."
+              placeholder="Search sales orders..."
               enableDateRange
             />
+
+            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
             {hasActiveFilters && (
               <ActiveFiltersBar
@@ -95,7 +110,7 @@ export default function Payments() {
             )}
 
             <PageResult
-              data={payments}
+              data={salesOrders}
               totalCount={totalCount}
               page={page}
               setPage={setPage}
@@ -114,7 +129,7 @@ export default function Payments() {
                 <NoResult title="Error loading results" />
               ) : (
                 <DataTable
-                  data={payments}
+                  data={salesOrders}
                   columns={columns}
                   rowKey="doc_entry"
                   onRowClick={handleOpenSidebar}
@@ -128,14 +143,14 @@ export default function Payments() {
       <AnimatePresence>
         {sidebarOpen && (
           <DataSidebar
-            title="Payment Detail"
-            icon={CoinsIcon}
+            title="Sales Order Detail"
+            icon={ReceiptIcon}
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             isEditing={false}
             fullPage
           >
-            <PaymentSidebar selectedRow={selectedRow} />
+            <SalesOrderSidebar selectedRow={selectedRow} salesReps={salesReps} />
           </DataSidebar>
         )}
       </AnimatePresence>

@@ -9,6 +9,7 @@ import ClientsPageLayout from "../pages/user/sales/clients/ClientsPageLayout";
 import ClientsOverview from "../pages/user/sales/clients/overview/ClientsOverview";
 import ClientsManagement from "../pages/user/sales/clients/list/ClientsManagement";
 import ContactsManagement from "../pages/user/sales/clients/contacts/ContactsManagement";
+import Orders from "../pages/user/sales/orders/Orders";
 
 export default (
   <Route path="sales">
@@ -97,6 +98,16 @@ export default (
         <Route path=":leadId" element={null} />
       </Route>
     </Route>
+
+    {/* SALES ORDERS */}
+    <Route
+      path="orders"
+      element={
+        <AccessRoute departments={["SAL"]} roles={["manager"]}>
+          <Orders />
+        </AccessRoute>
+      }
+    />
 
     {/* QUOTATIONS */}
     <Route

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { FileTextIcon } from "@phosphor-icons/react";
+import { AnimatePresence } from "framer-motion";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -8,6 +10,7 @@ import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/Fisc
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataTable from "../../../../components/dataTable/DataTable";
+import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
@@ -15,6 +18,7 @@ import { fetchInvoices } from "../../../../features/finance/invoices/private/api
 import { useFinanceMetadata } from "../../../../features/finance/reports/private/hooks/useFinanceMetadata";
 import { getInvoicesFilterConfig } from "./filterConfig";
 import { invoicesTableConfig } from "./tableConfig";
+import InvoiceSidebar from "./detail/InvoiceSidebar";
 
 /**
  * Read-only invoices list -- SAP is the system of record, so there's no
@@ -24,6 +28,8 @@ import { invoicesTableConfig } from "./tableConfig";
  */
 export default function Invoices() {
   const { darkMode } = useTheme();
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
     data: invoices,
@@ -63,6 +69,15 @@ export default function Invoices() {
   const isFetching = invoicesFetching || metadataFetching;
   const error = invoicesError || metadataError;
   const hasData = invoices.length > 0;
+
+  function handleOpenSidebar(row) {
+    setSelectedRow(row);
+    setSidebarOpen(true);
+  }
+
+  function handleCloseSidebar() {
+    setSidebarOpen(false);
+  }
 
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -117,12 +132,28 @@ export default function Invoices() {
                   data={invoices}
                   columns={columns}
                   rowKey="doc_entry"
+                  onRowClick={handleOpenSidebar}
                 />
               )}
             </div>
           </CardWrapper>
         </div>
       </div>
+
+      <AnimatePresence>
+        {sidebarOpen && (
+          <DataSidebar
+            title="Invoice Detail"
+            icon={FileTextIcon}
+            open={sidebarOpen}
+            onClose={handleCloseSidebar}
+            isEditing={false}
+            fullPage
+          >
+            <InvoiceSidebar selectedRow={selectedRow} />
+          </DataSidebar>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

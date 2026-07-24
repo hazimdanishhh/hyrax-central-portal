@@ -349,6 +349,8 @@ export default function FinancialReports() {
                           title="Unallocated Payments"
                           subtitle="Customers sitting on unapplied cash (RM)"
                           style="cardGapSmall"
+                          viewAllTo="../payments"
+                          viewAllFilter={{ unallocatedOnly: "true" }}
                         >
                           <HorizontalBarChartRenderer
                             data={unallocatedPaymentsData}

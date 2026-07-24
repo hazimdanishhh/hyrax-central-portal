@@ -86,10 +86,11 @@ export function getFinanceOverviewConfig(kpis) {
       sublabel: "Total Collected This Period",
       value: compactCurrency(kpis.totalCollected),
       variant: "greenCard",
-      // No invoice-level view maps cleanly to a payment-collection list --
-      // Payments list stays out of scope this pass, so this card stays
-      // non-clickable rather than linking somewhere misleading.
-      to: null,
+      // Payments list now exists (src/pages/user/finance/payments) -- link
+      // straight through, unfiltered. Not passing the current date-range
+      // filter through, mirroring Revenue Invoiced's own "../invoices" link
+      // just above, which doesn't pass its period filter through either.
+      to: "../payments",
       filter: null,
       metrics: [
         {

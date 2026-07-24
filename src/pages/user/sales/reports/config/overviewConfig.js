@@ -86,7 +86,11 @@ export function getSalesReportsOverviewConfig(kpis, scorecard = []) {
       sublabel: "SAP Sales Orders Booked (This Period)",
       value: compactCurrency(kpis.orderBookValue),
       variant: "yellowCard",
-      to: null,
+      // Links to the new Sales Orders list, unfiltered -- not passing the
+      // period's startDate/endDate through, consistent with how Finance's
+      // "Revenue Invoiced" tile links to Invoices without its own period
+      // filter.
+      to: "../orders",
       metrics: [
         {
           label: "Win Rate",

@@ -57,7 +57,10 @@ export default function DataTableCell({
       <input
         readOnly
         value={displayValue ?? ""}
-        onClick={() => startEdit(rowId, column, rawValue)}
+        onClick={(e) => {
+          e.stopPropagation();
+          startEdit(rowId, column, rawValue);
+        }}
       />
     </td>
   );

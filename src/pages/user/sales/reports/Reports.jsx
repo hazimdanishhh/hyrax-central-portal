@@ -329,6 +329,7 @@ function Reports() {
                           title="Order Book by Rep"
                           subtitle="SAP Sales Orders (RM)"
                           style="cardGapSmall"
+                          viewAllTo="../orders"
                         >
                           <HorizontalBarChartRenderer
                             data={orderBookData}

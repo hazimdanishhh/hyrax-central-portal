@@ -16,6 +16,7 @@ import {
   SquaresFourIcon,
   MonitorIcon,
   AppWindowIcon,
+  ReceiptIcon,
 } from "@phosphor-icons/react";
 
 // Config-driven "department link cards" shown on the Dashboard homepage.
@@ -60,6 +61,16 @@ export const departmentLinkCardData = [
         path: "sales/leads",
 
         departments: ["SAL"],
+      },
+
+      {
+        label: "Sales Orders",
+        description: "Browse SAP sales orders booked across the department.",
+        icon: ReceiptIcon,
+        path: "sales/orders",
+
+        departments: ["SAL"],
+        roles: ["manager"],
       },
     ],
   },

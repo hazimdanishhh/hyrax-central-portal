@@ -28,6 +28,7 @@ import {
   MonitorIcon,
   CoinsIcon,
   TruckIcon,
+  ReceiptIcon,
 } from "@phosphor-icons/react";
 
 export const sideNavLinkData = [
@@ -164,6 +165,15 @@ export const sideNavLinkData = [
         path: "sales/leads",
 
         departments: ["SAL"],
+      },
+
+      {
+        label: "Sales Orders",
+        icon: ReceiptIcon,
+        path: "sales/orders",
+
+        departments: ["SAL"],
+        roles: ["manager"],
       },
 
       // {
