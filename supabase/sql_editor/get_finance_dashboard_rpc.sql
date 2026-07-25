@@ -85,6 +85,13 @@ base_payment_apps as (
         i.sales_rep_code as invoice_sales_rep_code
     from sap_payment_applications pa
     join sap_payments p on pa.payment_ref = p.doc_entry
+    -- OPEN QUESTION, not settled: this join assumes inv_entry is the FK to
+    -- sap_invoices.doc_entry. hyrax-data-platform/docs/sap-data-architecture-plans/
+    -- 01-sap-schema-relationships.md (treated as source of truth for the target
+    -- model) instead says doc_entry is the real FK. Neither is confirmed against
+    -- live SAP data yet -- see hyrax-data-platform/docs/data-dictionary.md's
+    -- "RCT2 -> invoice link" section before trusting the sales-rep attribution
+    -- this produces. Not changed here pending that verification.
     left join sap_invoices i on pa.inv_entry = i.doc_entry and pa.inv_entry > 0
     where p.is_cancelled = v_is_cancelled_text
       and (p_customer_code  is null or p.customer_code = p_customer_code)
