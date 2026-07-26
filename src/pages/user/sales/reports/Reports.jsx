@@ -79,9 +79,10 @@ function Reports() {
 
   // Reshape to the field names ScorecardList/LeadsScoreCard already expects
   // (it's a generic quota-progress card, not Leads-specific -- see
-  // docs/DEPARTMENT-DASHBOARD-BLUEPRINT.md §4.2). employee_uuid resolves the
-  // avatar's "view profile" link; falls back to the raw SAP rep code if the
-  // employee_id <-> EmpID bridge hasn't matched this rep yet.
+  // docs/DASHBOARD-ROADMAP.md §1.2). employee_uuid resolves the avatar's
+  // "view profile" link; falls back to the raw SAP rep code if this rep's
+  // employee_sales_rep_mapping row (auto-created per SAP rep) has no
+  // employee_id assigned yet -- see docs/DASHBOARD-ROADMAP.md §1.1.
   const invoiceBudgetScorecard = invoiceBudgetScorecardData.map((r) => ({
     lead_owner_id: r.employee_uuid ?? r.sales_rep_code,
     rep_name: r.rep_name,

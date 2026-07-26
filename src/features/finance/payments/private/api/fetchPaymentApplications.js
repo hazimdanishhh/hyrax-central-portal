@@ -6,20 +6,17 @@ import { supabase } from "../../../../../lib/supabaseClient";
  * sap_payments.doc_entry (the only FK to ORCT that exists on this table) --
  * NOT receipt_number, see the RCT2 join trap in data-dictionary.md.
  *
- * inv_entry/inv_type are returned raw, NOT resolved to an invoice number.
- * Which column is the real FK to the invoice is a disputed, unresolved
- * question -- see data-dictionary.md's "RCT2 -> invoice link" section:
- *   - This pipeline has assumed inv_entry = sap_invoices.doc_entry.
- *   - hyrax-data-platform/docs/sap-data-architecture-plans/01-sap-schema-
- *     relationships.md (fresh SAP schema research, treated as source of
- *     truth for the target model) instead says doc_entry is the real FK.
- *   - Neither is confirmed: the empirical check that produced this comment
- *     found live inv_entry values (0-61) too small to be real invoice keys,
- *     which argues against the inv_entry assumption but doesn't confirm
- *     doc_entry either. Needs verifying against an actual SAP B1 Incoming
- *     Payment record's Invoices tab, not something to guess at further here.
- * Show the raw values honestly rather than a possibly-wrong resolved
- * invoice number.
+ * inv_entry/inv_type/doc_entry are returned raw, NOT resolved to an invoice
+ * number here. The real FK to the invoice is now CONFIRMED: doc_entry ->
+ * sap_invoices.doc_entry, filtered inv_type = 13 (doc_entry is a polymorphic
+ * FK -- other inv_type values point at different, unextracted document
+ * tables, which is expected, not a bug). inv_entry is confirmed NOT the
+ * invoice FK -- its true meaning is undetermined (small values like 0-61
+ * suggest a per-application line/sequence number, not a global key). See
+ * data-dictionary.md's "RCT2 -> invoice link" section. Resolving this into a
+ * displayed invoice_number (join sap_invoices on doc_entry + inv_type=13,
+ * left-join to leave non-invoice rows blank) is a small, now-unblocked
+ * follow-up -- not done yet, so raw values are still shown here.
  */
 export async function fetchPaymentApplications(paymentDocEntry) {
   if (!paymentDocEntry) return [];

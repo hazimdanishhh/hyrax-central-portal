@@ -14,17 +14,20 @@ begin
 
 -- Sales Reports (Tier 3) -- department-level synthesis, distinct from Leads
 -- Overview's Tier-2 daily rep-coaching cadence. See
--- hyrax-central-portal/docs/DEPARTMENT-DASHBOARD-BLUEPRINT.md §5.1.
+-- hyrax-central-portal/docs/DASHBOARD-CONVENTIONS.md §1.
 --
 -- Surfaces BOTH sales forecasts side by side, never blended into one number
--- (per hyrax-central-portal/docs/DASHBOARD-IA-STRATEGY.md §7):
+-- (per hyrax-central-portal/docs/DASHBOARD-ROADMAP.md §1.2):
 --   Forecast 1 "Pipeline Target" -- CRM self-reported, sales_targets vs
 --     sales_leads.actual_revenue, keyed by lead_owner_id (employees.id).
 --   Forecast 2 "Invoice Budget"  -- SAP system-of-record, sales_budgets vs
 --     sap_invoices.total_amount_myr, keyed by sales_rep_code. employees/
---     profiles are joined in ONLY to resolve a display name/avatar, via
---     employees.employee_id = sap_sales_persons.employee_id (EmpID) --
---     see docs/DEPARTMENT-DASHBOARD-BLUEPRINT.md §4.1.
+--     profiles are joined in ONLY to resolve a display name/avatar, via the
+--     employee_sales_rep_mapping bridge table (employees.id <->
+--     sales_rep_code, auto-created per SAP rep by a trigger -- see
+--     docs/DASHBOARD-ROADMAP.md §1.1) -- NOT employees.employee_id =
+--     sap_sales_persons.employee_id (EmpID), which is confirmed broken
+--     (type mismatch, empty in production, wrong conceptual target).
 
 with closing_dates as (
     select lead_id, max(changed_at) as closed_date
@@ -199,6 +202,9 @@ select json_build_object(
     -- Forecast 2 scorecard. attainment_percentage is computed purely from
     -- sales_rep_code (SAP identity) -- employees/profiles below are for
     -- display (name/avatar) only, never for the attribution math itself.
+    -- Bridged via employee_sales_rep_mapping (auto-created per SAP rep;
+    -- employee_id is the one manually-assigned column), not
+    -- sap_sales_persons.employee_id (EmpID) -- see docs/DASHBOARD-ROADMAP.md §1.1.
     'invoiceBudgetScorecardData', (
         select coalesce(json_agg(
             json_build_object(
@@ -218,7 +224,8 @@ select json_build_object(
         from rep_invoice_actuals a
         full outer join budget_math b on b.sales_rep_code = a.sales_rep_code
         left join sap_sales_persons sp on sp.sales_rep_code = coalesce(a.sales_rep_code, b.sales_rep_code)
-        left join employees e on e.employee_id = sp.employee_id::text
+        left join employee_sales_rep_mapping m on m.sales_rep_code = coalesce(a.sales_rep_code, b.sales_rep_code)
+        left join employees e on e.id = m.employee_id
         left join profiles p on p.id = e.profile_id
         where coalesce(a.invoiced_revenue, 0) > 0 or coalesce(b.prorated_budget, 0) > 0
     ),

@@ -85,20 +85,23 @@ base_payment_apps as (
         i.sales_rep_code as invoice_sales_rep_code
     from sap_payment_applications pa
     join sap_payments p on pa.payment_ref = p.doc_entry
-    -- OPEN QUESTION, not settled: this join assumes inv_entry is the FK to
-    -- sap_invoices.doc_entry. hyrax-data-platform/docs/sap-data-architecture-plans/
-    -- 01-sap-schema-relationships.md (treated as source of truth for the target
-    -- model) instead says doc_entry is the real FK. Neither is confirmed against
-    -- live SAP data yet -- see hyrax-data-platform/docs/data-dictionary.md's
-    -- "RCT2 -> invoice link" section before trusting the sales-rep attribution
-    -- this produces. Not changed here pending that verification.
-    left join sap_invoices i on pa.inv_entry = i.doc_entry and pa.inv_entry > 0
+    -- CONFIRMED (updated 2026-07, was previously joined on inv_entry): doc_entry
+    -- is the real FK to sap_invoices.doc_entry, but only when inv_type = 13 --
+    -- doc_entry is a polymorphic FK whose target table depends on inv_type (14=
+    -- credit memo, 18/19=A/P doc, 24=another payment/reconciliation, 203=down-
+    -- payment invoice, others), none of which are extracted here except
+    -- sap_invoices. See hyrax-data-platform/docs/DATA-DICTIONARY.md's "RCT2 ->
+    -- invoice link" section. No DB-level FK constraint exists for this column
+    -- (deliberately -- see infrastructure/supabase_sap_migration.sql), so this
+    -- filter is the only enforcement; don't drop it.
+    left join sap_invoices i on pa.doc_entry = i.doc_entry and pa.inv_type = 13
     where p.is_cancelled = v_is_cancelled_text
       and (p_customer_code  is null or p.customer_code = p_customer_code)
       and (p_sales_rep_code is null or i.sales_rep_code = p_sales_rep_code)
-      -- NOTE: when p_sales_rep_code is set, on-account rows (inv_entry=0,
-      -- i.sales_rep_code null) are correctly excluded -- unlinked cash
-      -- can't be attributed to a rep.
+      -- NOTE: when p_sales_rep_code is set, non-invoice rows (inv_type != 13,
+      -- i.sales_rep_code null -- includes on-account cash and other document
+      -- types) are correctly excluded -- unlinked/non-invoice cash can't be
+      -- attributed to a rep.
 ),
 
 kpi_totals as (

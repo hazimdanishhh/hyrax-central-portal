@@ -11,13 +11,52 @@ What to build next in this app, in what order, and why — plus the open decisio
 Two identities for "a salesperson" exist and must be bridged:
 
 - **App side:** `employees.id` (uuid) with `employees.employee_id` (text — the human company employee code).
-- **SAP side:** `sap_sales_persons.sales_rep_code` (bigint, SlpCode — the PK every `sap_*` order/invoice carries as `sales_rep_code`) and `sap_sales_persons.employee_id` (bigint, EmpID — links to HR employee record if configured).
+- **SAP side:** `sap_sales_persons.sales_rep_code` (bigint, SlpCode — the PK every `sap_*` order/invoice carries as `sales_rep_code`) and `sap_sales_persons.employee_id` (bigint, EmpID).
 
-**The link is a direct join: `employees.employee_id` (company employee code) = `sap_sales_persons.employee_id` (EmpID).** No mapping table, no schema change — just unbuilt. Cast one side (`employees.employee_id::bigint = sap_sales_persons.employee_id`, or compare as text), and confirm every sales employee's company code is actually populated in SAP's EmpID field first (a one-time data check).
+**The direct `employee_id`/EmpID join originally proposed here is confirmed broken — do not use it.** Three separate problems: a type mismatch (`employees.employee_id` is text, e.g. `"H004"`; `sap_sales_persons.employee_id`/EmpID is bigint); the SAP-side field is empty in production; and conceptually, SAP's `EmpID` is designed to reference SAP's own internal HR module (`OHEM`), which Hyrax doesn't run at all — so it could never hold a matching value even if populated.
 
-**Join path to transactional tables (two hops):** SAP orders/invoices carry `sales_rep_code` (SlpCode), not the employee code — so the full path is `employees.employee_id` → `sap_sales_persons.employee_id` (EmpID) → `sap_sales_persons.sales_rep_code` → the `sales_rep_code` on `sap_sales_orders`/`sap_invoices`.
+**The real bridge: a dedicated `employee_sales_rep_mapping` table, auto-populated off `sap_sales_persons`** — a shared-key extension table (Kimball "mini-dimension"/outrigger pattern), not a hand-maintained one:
 
-**Design rule:** SAP-based rep metrics are computed keyed by `sales_rep_code` (what orders/invoices carry), then joined out through `sap_sales_persons.employee_id = employees.employee_id` to bring in `employees`/`profiles` **only** for display (name, avatar, department) — never for the attribution math.
+```sql
+create table public.employee_sales_rep_mapping (
+  sales_rep_code bigint primary key
+    references public.sap_sales_persons (sales_rep_code),
+  employee_id uuid unique
+    references public.employees (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Backfill: one row per SAP rep that already exists.
+insert into public.employee_sales_rep_mapping (sales_rep_code)
+select sales_rep_code from public.sap_sales_persons
+on conflict (sales_rep_code) do nothing;
+```
+
+```sql
+-- Auto-create a row the moment OSLP's sync sees a brand-new rep.
+create or replace function public.fn_auto_create_sales_rep_mapping()
+returns trigger language plpgsql as $$
+begin
+  insert into public.employee_sales_rep_mapping (sales_rep_code)
+  values (new.sales_rep_code)
+  on conflict (sales_rep_code) do nothing;
+  return new;
+end;
+$$;
+
+create trigger auto_create_sales_rep_mapping
+  after insert on public.sap_sales_persons
+  for each row execute function public.fn_auto_create_sales_rep_mapping();
+```
+
+Two deploy steps, both hand-pasted into Supabase's SQL editor same as everything else here: the table + backfill are `hyrax-data-platform/infrastructure/employee_sales_rep_mapping_migration.sql`; the trigger is its own file, [`supabase/triggers/auto_create_sales_rep_mapping.sql`](../supabase/triggers/auto_create_sales_rep_mapping.sql), grouped with this app's other deployable SQL the same way `supabase/sql_editor/` holds the RPCs — run the migration first, then the trigger file. `sales_rep_code` is the PK — shared with `sap_sales_persons` by construction, guaranteed via the FK — so **every SAP rep automatically gets a mapping row**, including reps who aren't Hyrax employees at all (their `employee_id` just stays null); no one has to remember to create or backfill a row for a new or existing rep. The only manual step left is assigning/changing `employee_id` on an existing row once a rep is confirmed to be an employee — still via Supabase's table editor, same as `sales_targets`/`sales_budgets`; a picker on the Employee edit form is a Group B follow-up, not built now.
+
+`sap_sales_persons`'s other fields (`sales_rep_name`, `commission_pct`, etc.) are deliberately **not** mirrored into this table — those are mutable, and duplicating them would need a second, `UPDATE`-side trigger to keep them in sync, with every future OSLP column addition needing that trigger updated too. Only `sales_rep_code` (the immutable shared key) needs to live in both tables, and it's only ever inserted, never changed after the fact. Anything needing `sales_rep_name` still joins `sap_sales_persons` directly, same as before.
+
+**Join path to transactional tables (single hop through the mapping table):** `employees.id` → `employee_sales_rep_mapping.employee_id` → `employee_sales_rep_mapping.sales_rep_code` → directly usable against `sales_rep_code` on `sap_sales_orders`/`sap_invoices`/`sap_sales_persons`.
+
+**Design rule:** SAP-based rep metrics are computed keyed by `sales_rep_code` (what orders/invoices carry), then joined out through `employee_sales_rep_mapping` to bring in `employees`/`profiles` **only** for display (name, avatar, department) — never for the attribution math. `sap_sales_persons` is joined separately, only for `sales_rep_name`.
 
 ### 1.2 Two forecasts, two scorecards, one funnel
 
@@ -112,8 +151,8 @@ Built the same way as every other Reports page: one `get_executive_dashboard` RP
 
 ### Group C — Data-correctness fixes _(needs `hyrax-data-platform` alignment first)_
 
-- **`get_finance_dashboard_rpc.sql`'s payment-application join** (`pa.inv_entry = i.doc_entry`) implements an old, disputed RCT2→invoice assumption. `hyrax-data-platform/docs/sap-data-architecture-plans/01-sap-schema-relationships.md` (treated as source of truth for the target model) says the FK should be `doc_entry`, not `inv_entry` — but this is **not yet confirmed against live SAP data** (see `hyrax-data-platform/docs/data-dictionary.md`'s "RCT2 → invoice link"). Once verified, fix this RPC's join and re-check anything downstream that reads `sap_payment_applications.inv_entry` as an invoice key.
-- The `employees` ↔ `sap_sales_persons` reconciliation mapping (§1.1) — a one-time data check, not new extraction.
+- ~~`get_finance_dashboard_rpc.sql`'s payment-application join implemented an old, disputed RCT2→invoice assumption~~ — **resolved**: the RCT2→invoice FK (`doc_entry`, filtered `inv_type = 13`, not `inv_entry`) is now confirmed and the RPC's join has been updated to match (see `hyrax-data-platform/docs/data-dictionary.md`'s "RCT2 → invoice link"). Remaining follow-up: **redeploy the updated RPC via Supabase Studio's SQL editor** if not already done (no CLI/migration is wired up — manual deploy step), and consider a small follow-up feature to actually resolve/display a real `invoice_number` in the Payments detail UI (`fetchPaymentApplications.js`/`paymentApplicationsTableConfig.jsx` currently show `inv_entry`/`doc_entry` raw, since the FK was unconfirmed when they were built) — now unblocked, not yet built.
+- ~~The `employees` ↔ `sap_sales_persons` reconciliation mapping was going to be a one-time data check on SAP's EmpID field~~ — **redesigned**: EmpID is confirmed unusable (see §1.1), replaced with the `employee_sales_rep_mapping` bridge table (auto-populated per SAP rep via trigger). Remaining follow-up: **run the migration** (`hyrax-data-platform/infrastructure/employee_sales_rep_mapping_migration.sql`, then `supabase/triggers/auto_create_sales_rep_mapping.sql`) in Supabase, then assign `employee_id` on the auto-created rows for reps who are Hyrax employees, via the table editor.
 - Wire the dead `sales_orders` bridge table (§1.3).
 - Reconcile the DSO methodology mismatch between this app's live point-in-time formula and the target KPI framework's average-AR formula — see `DASHBOARD-CURRENT-STATE.md` §6.
 
