@@ -16,7 +16,7 @@ Field-by-field, formula-level reference for every dashboard-backing Postgres RPC
 
 ## `get_finance_dashboard`
 
-Backs Finance Reports (`FinancialReports.jsx`). Finance today is mostly an AR/cash subledger, plus a Gross Profit read straight off SAP's own per-invoice `GrosProfit` field (added 2026-07) — still no true P&L/net-margin figure, since that needs a GL extraction (`OACT`/`OJDT`/`JDT1`) that doesn't exist yet.
+Backs Finance Reports (`FinancialReports.jsx`). Through 2026-06 this was mostly an AR/cash subledger, plus a Gross Profit read straight off SAP's own per-invoice `GrosProfit` field (added 2026-07). **Finance Expansion Phase 1 (2026-07)** added the mirror-image Accounts Payable chain (bills received, cash paid, AP aging, DPO, top vendors) — still no true P&L/net-margin figure or full Working Capital, since that needs a GL extraction (`OACT`/`OJDT`/`JDT1`, Phase 2, scoped but not built — see `hyrax-data-platform/docs/sap-data-architecture-plans/06-finance-expansion-execution-plan.md`).
 
 **Signature:**
 ```
@@ -26,7 +26,8 @@ get_finance_dashboard(
   p_start_date     date    default null,
   p_end_date       date    default null,
   p_is_cancelled   boolean default null,  -- null/false = active docs ('N'); true = cancelled-only audit view ('Y')
-  p_status_code    text    default null
+  p_status_code    text    default null,  -- shared across AR (sap_invoices) and AP (sap_vendor_bills) — both use the same 'O'/'C' DocStatus convention
+  p_vendor_code    text    default null   -- added 2026-07 (Finance Expansion Phase 1), AP mirror of p_customer_code
 )
 ```
 
@@ -35,6 +36,9 @@ get_finance_dashboard(
 - `base_payments` — `sap_payments` (ORCT header), filtered by `is_cancelled`/`customer_code`. No rep column exists on ORCT itself; used only for `unallocated_amount`.
 - `base_payment_apps` — `sap_payment_applications` joined `payment_ref → sap_payments.doc_entry` (RCT2 join trap), left-joined to `sap_invoices` on `doc_entry` filtered `inv_type = 13` to resolve `invoice_sales_rep_code`. When `p_sales_rep_code` is set, rows where that join didn't resolve (`inv_type != 13` — on-account cash, other doc types) are excluded — cash that can't be attributed to a rep can't pass a rep filter. Also excludes (as of 2026-07) any row whose matched invoice doesn't share the current `is_cancelled` filter state — previously a payment applied against a since-cancelled invoice still counted toward `totalCollected` even though that invoice's own revenue was excluded from `periodInvoicedRevenue`.
 - `rep_collected_actuals` — per-`sales_rep_code` sum of `amount_applied_myr` from `base_payment_apps`, `payment_date` in range. Feeds `salesRepRevenueData.collected_myr` only.
+- **`base_bills`** (added 2026-07) — `sap_vendor_bills` filtered by `is_cancelled`, `vendor_code`, `status_code`. AP mirror of `base_invoices` — no rep/GP-guard analog, since OPCH carries no `sales_rep_code` and its `GrosProfit` isn't a meaningful AP concept.
+- **`base_vendor_payments`** (added 2026-07) — `sap_vendor_payments` (OVPM header), filtered by `is_cancelled`/`vendor_code`. AP mirror of `base_payments`, used only for `unallocated_amount`.
+- **`base_vendor_payment_apps`** (added 2026-07) — `sap_vendor_payment_applications` joined `payment_ref → sap_vendor_payments.doc_entry` (VPM2 join trap), left-joined to `sap_vendor_bills` on `doc_entry` filtered `doc_type = 18` (mirrors the `inv_type = 13` filter on the AR side). No rep-code passthrough column — vendors don't have a "sales rep" concept.
 
 **`kpis`:**
 
@@ -51,6 +55,14 @@ get_finance_dashboard(
 | `periodGrossProfit` (added 2026-07) | `sum(gross_profit_sanitized)` | `base_invoices`, `invoice_date` in range | Yes |
 | `grossProfitMarginPct` (added 2026-07) | `periodGrossProfit / periodInvoiced * 100` | derived | Yes |
 | `prevPeriodInvoicedRevenue` / `prevTotalCollected` / `prevPeriodGrossProfit` | Same formulas, over the immediately-preceding same-length window | derived | Yes (null if no date range given) |
+| `periodBilled` / `periodBillCount` (added 2026-07) | `sum(total_amount_myr)` / `count(*)` | `base_bills`, `bill_date` in range | Yes |
+| `totalPaid` (added 2026-07) | `sum(amount_applied_myr)` | `base_vendor_payment_apps`, `payment_date` in range | Yes |
+| `outstandingAP` (added 2026-07) | `sum(total_amount_myr - paid_to_date)` where `status_code='O'` | `base_bills` | **No** — as of today |
+| `overdueBillCount` / `overdueBillValue` (added 2026-07) | Open AND `due_date < current_date` AND balance `> 0.01` | `base_bills` | **No** — as of today |
+| `unallocatedOutgoingPayments` (added 2026-07) | `sum(unallocated_amount)` | `base_vendor_payments`, `payment_date` in range | Yes |
+| `dpo` (added 2026-07) | Same average-AP formula shape as `dso`: `(Avg AP / periodBilled) * v_days`, Avg AP = (Beginning AP + Ending AP)/2, Beginning AP = `greatest(outstandingAP - periodBilled + totalPaid, 0)`, Ending AP = `outstandingAP`. Launched with the average-AP methodology from day one — no point-in-time-first version ever shipped, unlike `dso`'s history | derived | Mixed (average-AP, Ending AP still "as of today") |
+| `netArApPosition` (added 2026-07) | `outstandingAR - outstandingAP` | derived | **No** — as of today. A first, partial Working Capital signal ahead of full GL (Phase 2) — not a complete current-assets-vs-current-liabilities figure |
+| `prevPeriodBilled` / `prevTotalPaid` (added 2026-07) | Same formulas, over the immediately-preceding same-length window | derived | Yes (null if no date range given) |
 
 > **Why `periodInvoicedRevenue − totalCollected ≠ outstandingAR`, even with no date filter applied (confirmed 2026-07):** these three numbers are sourced from two structurally different places, not just different time windows. `outstandingAR` comes straight from `sap_invoices.paid_to_date` — SAP's own native, per-invoice running total (OINV.PaidToDate), with **no RCT2 join at all**. `totalCollected` comes from `base_payment_apps` (RCT2/`sap_payment_applications`), which can only attribute cash to `inv_type = 13` rows — on-account cash, credit memos, and other document types settle an invoice's `paid_to_date` in SAP without ever appearing in this sum. So `totalCollected` will generally **undercount** "true" cash collected relative to what `periodInvoicedRevenue − outstandingAR` implies — that gap is a real RCT2 attribution-coverage limit, not a bug in either individual figure. To quantify the gap on live data, compare SAP's own bookkeeping against the RCT2-derived figure directly:
 >
@@ -75,7 +87,10 @@ get_finance_dashboard(
 | **`salesRepRevenueData`** | Per rep: `revenue_myr` = `sum(total_amount_myr)`; `gross_profit_myr` = `sum(gross_profit_sanitized)`; `gp_pct`; `collected_myr` = `sum(amount_applied_myr)` via `rep_collected_actuals` | `base_invoices` (`invoice_date` in range) joined `sap_sales_persons`; collected from `base_payment_apps` (`payment_date` in range) | Yes. **Invoice-based, not order-based** — see "Revenue-ownership split" below. `collected_myr` can be 0/absent for a rep with real invoice activity if none of their payment applications resolved through the `inv_type=13` join — check the live-vs-file deploy state before treating that as a data-coverage bug. |
 | `topCustomersByRevenueData` | Top 10 by `sum(total_amount_myr)` | `base_invoices` | Yes |
 | `unallocatedPaymentsData` | Drill-down for `unallocatedPayments`, top 10 by `unallocated_amount` | `base_payments` | **No** — as of today |
-| `apAgingData` | `null` — contract placeholder, blocked on AP-chain extraction (OPOR/POR1, OPCH/PCH1, OVPM) | — | — |
+| `apAgingData` (real data since 2026-07) | Bucketed (same 5 buckets as `arAgingData`) count + `sum(total_amount_myr - paid_to_date)` | `base_bills`, `status_code='O'`, balance `> 0.01` | **No** — always as of today, ignores date filter. Was a `null` contract placeholder through 2026-06, pending AP-chain extraction (OPCH/PCH1, OVPM/VPM2) — the placeholder is gone now that data exists; no signature/key change was needed |
+| `topOverdueVendorsData` (added 2026-07) | Top 10 by outstanding, open + overdue — AP mirror of `topOverdueCustomersData` | `base_bills` | **No** — as of today |
+| `topVendorsBySpendData` (added 2026-07) | Top 10 by `sum(total_amount_myr)` — AP mirror of `topCustomersByRevenueData` | `base_bills` | Yes |
+| `unallocatedOutgoingPaymentsData` (added 2026-07) | Drill-down for `unallocatedOutgoingPayments`, top 10 by `unallocated_amount` — AP mirror of `unallocatedPaymentsData` | `base_vendor_payments` | **No** — as of today |
 
 **Revenue-ownership split (resolved 2026-07):** Finance's per-rep chart (`salesRepRevenueData`) used to sum `sap_sales_orders` (order-booked value) — a Sales Reports concern, not a Finance one, and the direct cause of Finance/Sales Reports per-rep revenue disagreeing. It's now invoice- and collection-based, matching Finance's own AR/cash mandate and matching Sales Reports' `rep_invoice_actuals` invoice figure by construction (same `base_invoices` shape, same `invoice_date` scoping) — the two dashboards now agree on invoiced revenue per rep for the same date range. See `DASHBOARD-ROADMAP.md` §5 and `get_sales_reports_dashboard` below.
 
@@ -86,10 +101,12 @@ get_finance_dashboard(
 | AR aging = `DocTotal − PaidToDate` on OINV, filtered `DocStatus='O'` | `outstandingAR` / `arAgingData` — exact same formula/filter, on the MYR-converted columns (`total_amount_myr`/`paid_to_date`) | ✅ Aligned |
 | DSO = `(Avg AR / Total credit sales) × days` | `dso` = `(Avg AR / periodInvoiced) × days`, Avg AR derived from `outstandingAR` via the accounting identity (no historical AR snapshot exists) — **reconciled 2026-07** to the same average-AR methodology as this target formula | ✅ Aligned — see the formula derivation comment in `get_finance_dashboard_rpc.sql` for the one remaining approximation (Ending AR is an "as of today" snapshot, not "as of the selected period's end date") |
 | Gross Profit Margin = `(Revenue − COGS) / Revenue` | `grossProfitMarginPct` = `periodGrossProfit / periodInvoiced × 100`, where `periodGrossProfit` sums SAP's own pre-computed `GrosProfit` per invoice line (added 2026-07) | ✅ Aligned in spirit — SAP already nets COGS out per line, so no separate COGS derivation was needed |
-| Net Profit Margin, EBITDA margin, Current/Quick ratios, Working Capital | Not built | ❌ Blocked — need GL extraction (`OACT`/`OJDT`/`JDT1`), none exists yet |
-| DPO, DIO, Cash Conversion Cycle | Not built | ❌ Blocked — DPO needs AP-chain extraction (`OPCH`/`OVPM`); DIO needs inventory valuation (`OITW`) |
+| Net Profit Margin, EBITDA margin, Current/Quick ratios, full Working Capital | Not built | ❌ Blocked — need GL extraction (`OACT`/`OJDT`/`JDT1`, Finance Expansion Phase 2, scoped not built). `netArApPosition` (added 2026-07) is a partial Working Capital preview, not the full figure |
+| AP aging = `DocTotal − PaidToDate` on OPCH, filtered `DocStatus='O'` | `outstandingAP` / `apAgingData` (added 2026-07) — exact same formula/filter as the AR side, on `sap_vendor_bills` | ✅ Aligned |
+| DPO = `(Avg AP / COGS) × days` | `dpo` (added 2026-07) — same average-AP shape as the reconciled `dso`, using `periodBilled` in place of COGS (mirrors how `dso` uses `periodInvoiced` in place of "Total credit sales") | ✅ Aligned in spirit — same caveat as `dso`: Ending AP is an "as of today" snapshot |
+| DIO, Cash Conversion Cycle | Not built | ❌ Blocked — DIO needs inventory valuation (`OITW`, Finance Expansion Phase 3, scoped not built); CCC needs DIO |
 | Budget variance | Not on Finance Reports | Lives instead on Sales Reports' `invoiceBudgetScorecardData` (Forecast 2 vs. `sales_budgets`) — a sales-side accountability view, not framed as a Finance KPI here |
-| "RCT2/OITR joins only needed for payment-to-invoice drill-down" | `base_payment_apps` builds exactly this join for `totalCollected`/`salesRepRevenueData.collected_myr` | ✅ Built, but this is also where the `totalCollected`/`outstandingAR` reconciliation gap above comes from — the target doc's own caveat that this join is optional/drill-down-only is exactly why it's the less-authoritative of the two AR-related figures |
+| "RCT2/OITR joins only needed for payment-to-invoice drill-down" | `base_payment_apps` builds exactly this join for `totalCollected`/`salesRepRevenueData.collected_myr`; `base_vendor_payment_apps` (added 2026-07) builds the AP mirror for `totalPaid` | ✅ Built, but this is also where the `totalCollected`/`outstandingAR` (and, on the AP side, `totalPaid`/`outstandingAP`) reconciliation gap above comes from — the target doc's own caveat that this join is optional/drill-down-only is exactly why it's the less-authoritative of the two AR/AP-related figures |
 
 ---
 

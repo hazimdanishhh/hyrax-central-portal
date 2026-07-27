@@ -17,6 +17,8 @@ import {
   MonitorIcon,
   AppWindowIcon,
   ReceiptIcon,
+  InvoiceIcon,
+  HandCoinsIcon,
 } from "@phosphor-icons/react";
 
 // Config-driven "department link cards" shown on the Dashboard homepage.
@@ -108,6 +110,18 @@ export const departmentLinkCardData = [
         roles: ["manager"],
       },
 
+      // Added 2026-07 (Finance Expansion Phase 1). Matches finance/bills'
+      // AccessRoute gate exactly (mirrors Invoices' route gate above).
+      {
+        label: "Bills",
+        description: "View and track outstanding vendor bills.",
+        icon: InvoiceIcon,
+        path: "finance/bills",
+
+        departments: ["FIN"],
+        roles: ["manager"],
+      },
+
       {
         label: "Claims Management",
         description: "Process and track expense and reimbursement claims.",
@@ -122,6 +136,18 @@ export const departmentLinkCardData = [
         description: "Review incoming customer payments.",
         icon: CoinsIcon,
         path: "finance/payments",
+
+        departments: ["FIN"],
+      },
+
+      // Added 2026-07 (Finance Expansion Phase 1). Matches
+      // finance/vendor-payments' AccessRoute gate exactly (mirrors Payments'
+      // route gate -- department only, no role restriction).
+      {
+        label: "Vendor Payments",
+        description: "Review outgoing payments to vendors.",
+        icon: HandCoinsIcon,
+        path: "finance/vendor-payments",
 
         departments: ["FIN"],
       },

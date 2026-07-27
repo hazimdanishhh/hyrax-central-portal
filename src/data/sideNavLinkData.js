@@ -29,6 +29,8 @@ import {
   CoinsIcon,
   TruckIcon,
   ReceiptIcon,
+  InvoiceIcon,
+  HandCoinsIcon,
 } from "@phosphor-icons/react";
 
 export const sideNavLinkData = [
@@ -211,6 +213,21 @@ export const sideNavLinkData = [
         departments: ["FIN"],
       },
 
+      // Added 2026-07 (Finance Expansion Phase 1). Gated departments+roles to
+      // match finance/bills' AccessRoute in FinanceRoutes.jsx exactly (mirrors
+      // Invoices' route gate) -- unlike Invoices' entry above, which is
+      // missing that roles gate (a known pre-existing mismatch, see the
+      // comment on this same entry in departmentLinkCardData.js) -- don't
+      // copy that mismatch here.
+      {
+        label: "Bills",
+        icon: InvoiceIcon,
+        path: "finance/bills",
+
+        departments: ["FIN"],
+        roles: ["manager"],
+      },
+
       {
         label: "Claims Management",
         icon: ClipboardTextIcon,
@@ -223,6 +240,16 @@ export const sideNavLinkData = [
         label: "Payments",
         icon: CoinsIcon,
         path: "finance/payments",
+        departments: ["FIN"],
+      },
+
+      // Added 2026-07 (Finance Expansion Phase 1). Gate matches
+      // finance/vendor-payments' AccessRoute exactly (mirrors Payments' route
+      // gate -- department only, no role restriction).
+      {
+        label: "Vendor Payments",
+        icon: HandCoinsIcon,
+        path: "finance/vendor-payments",
         departments: ["FIN"],
       },
     ],

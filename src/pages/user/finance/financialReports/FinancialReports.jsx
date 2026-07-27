@@ -127,6 +127,32 @@ export default function FinancialReports() {
       value: d.unallocated_amount,
     })) ?? [];
 
+  // Accounts Payable chain (Finance Expansion Phase 1, added 2026-07) --
+  // mirrors the AR datasets above, field-for-field, on the payables side.
+  const apAgingData =
+    dashboard?.apAgingData?.map((d) => ({
+      name: d.bucket,
+      value: d.outstanding_myr,
+    })) ?? [];
+
+  const topOverdueVendorsData =
+    dashboard?.topOverdueVendorsData?.map((d) => ({
+      name: d.vendor_name,
+      value: d.outstanding_myr,
+    })) ?? [];
+
+  const topVendorsBySpendData =
+    dashboard?.topVendorsBySpendData?.map((d) => ({
+      name: d.vendor_name,
+      value: d.spend_myr,
+    })) ?? [];
+
+  const unallocatedOutgoingPaymentsData =
+    dashboard?.unallocatedOutgoingPaymentsData?.map((d) => ({
+      name: d.vendor_name,
+      value: d.unallocated_amount,
+    })) ?? [];
+
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
@@ -364,15 +390,81 @@ export default function FinancialReports() {
                           />
                         </ChartCard>
                       </CardLayout>
+                    </div>
 
-                      <p
-                        className="textXXS textLight"
-                        style={{ marginTop: "0.8rem" }}
-                      >
-                        Accounts Payable — blocked pending vendor-PO/AP
-                        extraction (see docs/DEPARTMENT-DASHBOARD-BLUEPRINT.md
-                        §5.2, §7).
-                      </p>
+                    {/* TIER 2.5: AP AGING & PAYABLES (Finance Expansion Phase 1, added 2026-07) */}
+                    <div
+                      style={{
+                        justifyContent: "start",
+                        textAlign: "start",
+                      }}
+                    >
+                      <div style={{ marginBottom: "1rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
+                          <ChartBarHorizontalIcon size={24} />
+                          <h2 className="textL textBold">
+                            AP Aging &amp; Payables
+                          </h2>
+                        </div>
+                        <p className="textXS textLight">
+                          Outstanding vendor balances and where our payables
+                          are concentrated.
+                        </p>
+                      </div>
+
+                      <CardLayout style="cardLayout2">
+                        <ChartCard
+                          title="AP Aging"
+                          subtitle="As of today — not affected by date filter"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={apAgingData}
+                            colorMap="#ef4444"
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Top Overdue Vendors"
+                          subtitle="Outstanding AP (RM)"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={topOverdueVendorsData}
+                            colorMap="#ef4444"
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Top Vendors by Spend"
+                          subtitle="Billed (RM)"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={topVendorsBySpendData}
+                            colorMap={YELLOW_COLOR}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Unallocated Outgoing Payments"
+                          subtitle="Paid but not yet allocated to a bill (RM)"
+                          style="cardGapSmall"
+                          viewAllTo="../vendor-payments"
+                          viewAllFilter={{ unallocatedOnly: "true" }}
+                        >
+                          <HorizontalBarChartRenderer
+                            data={unallocatedOutgoingPaymentsData}
+                            colorMap={YELLOW_COLOR}
+                          />
+                        </ChartCard>
+                      </CardLayout>
                     </div>
 
                     {/* TIER 3: SALESPERSON HEALTH & TOP CUSTOMERS */}

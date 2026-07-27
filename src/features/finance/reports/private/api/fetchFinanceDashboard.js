@@ -16,6 +16,7 @@ export async function fetchFinanceDashboard({ filters }) {
     p_end_date: null,
     p_is_cancelled: null,
     p_status_code: null,
+    p_vendor_code: null,
   };
 
   Object.entries(filters || {}).forEach(([key, value]) => {
@@ -24,6 +25,11 @@ export async function fetchFinanceDashboard({ filters }) {
     switch (key) {
       case "customerCode":
         rpcParams.p_customer_code = value === FILTER_NULL ? null : value;
+        break;
+
+      // Added 2026-07 (Finance Expansion Phase 1) for the Accounts Payable chain.
+      case "vendorCode":
+        rpcParams.p_vendor_code = value === FILTER_NULL ? null : value;
         break;
 
       case "salesRepCode":

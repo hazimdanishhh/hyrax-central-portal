@@ -4,7 +4,12 @@ create or replace function get_finance_dashboard(
     p_start_date      date default null,
     p_end_date        date default null,
     p_is_cancelled    boolean default null,
-    p_status_code     text default null
+    p_status_code     text default null,
+    -- Added 2026-07 (Finance Expansion Phase 1) for the Accounts Payable
+    -- chain -- filters base_bills/base_vendor_payments the same way
+    -- p_customer_code filters the AR side. p_status_code is shared across
+    -- both sides: OPCH's DocStatus uses the same 'O'/'C' convention as OINV.
+    p_vendor_code     text default null
 )
 returns json
 language plpgsql
@@ -102,6 +107,55 @@ base_payment_apps as (
       -- attributed to a rep.
 ),
 
+-- ─── Accounts Payable chain (Finance Expansion Phase 1, added 2026-07) ──────
+-- Mirrors base_invoices/base_payments/base_payment_apps above, field-for-field,
+-- on the payables side. See infrastructure/ap_chain_migration.sql and
+-- hyrax-data-platform/docs/sap-data-architecture-plans/
+-- 06-finance-expansion-execution-plan.md for the full design.
+
+base_bills as (
+    -- OPCH (A/P Invoices / vendor bills) -- AP mirror of base_invoices. No
+    -- rep/GP-guard analog needed here: OPCH carries no sales_rep_code, and
+    -- its GrosProfit field isn't a meaningful AP concept.
+    select b.*
+    from sap_vendor_bills b
+    where b.is_cancelled = v_is_cancelled_text
+      and (p_vendor_code is null or b.vendor_code = p_vendor_code)
+      and (p_status_code is null or b.status_code = p_status_code)
+),
+
+base_vendor_payments as (
+    -- OVPM header only, used for unallocated_amount -- AP mirror of base_payments.
+    select p.*
+    from sap_vendor_payments p
+    where p.is_cancelled = v_is_cancelled_text
+      and (p_vendor_code is null or p.vendor_code = p_vendor_code)
+),
+
+base_vendor_payment_apps as (
+    -- THE VPM2 JOIN TRAP -- AP mirror of the RCT2 join trap above, same
+    -- polymorphic-FK pattern: payment_ref -> sap_vendor_payments.doc_entry;
+    -- doc_entry -> sap_vendor_bills.doc_entry only when doc_type = 18 (OPCH),
+    -- other doc_type values (19 = ORPC A/P credit memo, others) point at
+    -- document types not extracted here. No DB-level FK constraint exists on
+    -- this column (deliberately -- see infrastructure/ap_chain_migration.sql),
+    -- so this filter is the only enforcement; don't drop it. No sales-rep
+    -- attribution exists on the AP side (vendors aren't reps), so unlike
+    -- base_payment_apps this doesn't need a rep-code passthrough column.
+    select
+        pa.amount_applied_myr,
+        p.payment_date,
+        p.vendor_code
+    from sap_vendor_payment_applications pa
+    join sap_vendor_payments p on pa.payment_ref = p.doc_entry
+    left join sap_vendor_bills bl on pa.doc_entry = bl.doc_entry and pa.doc_type = 18
+    where p.is_cancelled = v_is_cancelled_text
+      and (p_vendor_code is null or p.vendor_code = p_vendor_code)
+      -- Mirrors base_payment_apps' cancelled-invoice guard: never blend cash
+      -- paid against a since-cancelled bill into an active-docs view.
+      and (bl.doc_entry is null or bl.is_cancelled = v_is_cancelled_text)
+),
+
 kpi_totals as (
     select
         (select coalesce(sum(total_amount_myr),0) from base_invoices
@@ -174,7 +228,60 @@ kpi_totals as (
         (select case when p_start_date is null then null else
             (select coalesce(sum(gross_profit_sanitized),0) from base_invoices
               where "invoice_date"::date between v_prev_start_date and v_prev_end_date)
-         end) as prev_period_gross_profit
+         end) as prev_period_gross_profit,
+
+        -- ─── Accounts Payable chain totals (Finance Expansion Phase 1) ──────
+        -- Mirrors period_invoiced/period_collected/outstanding_ar/overdue_*/
+        -- unallocated_payments above, field-for-field, on the payables side.
+
+        (select coalesce(sum(total_amount_myr),0) from base_bills
+          where (p_start_date is null or "bill_date"::date >= p_start_date)
+            and (p_end_date   is null or "bill_date"::date <= p_end_date)
+        ) as period_billed,
+
+        (select count(*) from base_bills
+          where (p_start_date is null or "bill_date"::date >= p_start_date)
+            and (p_end_date   is null or "bill_date"::date <= p_end_date)
+        ) as period_bill_count,
+
+        (select coalesce(sum(amount_applied_myr),0) from base_vendor_payment_apps
+          where (p_start_date is null or payment_date::date >= p_start_date)
+            and (p_end_date   is null or payment_date::date <= p_end_date)
+        ) as period_paid,
+
+        -- Same sourcing caveat as outstanding_ar: straight from
+        -- sap_vendor_bills.paid_to_date, no VPM2 join involved -- won't
+        -- generally reconcile exactly against period_billed - period_paid,
+        -- for the same reason outstandingAR doesn't reconcile against
+        -- periodInvoicedRevenue - totalCollected (see that comment above).
+        (select coalesce(sum(total_amount_myr - paid_to_date),0) from base_bills
+          where status_code = 'O'
+        ) as outstanding_ap,
+
+        (select count(*) from base_bills
+          where status_code = 'O' and "due_date"::date < current_date
+            and (total_amount_myr - paid_to_date) > 0.01
+        ) as overdue_bill_count,
+
+        (select coalesce(sum(total_amount_myr - paid_to_date),0) from base_bills
+          where status_code = 'O' and "due_date"::date < current_date
+            and (total_amount_myr - paid_to_date) > 0.01
+        ) as overdue_bill_value,
+
+        (select coalesce(sum(unallocated_amount),0) from base_vendor_payments
+          where (p_start_date is null or payment_date::date >= p_start_date)
+            and (p_end_date   is null or payment_date::date <= p_end_date)
+        ) as unallocated_outgoing_payments,
+
+        (select case when p_start_date is null then null else
+            (select coalesce(sum(total_amount_myr),0) from base_bills
+              where "bill_date"::date between v_prev_start_date and v_prev_end_date)
+         end) as prev_period_billed,
+
+        (select case when p_start_date is null then null else
+            (select coalesce(sum(amount_applied_myr),0) from base_vendor_payment_apps
+              where payment_date::date between v_prev_start_date and v_prev_end_date)
+         end) as prev_period_paid
 ),
 
 -- Per-rep cash collected, same period-bound rule as kpi_totals.period_collected
@@ -244,7 +351,36 @@ select json_build_object(
                         else 0 end,
             'prevPeriodInvoicedRevenue', prev_period_invoiced,
             'prevTotalCollected',        prev_period_collected,
-            'prevPeriodGrossProfit',     prev_period_gross_profit
+            'prevPeriodGrossProfit',     prev_period_gross_profit,
+
+            -- ─── Accounts Payable chain (Finance Expansion Phase 1, 2026-07) ─
+            'periodBilled',      period_billed,
+            'periodBillCount',   period_bill_count,
+            'totalPaid',         period_paid,
+            'outstandingAP',     outstanding_ap,
+            'overdueBillCount',  overdue_bill_count,
+            'overdueBillValue',  overdue_bill_value,
+            'unallocatedOutgoingPayments', unallocated_outgoing_payments,
+            -- DPO uses the same average-AP methodology as the reconciled DSO
+            -- formula above (Beginning AP derived via the accounting identity
+            -- Beginning = Ending - Billed + Paid, clamped at 0, since no
+            -- historical AP snapshot exists) -- launched consistent from day
+            -- one rather than starting with a point-in-time shortcut like the
+            -- original DSO did.
+            'dpo', case when period_billed > 0
+                        then round(
+                            (
+                                (greatest(outstanding_ap - period_billed + period_paid, 0) + outstanding_ap)
+                                / 2.0
+                            ) / period_billed * v_days
+                        , 1)
+                        else 0 end,
+            -- First (partial) Working Capital signal ahead of full GL
+            -- (Phase 2) -- net AR/AP position, not a complete working-capital
+            -- figure (that needs all current assets/liabilities from the GL).
+            'netArApPosition', outstanding_ar - outstanding_ap,
+            'prevPeriodBilled', prev_period_billed,
+            'prevTotalPaid',    prev_period_paid
         )
         from kpi_totals
     ),
@@ -394,13 +530,89 @@ select json_build_object(
         ) x
     ),
 
-    -- Contract placeholder for AP Aging (mirrors the existing AR Aging bucket
-    -- shape). Blocked on OPOR/POR1 + OPCH/PCH1 + OVPM extraction -- returns
-    -- null (not '[]') to distinguish "not available yet" from "available but
-    -- empty". Fill this CTE in once that data lands; the RPC signature, this
-    -- key, and the consuming chart never need to change.
-    -- See hyrax-central-portal/docs/DEPARTMENT-DASHBOARD-BLUEPRINT.md §5.2, §7.
-    'apAgingData', null
+    -- AP Aging (Finance Expansion Phase 1, 2026-07): was a null contract
+    -- placeholder pending OPCH/PCH1/OVPM/VPM2 extraction -- now real data,
+    -- same 5-bucket shape as arAgingData above. Always "as of today", same
+    -- as arAgingData (ignores the date filter -- aging is a snapshot
+    -- balance, not a period flow).
+    'apAgingData', (
+        select coalesce(json_agg(x order by x.bucket_order), '[]'::json)
+        from (
+            select
+                case
+                    when current_date - "due_date"::date <= 0 then 'Current'
+                    when current_date - "due_date"::date <= 30 then '1-30'
+                    when current_date - "due_date"::date <= 60 then '31-60'
+                    when current_date - "due_date"::date <= 90 then '61-90'
+                    else '90+'
+                end as bucket,
+                case
+                    when current_date - "due_date"::date <= 0 then 1
+                    when current_date - "due_date"::date <= 30 then 2
+                    when current_date - "due_date"::date <= 60 then 3
+                    when current_date - "due_date"::date <= 90 then 4
+                    else 5
+                end as bucket_order,
+                count(*) as bill_count,
+                sum(total_amount_myr - paid_to_date) as outstanding_myr
+            from base_bills
+            where status_code = 'O' and (total_amount_myr - paid_to_date) > 0.01
+            group by 1, 2
+        ) x
+    ),
+
+    'topOverdueVendorsData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from (
+            select
+                vendor_code,
+                vendor_name,
+                count(*) as overdue_bill_count,
+                sum(total_amount_myr - paid_to_date) as outstanding_myr,
+                min("due_date"::date) as oldest_due_date
+            from base_bills
+            where status_code = 'O' and "due_date"::date < current_date
+              and (total_amount_myr - paid_to_date) > 0.01
+            group by vendor_code, vendor_name
+            order by outstanding_myr desc
+            limit 10
+        ) x
+    ),
+
+    'topVendorsBySpendData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from (
+            select
+                vendor_code,
+                vendor_name,
+                count(distinct doc_entry) as bill_count,
+                sum(total_amount_myr) as spend_myr
+            from base_bills
+            where (p_start_date is null or "bill_date"::date >= p_start_date)
+              and (p_end_date   is null or "bill_date"::date <= p_end_date)
+            group by vendor_code, vendor_name
+            order by spend_myr desc
+            limit 10
+        ) x
+    ),
+
+    -- Gives the "unallocatedOutgoingPayments" KPI tile above a drill-down
+    -- list -- mirrors unallocatedPaymentsData. Always "as of today" (not
+    -- bounded by p_start_date/p_end_date).
+    'unallocatedOutgoingPaymentsData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from (
+            select
+                vendor_code,
+                vendor_name,
+                payment_date,
+                unallocated_amount
+            from base_vendor_payments
+            where unallocated_amount > 0.01
+            order by unallocated_amount desc
+            limit 10
+        ) x
+    )
 
 )
 into result;
