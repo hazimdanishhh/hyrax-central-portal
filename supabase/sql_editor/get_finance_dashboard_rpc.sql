@@ -203,8 +203,37 @@ select json_build_object(
             'overdueInvoiceCount',   overdue_count,
             'overdueValue',          overdue_value,
             'unallocatedPayments',   unallocated_payments,
+            -- DSO reconciled 2026-07: this was a point-in-time snapshot
+            -- (outstanding_ar / period_invoiced), which disagreed with the
+            -- classic average-AR formula recommended in
+            -- hyrax-data-platform/docs/sap-data-architecture-plans/
+            -- 02-department-kpi-frameworks.md. Now uses that formula:
+            -- DSO = (Avg AR / Period Invoiced) * days, Avg AR = (Beginning
+            -- AR + Ending AR) / 2. No historical AR snapshot exists, so
+            -- Beginning AR is derived from the accounting identity
+            -- Beginning = Ending - Invoiced + Collected -- valid since
+            -- nothing else moves the AR balance today (no credit
+            -- memos/write-offs: returns and GL aren't extracted yet).
+            -- Clamped at 0: a slow-invoicing period with heavy collections
+            -- against older, pre-period invoices can otherwise imply a
+            -- nonsensical negative Beginning AR.
+            -- Caveat carried over from outstanding_ar itself: Ending AR
+            -- here is "as of today" (same convention as outstandingAR/
+            -- arAgingData elsewhere in this RPC), not strictly "as of
+            -- p_end_date" -- fine for the common case of a period ending
+            -- at/near today, less precise for a period selected entirely
+            -- in the past.
+            -- With no date range selected, period_invoiced is all-time
+            -- invoiced (dwarfing any AR balance), so Beginning AR clamps to
+            -- 0 and this degrades gracefully to Avg AR = outstanding_ar / 2
+            -- against the v_days = 365 annualized default below.
             'dso', case when period_invoiced > 0
-                        then round((outstanding_ar / period_invoiced) * v_days, 1)
+                        then round(
+                            (
+                                (greatest(outstanding_ar - period_invoiced + period_collected, 0) + outstanding_ar)
+                                / 2.0
+                            ) / period_invoiced * v_days
+                        , 1)
                         else 0 end,
             'collectionRatePct', case when period_invoiced > 0
                         then round((period_collected / period_invoiced) * 100, 1)

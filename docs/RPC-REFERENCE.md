@@ -46,7 +46,7 @@ get_finance_dashboard(
 | `outstandingAR` | `sum(total_amount_myr - paid_to_date)` where `status_code='O'` | `base_invoices` | **No** — as of today |
 | `overdueInvoiceCount` / `overdueValue` | Open AND `due_date < current_date` AND balance `> 0.01` | `base_invoices` | **No** — as of today |
 | `unallocatedPayments` | `sum(unallocated_amount)` | `base_payments`, `payment_date` in range | Yes |
-| `dso` | `(outstandingAR / periodInvoiced) * v_days` — `v_days` = period length, or 365 if no range selected | derived | Mixed (point-in-time AR ÷ period revenue) — **differs from the classic avg-AR DSO formula in `sap-data-architecture-plans`; not yet reconciled, see `DASHBOARD-ROADMAP.md` §4** |
+| `dso` | `(Avg AR / periodInvoiced) * v_days`, where Avg AR = (Beginning AR + Ending AR) / 2, Beginning AR = `greatest(outstandingAR - periodInvoiced + totalCollected, 0)`, Ending AR = `outstandingAR`. `v_days` = period length, or 365 if no range selected. **Reconciled 2026-07** to match the classic average-AR DSO formula in `sap-data-architecture-plans/02-department-kpi-frameworks.md` — see that formula's derivation comment in `get_finance_dashboard_rpc.sql` for the accounting-identity caveat (no historical AR snapshot exists; Beginning AR is derived, not observed) | derived | Mixed (average-AR, but Ending AR is still an "as of today" snapshot, not "as of `p_end_date`") |
 | `collectionRatePct` | `periodCollected / periodInvoiced * 100` | derived | Yes |
 | `periodGrossProfit` (added 2026-07) | `sum(gross_profit_sanitized)` | `base_invoices`, `invoice_date` in range | Yes |
 | `grossProfitMarginPct` (added 2026-07) | `periodGrossProfit / periodInvoiced * 100` | derived | Yes |
@@ -84,7 +84,7 @@ get_finance_dashboard(
 | Target KPI (data-platform doc) | As-built here | Status |
 | --- | --- | --- |
 | AR aging = `DocTotal − PaidToDate` on OINV, filtered `DocStatus='O'` | `outstandingAR` / `arAgingData` — exact same formula/filter, on the MYR-converted columns (`total_amount_myr`/`paid_to_date`) | ✅ Aligned |
-| DSO = `(Avg AR / Total credit sales) × days` | `dso` = `(outstandingAR / periodInvoiced) × days` — a point-in-time-snapshot formula, not an average-AR formula | ⚠️ **Open methodology decision** — both live, disagree on the same data, not yet reconciled (`DASHBOARD-ROADMAP.md` §4) |
+| DSO = `(Avg AR / Total credit sales) × days` | `dso` = `(Avg AR / periodInvoiced) × days`, Avg AR derived from `outstandingAR` via the accounting identity (no historical AR snapshot exists) — **reconciled 2026-07** to the same average-AR methodology as this target formula | ✅ Aligned — see the formula derivation comment in `get_finance_dashboard_rpc.sql` for the one remaining approximation (Ending AR is an "as of today" snapshot, not "as of the selected period's end date") |
 | Gross Profit Margin = `(Revenue − COGS) / Revenue` | `grossProfitMarginPct` = `periodGrossProfit / periodInvoiced × 100`, where `periodGrossProfit` sums SAP's own pre-computed `GrosProfit` per invoice line (added 2026-07) | ✅ Aligned in spirit — SAP already nets COGS out per line, so no separate COGS derivation was needed |
 | Net Profit Margin, EBITDA margin, Current/Quick ratios, Working Capital | Not built | ❌ Blocked — need GL extraction (`OACT`/`OJDT`/`JDT1`), none exists yet |
 | DPO, DIO, Cash Conversion Cycle | Not built | ❌ Blocked — DPO needs AP-chain extraction (`OPCH`/`OVPM`); DIO needs inventory valuation (`OITW`) |
