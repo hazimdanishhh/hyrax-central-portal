@@ -1,7 +1,12 @@
 import React from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import { ChartLineIcon, HandshakeIcon, ListIcon } from "@phosphor-icons/react";
+import {
+  ChartLineIcon,
+  CrosshairSimpleIcon,
+  HandshakeIcon,
+  ListIcon,
+} from "@phosphor-icons/react";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { Link, NavLink, Outlet } from "react-router";
 import { useEmployee } from "../../../../context/EmployeeContext";
@@ -47,6 +52,21 @@ export default function LeadsPageLayout() {
                     <ListIcon size={15} />
                   </div>
                   All Leads
+                </NavLink>
+
+                {/* TARGETS */}
+                <NavLink
+                  to="/app/sales/leads/targets"
+                  className={({ isActive }) =>
+                    `button buttonTypeTab textRegular textXS ${
+                      isActive ? "active" : ""
+                    }`
+                  }
+                >
+                  <div className="pageTabIcon">
+                    <CrosshairSimpleIcon size={15} />
+                  </div>
+                  Targets
                 </NavLink>
               </div>
               <Outlet />

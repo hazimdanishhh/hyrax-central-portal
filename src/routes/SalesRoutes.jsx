@@ -10,6 +10,9 @@ import ClientsOverview from "../pages/user/sales/clients/overview/ClientsOvervie
 import ClientsManagement from "../pages/user/sales/clients/list/ClientsManagement";
 import ContactsManagement from "../pages/user/sales/clients/contacts/ContactsManagement";
 import Orders from "../pages/user/sales/orders/Orders";
+import OrdersPageLayout from "../pages/user/sales/orders/OrdersPageLayout";
+import SalesBudgetsManagement from "../pages/user/sales/orders/budgets/SalesBudgetsManagement";
+import SalesTargetsManagement from "../pages/user/sales/leads/targets/SalesTargetsManagement";
 
 export default (
   <Route path="sales">
@@ -97,6 +100,16 @@ export default (
       >
         <Route path=":leadId" element={null} />
       </Route>
+
+      {/* TARGETS (Forecast 1 -- CRM pipeline quota per rep) */}
+      <Route
+        path="targets"
+        element={
+          <AccessRoute departments={["SAL"]} roles={["manager"]}>
+            <SalesTargetsManagement />
+          </AccessRoute>
+        }
+      />
     </Route>
 
     {/* SALES ORDERS */}
@@ -104,10 +117,30 @@ export default (
       path="orders"
       element={
         <AccessRoute departments={["SAL"]} roles={["manager"]}>
-          <Orders />
+          <OrdersPageLayout />
         </AccessRoute>
       }
-    />
+    >
+      <Route index element={<Navigate to="all" replace />} />
+      <Route
+        path="all"
+        element={
+          <AccessRoute departments={["SAL"]} roles={["manager"]}>
+            <Orders />
+          </AccessRoute>
+        }
+      />
+
+      {/* BUDGETS (Forecast 2 -- SAP invoice quota per rep) */}
+      <Route
+        path="budgets"
+        element={
+          <AccessRoute departments={["SAL"]} roles={["manager"]}>
+            <SalesBudgetsManagement />
+          </AccessRoute>
+        }
+      />
+    </Route>
 
     {/* QUOTATIONS */}
     <Route

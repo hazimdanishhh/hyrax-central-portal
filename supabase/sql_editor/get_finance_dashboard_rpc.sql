@@ -32,34 +32,24 @@ end if;
 v_is_cancelled_text := case when p_is_cancelled is true then 'Y' else 'N' end;
 
 with base_invoices as (
-    select oi.*
+    select
+        oi.*,
+        -- Same GrosProfit outlier guard as salesRepRevenueData below and
+        -- get_sales_reports_dashboard's grossProfitByRepData -- SAP's own GP
+        -- field carries a known item-cost master-data defect at the extremes
+        -- (legitimate gp/total_amount_myr ratios top out around 2.7x,
+        -- defective rows run 900x-1000x+ in the same currency).
+        case
+            when oi.total_amount_myr <> 0
+             and abs(oi.gross_profit) > abs(oi.total_amount_myr) * 5
+            then null
+            else oi.gross_profit
+        end as gross_profit_sanitized
     from sap_invoices oi
     where oi.is_cancelled = v_is_cancelled_text
       and (p_customer_code  is null or oi.customer_code  = p_customer_code)
       and (p_sales_rep_code is null or oi.sales_rep_code = p_sales_rep_code)
       and (p_status_code    is null or oi.status_code    = p_status_code)
-),
-
-base_orders as (
-    -- feeds salesRepRevenueData only (order_count/GP live on ORDR, not on invoices)
-    select
-        so.*,
-        -- SAP's own GrosProfit occasionally contains impossible values (item
-        -- cost/price master-data defect -- confirmed against the real SAP
-        -- extract: legitimate gp/total_amount_myr ratios top out around 2.7x,
-        -- defective rows run 900x-1000x+ in the same currency). Excluded from
-        -- sums below; revenue_myr/order_count for the order are untouched --
-        -- only its GP contribution is dropped.
-        case
-            when so.total_amount_myr <> 0
-             and abs(so.gross_profit) > abs(so.total_amount_myr) * 5
-            then null
-            else so.gross_profit
-        end as gross_profit_sanitized
-    from sap_sales_orders so
-    where so.is_cancelled = v_is_cancelled_text
-      and (p_customer_code  is null or so.customer_code  = p_customer_code)
-      and (p_sales_rep_code is null or so.sales_rep_code = p_sales_rep_code)
 ),
 
 base_payments as (
@@ -98,6 +88,14 @@ base_payment_apps as (
     where p.is_cancelled = v_is_cancelled_text
       and (p_customer_code  is null or p.customer_code = p_customer_code)
       and (p_sales_rep_code is null or i.sales_rep_code = p_sales_rep_code)
+      -- Never blend cash applied against a since-cancelled invoice into an
+      -- active-docs view (mirrors base_invoices' own is_cancelled filter --
+      -- previously only the payment's own cancellation flag was checked
+      -- here, letting cancelled-invoice payments still count toward
+      -- totalCollected). Rows with no invoice match at all (i.doc_entry is
+      -- null -- on-account cash, other inv_types) are unrelated to invoice
+      -- cancellation and stay in either way.
+      and (i.doc_entry is null or i.is_cancelled = v_is_cancelled_text)
       -- NOTE: when p_sales_rep_code is set, non-invoice rows (inv_type != 13,
       -- i.sales_rep_code null -- includes on-account cash and other document
       -- types) are correctly excluded -- unlinked/non-invoice cash can't be
@@ -121,6 +119,17 @@ kpi_totals as (
             and (p_end_date   is null or payment_date::date <= p_end_date)
         ) as period_collected,
 
+        -- NOTE: outstanding_ar is sourced straight from sap_invoices.paid_to_date
+        -- (SAP's own native per-invoice running total -- OINV.PaidToDate), with
+        -- no RCT2/payment-applications join involved at all. period_collected
+        -- above, by contrast, comes from base_payment_apps (RCT2), which can
+        -- only attribute inv_type=13 rows. These two numbers measure "money
+        -- paid" via two different SAP sources, so period_invoiced -
+        -- period_collected will NOT generally equal outstanding_ar, even with
+        -- no date filter applied -- that gap reflects real cash that settled
+        -- invoices through a document type the RCT2 join can't see (on-account
+        -- cash, credit memos, etc.), not an error in either figure. See
+        -- hyrax-central-portal/docs/RPC-REFERENCE.md's Finance section.
         (select coalesce(sum(total_amount_myr - paid_to_date),0) from base_invoices
           where status_code = 'O'
         ) as outstanding_ar,
@@ -148,7 +157,39 @@ kpi_totals as (
         (select case when p_start_date is null then null else
             (select coalesce(sum(amount_applied_myr),0) from base_payment_apps
               where payment_date::date between v_prev_start_date and v_prev_end_date)
-         end) as prev_period_collected
+         end) as prev_period_collected,
+
+        -- Gross Profit -- SAP's own pre-computed GrosProfit line-item field
+        -- (via gross_profit_sanitized's outlier guard above), summed the
+        -- same way/scope as period_invoiced. Maps to the target KPI
+        -- framework's "Gross Profit Margin" (see
+        -- hyrax-data-platform/docs/sap-data-architecture-plans/
+        -- 02-department-kpi-frameworks.md) -- SAP already computes GrosProfit
+        -- per line, so no separate COGS derivation is needed here.
+        (select coalesce(sum(gross_profit_sanitized),0) from base_invoices
+          where (p_start_date is null or "invoice_date"::date >= p_start_date)
+            and (p_end_date   is null or "invoice_date"::date <= p_end_date)
+        ) as period_gross_profit,
+
+        (select case when p_start_date is null then null else
+            (select coalesce(sum(gross_profit_sanitized),0) from base_invoices
+              where "invoice_date"::date between v_prev_start_date and v_prev_end_date)
+         end) as prev_period_gross_profit
+),
+
+-- Per-rep cash collected, same period-bound rule as kpi_totals.period_collected
+-- above -- feeds salesRepRevenueData only. Reps whose applied payments don't
+-- resolve to an inv_type=13 invoice (on-account cash, other doc types --
+-- see base_payment_apps above) are legitimately absent here, not a bug.
+rep_collected_actuals as (
+    select
+        invoice_sales_rep_code as sales_rep_code,
+        coalesce(sum(amount_applied_myr), 0) as collected_myr
+    from base_payment_apps
+    where invoice_sales_rep_code is not null
+      and (p_start_date is null or payment_date::date >= p_start_date)
+      and (p_end_date   is null or payment_date::date <= p_end_date)
+    group by invoice_sales_rep_code
 )
 
 select json_build_object(
@@ -168,8 +209,13 @@ select json_build_object(
             'collectionRatePct', case when period_invoiced > 0
                         then round((period_collected / period_invoiced) * 100, 1)
                         else 0 end,
+            'periodGrossProfit', period_gross_profit,
+            'grossProfitMarginPct', case when period_invoiced > 0
+                        then round((period_gross_profit / period_invoiced) * 100, 1)
+                        else 0 end,
             'prevPeriodInvoicedRevenue', prev_period_invoiced,
-            'prevTotalCollected',        prev_period_collected
+            'prevTotalCollected',        prev_period_collected,
+            'prevPeriodGrossProfit',     prev_period_gross_profit
         )
         from kpi_totals
     ),
@@ -248,22 +294,36 @@ select json_build_object(
         ) x
     ),
 
+    -- Finance's own rep breakdown: invoiced revenue + cash collected (AR/cash
+    -- concerns), NOT order-booked value -- that's Sales Reports' concern (see
+    -- get_sales_reports_dashboard_rpc.sql's invoiceBudgetScorecardData /
+    -- orderBookData). invoiced_revenue here is computed identically to that
+    -- RPC's rep_invoice_actuals/grossProfitByRepData (same base_invoices
+    -- CTE shape, same invoice_date scoping), so the two dashboards agree on
+    -- invoiced revenue per rep by construction -- see
+    -- hyrax-central-portal/docs/DASHBOARD-ROADMAP.md §5.
     'salesRepRevenueData', (
         select coalesce(json_agg(x), '[]'::json)
         from (
             select
                 sp.sales_rep_code,
                 sp.sales_rep_name,
-                count(distinct bo.doc_entry) as order_count,
-                coalesce(sum(bo.total_amount_myr), 0) as revenue_myr,
-                coalesce(sum(bo.gross_profit_sanitized), 0) as gross_profit_myr,
-                case when coalesce(sum(bo.total_amount_myr),0) > 0
-                     then round((coalesce(sum(bo.gross_profit_sanitized),0) / sum(bo.total_amount_myr)) * 100, 1)
-                     else 0 end as gp_pct
-            from base_orders bo
-            join sap_sales_persons sp on sp.sales_rep_code = bo.sales_rep_code
-            where (p_start_date is null or bo."order_date"::date >= p_start_date)
-              and (p_end_date   is null or bo."order_date"::date <= p_end_date)
+                count(distinct bi.doc_entry) as invoice_count,
+                coalesce(sum(bi.total_amount_myr), 0) as revenue_myr,
+                coalesce(sum(bi.gross_profit_sanitized), 0) as gross_profit_myr,
+                case when coalesce(sum(bi.total_amount_myr),0) > 0
+                     then round((coalesce(sum(bi.gross_profit_sanitized),0) / sum(bi.total_amount_myr)) * 100, 1)
+                     else 0 end as gp_pct,
+                -- Cash actually collected against this rep's invoices in the
+                -- period -- see rep_collected_actuals above for the on-account
+                -- caveat. 0/absent here can be a real data-coverage gap, not
+                -- necessarily a bug; cross-check against kpis.totalCollected.
+                coalesce(max(rca.collected_myr), 0) as collected_myr
+            from base_invoices bi
+            join sap_sales_persons sp on sp.sales_rep_code = bi.sales_rep_code
+            left join rep_collected_actuals rca on rca.sales_rep_code = bi.sales_rep_code
+            where (p_start_date is null or bi."invoice_date"::date >= p_start_date)
+              and (p_end_date   is null or bi."invoice_date"::date <= p_end_date)
             group by sp.sales_rep_code, sp.sales_rep_name
             order by revenue_myr desc
             limit 15

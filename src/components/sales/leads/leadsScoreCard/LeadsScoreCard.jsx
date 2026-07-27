@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { BLUE_COLOR, GREEN_COLOR } from "../../../chartCard/chartColors";
+import {
+  BLUE_COLOR,
+  GREEN_COLOR,
+  RED_COLOR,
+} from "../../../chartCard/chartColors";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import "./LeadsScoreCard.scss";
 
@@ -26,7 +30,16 @@ export default function ScorecardList({ data = [] }) {
           actual_revenue,
           target_revenue,
           attainment_percentage,
+          order_value_myr,
+          po_vs_budget_variance_myr,
+          po_vs_invoice_variance_myr,
         } = row;
+
+        // Sales Reports' PO-vs-Invoice-vs-Budget variance rows carry these
+        // three fields; Leads Overview's CRM pipeline scorecard doesn't --
+        // this segment only renders when they're present, so this shared
+        // component still works for both callers.
+        const hasOrderVariance = order_value_myr !== undefined;
 
         // Progress bar logic
         const progressRaw =
@@ -81,6 +94,33 @@ export default function ScorecardList({ data = [] }) {
                 {formatRM(actual_revenue)}
               </span>
             </div>
+
+            {/* 4. PO (SALES ORDER) VS INVOICE VARIANCE -- Sales Reports only */}
+            {hasOrderVariance && (
+              <div className="varianceSegment">
+                <span className="textXXXS textLight">
+                  Order Value (PO): {formatRM(order_value_myr)}
+                </span>
+                <span
+                  className="textXXXS"
+                  style={{
+                    color: po_vs_budget_variance_myr >= 0 ? GREEN_COLOR : RED_COLOR,
+                  }}
+                >
+                  PO vs Budget: {po_vs_budget_variance_myr >= 0 ? "+" : ""}
+                  {formatRM(po_vs_budget_variance_myr)}
+                </span>
+                <span
+                  className="textXXXS"
+                  style={{
+                    color: po_vs_invoice_variance_myr >= 0 ? BLUE_COLOR : RED_COLOR,
+                  }}
+                >
+                  PO vs Invoiced: {po_vs_invoice_variance_myr >= 0 ? "+" : ""}
+                  {formatRM(po_vs_invoice_variance_myr)}
+                </span>
+              </div>
+            )}
           </div>
         );
       })}

@@ -17,6 +17,7 @@ import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer"
 import {
   BLUE_COLOR,
   GREEN_COLOR,
+  YELLOW_COLOR,
 } from "../../../../components/chartCard/chartColors";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../components/crud/noResult/NoResult";
@@ -100,11 +101,16 @@ export default function FinancialReports() {
     })) ?? [];
 
   // HorizontalMultiBarRenderer's Y-axis reads dataKey="name" for the category label.
+  // Source switched from sap_sales_orders to sap_invoices (+ collected cash) --
+  // see docs/DASHBOARD-ROADMAP.md §5: Finance reports on invoiced/collected,
+  // not order-booked value (that's Sales Reports' orderBookData/
+  // invoiceBudgetScorecardData concern).
   const salesRepRevenueData =
     dashboard?.salesRepRevenueData?.map((d) => ({
       name: d.sales_rep_name,
       revenue_myr: d.revenue_myr,
       gross_profit_myr: d.gross_profit_myr,
+      collected_myr: d.collected_myr,
     })) ?? [];
 
   const topCustomersByRevenueData =
@@ -390,15 +396,15 @@ export default function FinancialReports() {
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          Revenue and gross profit by rep, and where our revenue
-                          is concentrated.
+                          Invoiced revenue, gross profit, and cash collected by
+                          rep, and where our revenue is concentrated.
                         </p>
                       </div>
 
                       <CardLayout style="cardLayout2">
                         <ChartCard
                           title="Salesperson Health"
-                          subtitle="Revenue & GP by rep (RM)"
+                          subtitle="Invoiced Revenue, GP & Collected (RM)"
                           style="cardGapSmall"
                         >
                           <HorizontalMultiBarRenderer
@@ -406,13 +412,18 @@ export default function FinancialReports() {
                             bars={[
                               {
                                 dataKey: "revenue_myr",
-                                name: "Revenue",
+                                name: "Invoiced Revenue",
                                 color: BLUE_COLOR,
                               },
                               {
                                 dataKey: "gross_profit_myr",
                                 name: "Gross Profit",
                                 color: GREEN_COLOR,
+                              },
+                              {
+                                dataKey: "collected_myr",
+                                name: "Collected",
+                                color: YELLOW_COLOR,
                               },
                             ]}
                           />

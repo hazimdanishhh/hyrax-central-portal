@@ -36,4 +36,12 @@
     text-align: right;
     color: $success600;
   }
+
+  .varianceSegment {
+    display: flex;
+    flex: 1 1 140px;
+    flex-direction: column;
+    gap: 2px;
+    text-align: right;
+  }
 }

@@ -9,6 +9,7 @@ import {
   ClockIcon,
   HourglassHighIcon,
   CoinsIcon,
+  ChartPieSliceIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../../functions/formatNumber";
 
@@ -44,6 +45,17 @@ export function getFinanceOverviewConfig(kpis) {
       ? collectedDelta > 0
         ? `↑ ${collectedDelta}% vs last period`
         : `↓ ${Math.abs(collectedDelta)}% vs last period`
+      : "No prior data";
+
+  const grossProfitDelta = calcDelta(
+    kpis.periodGrossProfit,
+    kpis.prevPeriodGrossProfit,
+  );
+  const grossProfitDeltaText =
+    grossProfitDelta !== null
+      ? grossProfitDelta > 0
+        ? `↑ ${grossProfitDelta}% vs last period`
+        : `↓ ${Math.abs(grossProfitDelta)}% vs last period`
       : "No prior data";
 
   return [
@@ -113,7 +125,38 @@ export function getFinanceOverviewConfig(kpis) {
     },
 
     // ==========================================
-    // PILLAR 3: Outstanding AR (What's still owed to us?)
+    // PILLAR 3: Gross Profit (What did we make on what we billed?)
+    // ==========================================
+    {
+      icon: ChartPieSliceIcon,
+      label: "Gross Profit",
+      sublabel: "Total Gross Profit This Period",
+      value: compactCurrency(kpis.periodGrossProfit),
+      variant: "blueCardFill",
+      to: null,
+      filter: null,
+      metrics: [
+        {
+          label: "GP Margin",
+          value: `${kpis.grossProfitMarginPct || 0}%`,
+          icon: PercentIcon,
+        },
+        {
+          label: "Prev. Period",
+          value: grossProfitDeltaText,
+          icon:
+            grossProfitDelta === null
+              ? null
+              : grossProfitDelta >= 0
+                ? TrendUpIcon
+                : TrendDownIcon,
+        },
+      ],
+      title: `Total gross profit on invoiced revenue in the selected period (SAP's own GrosProfit field, with the item-cost-outlier guard applied) — ${formatRM(kpis.periodGrossProfit)}`,
+    },
+
+    // ==========================================
+    // PILLAR 4: Outstanding AR (What's still owed to us?)
     // ==========================================
     {
       icon: BankIcon,
@@ -139,7 +182,7 @@ export function getFinanceOverviewConfig(kpis) {
     },
 
     // ==========================================
-    // PILLAR 4: Overdue Risk (What's at risk of not being collected?)
+    // PILLAR 5: Overdue Risk (What's at risk of not being collected?)
     // ==========================================
     {
       icon: WarningCircleIcon,

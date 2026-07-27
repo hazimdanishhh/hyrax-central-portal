@@ -90,6 +90,11 @@ function Reports() {
     actual_revenue: r.invoiced_revenue,
     target_revenue: r.budget_revenue,
     attainment_percentage: r.attainment_percentage,
+    // PO (sales order) vs Invoice vs Budget variance -- the company's actual
+    // sales-side analysis, see docs/DASHBOARD-ROADMAP.md §5.
+    order_value_myr: r.order_value_myr,
+    po_vs_budget_variance_myr: r.po_vs_budget_variance_myr,
+    po_vs_invoice_variance_myr: r.po_vs_invoice_variance_myr,
   }));
 
   const realizedVsPipelineData =
@@ -269,8 +274,9 @@ function Reports() {
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          Per-rep SAP-recognized revenue vs budget — backward
-                          looking, audited. Distinct from Leads Overview's CRM
+                          Per-rep PO (sales order) vs Invoice vs Budget
+                          variance — SAP-recognized, backward looking,
+                          audited. Distinct from Leads Overview's CRM
                           pipeline scorecard.
                         </p>
                       </div>

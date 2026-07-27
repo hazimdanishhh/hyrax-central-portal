@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { ReceiptIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
-import { useTheme } from "../../../../context/ThemeContext";
-import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
-import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -27,7 +24,6 @@ import SalesOrderSidebar from "./detail/SalesOrderSidebar";
  * dashboard's Order Book KPI card and Order Book by Rep chart.
  */
 export default function Orders() {
-  const { darkMode } = useTheme();
   const [selectedRow, setSelectedRow] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -80,64 +76,56 @@ export default function Orders() {
   }
 
   return (
-    <section className={darkMode ? "sectionDark" : "sectionLight"}>
-      <div className="sectionWrapper">
-        <div className="sectionContent">
-          <Breadcrumbs icon={ReceiptIcon} current="Sales Orders" />
+    <>
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search sales orders..."
+        enableDateRange
+      />
 
-          <CardWrapper>
-            <SearchFilterBar
-              search={search}
-              onSearchChange={setSearch}
-              filters={filters}
-              onFilterChange={setFilters}
-              filterConfig={filterConfig}
-              placeholder="Search sales orders..."
-              enableDateRange
-            />
+      <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+      {hasActiveFilters && (
+        <ActiveFiltersBar
+          search={search}
+          setSearch={setSearch}
+          filters={activeFilters}
+          setFilters={setFilters}
+          filterConfig={filterConfig}
+          resetParams={resetParams}
+        />
+      )}
 
-            {hasActiveFilters && (
-              <ActiveFiltersBar
-                search={search}
-                setSearch={setSearch}
-                filters={activeFilters}
-                setFilters={setFilters}
-                filterConfig={filterConfig}
-                resetParams={resetParams}
-              />
-            )}
+      <PageResult
+        data={salesOrders}
+        totalCount={totalCount}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+        error={error}
+      />
 
-            <PageResult
-              data={salesOrders}
-              totalCount={totalCount}
-              page={page}
-              setPage={setPage}
-              totalPages={totalPages}
-              error={error}
-            />
-
-            <div className="cardWrapperScroll generalCard">
-              {isLoading || isFetching ? (
-                <CardLayout style="cardLayoutFlexFull">
-                  <LoadingIcon />
-                </CardLayout>
-              ) : !hasData ? (
-                <NoResult />
-              ) : error ? (
-                <NoResult title="Error loading results" />
-              ) : (
-                <DataTable
-                  data={salesOrders}
-                  columns={columns}
-                  rowKey="doc_entry"
-                  onRowClick={handleOpenSidebar}
-                />
-              )}
-            </div>
-          </CardWrapper>
-        </div>
+      <div className="cardWrapperScroll generalCard">
+        {isLoading || isFetching ? (
+          <CardLayout style="cardLayoutFlexFull">
+            <LoadingIcon />
+          </CardLayout>
+        ) : !hasData ? (
+          <NoResult />
+        ) : error ? (
+          <NoResult title="Error loading results" />
+        ) : (
+          <DataTable
+            data={salesOrders}
+            columns={columns}
+            rowKey="doc_entry"
+            onRowClick={handleOpenSidebar}
+          />
+        )}
       </div>
 
       <AnimatePresence>
@@ -154,6 +142,6 @@ export default function Orders() {
           </DataSidebar>
         )}
       </AnimatePresence>
-    </section>
+    </>
   );
 }

@@ -111,6 +111,21 @@ rep_invoice_actuals as (
     group by sales_rep_code
 ),
 
+-- The company's actual sales-side analysis: PO (sales order) vs Invoice vs
+-- Budget variance, per rep -- see invoiceBudgetScorecardData below, which
+-- joins this against rep_invoice_actuals/budget_math. Keyed by sales_rep_code
+-- (not sales_rep_name, unlike the old orderBookData grouping) so two reps
+-- sharing a display name can never collapse into one row.
+rep_order_actuals as (
+    select
+        sales_rep_code,
+        coalesce(sum(total_amount_myr), 0) as order_value
+    from base_orders
+    where (p_start_date is null or "order_date"::date >= p_start_date)
+      and (p_end_date is null or "order_date"::date <= p_end_date)
+    group by sales_rep_code
+),
+
 lead_kpis as (
     select
         coalesce(sum(actual_revenue) filter (
@@ -199,48 +214,59 @@ select json_build_object(
         cross join pipeline_target_math pt
     ),
 
-    -- Forecast 2 scorecard. attainment_percentage is computed purely from
-    -- sales_rep_code (SAP identity) -- employees/profiles below are for
-    -- display (name/avatar) only, never for the attribution math itself.
-    -- Bridged via employee_sales_rep_mapping (auto-created per SAP rep;
-    -- employee_id is the one manually-assigned column), not
-    -- sap_sales_persons.employee_id (EmpID) -- see docs/DASHBOARD-ROADMAP.md §1.1.
+    -- The company's real sales analysis, per rep: PO (sales order) vs Invoice
+    -- vs Budget variance -- see rep_order_actuals/rep_invoice_actuals/
+    -- budget_math above. All three legs and attainment_percentage are
+    -- computed purely from sales_rep_code (SAP identity) -- employees/
+    -- profiles below are for display (name/avatar) only, never for the
+    -- attribution math itself. Bridged via employee_sales_rep_mapping
+    -- (auto-created per SAP rep; employee_id is the one manually-assigned
+    -- column), not sap_sales_persons.employee_id (EmpID) -- see
+    -- docs/DASHBOARD-ROADMAP.md §1.1.
     'invoiceBudgetScorecardData', (
         select coalesce(json_agg(
             json_build_object(
-                'sales_rep_code', coalesce(a.sales_rep_code, b.sales_rep_code),
+                'sales_rep_code', coalesce(o.sales_rep_code, a.sales_rep_code, b.sales_rep_code),
                 'employee_uuid', e.id,
                 'rep_name', coalesce(sp.sales_rep_name, 'Unknown'),
                 'avatar_url', p.avatar_url,
+                'order_value_myr', coalesce(o.order_value, 0),
                 'invoiced_revenue', coalesce(a.invoiced_revenue, 0),
                 'budget_revenue', coalesce(b.prorated_budget, 0),
                 'attainment_percentage', case
                     when coalesce(b.prorated_budget, 0) > 0
                     then round((coalesce(a.invoiced_revenue, 0) / b.prorated_budget) * 100)
                     else 0
-                end
+                end,
+                -- Booked (PO) vs Budget -- is what's been ordered on pace with target.
+                'po_vs_budget_variance_myr', coalesce(o.order_value, 0) - coalesce(b.prorated_budget, 0),
+                -- Booked (PO) vs Invoiced -- backlog not yet invoiced (positive)
+                -- or over-invoiced relative to booked orders (negative, e.g.
+                -- invoices against orders booked in an earlier period).
+                'po_vs_invoice_variance_myr', coalesce(o.order_value, 0) - coalesce(a.invoiced_revenue, 0)
             ) order by coalesce(a.invoiced_revenue, 0) desc
         ), '[]'::json)
-        from rep_invoice_actuals a
-        full outer join budget_math b on b.sales_rep_code = a.sales_rep_code
-        left join sap_sales_persons sp on sp.sales_rep_code = coalesce(a.sales_rep_code, b.sales_rep_code)
-        left join employee_sales_rep_mapping m on m.sales_rep_code = coalesce(a.sales_rep_code, b.sales_rep_code)
+        from rep_order_actuals o
+        full outer join rep_invoice_actuals a on a.sales_rep_code = o.sales_rep_code
+        full outer join budget_math b on b.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code)
+        left join sap_sales_persons sp on sp.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code, b.sales_rep_code)
+        left join employee_sales_rep_mapping m on m.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code, b.sales_rep_code)
         left join employees e on e.id = m.employee_id
         left join profiles p on p.id = e.profile_id
-        where coalesce(a.invoiced_revenue, 0) > 0 or coalesce(b.prorated_budget, 0) > 0
+        where coalesce(o.order_value, 0) > 0 or coalesce(a.invoiced_revenue, 0) > 0 or coalesce(b.prorated_budget, 0) > 0
     ),
 
+    -- Same figures as invoiceBudgetScorecardData's order_value_myr, just
+    -- re-shaped for the bar chart -- sourced from rep_order_actuals (keyed by
+    -- sales_rep_code) rather than re-aggregating, so the two can never drift.
     'orderBookData', (
         select coalesce(json_agg(x), '[]'::json)
         from (
             select
                 sp.sales_rep_name as name,
-                coalesce(sum(so.total_amount_myr), 0) as order_value_myr
-            from base_orders so
-            join sap_sales_persons sp on sp.sales_rep_code = so.sales_rep_code
-            where (p_start_date is null or so."order_date"::date >= p_start_date)
-              and (p_end_date is null or so."order_date"::date <= p_end_date)
-            group by sp.sales_rep_name
+                o.order_value as order_value_myr
+            from rep_order_actuals o
+            join sap_sales_persons sp on sp.sales_rep_code = o.sales_rep_code
             order by order_value_myr desc
             limit 15
         ) x
