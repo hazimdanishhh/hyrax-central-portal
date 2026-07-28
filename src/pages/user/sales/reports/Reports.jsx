@@ -72,15 +72,20 @@ function Reports() {
   const kpis = dashboard?.kpis ?? {};
   const invoiceBudgetScorecardData =
     dashboard?.invoiceBudgetScorecardData ?? [];
-  // Raw (unmapped) topClientsData -- fed to the overview config for the
-  // Customer Concentration tile AND reshaped below for the Top Clients
-  // chart, so both read the same snapshot rather than two separate maps
-  // over dashboard?.topClientsData.
+  // Raw (unmapped) topClientsData -- feeds ONLY the CRM-side "Top Clients"
+  // chart below (reshaped further down). No longer shared with the overview
+  // config -- the Customer Concentration tile converted to SAP-invoiced
+  // revenue 2026-07 (see topInvoicedCustomersRaw below).
   const topClientsRaw = dashboard?.topClientsData ?? [];
+  // Raw (unmapped) topInvoicedCustomersData -- fed to the overview config
+  // for the Customer Concentration tile AND reshaped below for the new "Top
+  // Customers by Invoiced Revenue" chart, so both read the same snapshot
+  // rather than two separate maps over dashboard?.topInvoicedCustomersData.
+  const topInvoicedCustomersRaw = dashboard?.topInvoicedCustomersData ?? [];
   const overviewItems = getSalesReportsOverviewConfig(
     kpis,
     invoiceBudgetScorecardData,
-    topClientsRaw,
+    topInvoicedCustomersRaw,
   );
 
   // Reshape to the field names ScorecardList/LeadsScoreCard already expects
@@ -144,6 +149,24 @@ function Reports() {
     name: d.name,
     value: d.won_revenue,
   }));
+
+  const topInvoicedCustomersData = topInvoicedCustomersRaw.map((d) => ({
+    name: d.customer_name,
+    value: d.revenue_myr,
+  }));
+
+  // Invoiced / Collected / Budget (added 2026-07, invoice/budget/collected
+  // rebalance) -- monthly, respects the page's own date filter (all-time if
+  // unset), unlike the fixed trailing-12-month bookingsVsInvoicedTrendData
+  // below. The dept-wide, over-time counterpart to the per-rep
+  // invoiceBudgetScorecard above.
+  const invoicedVsBudgetTrendData =
+    dashboard?.invoicedVsBudgetTrendData?.map((d) => ({
+      name: d.period,
+      Invoice: d.invoiced_revenue_myr,
+      Payment: d.collected_revenue_myr,
+      Budget: d.budget_revenue_myr,
+    })) ?? [];
 
   // Pipeline stage funnel (added 2026-07) -- ordered DISCOVERY -> LOST by the
   // RPC's own stage_order, so no client-side sort needed. Charting count
@@ -277,7 +300,8 @@ function Reports() {
                           <h2 className="textL textBold">Sales KPIs</h2>
                         </div>
                         <p className="textXS textLight">
-                          Both forecasts, order book, and sales cycle health.
+                          Invoices, budget, and collections first — plus the
+                          CRM pipeline forecast.
                         </p>
                       </div>
 
@@ -307,8 +331,8 @@ function Reports() {
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          Per-rep PO (sales order) vs Invoice vs Budget
-                          variance — SAP-recognized, backward looking,
+                          Per-rep Sales Order vs Invoice vs Collected vs
+                          Budget variance — SAP-recognized, backward looking,
                           audited. Distinct from Leads Overview's CRM
                           pipeline scorecard.
                         </p>
@@ -319,6 +343,23 @@ function Reports() {
                       ) : (
                         <NoResult title="No invoice-budget rows for this period yet." />
                       )}
+                    </div>
+
+                    <div style={{ marginTop: "1.6rem" }}>
+                      <ChartCard
+                        title="Invoiced / Collected / Budget"
+                        subtitle="Monthly, this period's date filter applies (all time if unset)"
+                        style="cardGapSmall"
+                      >
+                        <LineChartRenderer
+                          data={invoicedVsBudgetTrendData}
+                          lines={[
+                            { dataKey: "Invoice", color: BLUE_COLOR },
+                            { dataKey: "Payment", color: GREEN_COLOR },
+                            { dataKey: "Budget", color: YELLOW_COLOR },
+                          ]}
+                        />
+                      </ChartCard>
                     </div>
 
                     <div style={{ marginTop: "1.6rem" }}>
@@ -339,7 +380,7 @@ function Reports() {
                   </div>
 
                   <div className="pdfOverviewSection">
-                    {/* TIER 3: ORDER BOOK & PROFITABILITY */}
+                    {/* TIER 3: ORDER BOOK, PROFITABILITY & CUSTOMERS */}
                     <div
                       style={{
                         justifyContent: "start",
@@ -356,11 +397,12 @@ function Reports() {
                         >
                           <RankingIcon size={24} />
                           <h2 className="textL textBold">
-                            Order Book &amp; Profitability
+                            Order Book, Profitability &amp; Customers
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          SAP sales orders booked, and revenue/GP by rep.
+                          SAP sales orders booked, revenue/GP by rep, and
+                          where invoiced revenue is concentrated.
                         </p>
                       </div>
 
@@ -396,6 +438,17 @@ function Reports() {
                                 color: GREEN_COLOR,
                               },
                             ]}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Top Customers by Invoiced Revenue"
+                          subtitle="SAP Invoiced (RM)"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={topInvoicedCustomersData}
+                            colorMap={YELLOW_COLOR}
                           />
                         </ChartCard>
                       </CardLayout>

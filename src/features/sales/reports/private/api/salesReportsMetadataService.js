@@ -2,9 +2,17 @@ import { supabase } from "../../../../../lib/supabaseClient";
 
 // Pipelines that feed get_sales_reports_dashboard -- the oldest of these
 // last_run_at values is the true "how stale can this dashboard be" bottleneck.
+// sap_payments/sap_payment_applications added 2026-07 (invoice/budget/
+// collected rebalance -- the new Cash Collected figures depend on both).
+// Keep this list in sync with every base CTE in
+// get_sales_reports_dashboard_rpc.sql instead of repeating Operations
+// Reports' documented past miss of exactly this kind (see
+// DASHBOARD-CONVENTIONS.md).
 const SALES_REPORTS_PIPELINE_NAMES = [
   "sap_sales_orders",
   "sap_invoices",
+  "sap_payments",
+  "sap_payment_applications",
 ];
 
 export async function fetchSalesReportsMetadata() {

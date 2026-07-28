@@ -89,12 +89,13 @@ Canonical tags in use today — extend this table rather than inventing new voca
 | Sales Reports | **Budget** | `sales_budgets` | Manually-set per-rep revenue budget (Supabase-native, not SAP) |
 | Sales Reports | **Sales Order** | `sap_sales_orders` | SAP — booked, not yet necessarily billed |
 | Sales Reports | **Invoice** | `sap_invoices` | SAP — billed |
+| Sales Reports | **Payment** (added 2026-07) | `sap_payment_applications`/`sap_payments` | Cash actually applied — same RCT2 chain Finance uses, copied not re-derived |
 | Finance Reports | **General Ledger (GL)** | `OACT`/`OJDT`/`JDT1` via `base_gl_lines` | True accounting postings |
 | Finance Reports | **Invoice** | `sap_invoices` | AR subledger, invoice-line level |
 | Finance Reports | **Bill** | `sap_vendor_bills` | AP subledger, bill-line level |
 | Finance Reports | **Payment** | `sap_payment_applications`/receipts | Cash actually applied |
 
-**"Client" vs. "Customer" — not interchangeable.** Sales Reports' "Top Clients"/"Client Concentration" are sourced from the CRM-native `clients` table; Finance Reports' "Top Customers by Revenue" is sourced from SAP's own `customer_code` on `sap_invoices`. Keep using "Client" for the former and "Customer" for the latter across every future dashboard — don't let the two words drift into meaning the same thing.
+**"Client" vs. "Customer" — not interchangeable, but not exclusive to one dashboard either.** "Client" always means the CRM-native `clients` table (Sales Reports' "Top Clients" chart); "Customer" always means SAP's own `customer_code` on `sap_invoices` (Finance Reports' "Top Customers by Revenue," and — added 2026-07 — Sales Reports' own "Customer Concentration" tile/"Top Customers by Invoiced Revenue" chart, converted from CRM to SAP-invoiced per an explicit product decision that concentration risk belongs on audited billing data). Sales Reports now legitimately carries both words side by side, one per source table — don't let either word drift into meaning the same thing as the other, on either dashboard.
 
 Two figures can legitimately disagree (e.g. GL revenue vs. invoice-subledger revenue, or a manually-set budget vs. an audited actual) — that's normal for these table pairings, not a bug to reconcile away. The fix is always to **label both sides so the difference is visible**, never to silently pick one or blend them.
 

@@ -58,6 +58,52 @@ base_orders as (
     where so.is_cancelled = 'N'
 ),
 
+-- Cash collected (added 2026-07, invoice/budget/collected rebalance) -- the
+-- RCT2 -> ORCT -> OINV chain, copied from get_finance_dashboard_rpc.sql's own
+-- base_payment_apps rather than re-derived, so the two dashboards can never
+-- report a different collected figure for the same window (same mirroring
+-- rationale as pipeline_target_math below). Closes this page's biggest
+-- structural gap: it tracked Sales Order -> Invoice -> Budget but never
+-- whether invoiced revenue was actually COLLECTED.
+--
+-- Adapted to this RPC's own conventions, two deliberate differences from
+-- Finance's copy: (1) is_cancelled = 'N' literal, matching base_invoices/
+-- base_orders above -- this RPC has no p_is_cancelled parameter; (2) no
+-- p_customer_code/p_sales_rep_code predicates -- those parameters don't
+-- exist on this function.
+--
+-- THE RCT2 JOIN TRAP: payment_ref -> sap_payments.doc_entry, NOT
+-- receipt_number. For receipts through 2024-12-19 the two held the same
+-- value (old SAP numbering series), which masked this for years; a new
+-- series activated 2024-12-20 made them diverge, silently breaking any
+-- receipt_number join since. See hyrax-data-platform/docs/data-dictionary.md's
+-- "RCT2 Join Trap" section.
+base_payment_apps as (
+    select
+        pa.amount_applied_myr,
+        p.payment_date,
+        i.sales_rep_code as invoice_sales_rep_code
+    from sap_payment_applications pa
+    join sap_payments p on pa.payment_ref = p.doc_entry
+    -- doc_entry is the real FK to sap_invoices.doc_entry, but ONLY when
+    -- inv_type = 13 (A/R Invoice) -- a polymorphic FK with no DB-level
+    -- constraint (deliberately -- see infrastructure/supabase_sap_
+    -- migration.sql), so this filter is the only enforcement; don't drop it.
+    left join sap_invoices i on pa.doc_entry = i.doc_entry and pa.inv_type = 13
+    where p.is_cancelled = 'N'
+      -- Never blend cash applied against a since-cancelled invoice into an
+      -- active-docs view (mirrors base_invoices' own is_cancelled filter).
+      -- Rows with no invoice match at all (i.doc_entry is null -- on-account
+      -- cash, other inv_types) are unrelated to invoice cancellation and stay
+      -- in either way -- that's what makes the dept-wide totalCollected wider
+      -- than the per-rep sum. See rep_collected_actuals below. NOTE: this
+      -- guard must join raw sap_invoices, not base_invoices -- a left join
+      -- to base_invoices would make a CANCELLED invoice's i.doc_entry come
+      -- back null too, and the "i.doc_entry is null or ..." form below would
+      -- then incorrectly KEEP it instead of excluding it.
+      and (i.doc_entry is null or i.is_cancelled = 'N')
+),
+
 -- Forecast 1: department-wide prorated CRM pipeline target, summed across
 -- every rep with a sales_targets row -- same day-overlap proration formula
 -- as get_sales_leads_dashboard's scorecardData (mirrored intentionally, so
@@ -124,6 +170,71 @@ rep_order_actuals as (
     where (p_start_date is null or "order_date"::date >= p_start_date)
       and (p_end_date is null or "order_date"::date <= p_end_date)
     group by sales_rep_code
+),
+
+-- Per-rep cash collected (added 2026-07), same period-bound rule as
+-- collected_kpis below -- feeds invoiceBudgetScorecardData's 4th leg.
+-- Mirrors get_finance_dashboard_rpc.sql's rep_collected_actuals field for
+-- field, so the two dashboards can never report a different collected
+-- figure for the same rep and window.
+--
+-- Reps whose applied cash doesn't resolve to an inv_type = 13 invoice
+-- (on-account cash, credit memos, other document types -- see
+-- base_payment_apps above) are legitimately absent here. Consequence,
+-- expected and NOT a bug: sum(collected_myr) across scorecard rows can be
+-- LESS than kpis.totalCollected, which counts every applied row including
+-- the unattributable ones. Don't "fix" it by dropping the is-not-null
+-- filter -- unattributed cash genuinely can't be credited to a rep.
+rep_collected_actuals as (
+    select
+        invoice_sales_rep_code as sales_rep_code,
+        coalesce(sum(amount_applied_myr), 0) as collected_myr
+    from base_payment_apps
+    where invoice_sales_rep_code is not null
+      and (p_start_date is null or payment_date::date >= p_start_date)
+      and (p_end_date   is null or payment_date::date <= p_end_date)
+    group by invoice_sales_rep_code
+),
+
+-- Dept-wide SAP period totals (added 2026-07) -- the invoice/cash analogue
+-- of pipeline_target_math above: single-row aggregates cross-joined into
+-- kpis below. This RPC previously had NO dept-wide invoiced figure in kpis
+-- at all -- the Invoice Budget Attainment tile summed
+-- invoiceBudgetScorecardData's per-rep invoiced_revenue client-side
+-- (config/overviewConfig.js). Same base CTE and same window as
+-- rep_invoice_actuals above, so the two always tie out -- except one edge
+-- case the client-side sum gets wrong: the scorecard's own WHERE drops any
+-- rep row whose three (now four) legs are all <= 0, so a net-negative
+-- invoiced rep with no orders/collections/budget would be silently omitted
+-- from the client sum but is correctly counted here.
+invoice_kpis as (
+    select
+        coalesce(sum(total_amount_myr) filter (where
+            (p_start_date is null or "invoice_date"::date >= p_start_date)
+            and (p_end_date is null or "invoice_date"::date <= p_end_date)
+        ), 0) as total_invoiced,
+
+        -- doc_entry is sap_invoices' primary key, so this is exactly
+        -- count(*); spelled distinct to match get_finance_dashboard's own
+        -- invoice_count idiom.
+        count(distinct doc_entry) filter (where
+            (p_start_date is null or "invoice_date"::date >= p_start_date)
+            and (p_end_date is null or "invoice_date"::date <= p_end_date)
+        ) as invoice_count
+    from base_invoices
+),
+
+collected_kpis as (
+    -- Dept-wide, deliberately WITHOUT rep_collected_actuals' "is not null"
+    -- filter: on-account cash and other document types are real collections
+    -- even when they can't be attributed to a rep. See rep_collected_actuals
+    -- above.
+    select
+        coalesce(sum(amount_applied_myr) filter (where
+            (p_start_date is null or payment_date::date >= p_start_date)
+            and (p_end_date is null or payment_date::date <= p_end_date)
+        ), 0) as total_collected
+    from base_payment_apps
 ),
 
 lead_kpis as (
@@ -259,10 +370,42 @@ select json_build_object(
             -- Period-bound. Feeds the client-side Pipeline Velocity tile
             -- (opportunities x avg deal size x win rate / cycle days),
             -- likewise derived in config/overviewConfig.js.
-            'totalOpportunities', lk.total_opportunities
+            'totalOpportunities', lk.total_opportunities,
+
+            -- ─── Invoiced & collected, dept-wide (added 2026-07) ───────────
+            -- All period-bound. None of these respect p_owner_id/
+            -- p_product_type -- those only filter base_leads (CRM), exactly
+            -- like every existing SAP-sourced field on this page
+            -- (orderBookValue/orderBookCount). Same asymmetry the Pipeline
+            -- Coverage tile's tooltip already documents.
+            'totalInvoiced', ik.total_invoiced,
+            'invoiceCount', ik.invoice_count,
+
+            -- Avg invoice value -- deal-size analogue on the SAP side, the
+            -- audited counterpart to avgDealSize (CRM, self-reported).
+            'avgInvoiceValue', case when ik.invoice_count > 0
+                then round(ik.total_invoiced / ik.invoice_count, 2)
+                else 0 end,
+
+            -- Cash actually applied against invoices in this window (RCT2 ->
+            -- ORCT -> OINV, see base_payment_apps above). Identical formula
+            -- and window to get_finance_dashboard's own totalCollected.
+            'totalCollected', ck.total_collected,
+
+            -- Cash conversion. NOT "what share of THIS period's invoices got
+            -- paid" -- numerator and denominator are two independent
+            -- period-bound flows (cash applied in the window vs invoices
+            -- raised in the window), so heavy collection against older
+            -- invoices can legitimately push this above 100%. Identical
+            -- formula/rounding to get_finance_dashboard's collectionRatePct.
+            'collectionRatePct', case when ik.total_invoiced > 0
+                then round((ck.total_collected / ik.total_invoiced) * 100, 1)
+                else 0 end
         )
         from lead_kpis lk
         cross join pipeline_target_math pt
+        cross join invoice_kpis ik
+        cross join collected_kpis ck
     ),
 
     -- The company's real sales analysis, per rep: PO (sales order) vs Invoice
@@ -277,12 +420,19 @@ select json_build_object(
     'invoiceBudgetScorecardData', (
         select coalesce(json_agg(
             json_build_object(
-                'sales_rep_code', coalesce(o.sales_rep_code, a.sales_rep_code, b.sales_rep_code),
+                'sales_rep_code', coalesce(o.sales_rep_code, a.sales_rep_code, c.sales_rep_code, b.sales_rep_code),
                 'employee_uuid', e.id,
                 'rep_name', coalesce(sp.sales_rep_name, 'Unknown'),
                 'avatar_url', p.avatar_url,
                 'order_value_myr', coalesce(o.order_value, 0),
                 'invoiced_revenue', coalesce(a.invoiced_revenue, 0),
+                -- Cash collected against this rep's invoices in the period
+                -- (added 2026-07) -- 4th leg, completing Order -> Invoice ->
+                -- Collected -> Budget. 0 here can be a real attribution gap
+                -- (on-account cash), not necessarily no collections --
+                -- cross-check against kpis.totalCollected. See
+                -- rep_collected_actuals above.
+                'collected_myr', coalesce(c.collected_myr, 0),
                 'budget_revenue', coalesce(b.prorated_budget, 0),
                 'attainment_percentage', case
                     when coalesce(b.prorated_budget, 0) > 0
@@ -294,17 +444,32 @@ select json_build_object(
                 -- Booked (PO) vs Invoiced -- backlog not yet invoiced (positive)
                 -- or over-invoiced relative to booked orders (negative, e.g.
                 -- invoices against orders booked in an earlier period).
-                'po_vs_invoice_variance_myr', coalesce(o.order_value, 0) - coalesce(a.invoiced_revenue, 0)
+                'po_vs_invoice_variance_myr', coalesce(o.order_value, 0) - coalesce(a.invoiced_revenue, 0),
+                -- Invoiced vs Collected (added 2026-07) -- cash still
+                -- outstanding against this period's invoices (positive), or
+                -- collections exceeding what was invoiced in it (negative --
+                -- cash landing against invoices raised earlier). Same sign
+                -- convention as po_vs_invoice_variance_myr above.
+                'invoice_vs_collected_variance_myr', coalesce(a.invoiced_revenue, 0) - coalesce(c.collected_myr, 0),
+                'collection_rate_pct', case
+                    when coalesce(a.invoiced_revenue, 0) > 0
+                    then round((coalesce(c.collected_myr, 0) / a.invoiced_revenue) * 100, 1)
+                    else 0
+                end
             ) order by coalesce(a.invoiced_revenue, 0) desc
         ), '[]'::json)
         from rep_order_actuals o
         full outer join rep_invoice_actuals a on a.sales_rep_code = o.sales_rep_code
-        full outer join budget_math b on b.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code)
-        left join sap_sales_persons sp on sp.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code, b.sales_rep_code)
-        left join employee_sales_rep_mapping m on m.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code, b.sales_rep_code)
+        full outer join rep_collected_actuals c on c.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code)
+        full outer join budget_math b on b.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code, c.sales_rep_code)
+        left join sap_sales_persons sp on sp.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code, c.sales_rep_code, b.sales_rep_code)
+        left join employee_sales_rep_mapping m on m.sales_rep_code = coalesce(o.sales_rep_code, a.sales_rep_code, c.sales_rep_code, b.sales_rep_code)
         left join employees e on e.id = m.employee_id
         left join profiles p on p.id = e.profile_id
-        where coalesce(o.order_value, 0) > 0 or coalesce(a.invoiced_revenue, 0) > 0 or coalesce(b.prorated_budget, 0) > 0
+        where coalesce(o.order_value, 0) > 0
+           or coalesce(a.invoiced_revenue, 0) > 0
+           or coalesce(c.collected_myr, 0) > 0
+           or coalesce(b.prorated_budget, 0) > 0
     ),
 
     -- Same figures as invoiceBudgetScorecardData's order_value_myr, just
@@ -394,6 +559,70 @@ select json_build_object(
         ) order by coalesce(bm.month, im.month)), '[]'::json)
         from booked_by_month bm
         full outer join invoiced_by_month im on im.month = bm.month
+    ),
+
+    -- Invoiced / Collected / Budget (added 2026-07, invoice/budget/collected
+    -- rebalance) -- monthly SAP invoiced revenue and cash collected against
+    -- the manually-set monthly revenue budget (sales_budgets). The
+    -- Forecast-2 pairing invoiceBudgetScorecardData shows per rep; this is
+    -- the same story dept-wide, over time -- answers "are we tracking to
+    -- budget month over month", which the scorecard's single collapsed
+    -- period figure can't.
+    --
+    -- Period-bound by p_start_date/p_end_date (all-time when neither is
+    -- set), same convention as realizedVsPipelineData above and
+    -- get_finance_dashboard's revenueTrendData -- deliberately NOT the fixed
+    -- trailing-12-month window bookingsVsInvoicedTrendData uses above. That
+    -- one is fixed because a booking-to-billing LAG is only legible across a
+    -- multi-month window; budget attainment is a plain period question and
+    -- should follow the page's own date filter.
+    --
+    -- No proration here, unlike budget_math above: sales_budgets is already
+    -- monthly-native (budget_month is a date, one row per rep per month), so
+    -- a monthly trend reads it at its own native grain -- proration exists
+    -- only to collapse those months into one arbitrary-length period. The
+    -- budget side filters/groups on the month BUCKET (date_trunc'd), not the
+    -- raw date, since nothing constrains budget_month to a first-of-month
+    -- value.
+    'invoicedVsBudgetTrendData', (
+        with invoiced_by_month as (
+            select
+                to_char(date_trunc('month', "invoice_date"::date), 'YYYY-MM') as month,
+                sum(total_amount_myr) as invoiced_revenue
+            from base_invoices
+            where (p_start_date is null or "invoice_date"::date >= p_start_date)
+              and (p_end_date   is null or "invoice_date"::date <= p_end_date)
+            group by 1
+        ),
+        -- Reuses base_payment_apps (already materialized for this request),
+        -- same window/shape as collected_kpis above, just bucketed monthly.
+        collected_by_month as (
+            select
+                to_char(date_trunc('month', payment_date::date), 'YYYY-MM') as month,
+                sum(amount_applied_myr) as collected_revenue
+            from base_payment_apps
+            where (p_start_date is null or payment_date::date >= p_start_date)
+              and (p_end_date   is null or payment_date::date <= p_end_date)
+            group by 1
+        ),
+        budget_by_month as (
+            select
+                to_char(date_trunc('month', b.budget_month), 'YYYY-MM') as month,
+                sum(b.budget_revenue) as budget_revenue
+            from sales_budgets b
+            where (p_start_date is null or date_trunc('month', b.budget_month) >= date_trunc('month', p_start_date))
+              and (p_end_date   is null or date_trunc('month', b.budget_month) <= date_trunc('month', p_end_date))
+            group by 1
+        )
+        select coalesce(json_agg(json_build_object(
+            'period', coalesce(im.month, cm.month, bm.month),
+            'invoiced_revenue_myr', coalesce(im.invoiced_revenue, 0),
+            'collected_revenue_myr', coalesce(cm.collected_revenue, 0),
+            'budget_revenue_myr', coalesce(bm.budget_revenue, 0)
+        ) order by coalesce(im.month, cm.month, bm.month)), '[]'::json)
+        from invoiced_by_month im
+        full outer join collected_by_month cm on cm.month = im.month
+        full outer join budget_by_month bm on bm.month = coalesce(im.month, cm.month)
     ),
 
     'grossProfitByRepData', (
@@ -524,6 +753,38 @@ select json_build_object(
             where not fl.is_cancelled
             group by c.name
             order by won_revenue desc
+            limit 10
+        ) x
+    ),
+
+    -- Top customers by invoiced revenue (added 2026-07, invoice/budget/
+    -- collected rebalance) -- SAP-sourced account-concentration basis,
+    -- mirroring get_finance_dashboard_rpc.sql's topCustomersByRevenueData
+    -- field for field (same base_invoices shape, same customer_code/
+    -- customer_name grouping, same count(distinct doc_entry), same limit 10)
+    -- so the two dashboards can never rank the same accounts differently.
+    --
+    -- "Customer" (SAP customer_code on sap_invoices), NOT "Client" (the
+    -- CRM-native `clients` table used by topClientsData above) -- see
+    -- DASHBOARD-CONVENTIONS.md's "Client vs Customer" rule. This RPC now
+    -- legitimately returns both words, one per source table: topClientsData
+    -- backs the CRM-side "Top Clients" chart (unchanged, kept as-is); this
+    -- field backs the headline Customer Concentration tile (converted from
+    -- CRM to SAP-invoiced per explicit product decision) and its own "Top
+    -- Customers by Invoiced Revenue" chart.
+    'topInvoicedCustomersData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from (
+            select
+                customer_code,
+                customer_name,
+                count(distinct doc_entry) as invoice_count,
+                sum(total_amount_myr) as revenue_myr
+            from base_invoices
+            where (p_start_date is null or "invoice_date"::date >= p_start_date)
+              and (p_end_date is null or "invoice_date"::date <= p_end_date)
+            group by customer_code, customer_name
+            order by revenue_myr desc
             limit 10
         ) x
     )
