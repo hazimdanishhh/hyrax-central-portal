@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CoinsIcon } from "@phosphor-icons/react";
+import { BookOpenIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
@@ -14,24 +14,27 @@ import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchPayments } from "../../../../features/finance/payments/private/api/paymentsService";
-import { getPaymentsFilterConfig } from "./filterConfig";
-import { paymentsTableConfig } from "./tableConfig";
-import PaymentSidebar from "./detail/PaymentSidebar";
+import { fetchJournalEntries } from "../../../../features/finance/journalEntries/private/api/journalEntriesService";
+import { getJournalEntriesFilterConfig } from "./filterConfig";
+import { journalEntriesTableConfig } from "./tableConfig";
+import JournalEntrySidebar from "./detail/JournalEntrySidebar";
 
 /**
- * Read-only payments list -- SAP is the system of record, so there's no
- * create/edit/delete here, just search/filter/sort/paginate over
- * sap_payments. This is the drill-through target for the Finance dashboard's
- * Cash Collected KPI and the Unallocated Payments chart.
+ * Read-only General Ledger journal entries list -- SAP is the system of
+ * record, so there's no create/edit/delete here, just
+ * search/filter/sort/paginate over sap_gl_journal_entries (OJDT). Added
+ * 2026-07 to close the one genuine list-page gap from Finance Expansion
+ * Phase 2 -- until now, GL data was only visible as aggregate dashboard
+ * figures on Finance Reports, with no way to browse individual
+ * transactions.
  */
-export default function Payments() {
+export default function JournalEntries() {
   const { darkMode } = useTheme();
   const [selectedRow, setSelectedRow] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
-    data: payments,
+    data: journalEntries,
     totalCount,
     page,
     totalPages,
@@ -47,16 +50,16 @@ export default function Payments() {
     isFetching,
     error,
   } = usePaginatedQuery({
-    queryKey: "finance_payments",
-    queryFn: fetchPayments,
+    queryKey: "finance_journal_entries",
+    queryFn: fetchJournalEntries,
     pageSize: 20,
-    defaultSortBy: "payment_date",
+    defaultSortBy: "posting_date",
     defaultSortOrder: "descending",
   });
 
-  const filterConfig = getPaymentsFilterConfig();
-  const columns = paymentsTableConfig();
-  const hasData = payments.length > 0;
+  const filterConfig = getJournalEntriesFilterConfig();
+  const columns = journalEntriesTableConfig();
+  const hasData = journalEntries.length > 0;
 
   function handleOpenSidebar(row) {
     setSelectedRow(row);
@@ -71,7 +74,7 @@ export default function Payments() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <Breadcrumbs icon={CoinsIcon} current="Payments" />
+          <Breadcrumbs icon={BookOpenIcon} current="Journal Entries" />
 
           <CardWrapper>
             <SearchFilterBar
@@ -80,7 +83,7 @@ export default function Payments() {
               filters={filters}
               onFilterChange={setFilters}
               filterConfig={filterConfig}
-              placeholder="Search payments..."
+              placeholder="Search journal entries..."
               enableDateRange
             />
 
@@ -98,7 +101,7 @@ export default function Payments() {
             )}
 
             <PageResult
-              data={payments}
+              data={journalEntries}
               totalCount={totalCount}
               page={page}
               setPage={setPage}
@@ -117,9 +120,9 @@ export default function Payments() {
                 <NoResult title="Error loading results" />
               ) : (
                 <DataTable
-                  data={payments}
+                  data={journalEntries}
                   columns={columns}
-                  rowKey="doc_entry"
+                  rowKey="trans_id"
                   onRowClick={handleOpenSidebar}
                 />
               )}
@@ -131,14 +134,14 @@ export default function Payments() {
       <AnimatePresence>
         {sidebarOpen && (
           <DataSidebar
-            title="Payment Detail"
-            icon={CoinsIcon}
+            title="Journal Entry Detail"
+            icon={BookOpenIcon}
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             isEditing={false}
             fullPage
           >
-            <PaymentSidebar selectedRow={selectedRow} />
+            <JournalEntrySidebar selectedRow={selectedRow} />
           </DataSidebar>
         )}
       </AnimatePresence>

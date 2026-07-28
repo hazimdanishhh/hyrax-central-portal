@@ -256,38 +256,51 @@ gl_balance_sheet as (
 ),
 
 base_gl_lines as (
-    -- Period P&L activity. No is_cancelled-style filter: GL postings are
-    -- immutable once created (a correction posts a new offsetting entry, it
-    -- never edits an old one), so unlike base_invoices/base_bills there's no
-    -- cancelled-doc state to exclude here.
+    -- Period P&L activity, read from mv_gl_monthly_account_summary (added
+    -- 2026-07, see infrastructure/gl_monthly_summary_migration.sql) instead
+    -- of a live join across sap_gl_journal_lines/sap_gl_journal_entries/
+    -- sap_gl_accounts -- that live join (467K + 156K rows, unconditionally
+    -- full history on every single call, since the date filter only
+    -- decides which rows count toward the sums, not how much gets
+    -- scanned/joined) was still costing 10s+ even after this CTE's own
+    -- kpi_totals consumers were rewritten to single-pass FILTER aggregates.
+    -- The materialized view pre-joins/pre-aggregates to (month,
+    -- account_code) grain -- a few thousand rows instead of hundreds of
+    -- thousands -- refreshed by ingestion/sap_supabase/src/extractors/
+    -- gl_journal.py right after each GL pipeline run, not on a schedule.
     --
-    -- trans_type <> '-3' (added 2026-07): -3 is SAP Business One's own
-    -- reserved, system-generated transaction type for period-end closing --
-    -- confirmed live via a March 2023 batch (memo "For Closing Period YE
-    -- 2023 (01/04/22-31/03/23)") that exactly canceled that fiscal year's
-    -- entire revenue to the cent (11 months of normal RM 2-8M/month revenue
-    -- summed to the exact negative of this one batch). Left in, any fiscal
-    -- year SAP has formally closed reports netProfit/ebitda/plTrendData as a
-    -- misleading RM 0 instead of its real operating P&L -- this affects most
-    -- historical fiscal years, not an isolated case (closing entries seen in
-    -- December for 2017-2021, March for 2023-2024; 2025 not yet closed).
-    -- Structural exclusion (a reserved SAP system code), not a name/memo
-    -- match -- same "prefer structural over text-pattern" reasoning as the
-    -- Interest lookup's "7200" account category elsewhere in this RPC.
-    -- Deliberately does NOT touch gl_balance_sheet/current_balance_myr --
-    -- the balance sheet should keep reflecting the real current balance,
-    -- including the equity increase a closing entry produces.
+    -- Column contract below is UNCHANGED from the old live-join version, so
+    -- nothing downstream (gl_agg, plTrendData, opexBreakdownData,
+    -- plYoyTrendData) needed to change.
+    --
+    -- Known tradeoff: posting_date is now month-truncated (first-of-month),
+    -- not the exact day -- a custom date range that doesn't land on a month
+    -- boundary rounds to whole months for GL figures specifically (AR/AP
+    -- figures are untouched). Fine in practice: the only real filter UI
+    -- here is the Fiscal Year preset (April-March, always month-aligned).
+    --
+    -- trans_type <> '-3' (SAP Business One's reserved period-end-closing
+    -- system code -- see the execution plan doc's Phase 2 follow-up notes
+    -- for the live-confirmed diagnosis) is now excluded inside the
+    -- materialized view itself, not here.
+    --
+    -- Reads private.mv_gl_monthly_account_summary, not public (added
+    -- 2026-07, see infrastructure/gl_monthly_summary_private_schema_
+    -- migration.sql): Supabase's linter flagged the view for being directly
+    -- reachable via the REST API from the public schema, bypassing the
+    -- app-level access gating -- nothing but this RPC ever needed to read
+    -- it. This function stays SECURITY INVOKER; the private schema isn't in
+    -- PostgREST's exposed-schemas list, so it isn't routable via the API at
+    -- all, regardless of the grants that let this function's own query
+    -- still succeed.
     select
-        jl.account_code,
-        jl.debit_amount_myr,
-        jl.credit_amount_myr,
-        je.posting_date,
-        a.drawer,
-        a.account_name
-    from sap_gl_journal_lines jl
-    join sap_gl_journal_entries je on jl.trans_id = je.trans_id
-    join sap_gl_accounts a on jl.account_code = a.account_code
-    where je.trans_type <> '-3'
+        account_code,
+        debit_amount_myr,
+        credit_amount_myr,
+        month as posting_date,
+        drawer,
+        account_name
+    from private.mv_gl_monthly_account_summary
 ),
 
 -- Performance rewrite (added 2026-07): kpi_totals used to compute every field
@@ -1033,6 +1046,41 @@ select json_build_object(
             from base_gl_lines
             where (p_start_date is null or posting_date::date >= p_start_date)
               and (p_end_date   is null or posting_date::date <= p_end_date)
+            group by 1
+        ) x
+    ),
+
+    -- P&L YoY trend (added 2026-07) -- same 4 series as plTrendData above,
+    -- bucketed by FISCAL YEAR (April-March, matching FiscalYearFilterBar's
+    -- own definition in src/functions/fiscalYearPresets.js) instead of
+    -- calendar month. Deliberately NOT bounded by p_start_date/p_end_date --
+    -- always full history, same "always-on" convention as arAgingData/
+    -- balanceSheetSnapshotData elsewhere in this RPC -- shows the whole
+    -- multi-year growth/decline trajectory regardless of whatever period is
+    -- currently selected. Cheap to add: base_gl_lines already reads
+    -- unconditional full history for every call (see its own comment
+    -- above), so this is one more aggregation pass over data already
+    -- materialized for this request, not an extra join.
+    'plYoyTrendData', (
+        select coalesce(json_agg(json_build_object(
+            'period', fiscal_year_start::text || '-' || (fiscal_year_start + 1)::text,
+            'revenue_myr', revenue,
+            'cogs_myr', cogs,
+            'opex_myr', opex,
+            'net_profit_myr', revenue - cogs - opex - other_expenditure - tax
+        ) order by fiscal_year_start), '[]'::json)
+        from (
+            select
+                (case when extract(month from posting_date) >= 4
+                      then extract(year from posting_date)
+                      else extract(year from posting_date) - 1
+                 end)::int as fiscal_year_start,
+                coalesce(sum(credit_amount_myr - debit_amount_myr) filter (where drawer = 4), 0) as revenue,
+                coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 5), 0) as cogs,
+                coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 6), 0) as opex,
+                coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 7), 0) as other_expenditure,
+                coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 8), 0) as tax
+            from base_gl_lines
             group by 1
         ) x
     ),

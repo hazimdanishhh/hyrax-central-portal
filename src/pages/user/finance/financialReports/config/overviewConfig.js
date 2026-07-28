@@ -25,7 +25,9 @@ export function getFinanceOverviewConfig(kpis) {
   // -- "1.85x" reads as a ratio the way "RM 1,850,000" reads as an amount.
   // null (division-by-zero guard in the RPC) renders as "—", not "0.00x".
   const formatRatio = (value) =>
-    value === null || value === undefined ? "—" : `${Number(value).toFixed(2)}x`;
+    value === null || value === undefined
+      ? "—"
+      : `${Number(value).toFixed(2)}x`;
 
   // Calculate percentage change function (mirrors sales leads overview config)
   const calcDelta = (current, previous) => {
@@ -155,16 +157,16 @@ export function getFinanceOverviewConfig(kpis) {
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
-        {
-          label: "vs Last Year",
-          value: invoicedYoyDeltaText,
-          icon:
-            invoicedYoyDelta === null
-              ? null
-              : invoicedYoyDelta >= 0
-                ? TrendUpIcon
-                : TrendDownIcon,
-        },
+        // {
+        //   label: "vs Last Year",
+        //   value: invoicedYoyDeltaText,
+        //   icon:
+        //     invoicedYoyDelta === null
+        //       ? null
+        //       : invoicedYoyDelta >= 0
+        //         ? TrendUpIcon
+        //         : TrendDownIcon,
+        // },
       ],
       title: `Total invoiced revenue in the selected period — ${formatRM(kpis.periodInvoicedRevenue)}`,
     },
@@ -231,16 +233,16 @@ export function getFinanceOverviewConfig(kpis) {
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
-        {
-          label: "vs Last Year",
-          value: grossProfitYoyDeltaText,
-          icon:
-            grossProfitYoyDelta === null
-              ? null
-              : grossProfitYoyDelta >= 0
-                ? TrendUpIcon
-                : TrendDownIcon,
-        },
+        // {
+        //   label: "vs Last Year",
+        //   value: grossProfitYoyDeltaText,
+        //   icon:
+        //     grossProfitYoyDelta === null
+        //       ? null
+        //       : grossProfitYoyDelta >= 0
+        //         ? TrendUpIcon
+        //         : TrendDownIcon,
+        // },
       ],
       title: `Total gross profit on invoiced revenue in the selected period (SAP's own GrosProfit field, with the item-cost-outlier guard applied) — ${formatRM(kpis.periodGrossProfit)}`,
     },
@@ -343,7 +345,11 @@ export function getFinanceOverviewConfig(kpis) {
           label: "Prev. Period",
           value: paidDeltaText,
           icon:
-            paidDelta === null ? null : paidDelta >= 0 ? TrendUpIcon : TrendDownIcon,
+            paidDelta === null
+              ? null
+              : paidDelta >= 0
+                ? TrendUpIcon
+                : TrendDownIcon,
         },
       ],
       title: `Cash actually paid out to vendors via outgoing payments — ${formatRM(kpis.totalPaid)}`,
@@ -429,16 +435,16 @@ export function getFinanceOverviewConfig(kpis) {
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
-        {
-          label: "vs Last Year",
-          value: netProfitYoyDeltaText,
-          icon:
-            netProfitYoyDelta === null
-              ? null
-              : netProfitYoyDelta >= 0
-                ? TrendUpIcon
-                : TrendDownIcon,
-        },
+        // {
+        //   label: "vs Last Year",
+        //   value: netProfitYoyDeltaText,
+        //   icon:
+        //     netProfitYoyDelta === null
+        //       ? null
+        //       : netProfitYoyDelta >= 0
+        //         ? TrendUpIcon
+        //         : TrendDownIcon,
+        // },
       ],
       title: `Revenue − COGS − Operating Expenses − Other Expenditure − Tax, from actual General Ledger postings — ${formatRM(kpis.netProfit)}`,
     },
@@ -485,7 +491,8 @@ export function getFinanceOverviewConfig(kpis) {
     {
       icon: StackIcon,
       label: "Working Capital",
-      sublabel: "Current Assets minus Current Liabilities (Not based on period)",
+      sublabel:
+        "Current Assets minus Current Liabilities (Not based on period)",
       value: compactCurrency(kpis.workingCapital),
       variant: "blueCardFill",
       to: null,

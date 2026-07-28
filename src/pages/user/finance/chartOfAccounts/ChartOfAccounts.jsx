@@ -1,37 +1,33 @@
-import { useState } from "react";
-import { CoinsIcon } from "@phosphor-icons/react";
-import { AnimatePresence } from "framer-motion";
+import { TreeStructureIcon } from "@phosphor-icons/react";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
-import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataTable from "../../../../components/dataTable/DataTable";
-import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchPayments } from "../../../../features/finance/payments/private/api/paymentsService";
-import { getPaymentsFilterConfig } from "./filterConfig";
-import { paymentsTableConfig } from "./tableConfig";
-import PaymentSidebar from "./detail/PaymentSidebar";
+import { fetchChartOfAccounts } from "../../../../features/finance/chartOfAccounts/private/api/chartOfAccountsService";
+import { getChartOfAccountsFilterConfig } from "./filterConfig";
+import { chartOfAccountsTableConfig } from "./tableConfig";
 
 /**
- * Read-only payments list -- SAP is the system of record, so there's no
- * create/edit/delete here, just search/filter/sort/paginate over
- * sap_payments. This is the drill-through target for the Finance dashboard's
- * Cash Collected KPI and the Unallocated Payments chart.
+ * Read-only Chart of Accounts reference list -- SAP is the system of
+ * record, so there's no create/edit/delete here, just
+ * search/filter/sort/paginate over sap_gl_accounts (OACT). Added 2026-07
+ * alongside the Journal Entries list page -- pairs naturally with it (e.g.
+ * looking up what an account_code on a journal line actually means). Flat
+ * reference/master data, not transactional, so no date-range filter and no
+ * line-level drill-down.
  */
-export default function Payments() {
+export default function ChartOfAccounts() {
   const { darkMode } = useTheme();
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
-    data: payments,
+    data: accounts,
     totalCount,
     page,
     totalPages,
@@ -47,31 +43,22 @@ export default function Payments() {
     isFetching,
     error,
   } = usePaginatedQuery({
-    queryKey: "finance_payments",
-    queryFn: fetchPayments,
+    queryKey: "finance_chart_of_accounts",
+    queryFn: fetchChartOfAccounts,
     pageSize: 20,
-    defaultSortBy: "payment_date",
-    defaultSortOrder: "descending",
+    defaultSortBy: "account_code",
+    defaultSortOrder: "ascending",
   });
 
-  const filterConfig = getPaymentsFilterConfig();
-  const columns = paymentsTableConfig();
-  const hasData = payments.length > 0;
-
-  function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
-  }
-
-  function handleCloseSidebar() {
-    setSidebarOpen(false);
-  }
+  const filterConfig = getChartOfAccountsFilterConfig();
+  const columns = chartOfAccountsTableConfig();
+  const hasData = accounts.length > 0;
 
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <Breadcrumbs icon={CoinsIcon} current="Payments" />
+          <Breadcrumbs icon={TreeStructureIcon} current="Chart of Accounts" />
 
           <CardWrapper>
             <SearchFilterBar
@@ -80,11 +67,8 @@ export default function Payments() {
               filters={filters}
               onFilterChange={setFilters}
               filterConfig={filterConfig}
-              placeholder="Search payments..."
-              enableDateRange
+              placeholder="Search chart of accounts..."
             />
-
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
             {hasActiveFilters && (
               <ActiveFiltersBar
@@ -98,7 +82,7 @@ export default function Payments() {
             )}
 
             <PageResult
-              data={payments}
+              data={accounts}
               totalCount={totalCount}
               page={page}
               setPage={setPage}
@@ -116,32 +100,12 @@ export default function Payments() {
               ) : error ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <DataTable
-                  data={payments}
-                  columns={columns}
-                  rowKey="doc_entry"
-                  onRowClick={handleOpenSidebar}
-                />
+                <DataTable data={accounts} columns={columns} rowKey="account_code" />
               )}
             </div>
           </CardWrapper>
         </div>
       </div>
-
-      <AnimatePresence>
-        {sidebarOpen && (
-          <DataSidebar
-            title="Payment Detail"
-            icon={CoinsIcon}
-            open={sidebarOpen}
-            onClose={handleCloseSidebar}
-            isEditing={false}
-            fullPage
-          >
-            <PaymentSidebar selectedRow={selectedRow} />
-          </DataSidebar>
-        )}
-      </AnimatePresence>
     </section>
   );
 }

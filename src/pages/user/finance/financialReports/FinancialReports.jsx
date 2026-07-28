@@ -13,6 +13,7 @@ import ChartCard from "../../../../components/chartCard/ChartCard";
 import HorizontalBarChartRenderer from "../../../../components/chartCard/HorizontalBarChartRenderer";
 import HorizontalMultiBarRenderer from "../../../../components/chartCard/HorizontalMultiBarRenderer";
 import LineChartRenderer from "../../../../components/chartCard/LineChartRenderer";
+import VerticalMultiBarRenderer from "../../../../components/chartCard/VerticalMultiBarRenderer";
 import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer";
 import {
   BLUE_COLOR,
@@ -187,6 +188,19 @@ export default function FinancialReports() {
     dashboard?.opexBreakdownData?.map((d) => ({
       name: d.account_name,
       value: d.amount_myr,
+    })) ?? [];
+
+  // Added 2026-07: same 4 series as plTrendData, bucketed by fiscal year
+  // instead of month -- NOT affected by the date filter (always full
+  // history), shows the general growth/decline trajectory regardless of
+  // whatever period is currently selected.
+  const plYoyTrendData =
+    dashboard?.plYoyTrendData?.map((d) => ({
+      name: d.period,
+      "Revenue (RM)": d.revenue_myr,
+      "COGS (RM)": d.cogs_myr,
+      "OpEx (RM)": d.opex_myr,
+      "Net Profit (RM)": d.net_profit_myr,
     })) ?? [];
 
   return (
@@ -401,6 +415,26 @@ export default function FinancialReports() {
                           <HorizontalBarChartRenderer
                             data={opexBreakdownData}
                             colorMap={RED_COLOR}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="P&L YoY Trend"
+                          subtitle="Revenue, COGS, OpEx & Net Profit by fiscal year (RM) — not affected by date filter"
+                          style="cardGapSmall"
+                        >
+                          <VerticalMultiBarRenderer
+                            data={plYoyTrendData}
+                            bars={[
+                              { dataKey: "Revenue (RM)", name: "Revenue (RM)", color: BLUE_COLOR },
+                              { dataKey: "COGS (RM)", name: "COGS (RM)", color: RED_COLOR },
+                              { dataKey: "OpEx (RM)", name: "OpEx (RM)", color: YELLOW_COLOR },
+                              {
+                                dataKey: "Net Profit (RM)",
+                                name: "Net Profit (RM)",
+                                color: GREEN_COLOR,
+                              },
+                            ]}
                           />
                         </ChartCard>
                       </CardLayout>

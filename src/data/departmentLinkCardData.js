@@ -19,6 +19,8 @@ import {
   ReceiptIcon,
   InvoiceIcon,
   HandCoinsIcon,
+  BookOpenIcon,
+  TreeStructureIcon,
 } from "@phosphor-icons/react";
 
 // Config-driven "department link cards" shown on the Dashboard homepage.
@@ -150,6 +152,29 @@ export const departmentLinkCardData = [
         path: "finance/vendor-payments",
 
         departments: ["FIN"],
+      },
+
+      // Added 2026-07 (Finance Expansion Phase 2 follow-up, General Ledger
+      // list pages). Matches finance/journal-entries'/finance/chart-of-
+      // accounts' AccessRoute gate exactly (mirrors Bills' route gate).
+      {
+        label: "Journal Entries",
+        description: "Browse General Ledger journal entries and their lines.",
+        icon: BookOpenIcon,
+        path: "finance/journal-entries",
+
+        departments: ["FIN"],
+        roles: ["manager"],
+      },
+
+      {
+        label: "Chart of Accounts",
+        description: "Reference list of Hyrax's chart of accounts.",
+        icon: TreeStructureIcon,
+        path: "finance/chart-of-accounts",
+
+        departments: ["FIN"],
+        roles: ["manager"],
       },
     ],
   },

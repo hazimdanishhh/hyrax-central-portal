@@ -17,6 +17,7 @@ import NoResult from "../../../../components/crud/noResult/NoResult";
 import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
+import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import ExportActions from "../../../../components/exportActions/ExportActions";
 import useDashboardQuery from "../../../../hooks/useDashboardQuery";
@@ -129,6 +130,8 @@ export default function OperationsReports() {
               isLoading={isLoading}
               isError={isError}
             />
+
+            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
             {/* EXPORT */}
             <div

@@ -6,6 +6,8 @@ import Bills from "../pages/user/finance/bills/Bills";
 import VendorPayments from "../pages/user/finance/vendorPayments/VendorPayments";
 import ClaimsManagement from "../pages/user/finance/claimsManagement/ClaimsManagement";
 import FinancialReports from "../pages/user/finance/financialReports/FinancialReports";
+import JournalEntries from "../pages/user/finance/journalEntries/JournalEntries";
+import ChartOfAccounts from "../pages/user/finance/chartOfAccounts/ChartOfAccounts";
 
 export default (
   <Route path="finance">
@@ -52,6 +54,32 @@ export default (
       element={
         <AccessRoute departments={["FIN"]}>
           <VendorPayments />
+        </AccessRoute>
+      }
+    />
+
+    {/* JOURNAL ENTRIES (General Ledger, added 2026-07, Finance Expansion
+        Phase 2 follow-up) -- access gate mirrors Bills'/Invoices' exactly,
+        since Journal Entries mirrors that same read-only list+drill-down
+        pattern. */}
+    <Route
+      path="journal-entries"
+      element={
+        <AccessRoute departments={["FIN"]} roles={["manager"]}>
+          <JournalEntries />
+        </AccessRoute>
+      }
+    />
+
+    {/* CHART OF ACCOUNTS (General Ledger reference data, added 2026-07,
+        Finance Expansion Phase 2 follow-up) -- same access gate as Journal
+        Entries, since it pairs directly with it (looking up what an
+        account_code on a journal line means). */}
+    <Route
+      path="chart-of-accounts"
+      element={
+        <AccessRoute departments={["FIN"]} roles={["manager"]}>
+          <ChartOfAccounts />
         </AccessRoute>
       }
     />

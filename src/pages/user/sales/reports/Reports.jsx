@@ -22,6 +22,7 @@ import NoResult from "../../../../components/crud/noResult/NoResult";
 import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
+import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import ExportActions from "../../../../components/exportActions/ExportActions";
 import ScorecardList from "../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard";
@@ -52,8 +53,6 @@ function Reports() {
     queryKey: "sales_reports_dashboard",
     queryFn: fetchSalesReportsDashboard,
   });
-
-  console.log(dashboard);
 
   const {
     owners,
@@ -174,6 +173,8 @@ function Reports() {
               isLoading={isLoading}
               isError={isError}
             />
+
+            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
             {/* EXPORT */}
             <div

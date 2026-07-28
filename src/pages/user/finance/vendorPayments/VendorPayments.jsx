@@ -6,6 +6,7 @@ import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
+import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataTable from "../../../../components/dataTable/DataTable";
@@ -83,6 +84,8 @@ export default function VendorPayments() {
               placeholder="Search vendor payments..."
               enableDateRange
             />
+
+            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
             {hasActiveFilters && (
               <ActiveFiltersBar

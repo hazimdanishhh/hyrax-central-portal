@@ -31,6 +31,8 @@ import {
   ReceiptIcon,
   InvoiceIcon,
   HandCoinsIcon,
+  BookOpenIcon,
+  TreeStructureIcon,
 } from "@phosphor-icons/react";
 
 export const sideNavLinkData = [
@@ -251,6 +253,28 @@ export const sideNavLinkData = [
         icon: HandCoinsIcon,
         path: "finance/vendor-payments",
         departments: ["FIN"],
+      },
+
+      // Added 2026-07 (Finance Expansion Phase 2 follow-up, General Ledger
+      // list pages). Gate matches finance/journal-entries'/
+      // finance/chart-of-accounts' AccessRoute exactly (mirrors Bills' route
+      // gate).
+      {
+        label: "Journal Entries",
+        icon: BookOpenIcon,
+        path: "finance/journal-entries",
+
+        departments: ["FIN"],
+        roles: ["manager"],
+      },
+
+      {
+        label: "Chart of Accounts",
+        icon: TreeStructureIcon,
+        path: "finance/chart-of-accounts",
+
+        departments: ["FIN"],
+        roles: ["manager"],
       },
     ],
   },
