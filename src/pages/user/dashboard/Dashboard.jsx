@@ -59,7 +59,7 @@ function Dashboard() {
               />
 
               {departmentLinkSections.map((segment) => (
-                <div className="sectionContent" key={segment.segmentCode}>
+                <div key={segment.segmentCode}>
                   <SectionHeader
                     icon={segment.icon}
                     title={segment.segmentTitle}
