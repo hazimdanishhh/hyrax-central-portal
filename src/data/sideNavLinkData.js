@@ -230,16 +230,16 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
-      {
-        label: "Claims Management",
-        icon: ClipboardTextIcon,
-        path: "finance/claims-management",
+      // {
+      //   label: "Claims Management",
+      //   icon: ClipboardTextIcon,
+      //   path: "finance/claims-management",
 
-        departments: ["FIN"],
-      },
+      //   departments: ["FIN"],
+      // },
 
       {
-        label: "Payments",
+        label: "Incoming Payments",
         icon: CoinsIcon,
         path: "finance/payments",
         departments: ["FIN"],
@@ -249,7 +249,7 @@ export const sideNavLinkData = [
       // finance/vendor-payments' AccessRoute exactly (mirrors Payments' route
       // gate -- department only, no role restriction).
       {
-        label: "Vendor Payments",
+        label: "Outgoing Payments",
         icon: HandCoinsIcon,
         path: "finance/vendor-payments",
         departments: ["FIN"],

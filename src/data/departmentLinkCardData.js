@@ -41,7 +41,8 @@ export const departmentLinkCardData = [
     links: [
       {
         label: "Reports",
-        description: "Pipeline attainment, win rates and department performance.",
+        description:
+          "Pipeline attainment, win rates and department performance.",
         icon: ChartBarIcon,
         path: "sales/reports",
 
@@ -124,17 +125,17 @@ export const departmentLinkCardData = [
         roles: ["manager"],
       },
 
-      {
-        label: "Claims Management",
-        description: "Process and track expense and reimbursement claims.",
-        icon: ClipboardTextIcon,
-        path: "finance/claims-management",
+      // {
+      //   label: "Claims Management",
+      //   description: "Process and track expense and reimbursement claims.",
+      //   icon: ClipboardTextIcon,
+      //   path: "finance/claims-management",
 
-        departments: ["FIN"],
-      },
+      //   departments: ["FIN"],
+      // },
 
       {
-        label: "Payments",
+        label: "Incoming Payments",
         description: "Review incoming customer payments.",
         icon: CoinsIcon,
         path: "finance/payments",
@@ -146,7 +147,7 @@ export const departmentLinkCardData = [
       // finance/vendor-payments' AccessRoute gate exactly (mirrors Payments'
       // route gate -- department only, no role restriction).
       {
-        label: "Vendor Payments",
+        label: "Outgoing Payments",
         description: "Review outgoing payments to vendors.",
         icon: HandCoinsIcon,
         path: "finance/vendor-payments",
