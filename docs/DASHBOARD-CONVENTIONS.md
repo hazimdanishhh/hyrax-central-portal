@@ -74,6 +74,30 @@ Don't migrate a page to the RPC-driven pattern below just to "match the others" 
 - RPCs are plain `.sql` files under `supabase/sql_editor/`, hand-pasted into the Supabase Studio SQL editor — no CLI/migrations wired up.
 - Any RPC edit is a manual deploy step.
 
+### Source-labeling convention (added 2026-07)
+
+Every dashboard blends multiple tables that can sound interchangeable (a CRM self-reported figure vs. a manually-set quota vs. an audited SAP figure; an SAP subledger figure vs. a General Ledger figure). Confirmed concrete case that motivated this: Finance's "P&L Breakdown" chart has a "Revenue" bar sourced from the General Ledger (`gl_period_revenue`), while the headline "Revenue Invoiced" tile is sourced from the SAP invoice subledger (`periodInvoicedRevenue`) — two different numbers, previously indistinguishable by label alone.
+
+**Rule: every tile sublabel, sub-metric label, and chart title/legend names its literal source table or layer — never a generic word that could mean more than one thing.** Apply this at build time, don't leave it to a tooltip alone (tooltips are supplementary, not the primary disambiguation).
+
+Canonical tags in use today — extend this table rather than inventing new vocabulary per dashboard:
+
+| Dashboard | Tag | Source | Nature |
+|---|---|---|---|
+| Sales Reports | *(none — "Pipeline" in the label already signals this)* | `sales_leads` | CRM, self-reported actual/open pipeline |
+| Sales Reports | **Target** | `sales_targets` | Manually-set dept-wide quota (Supabase-native, not SAP) |
+| Sales Reports | **Budget** | `sales_budgets` | Manually-set per-rep revenue budget (Supabase-native, not SAP) |
+| Sales Reports | **Sales Order** | `sap_sales_orders` | SAP — booked, not yet necessarily billed |
+| Sales Reports | **Invoice** | `sap_invoices` | SAP — billed |
+| Finance Reports | **General Ledger (GL)** | `OACT`/`OJDT`/`JDT1` via `base_gl_lines` | True accounting postings |
+| Finance Reports | **Invoice** | `sap_invoices` | AR subledger, invoice-line level |
+| Finance Reports | **Bill** | `sap_vendor_bills` | AP subledger, bill-line level |
+| Finance Reports | **Payment** | `sap_payment_applications`/receipts | Cash actually applied |
+
+**"Client" vs. "Customer" — not interchangeable.** Sales Reports' "Top Clients"/"Client Concentration" are sourced from the CRM-native `clients` table; Finance Reports' "Top Customers by Revenue" is sourced from SAP's own `customer_code` on `sap_invoices`. Keep using "Client" for the former and "Customer" for the latter across every future dashboard — don't let the two words drift into meaning the same thing.
+
+Two figures can legitimately disagree (e.g. GL revenue vs. invoice-subledger revenue, or a manually-set budget vs. an audited actual) — that's normal for these table pairings, not a bug to reconcile away. The fix is always to **label both sides so the difference is visible**, never to silently pick one or blend them.
+
 ### Watch-outs baked into every reference RPC — respect them in every new query
 
 - SAP dates are stored as `text` — cast `"invoice_date"::date`.
@@ -84,6 +108,9 @@ Don't migrate a page to the RPC-driven pattern below just to "match the others" 
 - **Previous-period delta pattern**: compute a same-length immediately-preceding window (`v_prev_start_date`/`v_prev_end_date`) server-side, then a client-side `calcDelta(current, previous)` helper turns that into "↑/↓ X% vs last period."
 - **Proration formula**: day-overlap proration of a monthly target/budget against an arbitrary date range — reuse the existing formula (`sales_targets`/`sales_budgets` proration) rather than re-deriving it, so multiple pages never silently drift apart on the same calculation.
 - **Don't trust a SAP-mirror "identity/link" field until it's verified against live data.** Confirmed twice now: the RCT2→invoice FK above, and `sap_sales_persons.employee_id` (EmpID), which was assumed to bridge to Supabase `employees` but turned out empty in production and conceptually wrong (it's designed to reference SAP's own unused OHEM module, not a company employee code) — see `DASHBOARD-ROADMAP.md` §1.1 for the real bridge (`employee_sales_rep_mapping`, auto-populated per SAP rep via trigger). A field name or a doc's stated intent isn't evidence it's populated or means what it says — check.
+- **`json_build_object` has a hard ~50-pair (100-argument) ceiling** — Postgres's `FUNC_MAX_ARGS`, not a config setting. Each key and value is a separate argument, so a `kpis` object that's grown additively across several build phases can hit it without anyone adding a huge single change — `get_finance_dashboard_rpc.sql` did, at 51 pairs/102 args, and had to be split into 4 calls merged via `jsonb ||` (see that file's header comment, fixing error `54023`). Split a `json_build_object` once it passes ~40 pairs, well before the ceiling, along whatever domain boundaries the object's own comments already suggest.
+- **Don't sort by a bare enum column when order matters** (e.g. a pipeline-stage funnel) — `order by <enum_column>` sorts by the enum's `CREATE TYPE` declaration order, which may not be defined anywhere in this repo's own SQL and so can't be relied on to match a business sequence (Discovery → ... → Won/Lost). Use an explicit `case when value then N ... end` ordinal instead.
+- **Null-guard multi-parameter date-range filters independently, not with one combined `is null` gate.** A pattern like `(p_start_date is null) or (created_at between p_start_date and p_end_date)` silently evaluates to `NULL` — and the row is dropped — the moment `p_start_date` is set but `p_end_date` is left null, because `p_end_date`-involving comparisons propagate `NULL` through the `OR`. This is reachable whenever a date-range filter UI renders two independent, uncoupled date inputs (the common case in this app). Guard each bound on its own: `(p_start_date is null or created_at >= p_start_date) and (p_end_date is null or created_at <= p_end_date + interval '1 day')`.
 
 ### What this app owns vs. what it doesn't
 

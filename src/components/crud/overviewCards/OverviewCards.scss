@@ -5,6 +5,9 @@
 .overviewCardValue {
   width: 100%;
   text-align: end;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
 }
 
 .metricsCardLayout {

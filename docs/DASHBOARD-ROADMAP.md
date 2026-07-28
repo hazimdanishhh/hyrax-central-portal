@@ -86,9 +86,13 @@ Start on Path A; revisit Path B only if dual-identity reconciliation (`clients.s
 
 ## 2. Per-department Reports pages — what to build
 
-### 2.1 Sales Reports _(Tier 3 — replaces the current Looker iframe)_
+### 2.1 Sales Reports _(Tier 3 — already built, redesigned 2026-07; previously a Looker iframe)_
 
-Audience: Sales Manager + execs, monthly/quarterly. Core question: is the department hitting both its pipeline and invoiced-revenue forecasts, and where is growth/risk concentrated? Content: pipeline attainment (Forecast 1), invoice-budget attainment (Forecast 2, needs `sales_budgets` — see §1.2), order book, realized-vs-pipeline revenue (labeled as two systems of record, never blended), win rate/deal size/cycle time, product-type mix, lead-source ROI, top clients, gross profit by rep. Fully buildable today except the new `sales_budgets` table.
+Audience: Sales Manager + execs, monthly/quarterly. Core question: is the department hitting both its pipeline and invoiced-revenue forecasts, where is growth/risk concentrated, and is enough still in the pipeline to cover what's left of the target? Built: pipeline attainment (Forecast 1), invoice-budget attainment (Forecast 2, `sales_budgets`), order book, realized-vs-pipeline revenue (labeled as two systems of record, never blended), win rate/deal size/cycle time, product-type mix, lead-source ROI, top clients, gross profit by rep — plus, resolved 2026-07 (§5 Duality A), the company's actual sales-review view: PO (sales order) vs Invoice vs Budget variance per rep.
+
+**Redesign — done (2026-07).** The 4-tile headline row is now 8 tiles, following the same "~7 headline numbers"/"what → so what → now what" methodology already applied to Finance Reports, telling doc-02's own Sales Story directly ("Where are deals in the pipeline, will we hit target, and are we fulfilling what we sold?") in two blocks: **Pipeline & Conversion** (CRM-side, forward-looking) — Pipeline Attainment, Pipeline Coverage (new — fills doc-02's previously-unrepresented "pipeline value & coverage ratio" bullet, `activePipelineValue`/`pipelineTargetRevenue`), Win Rate (promoted from a buried Order Book sub-metric to its own tile), Pipeline Velocity (new, synthesized — opportunities × avg deal size × win rate ÷ avg cycle days); **Execution, Bookings & Concentration** (SAP-side, backward-looking) — Sales Cycle, Invoice Budget Attainment, Order Book, Customer Concentration (new — top-5 clients' share of won revenue). Also added a Pipeline Stage funnel chart (doc-02 explicitly calls for one; this page previously had zero stage-composition view — built via the same horizontal-bar-renderer substitution technique Leads Overview already uses for its own funnel) and a SAP-only Bookings vs Invoiced Revenue trend chart (orders booked vs. invoices billed, trailing 12 months). See `RPC-REFERENCE.md` and `DASHBOARD-CURRENT-STATE.md` §5 for the full field/formula detail.
+
+**Remaining gaps (backlog):** OTIF and return/credit-memo rate (both in doc-02's Sales KPI list) remain blocked — OTIF needs Production (`OWOR`)/Inventory (`OITW`) extraction, credit-memo rate needs `ORIN`/`RIN1`, neither synced into Supabase yet (same class of gap as Finance's DIO/CCC blocker, see §2.2). A rep/region performance cut is deferred pending verification that `sap_customers`/`clients` region fields are reliably populated — not built speculatively. No AI Summary or period-over-period delta on this page yet (both present elsewhere in the app).
 
 ### 2.2 Finance Reports _(Tier 3 — already built; design in the missing pieces)_
 
@@ -147,7 +151,7 @@ Built the same way as every other Reports page: one `get_executive_dashboard` RP
 
 - Build Attendance Overview (flagship — do this first; see `DASHBOARD-CURRENT-STATE.md` §2 HR).
 - Build Clients Overview.
-- Build native Sales Reports, retiring the Looker iframe.
+- ~~Build native Sales Reports, retiring the Looker iframe~~ — **done**, then redesigned 2026-07 (see §2.1).
 - Build HR Reports (after the HR2000 direction settles).
 - Fold Quotations into Leads as a List-only tab, or formally retire it.
 - Re-enable Finance's commented-out AI Summary.

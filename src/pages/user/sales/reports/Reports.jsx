@@ -16,6 +16,7 @@ import LineChartRenderer from "../../../../components/chartCard/LineChartRendere
 import {
   BLUE_COLOR,
   GREEN_COLOR,
+  YELLOW_COLOR,
 } from "../../../../components/chartCard/chartColors";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../components/crud/noResult/NoResult";
@@ -71,9 +72,15 @@ function Reports() {
   const kpis = dashboard?.kpis ?? {};
   const invoiceBudgetScorecardData =
     dashboard?.invoiceBudgetScorecardData ?? [];
+  // Raw (unmapped) topClientsData -- fed to the overview config for the
+  // Customer Concentration tile AND reshaped below for the Top Clients
+  // chart, so both read the same snapshot rather than two separate maps
+  // over dashboard?.topClientsData.
+  const topClientsRaw = dashboard?.topClientsData ?? [];
   const overviewItems = getSalesReportsOverviewConfig(
     kpis,
     invoiceBudgetScorecardData,
+    topClientsRaw,
   );
 
   // Reshape to the field names ScorecardList/LeadsScoreCard already expects
@@ -96,11 +103,16 @@ function Reports() {
     po_vs_invoice_variance_myr: r.po_vs_invoice_variance_myr,
   }));
 
+  // Series renamed 2026-07 (source-labeling clarity pass, see
+  // DASHBOARD-CONVENTIONS.md): the chart title's own "(SAP)"/"(CRM)" tags
+  // already disambiguate, so the legend inside just names each source table
+  // plainly -- "Pipeline" (sales_leads) vs "Invoice" (sap_invoices), not the
+  // more generic "Realized."
   const realizedVsPipelineData =
     dashboard?.realizedVsPipelineData?.map((d) => ({
       name: d.period,
-      "Pipeline (CRM)": d.pipeline_revenue_myr,
-      "Realized (SAP)": d.realized_revenue_myr,
+      Pipeline: d.pipeline_revenue_myr,
+      Invoice: d.realized_revenue_myr,
     })) ?? [];
 
   const orderBookData =
@@ -128,10 +140,30 @@ function Reports() {
       value: d.won_revenue,
     })) ?? [];
 
-  const topClientsData =
-    dashboard?.topClientsData?.map((d) => ({
+  const topClientsData = topClientsRaw.map((d) => ({
+    name: d.name,
+    value: d.won_revenue,
+  }));
+
+  // Pipeline stage funnel (added 2026-07) -- ordered DISCOVERY -> LOST by the
+  // RPC's own stage_order, so no client-side sort needed. Charting count
+  // (volume); total_value is available on each row if a value-weighted
+  // funnel is wanted later.
+  const stageData =
+    dashboard?.stageData?.map((d) => ({
       name: d.name,
-      value: d.won_revenue,
+      value: d.count,
+    })) ?? [];
+
+  // Bookings vs Invoiced (added 2026-07) -- SAP-only booking-to-billing lag,
+  // always trailing 12 months and NOT affected by the page's own date filter
+  // (see the RPC comment). Distinct from realizedVsPipelineData above, which
+  // is the CRM-vs-SAP comparison.
+  const bookingsVsInvoicedTrendData =
+    dashboard?.bookingsVsInvoicedTrendData?.map((d) => ({
+      name: d.period,
+      "Sales Order (Booked)": d.booked_revenue_myr,
+      "Invoice (Billed)": d.invoiced_revenue_myr,
     })) ?? [];
 
   return (
@@ -291,15 +323,15 @@ function Reports() {
 
                     <div style={{ marginTop: "1.6rem" }}>
                       <ChartCard
-                        title="Realized (SAP) vs Pipeline (CRM) Revenue"
+                        title="Invoice (SAP) vs Pipeline (CRM) Revenue"
                         subtitle="Two systems of record, side by side — not blended"
                         style="cardGapSmall"
                       >
                         <LineChartRenderer
                           data={realizedVsPipelineData}
                           lines={[
-                            { dataKey: "Pipeline (CRM)", color: BLUE_COLOR },
-                            { dataKey: "Realized (SAP)", color: GREEN_COLOR },
+                            { dataKey: "Pipeline", color: BLUE_COLOR },
+                            { dataKey: "Invoice", color: GREEN_COLOR },
                           ]}
                         />
                       </ChartCard>
@@ -367,6 +399,25 @@ function Reports() {
                           />
                         </ChartCard>
                       </CardLayout>
+
+                      <div style={{ marginTop: "1.6rem" }}>
+                        <ChartCard
+                          title="Bookings vs Invoiced Revenue"
+                          subtitle="SAP Sales Orders vs SAP Invoices, trailing 12 months (RM) — not affected by the date filter"
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={bookingsVsInvoicedTrendData}
+                            lines={[
+                              {
+                                dataKey: "Sales Order (Booked)",
+                                color: YELLOW_COLOR,
+                              },
+                              { dataKey: "Invoice (Billed)", color: GREEN_COLOR },
+                            ]}
+                          />
+                        </ChartCard>
+                      </div>
                     </div>
 
                     {/* TIER 4: PIPELINE COMPOSITION */}
@@ -385,12 +436,23 @@ function Reports() {
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          Where WON revenue is coming from — product, source,
-                          and account concentration.
+                          Where WON revenue is coming from — pipeline stage,
+                          product, source, and account concentration.
                         </p>
                       </div>
 
                       <CardLayout style="cardLayout2">
+                        <ChartCard
+                          title="Pipeline Stage"
+                          subtitle="Leads by Stage (Count) — Discovery to Won/Lost"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={stageData}
+                            colorMap={BLUE_COLOR}
+                          />
+                        </ChartCard>
+
                         <ChartCard
                           title="Product-Type Mix"
                           subtitle="Won Revenue (RM)"

@@ -35,7 +35,10 @@ export default function OverviewCards({ items = [] }) {
                   {item.sublabel}
                 </p>
               )}
-              <h2 className="textXL overviewCardValue">{item.value}</h2>
+              <div className="overviewCardValue">
+                <p className="textXS">{item.subvalue}</p>
+                <h2 className="textXL">{item.value}</h2>
+              </div>
             </div>
 
             {/* SUB METRICS (FOOTER) */}

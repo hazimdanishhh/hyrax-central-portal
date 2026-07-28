@@ -30,6 +30,19 @@ import { compactCurrency } from "../../../../../functions/formatNumber";
 // removed outright (not demoted) -- its own former tooltip already said
 // Working Capital superseded it. See 06-finance-expansion-execution-plan.md
 // for the full before/after disposition table.
+//
+// Source-labeling convention (added 2026-07, see DASHBOARD-CONVENTIONS.md):
+// every tile sublabel now names its source layer -- "(General Ledger)" for
+// GL-postings-derived figures (Net Profit, EBITDA, Working Capital, and the
+// headline Gross Profit), "(Invoice)" for AR-subledger figures (Revenue
+// Invoiced), "(Payment)" for cash-application figures (Cash Collected) --
+// so a figure here can never silently read as the same thing as a
+// similarly-named figure sourced from a different layer (e.g. this file's
+// GL-based "Gross Profit" vs. the invoice-based "Gross Profit" bar in the
+// Salesperson Health chart in FinancialReports.jsx). "Customer" (this
+// dashboard, sourced from SAP's own customer_code) is likewise kept distinct
+// from Sales Reports' "Client" (sourced from the CRM-native `clients` table)
+// -- different tables, deliberately not interchangeable words.
 export function getFinanceOverviewConfig(kpis, filters) {
   const formatRM = (value) => `RM ${Math.round(value || 0).toLocaleString()}`;
   // Ratios (Current Ratio, Quick Ratio) are unitless multiples, not currency
@@ -103,7 +116,8 @@ export function getFinanceOverviewConfig(kpis, filters) {
   const isHistoricalPeriod = (() => {
     if (!filters?.endDate) return false;
     const daysSinceEnd =
-      (Date.now() - new Date(filters.endDate).getTime()) / (1000 * 60 * 60 * 24);
+      (Date.now() - new Date(filters.endDate).getTime()) /
+      (1000 * 60 * 60 * 24);
     return daysSinceEnd > 30;
   })();
   const dsoCaveat = isHistoricalPeriod
@@ -119,7 +133,7 @@ export function getFinanceOverviewConfig(kpis, filters) {
     {
       icon: ReceiptIcon,
       label: "Revenue Invoiced",
-      sublabel: "Total Invoiced This Period",
+      sublabel: "Total Invoiced This Period (Invoice)",
       value: compactCurrency(kpis.periodInvoicedRevenue),
       variant: "blueCardFill",
       to: "../invoices",
@@ -147,16 +161,26 @@ export function getFinanceOverviewConfig(kpis, filters) {
     {
       icon: ChartPieSliceIcon,
       label: "Gross Profit",
-      sublabel: "Total Gross Profit This Period",
+      sublabel: "Total Gross Profit This Period (General Ledger)",
       value: compactCurrency(kpis.glGrossProfit),
-      variant: "blueCardFill",
+      subvalue: `(${kpis.glGrossProfitMarginPct || 0}% margin)`,
+      variant: "greenCardFill",
       to: null,
       filter: null,
       metrics: [
+        // {
+        //   label: "GP Margin",
+        //   value: `${kpis.glGrossProfitMarginPct || 0}%`,
+        //   icon: PercentIcon,
+        // },
+
+        // Demoted, not deleted (2026-07): the invoice-based figure this tile
+        // used to show outright. Kept visible here for audit purposes --
+        // it's also the only Gross Profit figure with a per-sales-rep
+        // breakdown, still load-bearing for the Salesperson Health chart.
         {
-          label: "GP Margin",
-          value: `${kpis.glGrossProfitMarginPct || 0}%`,
-          icon: PercentIcon,
+          label: "Invoice GP",
+          value: formatRM(kpis.periodGrossProfit),
         },
         {
           label: "Prev. Period",
@@ -168,14 +192,6 @@ export function getFinanceOverviewConfig(kpis, filters) {
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
-        // Demoted, not deleted (2026-07): the invoice-based figure this tile
-        // used to show outright. Kept visible here for audit purposes --
-        // it's also the only Gross Profit figure with a per-sales-rep
-        // breakdown, still load-bearing for the Salesperson Health chart.
-        {
-          label: "Invoice GP (SAP)",
-          value: formatRM(kpis.periodGrossProfit),
-        },
       ],
       title: `Gross profit from actual General Ledger postings (Revenue − COGS), for the selected period. Distinct from the invoice-line figure shown in Salesperson Health (SAP's own per-invoice GrosProfit field) — the two are sourced differently and won't generally reconcile exactly — ${formatRM(kpis.glGrossProfit)}`,
     },
@@ -184,7 +200,7 @@ export function getFinanceOverviewConfig(kpis, filters) {
     {
       icon: ChartLineUpIcon,
       label: "Net Profit",
-      sublabel: "Total Net Profit This Period",
+      sublabel: "Total Net Profit This Period (General Ledger)",
       value: compactCurrency(kpis.netProfit),
       variant: "greenCard",
       to: null,
@@ -213,9 +229,10 @@ export function getFinanceOverviewConfig(kpis, filters) {
     {
       icon: GaugeIcon,
       label: "EBITDA",
-      sublabel: "Approximate — Net Profit + Interest + Tax + D&A",
+      sublabel:
+        "Approximate (General Ledger) — Net Profit + Interest + Tax + D&A",
       value: compactCurrency(kpis.ebitda),
-      variant: "blueCardFill",
+      variant: "blueCard",
       to: null,
       filter: null,
       metrics: [
@@ -236,7 +253,7 @@ export function getFinanceOverviewConfig(kpis, filters) {
     {
       icon: WalletIcon,
       label: "Cash Collected",
-      sublabel: "Total Collected This Period",
+      sublabel: "Total Collected This Period (Payment)",
       value: compactCurrency(kpis.totalCollected),
       variant: "greenCard",
       // Payments list -- link straight through, unfiltered. Not passing the
@@ -302,7 +319,7 @@ export function getFinanceOverviewConfig(kpis, filters) {
           icon: ClockIcon,
         },
       ],
-      title: `Days Sales Outstanding (DSO) and Days Payable Outstanding (DPO) — the two legs of the Cash Conversion Cycle that are built. Full Cash Conversion Cycle (DSO + DIO − DPO) isn't available yet: Days Inventory Outstanding needs per-warehouse inventory valuation (Finance Expansion Phase 3, not started).${dsoCaveat} DSO: ${kpis.dso || 0} days, DPO: ${kpis.dpo || 0} days`,
+      title: `Days Sales Outstanding (DSO, from the AR/Invoice subledger balance) and Days Payable Outstanding (DPO, from the AP/Bill subledger balance) — the two legs of the Cash Conversion Cycle that are built. Full Cash Conversion Cycle (DSO + DIO − DPO) isn't available yet: Days Inventory Outstanding needs per-warehouse inventory valuation (Finance Expansion Phase 3, not started).${dsoCaveat} DSO: ${kpis.dso || 0} days, DPO: ${kpis.dpo || 0} days`,
     },
 
     // TILE 8: Working Capital (Can we cover what we owe soon?) -- absorbs
@@ -312,7 +329,7 @@ export function getFinanceOverviewConfig(kpis, filters) {
       icon: StackIcon,
       label: "Working Capital",
       sublabel:
-        "Current Assets minus Current Liabilities (Not based on period)",
+        "Current Assets minus Current Liabilities (General Ledger, Not based on period)",
       value: compactCurrency(kpis.workingCapital),
       variant: "blueCardFill",
       to: null,

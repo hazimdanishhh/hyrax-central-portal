@@ -8,7 +8,8 @@ import { supabase } from "../../../../../lib/supabaseClient";
  *
  * Deliberately a separate RPC from get_sales_leads_dashboard (Leads
  * Overview's Tier-2 dashboard) -- this one serves the Tier-3 departmental
- * Reports page. See docs/DEPARTMENT-DASHBOARD-BLUEPRINT.md §5.1.
+ * Reports page. See docs/RPC-REFERENCE.md's get_sales_reports_dashboard
+ * section and docs/DASHBOARD-CONVENTIONS.md §1 for the Tier system.
  */
 export async function fetchSalesReportsDashboard({ filters }) {
   const FILTER_NULL = "__null__";

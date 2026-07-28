@@ -159,28 +159,41 @@ export default function FinancialReports() {
   // returned as a single JSON object (not an array of rows, unlike every
   // other chart dataset above) -- Object.entries reshapes each into the
   // {name, value} array HorizontalBarChartRenderer expects.
+  //
+  // "(GL)" appended 2026-07 (source-labeling clarity pass, see
+  // DASHBOARD-CONVENTIONS.md): this chart's "Revenue"/"Gross Profit"/"Net
+  // Profit" bars are General-Ledger-sourced (gl_period_revenue etc.), while
+  // the headline "Revenue Invoiced" tile and "Gross Profit" tile's demoted
+  // "Invoice GP" sub-metric are invoice-subledger-sourced -- confirmed
+  // different numbers, previously indistinguishable by label alone. Done
+  // frontend-only (relabeling here, not in the RPC's JSON keys), so no
+  // redeploy is needed for this fix.
   const plBreakdownData = dashboard?.plBreakdownData
     ? Object.entries(dashboard.plBreakdownData).map(([name, value]) => ({
-        name,
+        name: `${name} (GL)`,
         value,
       }))
     : [];
 
   const balanceSheetSnapshotData = dashboard?.balanceSheetSnapshotData
     ? Object.entries(dashboard.balanceSheetSnapshotData).map(
-        ([name, value]) => ({ name, value }),
+        ([name, value]) => ({ name: `${name} (GL)`, value }),
       )
     : [];
 
   // Added 2026-07: monthly Revenue/COGS/OpEx/Net Profit, same period-bound
   // convention as revenueTrendData above (all-time if no range selected).
+  // Series tagged "(GL, RM)" (added 2026-07, source-labeling clarity pass) --
+  // this trend and revenueTrendData below both plot a monthly "Revenue"-ish
+  // line, but this one is General-Ledger-sourced while revenueTrendData's
+  // "Invoiced" line is invoice-subledger-sourced -- different numbers.
   const plTrendData =
     dashboard?.plTrendData?.map((d) => ({
       name: d.period,
-      "Revenue (RM)": d.revenue_myr,
-      "COGS (RM)": d.cogs_myr,
-      "OpEx (RM)": d.opex_myr,
-      "Net Profit (RM)": d.net_profit_myr,
+      "Revenue (GL, RM)": d.revenue_myr,
+      "COGS (GL, RM)": d.cogs_myr,
+      "OpEx (GL, RM)": d.opex_myr,
+      "Net Profit (GL, RM)": d.net_profit_myr,
     })) ?? [];
 
   // Added 2026-07: top 10 leaf expense accounts by amount, period-bound.
@@ -197,10 +210,10 @@ export default function FinancialReports() {
   const plYoyTrendData =
     dashboard?.plYoyTrendData?.map((d) => ({
       name: d.period,
-      "Revenue (RM)": d.revenue_myr,
-      "COGS (RM)": d.cogs_myr,
-      "OpEx (RM)": d.opex_myr,
-      "Net Profit (RM)": d.net_profit_myr,
+      "Revenue (GL, RM)": d.revenue_myr,
+      "COGS (GL, RM)": d.cogs_myr,
+      "OpEx (GL, RM)": d.opex_myr,
+      "Net Profit (GL, RM)": d.net_profit_myr,
     })) ?? [];
 
   return (
@@ -368,7 +381,7 @@ export default function FinancialReports() {
                       <CardLayout style="cardLayout2">
                         <ChartCard
                           title="P&L Breakdown"
-                          subtitle="Revenue through Net Profit (RM), this period"
+                          subtitle="Revenue through Net Profit (RM), this period — General Ledger postings"
                           style="cardGapSmall"
                         >
                           <HorizontalBarChartRenderer
@@ -379,7 +392,7 @@ export default function FinancialReports() {
 
                         <ChartCard
                           title="Balance Sheet Snapshot"
-                          subtitle="As of today — not affected by date filter"
+                          subtitle="As of today — General Ledger postings, not affected by date filter"
                           style="cardGapSmall"
                         >
                           <HorizontalBarChartRenderer
@@ -390,17 +403,23 @@ export default function FinancialReports() {
 
                         <ChartCard
                           title="P&L Trend"
-                          subtitle="Revenue, COGS, OpEx & Net Profit by month (RM)"
+                          subtitle="Revenue, COGS, OpEx & Net Profit by month (RM) — General Ledger postings"
                           style="cardGapSmall"
                         >
                           <LineChartRenderer
                             data={plTrendData}
                             lines={[
-                              { dataKey: "Revenue (RM)", color: BLUE_COLOR },
-                              { dataKey: "COGS (RM)", color: RED_COLOR },
-                              { dataKey: "OpEx (RM)", color: YELLOW_COLOR },
                               {
-                                dataKey: "Net Profit (RM)",
+                                dataKey: "Revenue (GL, RM)",
+                                color: BLUE_COLOR,
+                              },
+                              { dataKey: "COGS (GL, RM)", color: RED_COLOR },
+                              {
+                                dataKey: "OpEx (GL, RM)",
+                                color: YELLOW_COLOR,
+                              },
+                              {
+                                dataKey: "Net Profit (GL, RM)",
                                 color: GREEN_COLOR,
                               },
                             ]}
@@ -409,7 +428,7 @@ export default function FinancialReports() {
 
                         <ChartCard
                           title="Operating Expense Breakdown"
-                          subtitle="Top 10 expense accounts this period (RM)"
+                          subtitle="Top 10 expense accounts this period (RM) — General Ledger postings"
                           style="cardGapSmall"
                         >
                           <HorizontalBarChartRenderer
@@ -420,18 +439,30 @@ export default function FinancialReports() {
 
                         <ChartCard
                           title="P&L YoY Trend"
-                          subtitle="Revenue, COGS, OpEx & Net Profit by fiscal year (RM) — not affected by date filter"
+                          subtitle="Revenue, COGS, OpEx & Net Profit by fiscal year (RM) — General Ledger postings, not affected by date filter"
                           style="cardGapSmall"
                         >
                           <VerticalMultiBarRenderer
                             data={plYoyTrendData}
                             bars={[
-                              { dataKey: "Revenue (RM)", name: "Revenue (RM)", color: BLUE_COLOR },
-                              { dataKey: "COGS (RM)", name: "COGS (RM)", color: RED_COLOR },
-                              { dataKey: "OpEx (RM)", name: "OpEx (RM)", color: YELLOW_COLOR },
                               {
-                                dataKey: "Net Profit (RM)",
-                                name: "Net Profit (RM)",
+                                dataKey: "Revenue (GL, RM)",
+                                name: "Revenue (GL, RM)",
+                                color: BLUE_COLOR,
+                              },
+                              {
+                                dataKey: "COGS (GL, RM)",
+                                name: "COGS (GL, RM)",
+                                color: RED_COLOR,
+                              },
+                              {
+                                dataKey: "OpEx (GL, RM)",
+                                name: "OpEx (GL, RM)",
+                                color: YELLOW_COLOR,
+                              },
+                              {
+                                dataKey: "Net Profit (GL, RM)",
+                                name: "Net Profit (GL, RM)",
                                 color: GREEN_COLOR,
                               },
                             ]}
@@ -525,7 +556,7 @@ export default function FinancialReports() {
 
                         <ChartCard
                           title="Revenue Trend"
-                          subtitle="Invoiced vs Collected (RM) — gross of returns/credit memos, not yet netted"
+                          subtitle="Invoiced vs Collected (RM) — gross of returns/credit memos, not yet netted. Invoice-based; see P&L Trend for General Ledger figures"
                           style="cardGapSmall"
                         >
                           <LineChartRenderer

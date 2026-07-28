@@ -181,7 +181,37 @@ lead_kpis as (
                 and (p_start_date is null or closed_date >= p_start_date)
                 and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
             ))::numeric,
-        1), 0) as median_days_to_win
+        1), 0) as median_days_to_win,
+
+        -- Open-pipeline snapshot (added 2026-07, Sales Reports redesign) --
+        -- deliberately NOT bounded by p_start_date/p_end_date: "how much is
+        -- in play right now" is a point-in-time figure, not a period flow.
+        -- Copied verbatim from get_sales_leads_dashboard's own
+        -- activePipelineValue/weightedPipelineValue so the Tier-2 and Tier-3
+        -- pages can never report a different open pipeline for the same
+        -- owner/product-type filters -- same mirroring rationale as
+        -- pipeline_target_math above.
+        coalesce(sum(expected_revenue) filter (
+            where stage not in ('WON', 'LOST') and not is_cancelled
+        ), 0) as active_pipeline_value,
+
+        -- close_probability is nullable, so a lead with no probability set
+        -- contributes 0 here (numeric * null -> null, which sum() skips) --
+        -- identical behaviour to get_sales_leads_dashboard's version,
+        -- intentionally not "fixed" with an inner coalesce, so the two never
+        -- diverge.
+        coalesce(sum(expected_revenue * (close_probability / 100.0)) filter (
+            where stage not in ('WON', 'LOST') and not is_cancelled
+        ), 0) as weighted_pipeline_value,
+
+        -- Period-bound opportunity count -- mirrors get_sales_leads_dashboard
+        -- 's totalLeadsCreated (leads CREATED in the window, not closed in
+        -- it). Feeds the client-side Pipeline Velocity tile in
+        -- config/overviewConfig.js.
+        count(*) filter (
+            where (p_start_date is null or created_at >= p_start_date)
+            and (p_end_date is null or created_at <= p_end_date + interval '1 day')
+        ) as total_opportunities
 
     from base_leads
 )
@@ -201,6 +231,13 @@ select json_build_object(
                   and (p_end_date is null or "order_date"::date <= p_end_date)
             ),
 
+            -- Order count (added 2026-07) -- same CTE and same window as
+            -- orderBookValue above, so "RM X across N orders" always ties out.
+            'orderBookCount', (select count(*) from base_orders
+                where (p_start_date is null or "order_date"::date >= p_start_date)
+                  and (p_end_date is null or "order_date"::date <= p_end_date)
+            ),
+
             'winRatePct', lk.win_rate_pct,
             'avgDealSize', lk.avg_deal_size,
             'avgDaysToClose', lk.avg_days_to_close,
@@ -208,7 +245,21 @@ select json_build_object(
             'quoteToWinConversionPct', case when lk.quoted_count > 0
                 then round((lk.quoted_and_won_count::numeric / lk.quoted_count) * 100, 1)
                 else 0 end,
-            'medianDaysToWin', lk.median_days_to_win
+            'medianDaysToWin', lk.median_days_to_win,
+
+            -- Open pipeline (added 2026-07) -- point-in-time, NOT period-bound
+            -- (see lead_kpis above). The Pipeline Coverage ratio itself
+            -- (activePipelineValue / pipelineTargetRevenue) is derived
+            -- client-side in config/overviewConfig.js, same as
+            -- pipelineAttainmentPct's sibling calc there -- SQL returns the
+            -- two legs, never the ratio.
+            'activePipelineValue', lk.active_pipeline_value,
+            'weightedPipelineValue', lk.weighted_pipeline_value,
+
+            -- Period-bound. Feeds the client-side Pipeline Velocity tile
+            -- (opportunities x avg deal size x win rate / cycle days),
+            -- likewise derived in config/overviewConfig.js.
+            'totalOpportunities', lk.total_opportunities
         )
         from lead_kpis lk
         cross join pipeline_target_math pt
@@ -303,6 +354,48 @@ select json_build_object(
         full outer join realized_by_month rm on rm.month = pm.month
     ),
 
+    -- Bookings vs Invoiced (added 2026-07, Sales Reports redesign) -- SAP-only
+    -- booking-to-billing lag: what was ORDERED (sap_sales_orders.order_date)
+    -- against what was BILLED (sap_invoices.invoice_date), by month.
+    -- Deliberately distinct from realizedVsPipelineData above, which is
+    -- CRM-vs-SAP; this one never touches sales_leads at all, so a widening
+    -- gap here is a fulfilment/invoicing-lag signal, not a CRM
+    -- data-quality one.
+    --
+    -- Deliberately NOT bounded by p_start_date/p_end_date -- always the
+    -- trailing 12 months (current month plus the 11 before it), same
+    -- "always-on trend" convention as get_finance_dashboard's YoY/trend
+    -- charts: a booking-to-billing lag is only legible across a fixed
+    -- multi-month window, and a one-month page filter would collapse it to
+    -- a single meaningless point.
+    'bookingsVsInvoicedTrendData', (
+        with booked_by_month as (
+            select
+                to_char(date_trunc('month', "order_date"::date), 'YYYY-MM') as month,
+                sum(total_amount_myr) as booked_revenue
+            from base_orders
+            where "order_date"::date >= (date_trunc('month', current_date) - interval '11 months')::date
+              and "order_date"::date <  (date_trunc('month', current_date) + interval '1 month')::date
+            group by 1
+        ),
+        invoiced_by_month as (
+            select
+                to_char(date_trunc('month', "invoice_date"::date), 'YYYY-MM') as month,
+                sum(total_amount_myr) as invoiced_revenue
+            from base_invoices
+            where "invoice_date"::date >= (date_trunc('month', current_date) - interval '11 months')::date
+              and "invoice_date"::date <  (date_trunc('month', current_date) + interval '1 month')::date
+            group by 1
+        )
+        select coalesce(json_agg(json_build_object(
+            'period', coalesce(bm.month, im.month),
+            'booked_revenue_myr', coalesce(bm.booked_revenue, 0),
+            'invoiced_revenue_myr', coalesce(im.invoiced_revenue, 0)
+        ) order by coalesce(bm.month, im.month)), '[]'::json)
+        from booked_by_month bm
+        full outer join invoiced_by_month im on im.month = bm.month
+    ),
+
     'grossProfitByRepData', (
         select coalesce(json_agg(x), '[]'::json)
         from (
@@ -326,6 +419,58 @@ select json_build_object(
             group by sp.sales_rep_name
             order by revenue_myr desc
             limit 15
+        ) x
+    ),
+
+    -- Pipeline stage funnel (added 2026-07, Sales Reports redesign) -- count
+    -- and value per stage, mirroring get_sales_leads_dashboard's own
+    -- stageData (same WON->actual_revenue / everything-else->expected_revenue
+    -- value rule) so the Tier-2 and Tier-3 pages can never disagree on stage
+    -- composition. Sourced from THIS RPC's base_leads, which already applies
+    -- p_owner_id/p_product_type -- not by re-querying sales_leads directly.
+    --
+    -- Two deliberate deviations from the sibling RPC, both defect fixes, not
+    -- stylistic:
+    --   1. p_start_date/p_end_date are null-guarded independently below. The
+    --      sibling gates its whole created_at/closed_date window on
+    --      `p_start_date is null` alone, so a start-date-only filter makes
+    --      every OR branch evaluate to NULL and silently returns []. That's
+    --      reachable here -- the page's date-range filter renders two
+    --      independent date inputs with no coupling between them.
+    --   2. Funnel order is an explicit case expression, not `order by stage`.
+    --      `order by stage` sorts by the sales_leads_stage enum's declaration
+    --      order, which isn't defined anywhere in this repo and so can't be
+    --      relied on to match DISCOVERY -> SAMPLE_TEST -> ... -> WON/LOST.
+    'stageData', (
+        select coalesce(json_agg(json_build_object(
+            'name', name,
+            'count', lead_count,
+            'total_value', total_value
+        ) order by stage_order), '[]'::json)
+        from (
+            select
+                stage::text as name,
+                case stage
+                    when 'DISCOVERY'   then 1
+                    when 'SAMPLE_TEST' then 2
+                    when 'PROPOSAL'    then 3
+                    when 'NEGOTIATION' then 4
+                    when 'WON'         then 5
+                    when 'LOST'        then 6
+                    else 7
+                end as stage_order,
+                count(*) as lead_count,
+                coalesce(sum(case when stage = 'WON' then actual_revenue else expected_revenue end), 0) as total_value
+            from base_leads
+            where not is_cancelled
+              and (
+                  (p_start_date is null and p_end_date is null)
+                  or (    (p_start_date is null or created_at  >= p_start_date)
+                      and (p_end_date   is null or created_at  <= p_end_date + interval '1 day'))
+                  or (    (p_start_date is null or closed_date >= p_start_date)
+                      and (p_end_date   is null or closed_date <= p_end_date + interval '1 day'))
+              )
+            group by stage
         ) x
     ),
 

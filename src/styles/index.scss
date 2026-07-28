@@ -187,6 +187,18 @@ li {
     background-color: $success600;
   }
 
+  &.yellowCardFill {
+    color: $neutral100;
+    border: 1px solid $warning600;
+    background-color: $warning600;
+  }
+
+  &.redCardFill {
+    color: $neutral100;
+    border: 1px solid $error600;
+    background-color: $error600;
+  }
+
   &.cardWidth {
     width: fit-content;
   }
