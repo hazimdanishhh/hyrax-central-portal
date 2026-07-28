@@ -18,7 +18,7 @@ export default (
     <Route
       path="invoices"
       element={
-        <AccessRoute departments={["FIN"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
           <Invoices />
         </AccessRoute>
       }
@@ -28,7 +28,7 @@ export default (
     <Route
       path="payments"
       element={
-        <AccessRoute departments={["FIN"]}>
+        <AccessRoute departments={["FIN", "MGM"]}>
           <Payments />
         </AccessRoute>
       }
@@ -40,7 +40,7 @@ export default (
     <Route
       path="bills"
       element={
-        <AccessRoute departments={["FIN"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
           <Bills />
         </AccessRoute>
       }
@@ -52,7 +52,7 @@ export default (
     <Route
       path="vendor-payments"
       element={
-        <AccessRoute departments={["FIN"]}>
+        <AccessRoute departments={["FIN", "MGM"]}>
           <VendorPayments />
         </AccessRoute>
       }
@@ -65,7 +65,7 @@ export default (
     <Route
       path="journal-entries"
       element={
-        <AccessRoute departments={["FIN"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
           <JournalEntries />
         </AccessRoute>
       }
@@ -78,7 +78,7 @@ export default (
     <Route
       path="chart-of-accounts"
       element={
-        <AccessRoute departments={["FIN"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
           <ChartOfAccounts />
         </AccessRoute>
       }
@@ -88,7 +88,7 @@ export default (
     <Route
       path="claims-management"
       element={
-        <AccessRoute departments={["FIN"]}>
+        <AccessRoute departments={["FIN", "MGM"]}>
           <ClaimsManagement />
         </AccessRoute>
       }
@@ -98,7 +98,7 @@ export default (
     <Route
       path="reports"
       element={
-        <AccessRoute departments={["FIN", "SAL"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN", "SAL", "MGM"]} roles={["manager"]}>
           <FinancialReports />
         </AccessRoute>
       }
