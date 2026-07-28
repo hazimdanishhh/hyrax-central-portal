@@ -151,7 +151,7 @@ export const sideNavLinkData = [
         icon: ChartBarIcon,
         path: "sales/reports",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
         roles: ["manager"],
       },
 
@@ -203,7 +203,7 @@ export const sideNavLinkData = [
         icon: ChartBarIcon,
         path: "finance/reports",
 
-        departments: ["FIN", "SAL"],
+        departments: ["FIN", "SAL", "MGM"],
         roles: ["manager"],
       },
 
@@ -212,7 +212,7 @@ export const sideNavLinkData = [
         icon: FileTextIcon,
         path: "finance/invoices",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Added 2026-07 (Finance Expansion Phase 1). Gated departments+roles to
@@ -226,7 +226,7 @@ export const sideNavLinkData = [
         icon: InvoiceIcon,
         path: "finance/bills",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
         roles: ["manager"],
       },
 
@@ -242,7 +242,7 @@ export const sideNavLinkData = [
         label: "Incoming Payments",
         icon: CoinsIcon,
         path: "finance/payments",
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Added 2026-07 (Finance Expansion Phase 1). Gate matches
@@ -252,7 +252,7 @@ export const sideNavLinkData = [
         label: "Outgoing Payments",
         icon: HandCoinsIcon,
         path: "finance/vendor-payments",
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Added 2026-07 (Finance Expansion Phase 2 follow-up, General Ledger
@@ -264,7 +264,7 @@ export const sideNavLinkData = [
         icon: BookOpenIcon,
         path: "finance/journal-entries",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
         roles: ["manager"],
       },
 
@@ -273,7 +273,7 @@ export const sideNavLinkData = [
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
         roles: ["manager"],
       },
     ],
@@ -292,7 +292,7 @@ export const sideNavLinkData = [
         icon: ChartBarIcon,
         path: "operations/reports",
 
-        departments: ["OPS"],
+        departments: ["OPS", "MGM"],
         roles: ["manager"],
       },
     ],

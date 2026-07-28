@@ -46,7 +46,7 @@ export const departmentLinkCardData = [
         icon: ChartBarIcon,
         path: "sales/reports",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
         roles: ["manager"],
       },
 
@@ -95,7 +95,7 @@ export const departmentLinkCardData = [
         icon: ChartBarIcon,
         path: "finance/reports",
 
-        departments: ["FIN", "SAL"],
+        departments: ["FIN", "SAL", "MGM"],
         roles: ["manager"],
       },
 
@@ -109,7 +109,7 @@ export const departmentLinkCardData = [
         // stricter than sideNavLinkData.js's current "Invoices" entry, which
         // is missing this roles gate even though the route requires it —
         // don't copy that mismatch here.
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
         roles: ["manager"],
       },
 
@@ -121,7 +121,7 @@ export const departmentLinkCardData = [
         icon: InvoiceIcon,
         path: "finance/bills",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
         roles: ["manager"],
       },
 
@@ -140,7 +140,7 @@ export const departmentLinkCardData = [
         icon: CoinsIcon,
         path: "finance/payments",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Added 2026-07 (Finance Expansion Phase 1). Matches
@@ -152,7 +152,7 @@ export const departmentLinkCardData = [
         icon: HandCoinsIcon,
         path: "finance/vendor-payments",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Added 2026-07 (Finance Expansion Phase 2 follow-up, General Ledger
@@ -164,7 +164,7 @@ export const departmentLinkCardData = [
         icon: BookOpenIcon,
         path: "finance/journal-entries",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
         roles: ["manager"],
       },
 
@@ -174,7 +174,7 @@ export const departmentLinkCardData = [
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
         roles: ["manager"],
       },
     ],
@@ -195,7 +195,7 @@ export const departmentLinkCardData = [
         icon: ChartBarIcon,
         path: "operations/reports",
 
-        departments: ["OPS"],
+        departments: ["OPS", "MGM"],
         roles: ["manager"],
       },
     ],

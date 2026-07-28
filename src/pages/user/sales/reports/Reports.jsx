@@ -229,7 +229,10 @@ function Reports() {
               isError={isError}
             />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {/* EXPORT */}
             <div
@@ -300,8 +303,8 @@ function Reports() {
                           <h2 className="textL textBold">Sales KPIs</h2>
                         </div>
                         <p className="textXS textLight">
-                          Invoices, budget, and collections first — plus the
-                          CRM pipeline forecast.
+                          Invoices, budget, and collections first — plus the CRM
+                          pipeline forecast.
                         </p>
                       </div>
 
@@ -331,10 +334,9 @@ function Reports() {
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          Per-rep Sales Order vs Invoice vs Collected vs
-                          Budget variance — SAP-recognized, backward looking,
-                          audited. Distinct from Leads Overview's CRM
-                          pipeline scorecard.
+                          Per-rep Sales Order vs Invoice vs Collected vs Budget
+                          variance — SAP-recognized, backward looking, audited.
+                          Distinct from Leads Overview's CRM pipeline scorecard.
                         </p>
                       </div>
 
@@ -401,8 +403,8 @@ function Reports() {
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          SAP sales orders booked, revenue/GP by rep, and
-                          where invoiced revenue is concentrated.
+                          SAP sales orders booked, revenue/GP by rep, and where
+                          invoiced revenue is concentrated.
                         </p>
                       </div>
 
@@ -466,7 +468,10 @@ function Reports() {
                                 dataKey: "Sales Order (Booked)",
                                 color: YELLOW_COLOR,
                               },
-                              { dataKey: "Invoice (Billed)", color: GREEN_COLOR },
+                              {
+                                dataKey: "Invoice (Billed)",
+                                color: GREEN_COLOR,
+                              },
                             ]}
                           />
                         </ChartCard>

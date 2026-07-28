@@ -628,7 +628,10 @@ export default function FinancialReports() {
                           subtitle="Outstanding AP (RM)"
                           style="cardGapSmall"
                           viewAllTo="../bills"
-                          viewAllFilter={{ statusCode: "O", overdueOnly: "true" }}
+                          viewAllFilter={{
+                            statusCode: "O",
+                            overdueOnly: "true",
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={topOverdueVendorsData}
