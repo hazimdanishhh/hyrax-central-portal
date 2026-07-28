@@ -535,6 +535,18 @@ gl_agg as (
           - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 8 and bl.posting_date::date between v_prev_start_date and v_prev_end_date), 0)
          end) as prev_net_profit,
 
+        -- Added 2026-07 (Finance Reports redesign, Pass 1): prevGlGrossProfit,
+        -- the GL-based mirror of prev_period_gross_profit (invoices_agg's
+        -- invoice-based figure) -- needed once the headline Gross Profit tile
+        -- switched from the invoice-based figure to this GL-based one, so its
+        -- "Prev. Period" delta compares like with like. Same drawer 4/5
+        -- shape as gl_period_revenue/gl_period_cogs above, just windowed to
+        -- the preceding period instead of the current one.
+        (case when p_start_date is null then null else
+            coalesce(sum(credit_amount_myr - debit_amount_myr) filter (where drawer = 4 and bl.posting_date::date between v_prev_start_date and v_prev_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 5 and bl.posting_date::date between v_prev_start_date and v_prev_end_date), 0)
+         end) as prev_gl_gross_profit,
+
         -- YoY (added 2026-07): same 5-drawer combined expression as
         -- prev_net_profit above, windowed a year back instead of one period back.
         (case when p_start_date is null then null else
@@ -598,7 +610,18 @@ rep_collected_actuals as (
 select json_build_object(
 
     'kpis', (
-        select json_build_object(
+        -- Split into 4 json_build_object calls merged via jsonb `||` (added
+        -- 2026-07, fixing Postgres error 54023 "cannot pass more than 100
+        -- arguments to a function"): json_build_object takes each key/value
+        -- as a separate argument, and this object had grown to 50+ pairs
+        -- (100+ arguments) across every phase's additions -- a hard
+        -- Postgres limit (FUNC_MAX_ARGS = 100), not something tunable via
+        -- config. Split along the exact domain boundaries already marked by
+        -- this block's own comments (AR core / AP chain / GL P&L / Balance
+        -- sheet) so each piece stays comfortably under the limit with room
+        -- to grow. No field, formula, or value changed -- purely a call-
+        -- structure split.
+        select (json_build_object(
             'periodInvoicedRevenue', period_invoiced,
             'periodInvoiceCount',    period_invoice_count,
             'totalCollected',        period_collected,
@@ -652,8 +675,8 @@ select json_build_object(
             -- prevPeriod* above (immediately preceding period, not same
             -- period last year) -- see v_yoy_start_date/v_yoy_end_date.
             'yoyPeriodInvoicedRevenue',  yoy_period_invoiced,
-            'yoyPeriodGrossProfit',      yoy_period_gross_profit,
-
+            'yoyPeriodGrossProfit',      yoy_period_gross_profit
+        )::jsonb || json_build_object(
             -- ─── Accounts Payable chain (Finance Expansion Phase 1, 2026-07) ─
             'periodBilled',      period_billed,
             'periodBillCount',   period_bill_count,
@@ -687,8 +710,8 @@ select json_build_object(
             -- a winner" reason documented throughout this RPC.
             'netArApPosition', outstanding_ar - outstanding_ap,
             'prevPeriodBilled', prev_period_billed,
-            'prevTotalPaid',    prev_period_paid,
-
+            'prevTotalPaid',    prev_period_paid
+        )::jsonb || json_build_object(
             -- ─── General Ledger (Finance Expansion Phase 2, 2026-07) ────────
             -- glGrossProfit/glGrossProfitMarginPct are a SEPARATE figure from
             -- periodGrossProfit/grossProfitMarginPct above -- that one sums
@@ -704,6 +727,11 @@ select json_build_object(
             'glGrossProfitMarginPct', case when gl_period_revenue > 0
                         then round(((gl_period_revenue - gl_period_cogs) / gl_period_revenue) * 100, 1)
                         else 0 end,
+            -- Added 2026-07 (Finance Reports redesign, Pass 1): Prev. Period
+            -- delta for the now-headline glGrossProfit figure -- mirrors
+            -- prevPeriodGrossProfit's shape, just GL-based instead of
+            -- invoice-based.
+            'prevGlGrossProfit', prev_gl_gross_profit,
             'glOperatingExpenses', gl_period_opex,
             'glOperatingProfit', (gl_period_revenue - gl_period_cogs) - gl_period_opex,
             'glOtherExpenditure', gl_period_other_expenditure,
@@ -739,8 +767,8 @@ select json_build_object(
             -- YoY (added 2026-07): same 5-drawer combined expression as
             -- prevNetProfit above, windowed a year back instead of one
             -- period back.
-            'yoyNetProfit', yoy_net_profit,
-
+            'yoyNetProfit', yoy_net_profit
+        )::jsonb || json_build_object(
             -- Balance sheet (point-in-time, "as of today", same convention as
             -- outstandingAR/outstandingAP above).
             'currentAssets', current_assets,
@@ -760,7 +788,7 @@ select json_build_object(
                         then round((current_assets - gl_inventory_balance - gl_prepayment_balance) / current_liabilities, 2)
                         else null end,
             'workingCapital', current_assets - current_liabilities
-        )
+        )::jsonb)::json
         from kpi_totals
     ),
 

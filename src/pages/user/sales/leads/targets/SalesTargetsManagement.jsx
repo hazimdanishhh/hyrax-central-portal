@@ -126,11 +126,13 @@ export default function SalesTargetsManagement() {
           actionButtons={[
             {
               icon: PlusCircleIcon,
+              name: "Add Target",
               onClick: () => {
                 setSelectedRow({});
                 setSidebarOpen(true);
                 setIsEditing(true);
               },
+              style: "button buttonType5 approval textXXS",
             },
           ]}
         />

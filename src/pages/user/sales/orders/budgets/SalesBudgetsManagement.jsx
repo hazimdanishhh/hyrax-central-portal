@@ -137,11 +137,13 @@ export default function SalesBudgetsManagement() {
           actionButtons={[
             {
               icon: PlusCircleIcon,
+              name: "Add Budget",
               onClick: () => {
                 setSelectedRow({});
                 setSidebarOpen(true);
                 setIsEditing(true);
               },
+              style: "button buttonType5 approval textXXS",
             },
           ]}
         />

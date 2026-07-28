@@ -1,25 +1,36 @@
 import {
   ReceiptIcon,
   WalletIcon,
-  BankIcon,
   WarningCircleIcon,
   TrendUpIcon,
   TrendDownIcon,
   PercentIcon,
   ClockIcon,
   HourglassHighIcon,
-  CoinsIcon,
   ChartPieSliceIcon,
-  InvoiceIcon,
-  HandCoinsIcon,
   ScalesIcon,
   ChartLineUpIcon,
   GaugeIcon,
   StackIcon,
+  ArrowsClockwiseIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../../functions/formatNumber";
 
-export function getFinanceOverviewConfig(kpis) {
+// Finance Reports redesign, Pass 1 (added 2026-07): rebuilt from 14 headline
+// tiles down to 8, following the "~7 headline numbers" / "what -> so what ->
+// now what" methodology in hyrax-data-platform/docs/sap-data-architecture-
+// plans/03-executive-dashboard-framework.md, and telling 02's own Finance
+// Story directly ("Are we profitable, liquid, and is cash locked up in
+// operations?") in two blocks: Profitability (tiles 1-4), then Liquidity/
+// cash (tiles 5-8). Six of the previous 14 tiles are demoted, not deleted --
+// each is now a strict subset of an existing chart one section down
+// (Outstanding AR/AP subsumed by the AR/AP Aging charts, Overdue Payables by
+// Top Overdue Vendors, Bills Received by Top Vendors by Spend, Cash Paid's
+// DPO promoted into the new Cash Cycle tile below). Net AR/AP Position was
+// removed outright (not demoted) -- its own former tooltip already said
+// Working Capital superseded it. See 06-finance-expansion-execution-plan.md
+// for the full before/after disposition table.
+export function getFinanceOverviewConfig(kpis, filters) {
   const formatRM = (value) => `RM ${Math.round(value || 0).toLocaleString()}`;
   // Ratios (Current Ratio, Quick Ratio) are unitless multiples, not currency
   // -- "1.85x" reads as a ratio the way "RM 1,850,000" reads as an amount.
@@ -60,60 +71,21 @@ export function getFinanceOverviewConfig(kpis) {
         : `↓ ${Math.abs(collectedDelta)}% vs last period`
       : "No prior data";
 
-  const grossProfitDelta = calcDelta(
-    kpis.periodGrossProfit,
-    kpis.prevPeriodGrossProfit,
+  // Gross Profit is now GL-based (glGrossProfit), not the invoice-based
+  // periodGrossProfit -- see the Pass 1 header comment above. Its delta
+  // needs the matching GL-based prevGlGrossProfit field (added alongside
+  // this redesign), not the older prevPeriodGrossProfit.
+  const glGrossProfitDelta = calcDelta(
+    kpis.glGrossProfit,
+    kpis.prevGlGrossProfit,
   );
-  const grossProfitDeltaText =
-    grossProfitDelta !== null
-      ? grossProfitDelta > 0
-        ? `↑ ${grossProfitDelta}% vs last period`
-        : `↓ ${Math.abs(grossProfitDelta)}% vs last period`
+  const glGrossProfitDeltaText =
+    glGrossProfitDelta !== null
+      ? glGrossProfitDelta > 0
+        ? `↑ ${glGrossProfitDelta}% vs last period`
+        : `↓ ${Math.abs(glGrossProfitDelta)}% vs last period`
       : "No prior data";
 
-  // YoY (added 2026-07): same period one year back, distinct from the
-  // Prev. Period deltas above (immediately preceding period, not same
-  // period last year) -- surfaces the seasonality trend those can't.
-  const invoicedYoyDelta = calcDelta(
-    kpis.periodInvoicedRevenue,
-    kpis.yoyPeriodInvoicedRevenue,
-  );
-  const invoicedYoyDeltaText =
-    invoicedYoyDelta !== null
-      ? invoicedYoyDelta > 0
-        ? `↑ ${invoicedYoyDelta}% vs last year`
-        : `↓ ${Math.abs(invoicedYoyDelta)}% vs last year`
-      : "No prior data";
-
-  const grossProfitYoyDelta = calcDelta(
-    kpis.periodGrossProfit,
-    kpis.yoyPeriodGrossProfit,
-  );
-  const grossProfitYoyDeltaText =
-    grossProfitYoyDelta !== null
-      ? grossProfitYoyDelta > 0
-        ? `↑ ${grossProfitYoyDelta}% vs last year`
-        : `↓ ${Math.abs(grossProfitYoyDelta)}% vs last year`
-      : "No prior data";
-
-  // Accounts Payable chain (Finance Expansion Phase 1, added 2026-07)
-  const billedDelta = calcDelta(kpis.periodBilled, kpis.prevPeriodBilled);
-  const billedDeltaText =
-    billedDelta !== null
-      ? billedDelta > 0
-        ? `↑ ${billedDelta}% vs last period`
-        : `↓ ${Math.abs(billedDelta)}% vs last period`
-      : "No prior data";
-
-  const paidDelta = calcDelta(kpis.totalPaid, kpis.prevTotalPaid);
-  const paidDeltaText =
-    paidDelta !== null
-      ? paidDelta > 0
-        ? `↑ ${paidDelta}% vs last period`
-        : `↓ ${Math.abs(paidDelta)}% vs last period`
-      : "No prior data";
-
-  // General Ledger (Finance Expansion Phase 2, added 2026-07)
   const netProfitDelta = calcDelta(kpis.netProfit, kpis.prevNetProfit);
   const netProfitDeltaText =
     netProfitDelta !== null
@@ -122,18 +94,28 @@ export function getFinanceOverviewConfig(kpis) {
         : `↓ ${Math.abs(netProfitDelta)}% vs last period`
       : "No prior data";
 
-  const netProfitYoyDelta = calcDelta(kpis.netProfit, kpis.yoyNetProfit);
-  const netProfitYoyDeltaText =
-    netProfitYoyDelta !== null
-      ? netProfitYoyDelta > 0
-        ? `↑ ${netProfitYoyDelta}% vs last year`
-        : `↓ ${Math.abs(netProfitYoyDelta)}% vs last year`
-      : "No prior data";
+  // Conditional DSO caveat (added 2026-07): DSO uses today's outstanding AR
+  // balance regardless of the selected period's end date -- accurate for the
+  // common case (a period ending at/near today) but imprecise for an old,
+  // closed-out historical period, since no historical AR snapshot exists to
+  // compute a true period-end balance from. Only worth surfacing when it
+  // actually applies, not as permanent tooltip noise.
+  const isHistoricalPeriod = (() => {
+    if (!filters?.endDate) return false;
+    const daysSinceEnd =
+      (Date.now() - new Date(filters.endDate).getTime()) / (1000 * 60 * 60 * 24);
+    return daysSinceEnd > 30;
+  })();
+  const dsoCaveat = isHistoricalPeriod
+    ? " Note: DSO uses today's AR balance, not the selected period's end-of-period balance — precision is reduced for historical periods."
+    : "";
 
   return [
     // ==========================================
-    // PILLAR 1: Revenue Invoiced (What did we bill?)
+    // PROFITABILITY
     // ==========================================
+
+    // TILE 1: Revenue Invoiced (What did we bill?)
     {
       icon: ReceiptIcon,
       label: "Revenue Invoiced",
@@ -157,260 +139,48 @@ export function getFinanceOverviewConfig(kpis) {
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
-        // {
-        //   label: "vs Last Year",
-        //   value: invoicedYoyDeltaText,
-        //   icon:
-        //     invoicedYoyDelta === null
-        //       ? null
-        //       : invoicedYoyDelta >= 0
-        //         ? TrendUpIcon
-        //         : TrendDownIcon,
-        // },
       ],
       title: `Total invoiced revenue in the selected period — ${formatRM(kpis.periodInvoicedRevenue)}`,
     },
 
-    // ==========================================
-    // PILLAR 2: Cash Collected (What did we actually receive?)
-    // ==========================================
-    {
-      icon: WalletIcon,
-      label: "Cash Collected",
-      sublabel: "Total Collected This Period",
-      value: compactCurrency(kpis.totalCollected),
-      variant: "greenCard",
-      // Payments list now exists (src/pages/user/finance/payments) -- link
-      // straight through, unfiltered. Not passing the current date-range
-      // filter through, mirroring Revenue Invoiced's own "../invoices" link
-      // just above, which doesn't pass its period filter through either.
-      to: "../payments",
-      filter: null,
-      metrics: [
-        {
-          label: "Collection Rate",
-          value: `${kpis.collectionRatePct || 0}%`,
-          icon: PercentIcon,
-        },
-        {
-          label: "Prev. Period",
-          value: collectedDeltaText,
-          icon:
-            collectedDelta === null
-              ? null
-              : collectedDelta >= 0
-                ? TrendUpIcon
-                : TrendDownIcon,
-        },
-      ],
-      title: `Cash actually applied against invoices via incoming payments — ${formatRM(kpis.totalCollected)}`,
-    },
-
-    // ==========================================
-    // PILLAR 3: Gross Profit (What did we make on what we billed?)
-    // ==========================================
+    // TILE 2: Gross Profit (What did we make, from actual GL postings?)
     {
       icon: ChartPieSliceIcon,
       label: "Gross Profit",
       sublabel: "Total Gross Profit This Period",
-      value: compactCurrency(kpis.periodGrossProfit),
+      value: compactCurrency(kpis.glGrossProfit),
       variant: "blueCardFill",
       to: null,
       filter: null,
       metrics: [
         {
           label: "GP Margin",
-          value: `${kpis.grossProfitMarginPct || 0}%`,
+          value: `${kpis.glGrossProfitMarginPct || 0}%`,
           icon: PercentIcon,
         },
         {
           label: "Prev. Period",
-          value: grossProfitDeltaText,
+          value: glGrossProfitDeltaText,
           icon:
-            grossProfitDelta === null
+            glGrossProfitDelta === null
               ? null
-              : grossProfitDelta >= 0
+              : glGrossProfitDelta >= 0
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
-        // {
-        //   label: "vs Last Year",
-        //   value: grossProfitYoyDeltaText,
-        //   icon:
-        //     grossProfitYoyDelta === null
-        //       ? null
-        //       : grossProfitYoyDelta >= 0
-        //         ? TrendUpIcon
-        //         : TrendDownIcon,
-        // },
-      ],
-      title: `Total gross profit on invoiced revenue in the selected period (SAP's own GrosProfit field, with the item-cost-outlier guard applied) — ${formatRM(kpis.periodGrossProfit)}`,
-    },
-
-    // ==========================================
-    // PILLAR 4: Outstanding AR (What's still owed to us?)
-    // ==========================================
-    {
-      icon: BankIcon,
-      label: "Outstanding AR",
-      sublabel: "Open Invoice Balance (Not based on period)",
-      value: compactCurrency(kpis.outstandingAR),
-      variant: "yellowCard",
-      to: "../invoices",
-      filter: { statusCode: "O" },
-      metrics: [
+        // Demoted, not deleted (2026-07): the invoice-based figure this tile
+        // used to show outright. Kept visible here for audit purposes --
+        // it's also the only Gross Profit figure with a per-sales-rep
+        // breakdown, still load-bearing for the Salesperson Health chart.
         {
-          label: "DSO",
-          value: `${kpis.dso || 0} Days`,
-          icon: ClockIcon,
-        },
-        {
-          label: "Unallocated Payments",
-          value: formatRM(kpis.unallocatedPayments),
-          icon: CoinsIcon,
+          label: "Invoice GP (SAP)",
+          value: formatRM(kpis.periodGrossProfit),
         },
       ],
-      title: `Current open AR balance across all customers, as of today — ${formatRM(kpis.outstandingAR)}`,
+      title: `Gross profit from actual General Ledger postings (Revenue − COGS), for the selected period. Distinct from the invoice-line figure shown in Salesperson Health (SAP's own per-invoice GrosProfit field) — the two are sourced differently and won't generally reconcile exactly — ${formatRM(kpis.glGrossProfit)}`,
     },
 
-    // ==========================================
-    // PILLAR 5: Overdue Risk (What's at risk of not being collected?)
-    // ==========================================
-    {
-      icon: WarningCircleIcon,
-      label: "Overdue Risk",
-      sublabel: "Value Past Due Date (Not based on period)",
-      value: compactCurrency(kpis.overdueValue),
-      variant: "redCard",
-      to: "../invoices",
-      filter: { statusCode: "O", overdueOnly: "true" },
-      metrics: [
-        {
-          label: "Overdue Invoices",
-          value: kpis.overdueInvoiceCount || 0,
-          icon: HourglassHighIcon,
-        },
-      ],
-      title: `Open invoices past their due date, as of today — ${formatRM(kpis.overdueValue)}`,
-    },
-
-    // ==========================================
-    // Accounts Payable chain (Finance Expansion Phase 1, added 2026-07)
-    // ==========================================
-
-    // PILLAR 6: Bills Received (What have vendors billed us?)
-    {
-      icon: InvoiceIcon,
-      label: "Bills Received",
-      sublabel: "Total Billed This Period",
-      value: compactCurrency(kpis.periodBilled),
-      variant: "blueCardFill",
-      to: "../bills",
-      filter: null,
-      metrics: [
-        {
-          label: "Bills Received",
-          value: kpis.periodBillCount || 0,
-        },
-        {
-          label: "Prev. Period",
-          value: billedDeltaText,
-          icon:
-            billedDelta === null
-              ? null
-              : billedDelta >= 0
-                ? TrendUpIcon
-                : TrendDownIcon,
-        },
-      ],
-      title: `Total vendor bills received in the selected period — ${formatRM(kpis.periodBilled)}`,
-    },
-
-    // PILLAR 7: Cash Paid (What did we actually pay out?)
-    {
-      icon: HandCoinsIcon,
-      label: "Cash Paid",
-      sublabel: "Total Paid This Period",
-      value: compactCurrency(kpis.totalPaid),
-      variant: "greenCard",
-      to: "../vendor-payments",
-      filter: null,
-      metrics: [
-        {
-          label: "DPO",
-          value: `${kpis.dpo || 0} Days`,
-          icon: ClockIcon,
-        },
-        {
-          label: "Prev. Period",
-          value: paidDeltaText,
-          icon:
-            paidDelta === null
-              ? null
-              : paidDelta >= 0
-                ? TrendUpIcon
-                : TrendDownIcon,
-        },
-      ],
-      title: `Cash actually paid out to vendors via outgoing payments — ${formatRM(kpis.totalPaid)}`,
-    },
-
-    // PILLAR 8: Outstanding AP (What do we still owe?)
-    {
-      icon: BankIcon,
-      label: "Outstanding AP",
-      sublabel: "Open Bill Balance (Not based on period)",
-      value: compactCurrency(kpis.outstandingAP),
-      variant: "yellowCard",
-      to: "../bills",
-      filter: { statusCode: "O" },
-      metrics: [
-        {
-          label: "Unallocated Payments",
-          value: formatRM(kpis.unallocatedOutgoingPayments),
-          icon: CoinsIcon,
-        },
-      ],
-      title: `Current open AP balance across all vendors, as of today — ${formatRM(kpis.outstandingAP)}`,
-    },
-
-    // PILLAR 9: Overdue Payables (What's at risk of a late-payment penalty/relationship hit?)
-    {
-      icon: WarningCircleIcon,
-      label: "Overdue Payables",
-      sublabel: "Value Past Due Date (Not based on period)",
-      value: compactCurrency(kpis.overdueBillValue),
-      variant: "redCard",
-      to: "../bills",
-      filter: { statusCode: "O", overdueOnly: "true" },
-      metrics: [
-        {
-          label: "Overdue Bills",
-          value: kpis.overdueBillCount || 0,
-          icon: HourglassHighIcon,
-        },
-      ],
-      title: `Open vendor bills past their due date, as of today — ${formatRM(kpis.overdueBillValue)}`,
-    },
-
-    // PILLAR 10: Net AR/AP Position (subledger-level signal, distinct from the GL-based Working Capital below)
-    {
-      icon: ScalesIcon,
-      label: "Net AR/AP Position",
-      sublabel: "Outstanding AR minus Outstanding AP",
-      value: compactCurrency(kpis.netArApPosition),
-      variant: "blueCardFill",
-      to: null,
-      filter: null,
-      metrics: [],
-      title: `Outstanding AR (${formatRM(kpis.outstandingAR)}) minus Outstanding AP (${formatRM(kpis.outstandingAP)}) — a subledger-level signal, distinct from the full General-Ledger-based Working Capital figure below (the two won't generally match exactly) — ${formatRM(kpis.netArApPosition)}`,
-    },
-
-    // ==========================================
-    // General Ledger (Finance Expansion Phase 2, added 2026-07)
-    // ==========================================
-
-    // PILLAR 11: Net Profit (What did we actually earn, after everything?)
+    // TILE 3: Net Profit (What did we actually earn, after everything?)
     {
       icon: ChartLineUpIcon,
       label: "Net Profit",
@@ -435,21 +205,11 @@ export function getFinanceOverviewConfig(kpis) {
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
-        // {
-        //   label: "vs Last Year",
-        //   value: netProfitYoyDeltaText,
-        //   icon:
-        //     netProfitYoyDelta === null
-        //       ? null
-        //       : netProfitYoyDelta >= 0
-        //         ? TrendUpIcon
-        //         : TrendDownIcon,
-        // },
       ],
       title: `Revenue − COGS − Operating Expenses − Other Expenditure − Tax, from actual General Ledger postings — ${formatRM(kpis.netProfit)}`,
     },
 
-    // PILLAR 12: EBITDA (approximate -- see RPC-REFERENCE.md for the exact add-back methodology)
+    // TILE 4: EBITDA (approximate -- see RPC-REFERENCE.md for the exact add-back methodology)
     {
       icon: GaugeIcon,
       label: "EBITDA",
@@ -468,26 +228,86 @@ export function getFinanceOverviewConfig(kpis) {
       title: `Net Profit with Interest, Tax, and Depreciation/Amortization added back — the Depreciation/Amortization add-back is name-pattern-based, not structural (see RPC-REFERENCE.md), so treat this as a best-effort approximation, not a fully audited figure — ${formatRM(kpis.ebitda)}`,
     },
 
-    // PILLAR 13: Current Ratio & Quick Ratio (Can we cover what we owe soon?)
+    // ==========================================
+    // LIQUIDITY / CASH
+    // ==========================================
+
+    // TILE 5: Cash Collected (What did we actually receive?)
     {
-      icon: ScalesIcon,
-      label: "Current Ratio",
-      sublabel: "Current Assets ÷ Current Liabilities (Not based on period)",
-      value: formatRatio(kpis.currentRatio),
+      icon: WalletIcon,
+      label: "Cash Collected",
+      sublabel: "Total Collected This Period",
+      value: compactCurrency(kpis.totalCollected),
+      variant: "greenCard",
+      // Payments list -- link straight through, unfiltered. Not passing the
+      // current date-range filter through, mirroring Revenue Invoiced's own
+      // "../invoices" link above, which doesn't pass its period filter
+      // through either.
+      to: "../payments",
+      filter: null,
+      metrics: [
+        {
+          label: "Collection Rate",
+          value: `${kpis.collectionRatePct || 0}%`,
+          icon: PercentIcon,
+        },
+        {
+          label: "Prev. Period",
+          value: collectedDeltaText,
+          icon:
+            collectedDelta === null
+              ? null
+              : collectedDelta >= 0
+                ? TrendUpIcon
+                : TrendDownIcon,
+        },
+      ],
+      title: `Cash actually applied against invoices via incoming payments — only cash traceable to a specific invoice through SAP's payment-application records; on-account cash and other document types that also reduce AR aren't included here (see the AR Aging chart for the full outstanding picture) — ${formatRM(kpis.totalCollected)}`,
+    },
+
+    // TILE 6: Overdue Risk (What's at risk of not being collected?)
+    {
+      icon: WarningCircleIcon,
+      label: "Overdue Risk",
+      sublabel: "Value Past Due Date (Not based on period)",
+      value: compactCurrency(kpis.overdueValue),
+      variant: "redCard",
+      to: "../invoices",
+      filter: { statusCode: "O", overdueOnly: "true" },
+      metrics: [
+        {
+          label: "Overdue Invoices",
+          value: kpis.overdueInvoiceCount || 0,
+          icon: HourglassHighIcon,
+        },
+      ],
+      title: `Open invoices past their due date, as of today — ${formatRM(kpis.overdueValue)}`,
+    },
+
+    // TILE 7: Cash Cycle (Is cash locked up in AR/AP?) -- new, synthesized
+    // from the dso/dpo fields, previously buried as sub-metrics on two
+    // different (now-demoted) tiles.
+    {
+      icon: ArrowsClockwiseIcon,
+      label: "Cash Cycle",
+      sublabel: "Avg. Days to Collect vs. Pay (Not based on period)",
+      value: `${kpis.dso || 0} Days`,
       variant: "yellowCard",
       to: null,
       filter: null,
       metrics: [
         {
-          label: "Quick Ratio",
-          value: formatRatio(kpis.quickRatio),
-          icon: ScalesIcon,
+          label: "DPO",
+          value: `${kpis.dpo || 0} Days`,
+          icon: ClockIcon,
         },
       ],
-      title: `Current Assets (${formatRM(kpis.currentAssets)}) ÷ Current Liabilities (${formatRM(kpis.currentLiabilities)}), as of today. Quick Ratio excludes Inventory and Prepayments from Current Assets — ${formatRatio(kpis.currentRatio)}`,
+      title: `Days Sales Outstanding (DSO) and Days Payable Outstanding (DPO) — the two legs of the Cash Conversion Cycle that are built. Full Cash Conversion Cycle (DSO + DIO − DPO) isn't available yet: Days Inventory Outstanding needs per-warehouse inventory valuation (Finance Expansion Phase 3, not started).${dsoCaveat} DSO: ${kpis.dso || 0} days, DPO: ${kpis.dpo || 0} days`,
     },
 
-    // PILLAR 14: Working Capital (the full General-Ledger-based figure)
+    // TILE 8: Working Capital (Can we cover what we owe soon?) -- absorbs
+    // the previous standalone Current Ratio tile's Current/Quick Ratio
+    // sub-metrics.
     {
       icon: StackIcon,
       label: "Working Capital",
@@ -499,15 +319,17 @@ export function getFinanceOverviewConfig(kpis) {
       filter: null,
       metrics: [
         {
-          label: "Total Assets",
-          value: formatRM(kpis.totalAssets),
+          label: "Current Ratio",
+          value: formatRatio(kpis.currentRatio),
+          icon: ScalesIcon,
         },
         {
-          label: "Total Equity",
-          value: formatRM(kpis.totalEquity),
+          label: "Quick Ratio",
+          value: formatRatio(kpis.quickRatio),
+          icon: ScalesIcon,
         },
       ],
-      title: `Current Assets (${formatRM(kpis.currentAssets)}) minus Current Liabilities (${formatRM(kpis.currentLiabilities)}), as of today, from actual General Ledger balances — ${formatRM(kpis.workingCapital)}`,
+      title: `Current Assets (${formatRM(kpis.currentAssets)}) minus Current Liabilities (${formatRM(kpis.currentLiabilities)}), as of today, from actual General Ledger balances. Total Assets: ${formatRM(kpis.totalAssets)}, Total Equity: ${formatRM(kpis.totalEquity)} (see the Balance Sheet Snapshot chart for the full composition). Outstanding AR minus Outstanding AP, a narrower subledger-level cross-check: ${formatRM(kpis.netArApPosition)} — ${formatRM(kpis.workingCapital)}`,
     },
   ];
 }

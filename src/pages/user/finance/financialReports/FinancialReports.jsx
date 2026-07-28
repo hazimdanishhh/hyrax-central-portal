@@ -79,7 +79,7 @@ export default function FinancialReports() {
   const isError = dashboardError || metadataError;
 
   const kpis = dashboard?.kpis ?? {};
-  const overviewItems = getFinanceOverviewConfig(kpis);
+  const overviewItems = getFinanceOverviewConfig(kpis, filters);
 
   // AR aging / outstanding balances are always "as of today" -- not bounded
   // by the date filter, so bucket_order from the RPC drives display order.
@@ -473,6 +473,8 @@ export default function FinancialReports() {
                           title="AR Aging"
                           subtitle="As of today — not affected by date filter"
                           style="cardGapSmall"
+                          viewAllTo="../invoices"
+                          viewAllFilter={{ statusCode: "O" }}
                         >
                           <HorizontalBarChartRenderer
                             data={arAgingData}
@@ -581,6 +583,8 @@ export default function FinancialReports() {
                           title="AP Aging"
                           subtitle="As of today — not affected by date filter"
                           style="cardGapSmall"
+                          viewAllTo="../bills"
+                          viewAllFilter={{ statusCode: "O" }}
                         >
                           <HorizontalBarChartRenderer
                             data={apAgingData}
@@ -592,6 +596,8 @@ export default function FinancialReports() {
                           title="Top Overdue Vendors"
                           subtitle="Outstanding AP (RM)"
                           style="cardGapSmall"
+                          viewAllTo="../bills"
+                          viewAllFilter={{ statusCode: "O", overdueOnly: "true" }}
                         >
                           <HorizontalBarChartRenderer
                             data={topOverdueVendorsData}
@@ -603,6 +609,7 @@ export default function FinancialReports() {
                           title="Top Vendors by Spend"
                           subtitle="Billed (RM)"
                           style="cardGapSmall"
+                          viewAllTo="../bills"
                         >
                           <HorizontalBarChartRenderer
                             data={topVendorsBySpendData}
@@ -667,7 +674,13 @@ export default function FinancialReports() {
                               },
                               {
                                 dataKey: "gross_profit_myr",
-                                name: "Gross Profit",
+                                // Relabeled 2026-07 (Finance Reports redesign,
+                                // Pass 1): the headline Gross Profit tile now
+                                // shows the GL-based figure -- this legend
+                                // must say plainly that THIS bar is still the
+                                // invoice-based (SAP GrosProfit) figure, so
+                                // the two don't read as the same number.
+                                name: "Gross Profit (Invoice-Based)",
                                 color: GREEN_COLOR,
                               },
                               {
