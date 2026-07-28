@@ -18,6 +18,7 @@ import {
   BLUE_COLOR,
   GREEN_COLOR,
   YELLOW_COLOR,
+  RED_COLOR,
 } from "../../../../components/chartCard/chartColors";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../components/crud/noResult/NoResult";
@@ -153,6 +154,41 @@ export default function FinancialReports() {
       value: d.unallocated_amount,
     })) ?? [];
 
+  // General Ledger (Finance Expansion Phase 2, added 2026-07). Both are
+  // returned as a single JSON object (not an array of rows, unlike every
+  // other chart dataset above) -- Object.entries reshapes each into the
+  // {name, value} array HorizontalBarChartRenderer expects.
+  const plBreakdownData = dashboard?.plBreakdownData
+    ? Object.entries(dashboard.plBreakdownData).map(([name, value]) => ({
+        name,
+        value,
+      }))
+    : [];
+
+  const balanceSheetSnapshotData = dashboard?.balanceSheetSnapshotData
+    ? Object.entries(dashboard.balanceSheetSnapshotData).map(
+        ([name, value]) => ({ name, value }),
+      )
+    : [];
+
+  // Added 2026-07: monthly Revenue/COGS/OpEx/Net Profit, same period-bound
+  // convention as revenueTrendData above (all-time if no range selected).
+  const plTrendData =
+    dashboard?.plTrendData?.map((d) => ({
+      name: d.period,
+      "Revenue (RM)": d.revenue_myr,
+      "COGS (RM)": d.cogs_myr,
+      "OpEx (RM)": d.opex_myr,
+      "Net Profit (RM)": d.net_profit_myr,
+    })) ?? [];
+
+  // Added 2026-07: top 10 leaf expense accounts by amount, period-bound.
+  const opexBreakdownData =
+    dashboard?.opexBreakdownData?.map((d) => ({
+      name: d.account_name,
+      value: d.amount_myr,
+    })) ?? [];
+
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
@@ -280,6 +316,94 @@ export default function FinancialReports() {
                       </div>
 
                       <OverviewCards items={overviewItems} />
+                    </div>
+                  </div>
+
+                  {/* TIER 2: P&L & BALANCE SHEET (Finance Expansion Phase 2, added 2026-07) */}
+                  {/* Added 2026-07: monthly trend + expense breakdown --
+                          plBreakdownData/balanceSheetSnapshotData above are
+                          single-period snapshots; these answer "is
+                          profitability improving or declining" and "what's
+                          inside Operating Expenses". */}
+                  <div className="pdfOverviewSection">
+                    <div
+                      style={{
+                        justifyContent: "start",
+                        textAlign: "start",
+                      }}
+                    >
+                      <div style={{ marginBottom: "1rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
+                          <GaugeIcon size={24} />
+                          <h2 className="textL textBold">
+                            P&amp;L &amp; Balance Sheet
+                          </h2>
+                        </div>
+                        <p className="textXS textLight">
+                          Profitability from actual General Ledger postings, and
+                          a snapshot of what we own vs. owe.
+                        </p>
+                      </div>
+
+                      <CardLayout style="cardLayout2">
+                        <ChartCard
+                          title="P&L Breakdown"
+                          subtitle="Revenue through Net Profit (RM), this period"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={plBreakdownData}
+                            colorMap={BLUE_COLOR}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Balance Sheet Snapshot"
+                          subtitle="As of today — not affected by date filter"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={balanceSheetSnapshotData}
+                            colorMap={YELLOW_COLOR}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="P&L Trend"
+                          subtitle="Revenue, COGS, OpEx & Net Profit by month (RM)"
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={plTrendData}
+                            lines={[
+                              { dataKey: "Revenue (RM)", color: BLUE_COLOR },
+                              { dataKey: "COGS (RM)", color: RED_COLOR },
+                              { dataKey: "OpEx (RM)", color: YELLOW_COLOR },
+                              {
+                                dataKey: "Net Profit (RM)",
+                                color: GREEN_COLOR,
+                              },
+                            ]}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Operating Expense Breakdown"
+                          subtitle="Top 10 expense accounts this period (RM)"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={opexBreakdownData}
+                            colorMap={RED_COLOR}
+                          />
+                        </ChartCard>
+                      </CardLayout>
                     </div>
                   </div>
 
@@ -413,8 +537,8 @@ export default function FinancialReports() {
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          Outstanding vendor balances and where our payables
-                          are concentrated.
+                          Outstanding vendor balances and where our payables are
+                          concentrated.
                         </p>
                       </div>
 

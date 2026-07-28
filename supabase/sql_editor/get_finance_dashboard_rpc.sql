@@ -13,12 +13,37 @@ create or replace function get_finance_dashboard(
 )
 returns json
 language plpgsql
+-- Function-scoped GUC overrides (added 2026-07, post-Phase-2 fix): confirmed
+-- live that this call was hitting Postgres error 57014 ("canceling statement
+-- due to statement timeout") when invoked from the frontend via PostgREST's
+-- API role (anon/authenticated) -- the SAME call finished in well under 10s
+-- run directly in Supabase Studio's SQL editor, which uses an unrestricted
+-- role with a much looser statement_timeout. The Finance Expansion Phase 2
+-- GL rollout (WITH RECURSIVE chart-of-accounts walk + joins across
+-- sap_gl_journal_lines/sap_gl_journal_entries, 620K+ rows combined and
+-- growing daily) pushed a filterless dashboard load's execution time past
+-- the API role's tighter ceiling. Scoped here (not via ALTER ROLE or a
+-- project-wide setting) so it doesn't mask a genuinely runaway query on any
+-- other RPC/role -- Postgres saves/restores the caller's real values around
+-- just this one function call. Being part of this CREATE FUNCTION statement
+-- itself (not a separate ALTER FUNCTION command run once by hand), these
+-- survive every future hand-redeploy of this file -- don't strip them as
+-- dead-looking config if you're copy-editing this header later.
+set statement_timeout = '30s'
+set work_mem = '64MB'
 as
 $$
 declare
     result json;
     v_prev_start_date date;
     v_prev_end_date date;
+    -- Added 2026-07 (YoY comparisons): same period one year back -- distinct
+    -- from v_prev_start_date/v_prev_end_date above, which is the immediately
+    -- preceding period of the same length (e.g. last month), not the same
+    -- period last year. Null whenever no range is selected, same guard as
+    -- v_prev_*.
+    v_yoy_start_date date;
+    v_yoy_end_date date;
     v_is_cancelled_text text;
     v_days numeric;
 begin
@@ -27,6 +52,8 @@ begin
 if p_start_date is not null and p_end_date is not null then
     v_prev_end_date := p_start_date - 1;
     v_prev_start_date := v_prev_end_date - (p_end_date - p_start_date);
+    v_yoy_start_date := (p_start_date - interval '1 year')::date;
+    v_yoy_end_date := (p_end_date - interval '1 year')::date;
     v_days := (p_end_date - p_start_date) + 1;
 else
     v_days := 365; -- annualized default for DSO when no range is selected
@@ -36,7 +63,12 @@ end if;
 -- null/false -> active docs only ('N'). true -> cancelled-only audit view ('Y').
 v_is_cancelled_text := case when p_is_cancelled is true then 'Y' else 'N' end;
 
-with base_invoices as (
+-- RECURSIVE (added 2026-07, Finance Expansion Phase 2): needed by
+-- gl_account_ancestry_raw below, which walks sap_gl_accounts.father_code to
+-- resolve each GL account's chart-of-accounts category. Every other CTE in
+-- this WITH clause is plain (non-recursive) and is unaffected by this
+-- keyword -- Postgres allows both to coexist in one WITH RECURSIVE block.
+with recursive base_invoices as (
     select
         oi.*,
         -- Same GrosProfit outlier guard as salesRepRevenueData below and
@@ -156,62 +188,157 @@ base_vendor_payment_apps as (
       and (bl.doc_entry is null or bl.is_cancelled = v_is_cancelled_text)
 ),
 
-kpi_totals as (
+-- ─── General Ledger (Finance Expansion Phase 2, added 2026-07) ──────────────
+-- Confirmed live against Hyrax's actual chart of accounts (not a hypothesis):
+--   Level-2 categories -- 100=Fixed Asset, 200=Current Asset (both under
+--   drawer 1/Assets); 300=Current Liabilities (the SOLE Level-2 node under
+--   drawer 2/Liabilities -- Hyrax has no long-term-liability category
+--   today); 400=Equity, 500=Turnover, 600=Cost Of Sales, 700=Expenses,
+--   800=Other Expenditure (one Level-2 node per drawer 3-7). Drawer 8
+--   (Taxation) has no confirmed activity in Hyrax's live data.
+--   Level-3 -- 2000=Inventories, 2400=Prepayment (both under Current
+--   Asset/200, needed to exclude from Quick Ratio); 7200=Financial Related
+--   (under Expenses/700, holds every interest/bank-charge line item,
+--   needed for the EBITDA interest add-back).
+--   AcctCode is NOT a reliable textual prefix for any of this (confirmed
+--   live: account '6200260' sits under GroupMask=5/Cost-Of-Sales despite
+--   its "62..." prefix visually suggesting a "620x" grouping) -- always
+--   resolve category via the real father_code chain below, never by
+--   guessing from account_code text.
+--   Sign convention (confirmed live via a balance-sheet identity check:
+--   Assets + Liabilities + Equity summed to within ~RM205K of zero, the
+--   expected un-closed-current-year-earnings residual): sap_gl_accounts.
+--   current_balance_myr is uniformly debit-positive -- Assets (debit-normal)
+--   store positive as-is; Liabilities/Equity/Revenue (credit-normal) store
+--   NEGATIVE, and must be negated below to report a human-readable positive
+--   amount. Don't drop these negations; getting this wrong produces a
+--   negative or nonsensical ratio, not an obviously-broken one.
+
+gl_account_ancestry_raw as (
+    select account_code, father_code, level, account_code as leaf_code
+    from sap_gl_accounts
+    where is_postable = 'Y'
+
+    union all
+
+    select p.account_code, p.father_code, p.level, r.leaf_code
+    from sap_gl_accounts p
+    join gl_account_ancestry_raw r on p.account_code = r.father_code
+),
+
+gl_account_ancestry as (
+    -- One row per postable (leaf) account, tagging its Level-2 and Level-3
+    -- ancestor codes (see the category note above).
     select
-        (select coalesce(sum(total_amount_myr),0) from base_invoices
-          where (p_start_date is null or "invoice_date"::date >= p_start_date)
-            and (p_end_date   is null or "invoice_date"::date <= p_end_date)
-        ) as period_invoiced,
+        leaf_code,
+        max(case when level = 2 then account_code end) as level2_ancestor,
+        max(case when level = 3 then account_code end) as level3_ancestor
+    from gl_account_ancestry_raw
+    group by leaf_code
+),
 
-        (select count(*) from base_invoices
-          where (p_start_date is null or "invoice_date"::date >= p_start_date)
-            and (p_end_date   is null or "invoice_date"::date <= p_end_date)
+gl_balance_sheet as (
+    -- Point-in-time (as of today) balance per postable account, classified
+    -- via the ancestry walk above. Uses sap_gl_accounts.current_balance_myr
+    -- (SAP's own maintained running balance) rather than summing all of
+    -- sap_gl_journal_lines since inception -- mirrors this RPC's existing
+    -- "trust SAP's own maintained aggregate" pattern for outstanding_ar
+    -- (sap_invoices.paid_to_date).
+    select
+        a.account_code,
+        a.drawer,
+        a.current_balance_myr,
+        anc.level2_ancestor,
+        anc.level3_ancestor
+    from sap_gl_accounts a
+    join gl_account_ancestry anc on anc.leaf_code = a.account_code
+    where a.is_postable = 'Y'
+),
+
+base_gl_lines as (
+    -- Period P&L activity. No is_cancelled-style filter: GL postings are
+    -- immutable once created (a correction posts a new offsetting entry, it
+    -- never edits an old one), so unlike base_invoices/base_bills there's no
+    -- cancelled-doc state to exclude here.
+    --
+    -- trans_type <> '-3' (added 2026-07): -3 is SAP Business One's own
+    -- reserved, system-generated transaction type for period-end closing --
+    -- confirmed live via a March 2023 batch (memo "For Closing Period YE
+    -- 2023 (01/04/22-31/03/23)") that exactly canceled that fiscal year's
+    -- entire revenue to the cent (11 months of normal RM 2-8M/month revenue
+    -- summed to the exact negative of this one batch). Left in, any fiscal
+    -- year SAP has formally closed reports netProfit/ebitda/plTrendData as a
+    -- misleading RM 0 instead of its real operating P&L -- this affects most
+    -- historical fiscal years, not an isolated case (closing entries seen in
+    -- December for 2017-2021, March for 2023-2024; 2025 not yet closed).
+    -- Structural exclusion (a reserved SAP system code), not a name/memo
+    -- match -- same "prefer structural over text-pattern" reasoning as the
+    -- Interest lookup's "7200" account category elsewhere in this RPC.
+    -- Deliberately does NOT touch gl_balance_sheet/current_balance_myr --
+    -- the balance sheet should keep reflecting the real current balance,
+    -- including the equity increase a closing entry produces.
+    select
+        jl.account_code,
+        jl.debit_amount_myr,
+        jl.credit_amount_myr,
+        je.posting_date,
+        a.drawer,
+        a.account_name
+    from sap_gl_journal_lines jl
+    join sap_gl_journal_entries je on jl.trans_id = je.trans_id
+    join sap_gl_accounts a on jl.account_code = a.account_code
+    where je.trans_type <> '-3'
+),
+
+-- Performance rewrite (added 2026-07): kpi_totals used to compute every field
+-- below as its own independent correlated subquery (~35 of them), each one
+-- re-scanning the same materialized base_* CTE from scratch -- e.g. 8 separate
+-- passes over base_gl_lines alone. That's what pushed a filterless dashboard
+-- load to 20-25s even after the statement_timeout fix above. Rewritten as one
+-- single-pass aggregate CTE per base table, using `filter (where ...)` per
+-- column instead of N subqueries -- the same pattern get_sales_leads_dashboard_
+-- rpc.sql/get_sales_reports_dashboard_rpc.sql already use for their own kpis
+-- blocks. Every field name and formula below is unchanged from the original;
+-- only the query *shape* changed. The final kpi_totals CTE cross-joins these
+-- single-row aggregates back together so every existing `from kpi_totals`
+-- reference elsewhere in this function needs no changes.
+
+invoices_agg as (
+    select
+        coalesce(sum(total_amount_myr) filter (where
+            (p_start_date is null or "invoice_date"::date >= p_start_date)
+            and (p_end_date is null or "invoice_date"::date <= p_end_date)
+        ), 0) as period_invoiced,
+
+        count(*) filter (where
+            (p_start_date is null or "invoice_date"::date >= p_start_date)
+            and (p_end_date is null or "invoice_date"::date <= p_end_date)
         ) as period_invoice_count,
-
-        (select coalesce(sum(amount_applied_myr),0) from base_payment_apps
-          where (p_start_date is null or payment_date::date >= p_start_date)
-            and (p_end_date   is null or payment_date::date <= p_end_date)
-        ) as period_collected,
 
         -- NOTE: outstanding_ar is sourced straight from sap_invoices.paid_to_date
         -- (SAP's own native per-invoice running total -- OINV.PaidToDate), with
         -- no RCT2/payment-applications join involved at all. period_collected
-        -- above, by contrast, comes from base_payment_apps (RCT2), which can
-        -- only attribute inv_type=13 rows. These two numbers measure "money
-        -- paid" via two different SAP sources, so period_invoiced -
-        -- period_collected will NOT generally equal outstanding_ar, even with
+        -- (payment_apps_agg below), by contrast, comes from base_payment_apps
+        -- (RCT2), which can only attribute inv_type=13 rows. These two numbers
+        -- measure "money paid" via two different SAP sources, so period_invoiced
+        -- - period_collected will NOT generally equal outstanding_ar, even with
         -- no date filter applied -- that gap reflects real cash that settled
         -- invoices through a document type the RCT2 join can't see (on-account
         -- cash, credit memos, etc.), not an error in either figure. See
         -- hyrax-central-portal/docs/RPC-REFERENCE.md's Finance section.
-        (select coalesce(sum(total_amount_myr - paid_to_date),0) from base_invoices
-          where status_code = 'O'
-        ) as outstanding_ar,
+        coalesce(sum(total_amount_myr - paid_to_date) filter (where status_code = 'O'), 0) as outstanding_ar,
 
-        (select count(*) from base_invoices
-          where status_code = 'O' and "due_date"::date < current_date
+        count(*) filter (where status_code = 'O' and "due_date"::date < current_date
             and (total_amount_myr - paid_to_date) > 0.01
         ) as overdue_count,
 
-        (select coalesce(sum(total_amount_myr - paid_to_date),0) from base_invoices
-          where status_code = 'O' and "due_date"::date < current_date
+        coalesce(sum(total_amount_myr - paid_to_date) filter (where status_code = 'O' and "due_date"::date < current_date
             and (total_amount_myr - paid_to_date) > 0.01
-        ) as overdue_value,
+        ), 0) as overdue_value,
 
-        (select coalesce(sum(unallocated_amount),0) from base_payments
-          where (p_start_date is null or payment_date::date >= p_start_date)
-            and (p_end_date   is null or payment_date::date <= p_end_date)
-        ) as unallocated_payments,
-
-        (select case when p_start_date is null then null else
-            (select coalesce(sum(total_amount_myr),0) from base_invoices
-              where "invoice_date"::date between v_prev_start_date and v_prev_end_date)
+        (case when p_start_date is null then null else
+            coalesce(sum(total_amount_myr) filter (where "invoice_date"::date between v_prev_start_date and v_prev_end_date), 0)
          end) as prev_period_invoiced,
-
-        (select case when p_start_date is null then null else
-            (select coalesce(sum(amount_applied_myr),0) from base_payment_apps
-              where payment_date::date between v_prev_start_date and v_prev_end_date)
-         end) as prev_period_collected,
 
         -- Gross Profit -- SAP's own pre-computed GrosProfit line-item field
         -- (via gross_profit_sanitized's outlier guard above), summed the
@@ -220,68 +347,224 @@ kpi_totals as (
         -- hyrax-data-platform/docs/sap-data-architecture-plans/
         -- 02-department-kpi-frameworks.md) -- SAP already computes GrosProfit
         -- per line, so no separate COGS derivation is needed here.
-        (select coalesce(sum(gross_profit_sanitized),0) from base_invoices
-          where (p_start_date is null or "invoice_date"::date >= p_start_date)
-            and (p_end_date   is null or "invoice_date"::date <= p_end_date)
-        ) as period_gross_profit,
+        coalesce(sum(gross_profit_sanitized) filter (where
+            (p_start_date is null or "invoice_date"::date >= p_start_date)
+            and (p_end_date is null or "invoice_date"::date <= p_end_date)
+        ), 0) as period_gross_profit,
 
-        (select case when p_start_date is null then null else
-            (select coalesce(sum(gross_profit_sanitized),0) from base_invoices
-              where "invoice_date"::date between v_prev_start_date and v_prev_end_date)
+        (case when p_start_date is null then null else
+            coalesce(sum(gross_profit_sanitized) filter (where "invoice_date"::date between v_prev_start_date and v_prev_end_date), 0)
          end) as prev_period_gross_profit,
 
-        -- ─── Accounts Payable chain totals (Finance Expansion Phase 1) ──────
-        -- Mirrors period_invoiced/period_collected/outstanding_ar/overdue_*/
-        -- unallocated_payments above, field-for-field, on the payables side.
+        -- YoY (added 2026-07): same period one year back, distinct from
+        -- prev_period_* above (immediately preceding period, not same period
+        -- last year) -- see v_yoy_start_date/v_yoy_end_date's declaration.
+        (case when p_start_date is null then null else
+            coalesce(sum(total_amount_myr) filter (where "invoice_date"::date between v_yoy_start_date and v_yoy_end_date), 0)
+         end) as yoy_period_invoiced,
 
-        (select coalesce(sum(total_amount_myr),0) from base_bills
-          where (p_start_date is null or "bill_date"::date >= p_start_date)
-            and (p_end_date   is null or "bill_date"::date <= p_end_date)
-        ) as period_billed,
+        (case when p_start_date is null then null else
+            coalesce(sum(gross_profit_sanitized) filter (where "invoice_date"::date between v_yoy_start_date and v_yoy_end_date), 0)
+         end) as yoy_period_gross_profit
+    from base_invoices
+),
 
-        (select count(*) from base_bills
-          where (p_start_date is null or "bill_date"::date >= p_start_date)
-            and (p_end_date   is null or "bill_date"::date <= p_end_date)
+payment_apps_agg as (
+    select
+        coalesce(sum(amount_applied_myr) filter (where
+            (p_start_date is null or payment_date::date >= p_start_date)
+            and (p_end_date is null or payment_date::date <= p_end_date)
+        ), 0) as period_collected,
+
+        (case when p_start_date is null then null else
+            coalesce(sum(amount_applied_myr) filter (where payment_date::date between v_prev_start_date and v_prev_end_date), 0)
+         end) as prev_period_collected
+    from base_payment_apps
+),
+
+payments_agg as (
+    select
+        coalesce(sum(unallocated_amount) filter (where
+            (p_start_date is null or payment_date::date >= p_start_date)
+            and (p_end_date is null or payment_date::date <= p_end_date)
+        ), 0) as unallocated_payments
+    from base_payments
+),
+
+-- ─── Accounts Payable chain totals (Finance Expansion Phase 1) ──────
+-- Mirrors invoices_agg/payment_apps_agg/payments_agg above, field-for-field,
+-- on the payables side.
+
+bills_agg as (
+    select
+        coalesce(sum(total_amount_myr) filter (where
+            (p_start_date is null or "bill_date"::date >= p_start_date)
+            and (p_end_date is null or "bill_date"::date <= p_end_date)
+        ), 0) as period_billed,
+
+        count(*) filter (where
+            (p_start_date is null or "bill_date"::date >= p_start_date)
+            and (p_end_date is null or "bill_date"::date <= p_end_date)
         ) as period_bill_count,
-
-        (select coalesce(sum(amount_applied_myr),0) from base_vendor_payment_apps
-          where (p_start_date is null or payment_date::date >= p_start_date)
-            and (p_end_date   is null or payment_date::date <= p_end_date)
-        ) as period_paid,
 
         -- Same sourcing caveat as outstanding_ar: straight from
         -- sap_vendor_bills.paid_to_date, no VPM2 join involved -- won't
         -- generally reconcile exactly against period_billed - period_paid,
         -- for the same reason outstandingAR doesn't reconcile against
         -- periodInvoicedRevenue - totalCollected (see that comment above).
-        (select coalesce(sum(total_amount_myr - paid_to_date),0) from base_bills
-          where status_code = 'O'
-        ) as outstanding_ap,
+        coalesce(sum(total_amount_myr - paid_to_date) filter (where status_code = 'O'), 0) as outstanding_ap,
 
-        (select count(*) from base_bills
-          where status_code = 'O' and "due_date"::date < current_date
+        count(*) filter (where status_code = 'O' and "due_date"::date < current_date
             and (total_amount_myr - paid_to_date) > 0.01
         ) as overdue_bill_count,
 
-        (select coalesce(sum(total_amount_myr - paid_to_date),0) from base_bills
-          where status_code = 'O' and "due_date"::date < current_date
+        coalesce(sum(total_amount_myr - paid_to_date) filter (where status_code = 'O' and "due_date"::date < current_date
             and (total_amount_myr - paid_to_date) > 0.01
-        ) as overdue_bill_value,
+        ), 0) as overdue_bill_value,
 
-        (select coalesce(sum(unallocated_amount),0) from base_vendor_payments
-          where (p_start_date is null or payment_date::date >= p_start_date)
-            and (p_end_date   is null or payment_date::date <= p_end_date)
-        ) as unallocated_outgoing_payments,
+        (case when p_start_date is null then null else
+            coalesce(sum(total_amount_myr) filter (where "bill_date"::date between v_prev_start_date and v_prev_end_date), 0)
+         end) as prev_period_billed
+    from base_bills
+),
 
-        (select case when p_start_date is null then null else
-            (select coalesce(sum(total_amount_myr),0) from base_bills
-              where "bill_date"::date between v_prev_start_date and v_prev_end_date)
-         end) as prev_period_billed,
+vendor_payment_apps_agg as (
+    select
+        coalesce(sum(amount_applied_myr) filter (where
+            (p_start_date is null or payment_date::date >= p_start_date)
+            and (p_end_date is null or payment_date::date <= p_end_date)
+        ), 0) as period_paid,
 
-        (select case when p_start_date is null then null else
-            (select coalesce(sum(amount_applied_myr),0) from base_vendor_payment_apps
-              where payment_date::date between v_prev_start_date and v_prev_end_date)
+        (case when p_start_date is null then null else
+            coalesce(sum(amount_applied_myr) filter (where payment_date::date between v_prev_start_date and v_prev_end_date), 0)
          end) as prev_period_paid
+    from base_vendor_payment_apps
+),
+
+vendor_payments_agg as (
+    select
+        coalesce(sum(unallocated_amount) filter (where
+            (p_start_date is null or payment_date::date >= p_start_date)
+            and (p_end_date is null or payment_date::date <= p_end_date)
+        ), 0) as unallocated_outgoing_payments
+    from base_vendor_payments
+),
+
+-- ─── General Ledger P&L (period-bound, Finance Expansion Phase 2) ───
+-- Revenue/Equity-drawer accounts are credit-normal (credit - debit);
+-- Cost/Expense-drawer accounts are debit-normal (debit - credit) --
+-- standard double-entry sign convention, applied per drawer. The
+-- gl_account_ancestry join (needed only for gl_period_interest's "7200"
+-- lookup) is folded into this same single pass rather than its own separate
+-- scan -- a left join since every leaf account should resolve to an
+-- ancestor, but this way a non-matching row just falls out of the interest
+-- filter instead of the whole aggregate silently excluding it.
+gl_agg as (
+    select
+        coalesce(sum(credit_amount_myr - debit_amount_myr) filter (where drawer = 4
+            and (p_start_date is null or bl.posting_date::date >= p_start_date)
+            and (p_end_date is null or bl.posting_date::date <= p_end_date)
+        ), 0) as gl_period_revenue,
+
+        coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 5
+            and (p_start_date is null or bl.posting_date::date >= p_start_date)
+            and (p_end_date is null or bl.posting_date::date <= p_end_date)
+        ), 0) as gl_period_cogs,
+
+        coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 6
+            and (p_start_date is null or bl.posting_date::date >= p_start_date)
+            and (p_end_date is null or bl.posting_date::date <= p_end_date)
+        ), 0) as gl_period_opex,
+
+        coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 7
+            and (p_start_date is null or bl.posting_date::date >= p_start_date)
+            and (p_end_date is null or bl.posting_date::date <= p_end_date)
+        ), 0) as gl_period_other_expenditure,
+
+        coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 8
+            and (p_start_date is null or bl.posting_date::date >= p_start_date)
+            and (p_end_date is null or bl.posting_date::date <= p_end_date)
+        ), 0) as gl_period_tax,
+
+        -- Interest -- structural, not name-based: everything under the
+        -- "7200 Financial Related" Level-3 node (confirmed live -- this
+        -- subtree holds every interest/bank-charge line item Hyrax books,
+        -- including a couple of interest-income lines netted in by their own
+        -- chart-of-accounts design). Already counted inside gl_period_opex
+        -- above (drawer 6) -- adding it back for EBITDA below reverses
+        -- exactly that effect on net profit, it isn't a double-count.
+        coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where anc.level3_ancestor = '7200'
+            and (p_start_date is null or bl.posting_date::date >= p_start_date)
+            and (p_end_date is null or bl.posting_date::date <= p_end_date)
+        ), 0) as gl_period_interest,
+
+        -- Depreciation/Amortization -- name-pattern match, NOT structural.
+        -- Hyrax's chart of accounts splits D&A across two different drawers
+        -- depending on asset type (confirmed live: "Depreciation - Plant &
+        -- Mach" sits under Cost Of Sales/drawer 5, plain "Depreciation" sits
+        -- under Other Expenditure/drawer 7) -- there's no single clean
+        -- structural home for it the way Interest has "7200". Less robust
+        -- than every other GL figure here: a renamed or newly-added D&A
+        -- account with different wording would silently fall through this
+        -- filter. Revisit if this proves materially wrong against a real
+        -- P&L review.
+        coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where
+            (bl.account_name ilike '%depreciation%' or bl.account_name ilike '%amorti%')
+            and (p_start_date is null or bl.posting_date::date >= p_start_date)
+            and (p_end_date is null or bl.posting_date::date <= p_end_date)
+        ), 0) as gl_period_depreciation_amortization,
+
+        (case when p_start_date is null then null else
+            coalesce(sum(credit_amount_myr - debit_amount_myr) filter (where drawer = 4 and bl.posting_date::date between v_prev_start_date and v_prev_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 5 and bl.posting_date::date between v_prev_start_date and v_prev_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 6 and bl.posting_date::date between v_prev_start_date and v_prev_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 7 and bl.posting_date::date between v_prev_start_date and v_prev_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 8 and bl.posting_date::date between v_prev_start_date and v_prev_end_date), 0)
+         end) as prev_net_profit,
+
+        -- YoY (added 2026-07): same 5-drawer combined expression as
+        -- prev_net_profit above, windowed a year back instead of one period back.
+        (case when p_start_date is null then null else
+            coalesce(sum(credit_amount_myr - debit_amount_myr) filter (where drawer = 4 and bl.posting_date::date between v_yoy_start_date and v_yoy_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 5 and bl.posting_date::date between v_yoy_start_date and v_yoy_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 6 and bl.posting_date::date between v_yoy_start_date and v_yoy_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 7 and bl.posting_date::date between v_yoy_start_date and v_yoy_end_date), 0)
+          - coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 8 and bl.posting_date::date between v_yoy_start_date and v_yoy_end_date), 0)
+         end) as yoy_net_profit
+    from base_gl_lines bl
+    left join gl_account_ancestry anc on anc.leaf_code = bl.account_code
+),
+
+-- ─── Balance Sheet (point-in-time, "as of today") ───────────────────
+-- Liabilities/Equity negated -- see the sign-convention note above
+-- base_gl_lines; current_balance_myr stores them as negative.
+gl_balance_agg as (
+    select
+        coalesce(sum(current_balance_myr) filter (where drawer = 1 and level2_ancestor = '200'), 0) as current_assets,
+
+        coalesce(sum(current_balance_myr) filter (where drawer = 1 and level2_ancestor = '100'), 0) as fixed_assets,
+
+        -coalesce(sum(current_balance_myr) filter (where drawer = 2 and level2_ancestor = '300'), 0) as current_liabilities,
+
+        -- Computed independently from current_liabilities (not just aliased
+        -- to it) so this stays correct if a long-term-liability category is
+        -- ever added to Hyrax's chart of accounts -- today drawer 2 has only
+        -- the one Level-2 node (300), so the two figures are identical.
+        -coalesce(sum(current_balance_myr) filter (where drawer = 2), 0) as total_liabilities,
+
+        -coalesce(sum(current_balance_myr) filter (where drawer = 3), 0) as total_equity,
+
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2000'), 0) as gl_inventory_balance,
+
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2400'), 0) as gl_prepayment_balance
+    from gl_balance_sheet
+),
+
+kpi_totals as (
+    select *
+    from invoices_agg, payment_apps_agg, payments_agg,
+         bills_agg, vendor_payment_apps_agg, vendor_payments_agg,
+         gl_agg, gl_balance_agg
 ),
 
 -- Per-rep cash collected, same period-bound rule as kpi_totals.period_collected
@@ -352,6 +635,11 @@ select json_build_object(
             'prevPeriodInvoicedRevenue', prev_period_invoiced,
             'prevTotalCollected',        prev_period_collected,
             'prevPeriodGrossProfit',     prev_period_gross_profit,
+            -- YoY (added 2026-07): same period one year back, distinct from
+            -- prevPeriod* above (immediately preceding period, not same
+            -- period last year) -- see v_yoy_start_date/v_yoy_end_date.
+            'yoyPeriodInvoicedRevenue',  yoy_period_invoiced,
+            'yoyPeriodGrossProfit',      yoy_period_gross_profit,
 
             -- ─── Accounts Payable chain (Finance Expansion Phase 1, 2026-07) ─
             'periodBilled',      period_billed,
@@ -375,12 +663,90 @@ select json_build_object(
                             ) / period_billed * v_days
                         , 1)
                         else 0 end,
-            -- First (partial) Working Capital signal ahead of full GL
-            -- (Phase 2) -- net AR/AP position, not a complete working-capital
-            -- figure (that needs all current assets/liabilities from the GL).
+            -- Net AR/AP position -- a subledger-level signal (AR from
+            -- sap_invoices, AP from sap_vendor_bills), kept alongside the
+            -- real GL-based workingCapital figure below (added in this same
+            -- Phase 2 update) rather than replaced by it: the two are
+            -- related but structurally different measures (subledger
+            -- receivables/payables vs. full current-assets/current-
+            -- liabilities from the general ledger) and won't generally
+            -- match exactly, for the same "two sources, don't silently pick
+            -- a winner" reason documented throughout this RPC.
             'netArApPosition', outstanding_ar - outstanding_ap,
             'prevPeriodBilled', prev_period_billed,
-            'prevTotalPaid',    prev_period_paid
+            'prevTotalPaid',    prev_period_paid,
+
+            -- ─── General Ledger (Finance Expansion Phase 2, 2026-07) ────────
+            -- glGrossProfit/glGrossProfitMarginPct are a SEPARATE figure from
+            -- periodGrossProfit/grossProfitMarginPct above -- that one sums
+            -- SAP's own per-invoice GrosProfit field (AR/invoice-line level);
+            -- this one derives Revenue-COGS from actual GL postings. Same
+            -- "two systems, two sources, don't silently pick a winner"
+            -- treatment already applied elsewhere in this RPC (see the
+            -- Revenue-ownership split note on salesRepRevenueData) -- the two
+            -- may not reconcile exactly, and that's expected, not a bug.
+            'glPeriodRevenue',  gl_period_revenue,
+            'glPeriodCOGS',     gl_period_cogs,
+            'glGrossProfit',    gl_period_revenue - gl_period_cogs,
+            'glGrossProfitMarginPct', case when gl_period_revenue > 0
+                        then round(((gl_period_revenue - gl_period_cogs) / gl_period_revenue) * 100, 1)
+                        else 0 end,
+            'glOperatingExpenses', gl_period_opex,
+            'glOperatingProfit', (gl_period_revenue - gl_period_cogs) - gl_period_opex,
+            'glOtherExpenditure', gl_period_other_expenditure,
+            'glTax', gl_period_tax,
+            'netProfit', ((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax,
+            'netProfitMarginPct', case when gl_period_revenue > 0
+                        then round(
+                            ((((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax) / gl_period_revenue) * 100
+                        , 1)
+                        else 0 end,
+            -- EBITDA = Net Profit + Interest + Tax + Depreciation/Amortization
+            -- added back. See gl_period_interest/gl_period_depreciation_
+            -- amortization's own derivation comments above (kpi_totals) for
+            -- exactly how robust each add-back is -- Interest is structural
+            -- (the "7200 Financial Related" subtree), Depreciation/
+            -- Amortization is name-pattern-based and the least robust figure
+            -- in this whole RPC. Treat ebitda as a best-effort approximation,
+            -- not a fully audited figure.
+            'ebitda',
+                (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                + gl_period_interest + gl_period_tax + gl_period_depreciation_amortization,
+            'ebitdaMarginPct', case when gl_period_revenue > 0
+                        then round(
+                            (
+                                (
+                                    (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                                    + gl_period_interest + gl_period_tax + gl_period_depreciation_amortization
+                                ) / gl_period_revenue
+                            ) * 100
+                        , 1)
+                        else 0 end,
+            'prevNetProfit', prev_net_profit,
+            -- YoY (added 2026-07): same 5-drawer combined expression as
+            -- prevNetProfit above, windowed a year back instead of one
+            -- period back.
+            'yoyNetProfit', yoy_net_profit,
+
+            -- Balance sheet (point-in-time, "as of today", same convention as
+            -- outstandingAR/outstandingAP above).
+            'currentAssets', current_assets,
+            'fixedAssets', fixed_assets,
+            'totalAssets', current_assets + fixed_assets,
+            'currentLiabilities', current_liabilities,
+            'totalLiabilities', total_liabilities,
+            'totalEquity', total_equity,
+            'currentRatio', case when current_liabilities > 0
+                        then round(current_assets / current_liabilities, 2)
+                        else null end,
+            -- Quick Assets = Current Assets minus Inventories and Prepayment
+            -- (the standard Quick Ratio exclusions) -- both are Level-3
+            -- categories confirmed live under Current Asset/200 (Inventories
+            -- = 2000, Prepayment = 2400).
+            'quickRatio', case when current_liabilities > 0
+                        then round((current_assets - gl_inventory_balance - gl_prepayment_balance) / current_liabilities, 2)
+                        else null end,
+            'workingCapital', current_assets - current_liabilities
         )
         from kpi_totals
     ),
@@ -610,6 +976,85 @@ select json_build_object(
             from base_vendor_payments
             where unallocated_amount > 0.01
             order by unallocated_amount desc
+            limit 10
+        ) x
+    ),
+
+    -- P&L breakdown (Finance Expansion Phase 2, added 2026-07) -- period-
+    -- bound, drawn from kpi_totals' GL figures above. Costs/expenses are
+    -- returned as negative values so a bar chart reads left-to-right as a
+    -- waterfall (Revenue down through Net Profit) without extra frontend math.
+    'plBreakdownData', (
+        select json_build_object(
+            'Revenue', gl_period_revenue,
+            'COGS', -gl_period_cogs,
+            'Gross Profit', gl_period_revenue - gl_period_cogs,
+            'Operating Expenses', -gl_period_opex,
+            'Operating Profit', (gl_period_revenue - gl_period_cogs) - gl_period_opex,
+            'Other Expenditure', -gl_period_other_expenditure,
+            'Tax', -gl_period_tax,
+            'Net Profit', ((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax
+        )
+        from kpi_totals
+    ),
+
+    -- Balance sheet snapshot (Finance Expansion Phase 2, added 2026-07) --
+    -- always "as of today", same convention as arAgingData/apAgingData above.
+    'balanceSheetSnapshotData', (
+        select json_build_object(
+            'Current Assets', current_assets,
+            'Fixed Assets', fixed_assets,
+            'Current Liabilities', current_liabilities,
+            'Total Equity', total_equity
+        )
+        from kpi_totals
+    ),
+
+    -- P&L trend (added 2026-07) -- monthly Revenue/COGS/OpEx/Net Profit,
+    -- period-bound by p_start_date/p_end_date same as revenueTrendData above
+    -- (all-time if no range selected). Answers "is profitability improving
+    -- or declining", which plBreakdownData's single-period snapshot can't.
+    'plTrendData', (
+        select coalesce(json_agg(json_build_object(
+            'period', to_char(month, 'YYYY-MM'),
+            'revenue_myr', revenue,
+            'cogs_myr', cogs,
+            'opex_myr', opex,
+            'net_profit_myr', revenue - cogs - opex - other_expenditure - tax
+        ) order by month), '[]'::json)
+        from (
+            select
+                date_trunc('month', posting_date::date) as month,
+                coalesce(sum(credit_amount_myr - debit_amount_myr) filter (where drawer = 4), 0) as revenue,
+                coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 5), 0) as cogs,
+                coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 6), 0) as opex,
+                coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 7), 0) as other_expenditure,
+                coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where drawer = 8), 0) as tax
+            from base_gl_lines
+            where (p_start_date is null or posting_date::date >= p_start_date)
+              and (p_end_date   is null or posting_date::date <= p_end_date)
+            group by 1
+        ) x
+    ),
+
+    -- Operating expense breakdown (added 2026-07) -- top 10 leaf expense
+    -- accounts by amount, period-bound. Breaks down by individual leaf
+    -- account rather than a Level-3 category grouping (unlike the interest
+    -- lookup's "7200" node) -- only 7200 is confirmed as a Level-3 node under
+    -- Expenses/drawer 6; other expense categories may or may not have their
+    -- own, so grouping by leaf account is the always-correct choice here.
+    'opexBreakdownData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from (
+            select
+                account_name,
+                sum(debit_amount_myr - credit_amount_myr) as amount_myr
+            from base_gl_lines
+            where drawer = 6
+              and (p_start_date is null or posting_date::date >= p_start_date)
+              and (p_end_date   is null or posting_date::date <= p_end_date)
+            group by account_code, account_name
+            order by amount_myr desc
             limit 10
         ) x
     )

@@ -13,11 +13,19 @@ import {
   InvoiceIcon,
   HandCoinsIcon,
   ScalesIcon,
+  ChartLineUpIcon,
+  GaugeIcon,
+  StackIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../../functions/formatNumber";
 
 export function getFinanceOverviewConfig(kpis) {
   const formatRM = (value) => `RM ${Math.round(value || 0).toLocaleString()}`;
+  // Ratios (Current Ratio, Quick Ratio) are unitless multiples, not currency
+  // -- "1.85x" reads as a ratio the way "RM 1,850,000" reads as an amount.
+  // null (division-by-zero guard in the RPC) renders as "—", not "0.00x".
+  const formatRatio = (value) =>
+    value === null || value === undefined ? "—" : `${Number(value).toFixed(2)}x`;
 
   // Calculate percentage change function (mirrors sales leads overview config)
   const calcDelta = (current, previous) => {
@@ -61,6 +69,31 @@ export function getFinanceOverviewConfig(kpis) {
         : `↓ ${Math.abs(grossProfitDelta)}% vs last period`
       : "No prior data";
 
+  // YoY (added 2026-07): same period one year back, distinct from the
+  // Prev. Period deltas above (immediately preceding period, not same
+  // period last year) -- surfaces the seasonality trend those can't.
+  const invoicedYoyDelta = calcDelta(
+    kpis.periodInvoicedRevenue,
+    kpis.yoyPeriodInvoicedRevenue,
+  );
+  const invoicedYoyDeltaText =
+    invoicedYoyDelta !== null
+      ? invoicedYoyDelta > 0
+        ? `↑ ${invoicedYoyDelta}% vs last year`
+        : `↓ ${Math.abs(invoicedYoyDelta)}% vs last year`
+      : "No prior data";
+
+  const grossProfitYoyDelta = calcDelta(
+    kpis.periodGrossProfit,
+    kpis.yoyPeriodGrossProfit,
+  );
+  const grossProfitYoyDeltaText =
+    grossProfitYoyDelta !== null
+      ? grossProfitYoyDelta > 0
+        ? `↑ ${grossProfitYoyDelta}% vs last year`
+        : `↓ ${Math.abs(grossProfitYoyDelta)}% vs last year`
+      : "No prior data";
+
   // Accounts Payable chain (Finance Expansion Phase 1, added 2026-07)
   const billedDelta = calcDelta(kpis.periodBilled, kpis.prevPeriodBilled);
   const billedDeltaText =
@@ -76,6 +109,23 @@ export function getFinanceOverviewConfig(kpis) {
       ? paidDelta > 0
         ? `↑ ${paidDelta}% vs last period`
         : `↓ ${Math.abs(paidDelta)}% vs last period`
+      : "No prior data";
+
+  // General Ledger (Finance Expansion Phase 2, added 2026-07)
+  const netProfitDelta = calcDelta(kpis.netProfit, kpis.prevNetProfit);
+  const netProfitDeltaText =
+    netProfitDelta !== null
+      ? netProfitDelta > 0
+        ? `↑ ${netProfitDelta}% vs last period`
+        : `↓ ${Math.abs(netProfitDelta)}% vs last period`
+      : "No prior data";
+
+  const netProfitYoyDelta = calcDelta(kpis.netProfit, kpis.yoyNetProfit);
+  const netProfitYoyDeltaText =
+    netProfitYoyDelta !== null
+      ? netProfitYoyDelta > 0
+        ? `↑ ${netProfitYoyDelta}% vs last year`
+        : `↓ ${Math.abs(netProfitYoyDelta)}% vs last year`
       : "No prior data";
 
   return [
@@ -102,6 +152,16 @@ export function getFinanceOverviewConfig(kpis) {
             invoicedDelta === null
               ? null
               : invoicedDelta >= 0
+                ? TrendUpIcon
+                : TrendDownIcon,
+        },
+        {
+          label: "vs Last Year",
+          value: invoicedYoyDeltaText,
+          icon:
+            invoicedYoyDelta === null
+              ? null
+              : invoicedYoyDelta >= 0
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
@@ -168,6 +228,16 @@ export function getFinanceOverviewConfig(kpis) {
             grossProfitDelta === null
               ? null
               : grossProfitDelta >= 0
+                ? TrendUpIcon
+                : TrendDownIcon,
+        },
+        {
+          label: "vs Last Year",
+          value: grossProfitYoyDeltaText,
+          icon:
+            grossProfitYoyDelta === null
+              ? null
+              : grossProfitYoyDelta >= 0
                 ? TrendUpIcon
                 : TrendDownIcon,
         },
@@ -317,7 +387,7 @@ export function getFinanceOverviewConfig(kpis) {
       title: `Open vendor bills past their due date, as of today — ${formatRM(kpis.overdueBillValue)}`,
     },
 
-    // PILLAR 10: Net AR/AP Position (partial Working Capital signal, ahead of GL/Phase 2)
+    // PILLAR 10: Net AR/AP Position (subledger-level signal, distinct from the GL-based Working Capital below)
     {
       icon: ScalesIcon,
       label: "Net AR/AP Position",
@@ -327,7 +397,110 @@ export function getFinanceOverviewConfig(kpis) {
       to: null,
       filter: null,
       metrics: [],
-      title: `Outstanding AR (${formatRM(kpis.outstandingAR)}) minus Outstanding AP (${formatRM(kpis.outstandingAP)}) — a partial Working Capital signal; the full picture needs General Ledger data (Finance Expansion Phase 2, not yet built) — ${formatRM(kpis.netArApPosition)}`,
+      title: `Outstanding AR (${formatRM(kpis.outstandingAR)}) minus Outstanding AP (${formatRM(kpis.outstandingAP)}) — a subledger-level signal, distinct from the full General-Ledger-based Working Capital figure below (the two won't generally match exactly) — ${formatRM(kpis.netArApPosition)}`,
+    },
+
+    // ==========================================
+    // General Ledger (Finance Expansion Phase 2, added 2026-07)
+    // ==========================================
+
+    // PILLAR 11: Net Profit (What did we actually earn, after everything?)
+    {
+      icon: ChartLineUpIcon,
+      label: "Net Profit",
+      sublabel: "Total Net Profit This Period",
+      value: compactCurrency(kpis.netProfit),
+      variant: "greenCard",
+      to: null,
+      filter: null,
+      metrics: [
+        {
+          label: "Net Margin",
+          value: `${kpis.netProfitMarginPct || 0}%`,
+          icon: PercentIcon,
+        },
+        {
+          label: "Prev. Period",
+          value: netProfitDeltaText,
+          icon:
+            netProfitDelta === null
+              ? null
+              : netProfitDelta >= 0
+                ? TrendUpIcon
+                : TrendDownIcon,
+        },
+        {
+          label: "vs Last Year",
+          value: netProfitYoyDeltaText,
+          icon:
+            netProfitYoyDelta === null
+              ? null
+              : netProfitYoyDelta >= 0
+                ? TrendUpIcon
+                : TrendDownIcon,
+        },
+      ],
+      title: `Revenue − COGS − Operating Expenses − Other Expenditure − Tax, from actual General Ledger postings — ${formatRM(kpis.netProfit)}`,
+    },
+
+    // PILLAR 12: EBITDA (approximate -- see RPC-REFERENCE.md for the exact add-back methodology)
+    {
+      icon: GaugeIcon,
+      label: "EBITDA",
+      sublabel: "Approximate — Net Profit + Interest + Tax + D&A",
+      value: compactCurrency(kpis.ebitda),
+      variant: "blueCardFill",
+      to: null,
+      filter: null,
+      metrics: [
+        {
+          label: "EBITDA Margin",
+          value: `${kpis.ebitdaMarginPct || 0}%`,
+          icon: PercentIcon,
+        },
+      ],
+      title: `Net Profit with Interest, Tax, and Depreciation/Amortization added back — the Depreciation/Amortization add-back is name-pattern-based, not structural (see RPC-REFERENCE.md), so treat this as a best-effort approximation, not a fully audited figure — ${formatRM(kpis.ebitda)}`,
+    },
+
+    // PILLAR 13: Current Ratio & Quick Ratio (Can we cover what we owe soon?)
+    {
+      icon: ScalesIcon,
+      label: "Current Ratio",
+      sublabel: "Current Assets ÷ Current Liabilities (Not based on period)",
+      value: formatRatio(kpis.currentRatio),
+      variant: "yellowCard",
+      to: null,
+      filter: null,
+      metrics: [
+        {
+          label: "Quick Ratio",
+          value: formatRatio(kpis.quickRatio),
+          icon: ScalesIcon,
+        },
+      ],
+      title: `Current Assets (${formatRM(kpis.currentAssets)}) ÷ Current Liabilities (${formatRM(kpis.currentLiabilities)}), as of today. Quick Ratio excludes Inventory and Prepayments from Current Assets — ${formatRatio(kpis.currentRatio)}`,
+    },
+
+    // PILLAR 14: Working Capital (the full General-Ledger-based figure)
+    {
+      icon: StackIcon,
+      label: "Working Capital",
+      sublabel: "Current Assets minus Current Liabilities (Not based on period)",
+      value: compactCurrency(kpis.workingCapital),
+      variant: "blueCardFill",
+      to: null,
+      filter: null,
+      metrics: [
+        {
+          label: "Total Assets",
+          value: formatRM(kpis.totalAssets),
+        },
+        {
+          label: "Total Equity",
+          value: formatRM(kpis.totalEquity),
+        },
+      ],
+      title: `Current Assets (${formatRM(kpis.currentAssets)}) minus Current Liabilities (${formatRM(kpis.currentLiabilities)}), as of today, from actual General Ledger balances — ${formatRM(kpis.workingCapital)}`,
     },
   ];
 }

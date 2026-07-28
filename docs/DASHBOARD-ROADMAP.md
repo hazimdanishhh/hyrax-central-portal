@@ -92,9 +92,9 @@ Audience: Sales Manager + execs, monthly/quarterly. Core question: is the depart
 
 ### 2.2 Finance Reports _(Tier 3 — already built; design in the missing pieces)_
 
-Already live: Revenue Invoiced, Cash Collected, Outstanding AR/DSO, Overdue Risk, AR Aging, Revenue Trend, Top Overdue Customers, Salesperson Health, Top Customers, and (**added 2026-07, Finance Expansion Phase 1**) the full AP mirror — Bills Received, Cash Paid, Outstanding AP, Overdue Payables, AP Aging, Top Overdue Vendors, Top Vendors by Spend, Unallocated Outgoing Payments, DPO, and a first partial Working Capital signal (`netArApPosition` = Outstanding AR − Outstanding AP). New Bills/Vendor Payments list pages ship alongside it. Remaining to design in (contract-first, even if null-filled until data lands): a net-of-returns caveat/net revenue figure (blocked on Returns/Credit-Memo extraction); true gross margin/P&L, Net Profit Margin, EBITDA, Current/Quick ratios, and full Working Capital (blocked on GL — Phase 2); DIO and a finalized Cash Conversion Cycle (blocked on per-warehouse inventory valuation — Phase 3). State plainly in the UI going forward: Finance is now AR+AP, not yet a full P&L/balance-sheet view.
+Already live: Revenue Invoiced, Cash Collected, Outstanding AR/DSO, Overdue Risk, AR Aging, Revenue Trend, Top Overdue Customers, Salesperson Health, Top Customers, (**added 2026-07, Finance Expansion Phase 1**) the full AP mirror — Bills Received, Cash Paid, Outstanding AP, Overdue Payables, AP Aging, Top Overdue Vendors, Top Vendors by Spend, Unallocated Outgoing Payments, DPO — and (**added 2026-07, Finance Expansion Phase 2**) a real General Ledger extraction powering this dashboard's first true P&L (Net Profit, Net Profit Margin, an approximate EBITDA/EBITDA Margin, a P&L breakdown chart) and balance-sheet figures (Current Ratio, Quick Ratio, Working Capital, Total Assets/Liabilities/Equity, a balance sheet snapshot chart) computed from actual GL postings rather than subledger proxies. New Bills/Vendor Payments list pages shipped alongside Phase 1. Remaining to design in (contract-first, even if null-filled until data lands): a net-of-returns caveat/net revenue figure (blocked on Returns/Credit-Memo extraction); DIO and a finalized Cash Conversion Cycle (blocked on per-warehouse inventory valuation — Phase 3, `dso`/`dpo` are both already built so CCC is one input away). State plainly in the UI going forward: Finance now has a true P&L and balance sheet; DIO/CCC is the one remaining gap.
 
-**Execution plan (2026-07):** the full phased build-out — Accounts Payable chain (**Phase 1, done 2026-07**), General Ledger (Phase 2), and per-warehouse inventory valuation (Phase 3), plus an early DSO-formula reconciliation (**Phase 0, done 2026-07**) and new list pages for the new entities (**done alongside Phase 1**) — is tracked in `hyrax-data-platform/docs/sap-data-architecture-plans/06-finance-expansion-execution-plan.md`. That doc owns the SAP table/column/schema decisions and phase sequencing per this repo's usual governance split; update its per-phase "Status" line as work lands. **Outstanding manual step:** the Phase 1 RPC update and `ap_chain_migration.sql` need to be run in Supabase Studio if not already done — see that doc's Phase 1 section for the exact deploy checklist.
+**Execution plan (2026-07):** the full phased build-out — Accounts Payable chain (**Phase 1, done 2026-07**), General Ledger (**Phase 2, done 2026-07**), and per-warehouse inventory valuation (Phase 3, not started), plus an early DSO-formula reconciliation (**Phase 0, done 2026-07**) and new list pages for the new entities (**done alongside Phase 1**) — is tracked in `hyrax-data-platform/docs/sap-data-architecture-plans/06-finance-expansion-execution-plan.md`. That doc owns the SAP table/column/schema decisions and phase sequencing per this repo's usual governance split; update its per-phase "Status" line as work lands. **Outstanding manual step:** the Phase 2 RPC update and `gl_migration.sql` need to be run in Supabase Studio if not already done — see that doc's Phase 2 section for the exact deploy checklist.
 
 ### 2.3 Operations & Fulfilment Reports _(Tier 3 — new; strongest launch candidate)_
 
@@ -118,15 +118,15 @@ Audience: Procurement Manager + AP/Finance, weekly review + daily/weekly AP-due 
 
 Built the same way as every other Reports page: one `get_executive_dashboard` RPC + the shared components. Each department contributes 1–3 headline numbers:
 
-| Department | Rollup metric(s) |
-| --- | --- |
-| Sales | Pipeline attainment % + invoice-budget attainment % + order book value |
-| Finance | Revenue invoiced, cash collected, outstanding AR, DSO, collection rate |
-| Operations | Open order backlog value + on-time-delivery % |
-| Production | Output volume + yield % (interim: committed-demand backlog) |
-| Procurement | Open-PO commitment + AP due |
+| Department  | Rollup metric(s)                                                       |
+| ----------- | ---------------------------------------------------------------------- |
+| Sales       | Pipeline attainment % + invoice-budget attainment % + order book value |
+| Finance     | Revenue invoiced, cash collected, outstanding AR, DSO, collection rate |
+| Operations  | Open order backlog value + on-time-delivery %                          |
+| Production  | Output volume + yield % (interim: committed-demand backlog)            |
+| Procurement | Open-PO commitment + AP due                                            |
 
-**The ceiling to state up front:** a true department-level P&L or cost allocation is blocked twice over — no GL data, and no department/cost-center dimension on any `sap_*` table. HR/IT/Sales app-side data _can_ be sliced by department (`employees.department_id`); SAP-sourced financials cannot, until both the GL lands and a cost-center mapping exists.
+**The ceiling to state up front:** a true department-level P&L or cost allocation is still blocked — but only by one thing now, not two. GL data itself landed 2026-07 (Finance Expansion Phase 2, `get_finance_dashboard`'s `netProfit`/`ebitda`/balance-sheet figures) — that blocker is resolved, and a company-wide P&L rollup for this Executive Summary is now buildable. What's still missing: a department/cost-center dimension on any `sap_*` table, so the _company-wide_ P&L can't yet be sliced _by department_. HR/IT/Sales app-side data _can_ be sliced by department (`employees.department_id`); SAP-sourced financials still can't, until a cost-center mapping exists.
 
 ## 4. Prioritized punch-list
 
