@@ -25,6 +25,7 @@ export default function DataSidebar({
   saving,
   deleting,
   cannotUpdate,
+  hideDelete = false,
   isEditing = true,
   onCancel,
   fullPage = false,
@@ -76,6 +77,7 @@ export default function DataSidebar({
               saving={saving}
               deleting={deleting}
               cannotUpdate={cannotUpdate}
+              hideDelete={hideDelete}
             />
           )}
 

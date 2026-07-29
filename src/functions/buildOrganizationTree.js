@@ -43,6 +43,32 @@ function resolveParentId(employee, employeesById, idSet) {
  * see resolveParentId above) is promoted to a root under a synthetic
  * super-root, so stratify() always sees one connected, acyclic tree and no
  * employee is ever silently dropped or crashes the page.
+ *
+ * NOT YET IMPLEMENTED -- designated hierarchy levels (documented here for
+ * whenever this is picked up, not built yet): today `d.y` below is pure
+ * reporting-line depth from d3.tree(), which conflates "how many hops from
+ * the top" with organizational seniority -- e.g. a PA reporting directly to
+ * the GEC would render on the same row as the GEC's actual deputy, since
+ * both are one hop away. The fix, once `employees` gains an HR-settable
+ * `hierarchy_level` column (plain integer vs. a lookup table mirroring
+ * employment_status/employment_type is an open decision for that pass, not
+ * settled here):
+ *   - Change the position assignment below to
+ *     `y: (employee.hierarchy_level ?? d.depth) * NODE_HEIGHT` -- explicit
+ *     level wins when HR has set one, falls back to computed depth
+ *     otherwise, so the chart renders correctly with zero data entry the
+ *     moment the column exists and only diverges for people HR has
+ *     explicitly re-leveled.
+ *   - Keep `d.x` untouched -- only Y changes, so d3.tree()'s sibling-spacing
+ *     stays valid. Edges still connect actual manager_id pairs regardless of
+ *     level gap (a GEC-to-PA edge would then visibly span multiple rows).
+ *   - EmployeeNode should show a "Level N" badge only when hierarchy_level
+ *     is explicitly set, never for the depth-fallback case, so it never
+ *     implies a designation HR hasn't actually made.
+ *   - Accepted limitation: two people explicitly set to the same level from
+ *     different branches will still land far apart horizontally (X stays
+ *     tree-structure-derived, not level-grouped) -- a full "cluster by
+ *     level" layout is a materially harder problem than this fix.
  */
 export function buildOrganizationTree(employees) {
   if (!employees || employees.length === 0) {

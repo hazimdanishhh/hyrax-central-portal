@@ -27,6 +27,7 @@ function DataForm({
   saving,
   deleting,
   cannotUpdate,
+  hideDelete = false,
   inlineForm = false,
   title,
 }) {
@@ -199,7 +200,7 @@ function DataForm({
             style="button buttonType5 textXXS textRegular"
             weight="bold"
           />
-          {!creating && (
+          {!creating && !hideDelete && (
             <Button
               name="Delete"
               icon={TrashSimpleIcon}
@@ -240,7 +241,7 @@ function DataForm({
               weight="bold"
             />
           )}
-          {!creating && (
+          {!creating && !hideDelete && (
             <Button
               name="Delete"
               icon={TrashSimpleIcon}
