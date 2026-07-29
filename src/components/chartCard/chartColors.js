@@ -52,6 +52,7 @@ export const EMPLOYMENT_TYPE_COLORS = {
   Intern: "#6763d7",
   Freelancer: "#ac41c7",
   Temporary: "#d76363",
+  Unspecified: "#9CA3AF",
 };
 
 export const GENDER_COLORS = {
