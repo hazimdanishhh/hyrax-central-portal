@@ -3,6 +3,7 @@ import EmployeePageLayout from "../pages/user/hr/employeeManagement/EmployeePage
 import EmployeeOverview from "../pages/user/hr/employeeManagement/overview/EmployeeOverview";
 import EmployeeManagement from "../pages/user/hr/employeeManagement/list/EmployeeManagement";
 import Departments from "../pages/user/hr/departments/Departments";
+import OrganizationChart from "../pages/user/hr/organizationChart/OrganizationChart";
 import LeaveManagement from "../pages/user/hr/leaveManagement/LeaveManagement";
 import Recruitment from "../pages/user/hr/recruitment/Recruitment";
 import AttendancePageLayout from "../pages/user/hr/attendanceManagement/AttendancePageLayout";
@@ -82,6 +83,20 @@ export default (
       element={
         <AccessRoute departments={["HR"]}>
           <Departments />
+        </AccessRoute>
+      }
+    />
+
+    {/* ORGANIZATION CHART -- maps every active employee to their manager via
+        employees.manager_id (self-referencing FK). Deliberately a separate
+        route from "departments" above, which is about department *entity*
+        management (CRUD on the departments table), not the people
+        hierarchy. */}
+    <Route
+      path="organization-chart"
+      element={
+        <AccessRoute departments={["HR"]}>
+          <OrganizationChart />
         </AccessRoute>
       }
     />

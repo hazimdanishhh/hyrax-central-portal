@@ -1,0 +1,68 @@
+.employeeNode {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 220px;
+  padding: 0.6rem;
+  border: 1px solid $neutral500;
+  background-color: rgb($neutral100, 0.1);
+  border-radius: 10px;
+  transition: opacity 0.2s ease;
+
+  .employeeNodePhoto {
+    width: 44px;
+    height: 44px;
+    background-color: $dark;
+    border-radius: 50%;
+    border: 2px solid $neutral600;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    img {
+      width: 101%;
+      height: 101%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+  }
+
+  .employeeNodeDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+
+    .employeeNodeName,
+    .employeeNodePosition {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .employeeNodeDeptBadge {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      width: fit-content;
+      border: 1px solid $info500;
+      border-radius: 1rem;
+      padding: 0.1rem 0.4rem;
+      color: $info500;
+      background-color: rgba($info500, 0.15);
+
+      .employeeNodeCrossDeptFlag {
+        display: flex;
+        align-items: center;
+        color: $warning500;
+      }
+    }
+  }
+}
+
+.employeeNodeDimmed {
+  opacity: 0.25;
+}

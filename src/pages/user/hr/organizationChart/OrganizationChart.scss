@@ -1,0 +1,12 @@
+.orgChartCount {
+  padding: 0 1rem;
+}
+
+.orgChartCanvas {
+  width: 100%;
+  height: 70vh;
+  min-height: 500px;
+  border: 1px solid $neutral500;
+  border-radius: 10px;
+  overflow: hidden;
+}

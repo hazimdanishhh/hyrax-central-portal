@@ -331,6 +331,14 @@ export const sideNavLinkData = [
         departments: ["HR"],
       },
 
+      {
+        label: "Organization Chart",
+        icon: TreeStructureIcon,
+        path: "hr/organization-chart",
+
+        departments: ["HR"],
+      },
+
       // {
       //   label: "Leave Management",
       //   icon: CalendarIcon,

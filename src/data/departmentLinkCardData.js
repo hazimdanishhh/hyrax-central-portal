@@ -224,6 +224,15 @@ export const departmentLinkCardData = [
 
         departments: ["HR"],
       },
+
+      {
+        label: "Organization Chart",
+        description: "Visualize reporting lines across the company.",
+        icon: TreeStructureIcon,
+        path: "hr/organization-chart",
+
+        departments: ["HR"],
+      },
     ],
   },
 
