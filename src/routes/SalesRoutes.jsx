@@ -33,7 +33,7 @@ export default (
     <Route
       path="clients"
       element={
-        <AccessRoute departments={["SAL", "MGM"]}>
+        <AccessRoute departments={["SAL"]}>
           <ClientsPageLayout />
         </AccessRoute>
       }
@@ -42,7 +42,7 @@ export default (
       <Route
         path="overview"
         element={
-          <AccessRoute departments={["SAL", "MGM"]}>
+          <AccessRoute departments={["SAL"]}>
             <ClientsOverview />
           </AccessRoute>
         }
@@ -51,7 +51,7 @@ export default (
       <Route
         path="list"
         element={
-          <AccessRoute departments={["SAL", "MGM"]}>
+          <AccessRoute departments={["SAL"]}>
             <ClientsManagement />
           </AccessRoute>
         }
@@ -62,7 +62,7 @@ export default (
       <Route
         path="contacts"
         element={
-          <AccessRoute departments={["SAL", "MGM"]}>
+          <AccessRoute departments={["SAL"]}>
             <ContactsManagement />
           </AccessRoute>
         }
@@ -75,7 +75,7 @@ export default (
     <Route
       path="leads"
       element={
-        <AccessRoute departments={["SAL", "MGM"]}>
+        <AccessRoute departments={["SAL"]}>
           <LeadsPageLayout />
         </AccessRoute>
       }
@@ -84,7 +84,7 @@ export default (
       <Route
         path="overview"
         element={
-          <AccessRoute departments={["SAL", "MGM"]}>
+          <AccessRoute departments={["SAL"]}>
             <LeadsOverview />
           </AccessRoute>
         }
@@ -93,7 +93,7 @@ export default (
       <Route
         path="list"
         element={
-          <AccessRoute departments={["SAL", "MGM"]}>
+          <AccessRoute departments={["SAL"]}>
             <LeadsManagement />
           </AccessRoute>
         }
@@ -105,7 +105,7 @@ export default (
       <Route
         path="targets"
         element={
-          <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
+          <AccessRoute departments={["SAL"]} roles={["manager"]}>
             <SalesTargetsManagement />
           </AccessRoute>
         }
@@ -116,7 +116,7 @@ export default (
     <Route
       path="orders"
       element={
-        <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
+        <AccessRoute departments={["SAL"]} roles={["manager"]}>
           <OrdersPageLayout />
         </AccessRoute>
       }
@@ -125,7 +125,7 @@ export default (
       <Route
         path="all"
         element={
-          <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
+          <AccessRoute departments={["SAL"]} roles={["manager"]}>
             <Orders />
           </AccessRoute>
         }
@@ -135,7 +135,7 @@ export default (
       <Route
         path="budgets"
         element={
-          <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
+          <AccessRoute departments={["SAL"]} roles={["manager"]}>
             <SalesBudgetsManagement />
           </AccessRoute>
         }
@@ -146,7 +146,7 @@ export default (
     <Route
       path="quotations"
       element={
-        <AccessRoute departments={["SAL"]} roles={["manager"]}>
+        <AccessRoute departments={["SAL"]}>
           <Quotations />
         </AccessRoute>
       }

@@ -33,12 +33,23 @@ import { useSalesReportsMetadata } from "../../../../features/sales/reports/priv
 import { getFilterConfig } from "./config/filterConfig";
 import { getSalesReportsOverviewConfig } from "./config/overviewConfig";
 import { useTheme } from "../../../../context/ThemeContext";
+import { useAccessControl } from "../../../../context/AccessControlContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { formatDateTime } from "../../../../functions/formatDate";
 
 function Reports() {
   const { darkMode } = useTheme();
+  const { canAccess } = useAccessControl();
   const dashboardRef = useRef(null);
+
+  // sales/orders requires SAL + manager (MGM excluded, see R3 in
+  // supabase/access-control/README.md) -- the Sales Order Book tile/chart
+  // below only link there for viewers who'd actually get in, so an MGM
+  // viewer never sees a dead link to a page they can't open.
+  const canAccessOrders = canAccess({
+    departments: ["SAL"],
+    roles: ["manager"],
+  });
 
   const {
     data: dashboard,
@@ -86,6 +97,7 @@ function Reports() {
     kpis,
     invoiceBudgetScorecardData,
     topInvoicedCustomersRaw,
+    canAccessOrders,
   );
 
   // Reshape to the field names ScorecardList/LeadsScoreCard already expects
@@ -413,7 +425,7 @@ function Reports() {
                           title="Order Book by Rep"
                           subtitle="SAP Sales Orders (RM)"
                           style="cardGapSmall"
-                          viewAllTo="../orders"
+                          viewAllTo={canAccessOrders ? "../orders" : undefined}
                         >
                           <HorizontalBarChartRenderer
                             data={orderBookData}

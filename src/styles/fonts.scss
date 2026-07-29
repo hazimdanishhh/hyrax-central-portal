@@ -27,6 +27,39 @@
 }
 
 // =======================================
+// FONT TEXT ALIGNMENT
+// =======================================
+
+.textStart {
+  text-align: start;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.textEnd {
+  text-align: end;
+}
+
+// =======================================
+// FONT STYLES
+// =======================================
+
+.textItalic {
+  font-style: italic;
+}
+
+.textUnderline {
+  text-decoration: underline;
+}
+
+.textBullet {
+  list-style-type: disc;
+  margin-left: 20px;
+}
+
+// =======================================
 // FONT SIZES
 // These are standardized font sizes for headings and paragraphs in the app. They adjust based on the screen size (mobile, tablet, laptop, large desktop).
 // =======================================

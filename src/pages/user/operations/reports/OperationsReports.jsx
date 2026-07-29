@@ -11,7 +11,10 @@ import ChartCard from "../../../../components/chartCard/ChartCard";
 import HorizontalBarChartRenderer from "../../../../components/chartCard/HorizontalBarChartRenderer";
 import HorizontalMultiBarRenderer from "../../../../components/chartCard/HorizontalMultiBarRenderer";
 import LineChartRenderer from "../../../../components/chartCard/LineChartRenderer";
-import { BLUE_COLOR, GREEN_COLOR } from "../../../../components/chartCard/chartColors";
+import {
+  BLUE_COLOR,
+  GREEN_COLOR,
+} from "../../../../components/chartCard/chartColors";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
@@ -120,6 +123,18 @@ export default function OperationsReports() {
               </p>
             )}
 
+            <div className="generalCard redCard">
+              <span className="textBold">Note: </span>
+              <li className="textLight textS textStart textBullet">
+                Report is inaccurate as delivery data is unused by logistics
+                department.
+              </li>
+              <li className="textLight textS textStart textBullet">
+                Data begins in March 2018 and ends in January 2020, with an
+                additional small data set in May 2022.
+              </li>
+            </div>
+
             {/* SEARCH AND FILTER BAR */}
             <SearchFilterBar
               filters={filters}
@@ -131,7 +146,10 @@ export default function OperationsReports() {
               isError={isError}
             />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {/* EXPORT */}
             <div
@@ -228,9 +246,7 @@ export default function OperationsReports() {
                           }}
                         >
                           <ChartBarHorizontalIcon size={24} />
-                          <h2 className="textL textBold">
-                            Fulfilment Health
-                          </h2>
+                          <h2 className="textL textBold">Fulfilment Health</h2>
                         </div>
                         <p className="textXS textLight">
                           How old is the open backlog, and how much are we

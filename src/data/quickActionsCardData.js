@@ -60,6 +60,13 @@ export const quickActionsHome = [
     rel: "noopener noreferrer",
     image: hyraxoil,
   },
+  {
+    name: "Klang Synology NAS",
+    path: "https://files.hyraxoil.com",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    image: synology,
+  },
 ];
 
 // TEST

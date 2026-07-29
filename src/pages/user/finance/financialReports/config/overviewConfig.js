@@ -43,7 +43,11 @@ import { compactCurrency } from "../../../../../functions/formatNumber";
 // dashboard, sourced from SAP's own customer_code) is likewise kept distinct
 // from Sales Reports' "Client" (sourced from the CRM-native `clients` table)
 // -- different tables, deliberately not interchangeable words.
-export function getFinanceOverviewConfig(kpis, filters) {
+export function getFinanceOverviewConfig(
+  kpis,
+  filters,
+  canAccessFinanceOps = false,
+) {
   const formatRM = (value) => `RM ${Math.round(value || 0).toLocaleString()}`;
   // Ratios (Current Ratio, Quick Ratio) are unitless multiples, not currency
   // -- "1.85x" reads as a ratio the way "RM 1,850,000" reads as an amount.
@@ -136,7 +140,10 @@ export function getFinanceOverviewConfig(kpis, filters) {
       sublabel: "Total Invoiced This Period (Invoice)",
       value: compactCurrency(kpis.periodInvoicedRevenue),
       variant: "blueCardFill",
-      to: "../invoices",
+      // Only a real link for viewers who can actually open finance/invoices
+      // (FIN department, MGM excluded per R3) -- otherwise falls back to
+      // OverviewCards' plain non-clickable card.
+      to: canAccessFinanceOps ? "../invoices" : null,
       filter: null,
       metrics: [
         {
@@ -259,8 +266,10 @@ export function getFinanceOverviewConfig(kpis, filters) {
       // Payments list -- link straight through, unfiltered. Not passing the
       // current date-range filter through, mirroring Revenue Invoiced's own
       // "../invoices" link above, which doesn't pass its period filter
-      // through either.
-      to: "../payments",
+      // through either. Only a real link for viewers who can open
+      // finance/payments (same FIN-only gate as Invoices/Bills/Vendor
+      // Payments, MGM excluded per R3).
+      to: canAccessFinanceOps ? "../payments" : null,
       filter: null,
       metrics: [
         {
@@ -289,7 +298,7 @@ export function getFinanceOverviewConfig(kpis, filters) {
       sublabel: "Value Past Due Date (Not based on period)",
       value: compactCurrency(kpis.overdueValue),
       variant: "redCard",
-      to: "../invoices",
+      to: canAccessFinanceOps ? "../invoices" : null,
       filter: { statusCode: "O", overdueOnly: "true" },
       metrics: [
         {

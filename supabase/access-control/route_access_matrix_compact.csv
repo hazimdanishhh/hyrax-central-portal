@@ -1,0 +1,72 @@
+"module","route_path","should_roles","should_departments"
+"General","/app",,
+"General","/app/announcements",,
+"General","/app/notifications",,
+"General","/app/profile",,
+"General","/app/department",,
+"General","/app/employees",,
+"General","/app/employees/:employeeId",,
+"Workspace","/app/workspace",,
+"Workspace","/app/workspace/projects",,
+"Workspace","/app/workspace/tasks",,
+"Workspace","/app/workspace/documents",,
+"Sales","/app/sales",,
+"Sales","/app/sales/reports","manager","SAL;MGM"
+"Sales","/app/sales/clients",,"SAL"
+"Sales","/app/sales/clients/overview",,"SAL"
+"Sales","/app/sales/clients/list",,"SAL"
+"Sales","/app/sales/clients/contacts",,"SAL"
+"Sales","/app/sales/leads",,"SAL"
+"Sales","/app/sales/leads/overview",,"SAL"
+"Sales","/app/sales/leads/list",,"SAL"
+"Sales","/app/sales/leads/targets","manager","SAL"
+"Sales","/app/sales/orders","manager","SAL"
+"Sales","/app/sales/orders/all","manager","SAL"
+"Sales","/app/sales/orders/budgets","manager","SAL"
+"Sales","/app/sales/quotations",,"SAL"
+"HR","/app/hr",,
+"HR","/app/hr/employees",,"HR"
+"HR","/app/hr/employees/overview",,"HR"
+"HR","/app/hr/employees/list",,"HR"
+"HR","/app/hr/attendance",,"HR"
+"HR","/app/hr/attendance/overview",,"HR"
+"HR","/app/hr/attendance/list",,"HR"
+"HR","/app/hr/departments",,"HR"
+"HR","/app/hr/leaves",,"HR"
+"HR","/app/hr/recruitment",,"HR"
+"HR","/app/hr/performance",,"HR"
+"HR","/app/hr/reports","manager","HR;MGM"
+"HR","/app/hr/onboarding",,
+"HR","/app/hr/policies",,
+"HR","/app/hr/forms",,
+"HR","/app/hr/training",,
+"Finance","/app/finance",,
+"Finance","/app/finance/invoices",,"FIN"
+"Finance","/app/finance/payments",,"FIN"
+"Finance","/app/finance/bills",,"FIN"
+"Finance","/app/finance/vendor-payments",,"FIN"
+"Finance","/app/finance/journal-entries",,"FIN"
+"Finance","/app/finance/chart-of-accounts",,"FIN"
+"Finance","/app/finance/claims-management",,"FIN"
+"Finance","/app/finance/reports","manager","FIN;MGM"
+"Operations","/app/operations",,
+"Operations","/app/operations/reports","manager","OPS;MGM"
+"Employee Self-Service","/app/employee",,
+"Employee Self-Service","/app/employee/onboarding",,
+"Employee Self-Service","/app/employee/leave-request",,
+"Employee Self-Service","/app/employee/claims",,
+"Employee Self-Service","/app/employee/documents",,
+"Employee Self-Service","/app/employee/policies",,
+"IT","/app/it",,
+"IT","/app/it/dashboard",,"IT"
+"IT","/app/it/assets",,"IT"
+"IT","/app/it/assets/overview",,"IT"
+"IT","/app/it/assets/list",,"IT"
+"IT","/app/it/software",,"IT"
+"Help","/app/help",,
+"System","/app/system",,
+"System","/app/system/users","superadmin",
+"System","/app/admin/audit-logs",,
+"System","/app/admin/settings",,
+"Public","/login",,
+"Public","/",,

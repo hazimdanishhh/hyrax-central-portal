@@ -11,7 +11,7 @@ export default (
     <Route
       path="reports"
       element={
-        <AccessRoute departments={["OPS"]} roles={["manager"]}>
+        <AccessRoute departments={["OPS", "MGM"]} roles={["manager"]}>
           <OperationsReports />
         </AccessRoute>
       }

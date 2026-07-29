@@ -52,6 +52,7 @@ export function getSalesReportsOverviewConfig(
   kpis,
   scorecard = [],
   topInvoicedCustomers = [],
+  canAccessOrders = false,
 ) {
   const totalBudget = scorecard.reduce(
     (sum, r) => sum + (r.budget_revenue || 0),
@@ -186,8 +187,11 @@ export function getSalesReportsOverviewConfig(
       // Links to the Sales Orders list, unfiltered -- not passing the
       // period's startDate/endDate through, consistent with how Finance's
       // "Revenue Invoiced" tile links to Invoices without its own period
-      // filter.
-      to: "../orders",
+      // filter. Only a real link for viewers who can actually open
+      // sales/orders (SAL managers, MGM excluded per R3) -- otherwise falls
+      // back to OverviewCards' plain non-clickable card, same as every
+      // `to: null` tile, so a viewer without access never sees a dead link.
+      to: canAccessOrders ? "../orders" : null,
       metrics: [
         {
           label: "Sales Orders",

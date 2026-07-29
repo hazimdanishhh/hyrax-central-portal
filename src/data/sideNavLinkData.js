@@ -203,7 +203,7 @@ export const sideNavLinkData = [
         icon: ChartBarIcon,
         path: "finance/reports",
 
-        departments: ["FIN", "SAL", "MGM"],
+        departments: ["FIN", "MGM"],
         roles: ["manager"],
       },
 
@@ -212,22 +212,19 @@ export const sideNavLinkData = [
         icon: FileTextIcon,
         path: "finance/invoices",
 
-        departments: ["FIN", "MGM"],
+        departments: ["FIN"],
       },
 
-      // Added 2026-07 (Finance Expansion Phase 1). Gated departments+roles to
-      // match finance/bills' AccessRoute in FinanceRoutes.jsx exactly (mirrors
-      // Invoices' route gate) -- unlike Invoices' entry above, which is
-      // missing that roles gate (a known pre-existing mismatch, see the
-      // comment on this same entry in departmentLinkCardData.js) -- don't
-      // copy that mismatch here.
+      // Gate matches finance/bills' AccessRoute exactly (department-only, no
+      // role restriction, same as Invoices/Payments -- these are Tier-1
+      // individual-contributor pages per docs/DASHBOARD-CONVENTIONS.md, not
+      // manager-exclusive; MGM sees the rollup via Finance Reports instead).
       {
         label: "Bills",
         icon: InvoiceIcon,
         path: "finance/bills",
 
-        departments: ["FIN", "MGM"],
-        roles: ["manager"],
+        departments: ["FIN"],
       },
 
       // {
@@ -242,30 +239,27 @@ export const sideNavLinkData = [
         label: "Incoming Payments",
         icon: CoinsIcon,
         path: "finance/payments",
-        departments: ["FIN", "MGM"],
+        departments: ["FIN"],
       },
 
-      // Added 2026-07 (Finance Expansion Phase 1). Gate matches
-      // finance/vendor-payments' AccessRoute exactly (mirrors Payments' route
-      // gate -- department only, no role restriction).
+      // Gate matches finance/vendor-payments' AccessRoute exactly (department
+      // only, no role restriction).
       {
         label: "Outgoing Payments",
         icon: HandCoinsIcon,
         path: "finance/vendor-payments",
-        departments: ["FIN", "MGM"],
+        departments: ["FIN"],
       },
 
-      // Added 2026-07 (Finance Expansion Phase 2 follow-up, General Ledger
-      // list pages). Gate matches finance/journal-entries'/
-      // finance/chart-of-accounts' AccessRoute exactly (mirrors Bills' route
-      // gate).
+      // Gate matches finance/journal-entries'/finance/chart-of-accounts'
+      // AccessRoute exactly (department-only, no role restriction -- same
+      // Tier-1 rationale as Invoices/Bills above).
       {
         label: "Journal Entries",
         icon: BookOpenIcon,
         path: "finance/journal-entries",
 
-        departments: ["FIN", "MGM"],
-        roles: ["manager"],
+        departments: ["FIN"],
       },
 
       {
@@ -273,8 +267,7 @@ export const sideNavLinkData = [
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
 
-        departments: ["FIN", "MGM"],
-        roles: ["manager"],
+        departments: ["FIN"],
       },
     ],
   },

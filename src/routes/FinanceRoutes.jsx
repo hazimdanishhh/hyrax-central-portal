@@ -18,7 +18,7 @@ export default (
     <Route
       path="invoices"
       element={
-        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN"]}>
           <Invoices />
         </AccessRoute>
       }
@@ -28,19 +28,19 @@ export default (
     <Route
       path="payments"
       element={
-        <AccessRoute departments={["FIN", "MGM"]}>
+        <AccessRoute departments={["FIN"]}>
           <Payments />
         </AccessRoute>
       }
     />
 
     {/* BILLS (Accounts Payable chain, added 2026-07, Finance Expansion Phase 1) --
-        access gate mirrors Invoices' exactly (departments+role), since Bills
-        mirrors Invoices file-for-file. */}
+        access gate mirrors Invoices' exactly (department-only, no role
+        restriction), since Bills mirrors Invoices file-for-file. */}
     <Route
       path="bills"
       element={
-        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN"]}>
           <Bills />
         </AccessRoute>
       }
@@ -52,20 +52,20 @@ export default (
     <Route
       path="vendor-payments"
       element={
-        <AccessRoute departments={["FIN", "MGM"]}>
+        <AccessRoute departments={["FIN"]}>
           <VendorPayments />
         </AccessRoute>
       }
     />
 
     {/* JOURNAL ENTRIES (General Ledger, added 2026-07, Finance Expansion
-        Phase 2 follow-up) -- access gate mirrors Bills'/Invoices' exactly,
-        since Journal Entries mirrors that same read-only list+drill-down
-        pattern. */}
+        Phase 2 follow-up) -- access gate mirrors Bills'/Invoices' exactly
+        (department-only, no role restriction), since Journal Entries mirrors
+        that same read-only list+drill-down pattern. */}
     <Route
       path="journal-entries"
       element={
-        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN"]}>
           <JournalEntries />
         </AccessRoute>
       }
@@ -78,7 +78,7 @@ export default (
     <Route
       path="chart-of-accounts"
       element={
-        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN"]}>
           <ChartOfAccounts />
         </AccessRoute>
       }
@@ -88,7 +88,7 @@ export default (
     <Route
       path="claims-management"
       element={
-        <AccessRoute departments={["FIN", "MGM"]}>
+        <AccessRoute departments={["FIN"]}>
           <ClaimsManagement />
         </AccessRoute>
       }
@@ -98,7 +98,7 @@ export default (
     <Route
       path="reports"
       element={
-        <AccessRoute departments={["FIN", "SAL", "MGM"]} roles={["manager"]}>
+        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
           <FinancialReports />
         </AccessRoute>
       }

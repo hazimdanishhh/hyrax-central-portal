@@ -46,7 +46,32 @@ declare
     v_yoy_end_date date;
     v_is_cancelled_text text;
     v_days numeric;
+    v_role_name text;
+    v_department_sub text;
 begin
+
+-- 0. Authorization guard (added 2026-07): this RPC reads
+-- private.mv_gl_monthly_account_summary, a MATERIALIZED VIEW -- Postgres
+-- does not support ENABLE ROW LEVEL SECURITY / CREATE POLICY on materialized
+-- views at all, so no table-level RLS policy can protect the GL/P&L figures
+-- sourced from it. Without this check, any authenticated user could call
+-- this RPC directly (bypassing the frontend's finance/reports AccessRoute
+-- gate) and get back real company-wide Net Profit/EBITDA/Balance Sheet
+-- figures regardless of department. Mirrors that same frontend gate exactly
+-- (FIN;MGM, manager, superadmin bypass) -- see
+-- supabase/access-control/route_access_matrix.csv's finance/reports row.
+select r.name, d.sub
+into v_role_name, v_department_sub
+from profiles p
+join roles r on r.id = p.role_id
+join departments d on d.id = p.department_id
+where p.id = auth.uid();
+
+if v_role_name is distinct from 'superadmin'
+   and not (v_role_name = 'manager' and v_department_sub in ('FIN', 'MGM'))
+then
+    raise exception 'Unauthorized: get_finance_dashboard requires FIN/MGM manager or superadmin' using errcode = '42501';
+end if;
 
 -- 1. Calculate the Previous Period for Deltas (mirrors get_sales_leads_dashboard)
 if p_start_date is not null and p_end_date is not null then

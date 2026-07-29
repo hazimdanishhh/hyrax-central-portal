@@ -37,13 +37,22 @@ import { useFinanceMetadata } from "../../../../features/finance/reports/private
 import { getFilterConfig } from "./config/filterConfig";
 import { getFinanceOverviewConfig } from "./config/overviewConfig";
 import { useTheme } from "../../../../context/ThemeContext";
+import { useAccessControl } from "../../../../context/AccessControlContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { formatDateTime } from "../../../../functions/formatDate";
 
 export default function FinancialReports() {
   const { darkMode } = useTheme();
+  const { canAccess } = useAccessControl();
   const queryClient = useQueryClient();
   const dashboardRef = useRef(null);
+
+  // finance/invoices, finance/payments, finance/bills, and
+  // finance/vendor-payments all share the same FIN-only gate (MGM excluded,
+  // see R3 in supabase/access-control/README.md), so one check covers every
+  // "View All" link below -- an MGM viewer never sees a dead link to a page
+  // they can't open.
+  const canAccessFinanceOps = canAccess({ departments: ["FIN"] });
 
   const handleAiComplete = () => {
     queryClient.invalidateQueries(["ai_summary", "finance"]);
@@ -79,7 +88,11 @@ export default function FinancialReports() {
   const isError = dashboardError || metadataError;
 
   const kpis = dashboard?.kpis ?? {};
-  const overviewItems = getFinanceOverviewConfig(kpis, filters);
+  const overviewItems = getFinanceOverviewConfig(
+    kpis,
+    filters,
+    canAccessFinanceOps,
+  );
 
   // AR aging / outstanding balances are always "as of today" -- not bounded
   // by the date filter, so bucket_order from the RPC drives display order.
@@ -468,6 +481,31 @@ export default function FinancialReports() {
                             ]}
                           />
                         </ChartCard>
+
+                        <ChartCard
+                          title="P&L YoY Trend Line"
+                          subtitle="Revenue, COGS, OpEx & Net Profit by month (RM) — General Ledger postings"
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={plYoyTrendData}
+                            lines={[
+                              {
+                                dataKey: "Revenue (GL, RM)",
+                                color: BLUE_COLOR,
+                              },
+                              { dataKey: "COGS (GL, RM)", color: RED_COLOR },
+                              {
+                                dataKey: "OpEx (GL, RM)",
+                                color: YELLOW_COLOR,
+                              },
+                              {
+                                dataKey: "Net Profit (GL, RM)",
+                                color: GREEN_COLOR,
+                              },
+                            ]}
+                          />
+                        </ChartCard>
                       </CardLayout>
                     </div>
                   </div>
@@ -504,7 +542,9 @@ export default function FinancialReports() {
                           title="AR Aging"
                           subtitle="As of today — not affected by date filter"
                           style="cardGapSmall"
-                          viewAllTo="../invoices"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../invoices" : undefined
+                          }
                           viewAllFilter={{ statusCode: "O" }}
                         >
                           <HorizontalBarChartRenderer
@@ -572,7 +612,9 @@ export default function FinancialReports() {
                           title="Unallocated Payments"
                           subtitle="Customers sitting on unapplied cash (RM)"
                           style="cardGapSmall"
-                          viewAllTo="../payments"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../payments" : undefined
+                          }
                           viewAllFilter={{ unallocatedOnly: "true" }}
                         >
                           <HorizontalBarChartRenderer
@@ -614,7 +656,9 @@ export default function FinancialReports() {
                           title="AP Aging"
                           subtitle="As of today — not affected by date filter"
                           style="cardGapSmall"
-                          viewAllTo="../bills"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../bills" : undefined
+                          }
                           viewAllFilter={{ statusCode: "O" }}
                         >
                           <HorizontalBarChartRenderer
@@ -627,7 +671,9 @@ export default function FinancialReports() {
                           title="Top Overdue Vendors"
                           subtitle="Outstanding AP (RM)"
                           style="cardGapSmall"
-                          viewAllTo="../bills"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../bills" : undefined
+                          }
                           viewAllFilter={{
                             statusCode: "O",
                             overdueOnly: "true",
@@ -643,7 +689,9 @@ export default function FinancialReports() {
                           title="Top Vendors by Spend"
                           subtitle="Billed (RM)"
                           style="cardGapSmall"
-                          viewAllTo="../bills"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../bills" : undefined
+                          }
                         >
                           <HorizontalBarChartRenderer
                             data={topVendorsBySpendData}
@@ -655,7 +703,11 @@ export default function FinancialReports() {
                           title="Unallocated Outgoing Payments"
                           subtitle="Paid but not yet allocated to a bill (RM)"
                           style="cardGapSmall"
-                          viewAllTo="../vendor-payments"
+                          viewAllTo={
+                            canAccessFinanceOps
+                              ? "../vendor-payments"
+                              : undefined
+                          }
                           viewAllFilter={{ unallocatedOnly: "true" }}
                         >
                           <HorizontalBarChartRenderer
