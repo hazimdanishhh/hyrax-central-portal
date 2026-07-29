@@ -23,6 +23,10 @@ function startOfYear(d) {
   return new Date(d.getFullYear(), 0, 1);
 }
 
+function endOfYear(d) {
+  return new Date(d.getFullYear(), 11, 31);
+}
+
 function daysAgo(d, n) {
   const copy = new Date(d);
   copy.setDate(copy.getDate() - n);
@@ -51,6 +55,16 @@ export const DATE_RANGE_PRESETS = [
     },
   },
   {
+    label: "This Year",
+    getRange: () => {
+      const now = new Date();
+      return {
+        startDate: toDateString(startOfYear(now)),
+        endDate: toDateString(endOfYear(now)),
+      };
+    },
+  },
+  {
     label: "YTD",
     getRange: () => {
       const now = new Date();
@@ -60,14 +74,14 @@ export const DATE_RANGE_PRESETS = [
       };
     },
   },
-  {
-    label: "Last 90 Days",
-    getRange: () => {
-      const now = new Date();
-      return {
-        startDate: toDateString(daysAgo(now, 90)),
-        endDate: toDateString(now),
-      };
-    },
-  },
+  // {
+  //   label: "Last 90 Days",
+  //   getRange: () => {
+  //     const now = new Date();
+  //     return {
+  //       startDate: toDateString(daysAgo(now, 90)),
+  //       endDate: toDateString(now),
+  //     };
+  //   },
+  // },
 ];
