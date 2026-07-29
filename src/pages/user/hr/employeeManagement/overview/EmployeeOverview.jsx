@@ -19,6 +19,7 @@ import {
   GREEN_COLOR,
   YELLOW_COLOR,
   RED_COLOR,
+  PURPLE_COLOR,
   EMPLOYMENT_TYPE_COLORS,
   GENDER_COLORS,
   UTILIZATION_COLORS,
@@ -34,6 +35,7 @@ import { fetchEmployeesDashboard } from "../../../../../features/hr/employees/pr
 import { useEmployeesMetadata } from "../../../../../features/hr/employees/private/hooks/useEmployeesMetadata";
 import { getFilterConfig } from "./config/filterConfig";
 import { getEmployeesOverviewConfig } from "./overviewConfig";
+import FiscalYearFilterBar from "../../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 
 export default function EmployeeOverview() {
   const dashboardRef = useRef(null);
@@ -76,6 +78,7 @@ export default function EmployeeOverview() {
   const employmentTypeData = dashboard?.employmentTypeData ?? [];
   const genderData = dashboard?.genderData ?? [];
   const nationalityData = dashboard?.nationalityData ?? [];
+  const ageDistributionData = dashboard?.ageDistributionData ?? [];
   const managementCoverageData = dashboard?.managementCoverageData ?? [];
 
   const headcountTrendData =
@@ -88,6 +91,7 @@ export default function EmployeeOverview() {
   const overviewItems = getEmployeesOverviewConfig(
     kpis,
     tenureDistributionData,
+    ageDistributionData,
   );
   const topManagersData = dashboard?.topManagersData ?? [];
   const terminationReasonsData = dashboard?.terminationReasonsData ?? [];
@@ -104,6 +108,9 @@ export default function EmployeeOverview() {
         isLoading={isLoading}
         isError={isError}
       />
+
+      {/* FISCAL YEAR FILTER */}
+      <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
       {/* EXPORT */}
       <div
@@ -252,6 +259,17 @@ export default function EmployeeOverview() {
                     <HorizontalBarChartRenderer
                       data={nationalityData}
                       colorMap={BLUE_COLOR}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Age Distribution"
+                    subtitle="Active Employees, by Age Band"
+                    style="cardGapSmall"
+                  >
+                    <BarChartRenderer
+                      data={ageDistributionData}
+                      colorMap={PURPLE_COLOR}
                     />
                   </ChartCard>
                 </CardLayout>

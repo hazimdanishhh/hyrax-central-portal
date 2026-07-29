@@ -74,7 +74,13 @@ with base_employees as (
         -- metric built on it will undercount past departures -- this isn't
         -- an approximation Postgres can fix, it depends on the underlying
         -- data being complete.
-        coalesce(e.end_date, e.resignation_date) as departure_date
+        coalesce(e.end_date, e.resignation_date) as departure_date,
+        -- Company policy: probation confirmation is due 6 months after
+        -- join_date. confirmation_date itself is an ACTUAL-event field (only
+        -- populated once HR processes the confirmation), not a scheduled
+        -- date -- this derived column is the scheduled/target date, used
+        -- below to split "due soon" from "already overdue".
+        (e.join_date + interval '6 months')::date as confirmation_due_date
     from employees e
     left join employment_status es on es.id = e.employment_status_id
     left join employment_type et on et.id = e.employment_type_id
@@ -92,7 +98,18 @@ employees_agg as (
             1
         ) as avg_tenure_years,
 
+        round(
+            (avg(current_date - date_of_birth) filter (
+                where status_bucket = 'active' and date_of_birth is not null
+            ))::numeric / 365.25,
+            1
+        ) as avg_age_years,
+
         count(*) filter (where status_bucket = 'active' and manager_id is not null) as active_with_manager,
+
+        count(distinct manager_id) filter (
+            where status_bucket = 'active' and manager_id is not null
+        ) as distinct_active_managers,
 
         count(*) filter (
             where status_bucket = 'active'
@@ -163,11 +180,39 @@ employees_agg as (
             and (departure_date is null or departure_date > coalesce(p_end_date, current_date))
         ) as ending_headcount,
 
+        -- Confirmation is due 6 months after join_date (company policy).
+        -- Scoped to Probation specifically, not the whole active bucket --
+        -- On Leave/Sabbatical/full Active employees were never subject to
+        -- this check. confirmation_date is null here means "not yet
+        -- confirmed" (the actual-event field hasn't been set), which is
+        -- what makes someone eligible for either bucket below.
+        count(*) filter (
+            where employment_status_name = 'Probation'
+            and confirmation_date is null
+            and confirmation_due_date between current_date and current_date + interval '30 days'
+        ) as confirmations_due_soon_count,
+
+        -- Already past the 6-month mark and still not confirmed -- a real
+        -- process/compliance gap, not just an upcoming reminder.
+        count(*) filter (
+            where employment_status_name = 'Probation'
+            and confirmation_date is null
+            and confirmation_due_date < current_date
+        ) as late_confirmations_count,
+
+        -- Data-hygiene flag, deliberately separate from late_confirmations_count
+        -- above: catches someone HR moved OFF Probation status (e.g. to
+        -- Active) without ever actually confirming them (confirmation_date
+        -- still null) and who's already past their 6-month mark. The two
+        -- counts are mutually exclusive by construction ('Probation' vs
+        -- <> 'Probation') -- this doesn't change what late_confirmations_count
+        -- means, it just surfaces the status/date drift as its own signal.
         count(*) filter (
             where status_bucket = 'active'
-            and confirmation_date is not null
-            and confirmation_date between current_date and current_date + interval '30 days'
-        ) as confirmations_due_count,
+            and employment_status_name <> 'Probation'
+            and confirmation_date is null
+            and confirmation_due_date < current_date
+        ) as status_mismatch_count,
 
         -- ASSUMPTION: matches employment_type.name loosely (case-insensitive
         -- "contract" substring) since the actual lookup values aren't
@@ -185,7 +230,10 @@ employees_agg as (
 ),
 
 kpi_totals as (
-    select *, round((beginning_headcount + ending_headcount) / 2.0, 1) as avg_headcount
+    select
+        *,
+        round((beginning_headcount + ending_headcount) / 2.0, 1) as avg_headcount,
+        round(active_with_manager::numeric / nullif(distinct_active_managers, 0), 1) as avg_span_of_control
     from employees_agg
 )
 
@@ -195,14 +243,17 @@ select json_build_object(
         select json_build_object(
             'activeHeadcount', active_headcount,
             'avgTenureYears', coalesce(avg_tenure_years, 0),
+            'avgAgeYears', coalesce(avg_age_years, 0),
             'managementCoveragePct', case when active_headcount > 0
                 then round((active_with_manager::numeric / active_headcount) * 100)
                 else 0 end,
             'activeWithManager', active_with_manager,
+            'avgSpanOfControl', coalesce(avg_span_of_control, 0),
             'dataGapsCount', data_gaps_count,
             'noManagerCount', no_manager_count,
             'noDepartmentCount', no_department_count,
             'noProfileCount', no_profile_count,
+            'statusMismatchCount', status_mismatch_count,
             'probationCount', probation_count,
             'totalWorkforceCount', total_workforce_count,
             'hiresInPeriod', hires_in_period,
@@ -217,7 +268,8 @@ select json_build_object(
                 else 0
             end,
             'avgHeadcount', avg_headcount,
-            'confirmationsDueCount', confirmations_due_count,
+            'confirmationsDueSoonCount', confirmations_due_soon_count,
+            'lateConfirmationsCount', late_confirmations_count,
             'contractActionsDueCount', contract_actions_due_count
         )
         from kpi_totals
@@ -264,6 +316,38 @@ select json_build_object(
             left join nationalities n on n.id = be.nationality_id
             where be.status_bucket = 'active'
             group by coalesce(n.name, 'Unspecified')
+        ) x
+    ),
+
+    -- Same banding technique as tenureDistributionData below, bucketed by
+    -- date_of_birth instead of join_date. "55+" doubles as a nearing-
+    -- retirement signal (Malaysia's mandatory retirement age is 60).
+    'ageDistributionData', (
+        select coalesce(json_agg(x order by x.sort_order), '[]'::json)
+        from (
+            select band as name, count(*) as value, sort_order
+            from (
+                select
+                    case
+                        when date_of_birth is null then 'Unknown'
+                        when current_date - date_of_birth < 365.25 * 25 then '< 25'
+                        when current_date - date_of_birth < 365.25 * 35 then '25-34'
+                        when current_date - date_of_birth < 365.25 * 45 then '35-44'
+                        when current_date - date_of_birth < 365.25 * 55 then '45-54'
+                        else '55+'
+                    end as band,
+                    case
+                        when date_of_birth is null then 6
+                        when current_date - date_of_birth < 365.25 * 25 then 1
+                        when current_date - date_of_birth < 365.25 * 35 then 2
+                        when current_date - date_of_birth < 365.25 * 45 then 3
+                        when current_date - date_of_birth < 365.25 * 55 then 4
+                        else 5
+                    end as sort_order
+                from base_employees
+                where status_bucket = 'active'
+            ) banded
+            group by band, sort_order
         ) x
     ),
 

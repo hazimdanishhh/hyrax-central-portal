@@ -43,6 +43,8 @@ export const RED_COLOR = "#d76363";
 
 export const BLUE_COLOR = "#1abee4";
 
+export const PURPLE_COLOR = "#6763d7";
+
 // EMPLOYMENT TYPES
 
 export const EMPLOYMENT_TYPE_COLORS = {
