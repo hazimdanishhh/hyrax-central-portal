@@ -64,8 +64,12 @@ export default function usePaginatedQuery({
   const filters = useMemo(() => {
     const obj = {};
 
+    // "date" is the Attendance List page's own day-mode pagination param
+    // (see useAttendanceDailyList) -- excluded here too since both hooks can
+    // share the same URL when that page switches between day/search modes.
+    // No other page in this app uses "date" as a filter key.
     searchParams.forEach((value, key) => {
-      if (!["page", "search", "sortBy", "sortOrder"].includes(key)) {
+      if (!["page", "date", "search", "sortBy", "sortOrder"].includes(key)) {
         obj[key] = value;
       }
     });
@@ -78,7 +82,7 @@ export default function usePaginatedQuery({
   // =========================
   const activeFilters = useMemo(() => {
     return Object.entries(filters).filter(
-      ([_, value]) => value !== "" && value != null,
+      ([, value]) => value !== "" && value != null,
     );
   }, [filters]);
 

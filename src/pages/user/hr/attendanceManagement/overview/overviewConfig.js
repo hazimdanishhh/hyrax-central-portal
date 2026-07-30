@@ -1,14 +1,23 @@
 import {
+  AlarmIcon,
   ClockUserIcon,
   GaugeIcon,
   HourglassHighIcon,
+  SignInIcon,
+  SignOutIcon,
   TrendDownIcon,
   TrendUpIcon,
   UserMinusIcon,
+  WarningCircleIcon,
 } from "@phosphor-icons/react";
 
 // Mirrors getEmployeesOverviewConfig's tile shape and previous-period delta
-// pattern exactly (calcDelta -> "up/down X% vs last period" sub-metric).
+// pattern exactly (calcDelta -> "up/down X% vs last period" sub-metric), and
+// its 8-tile count. Tiles are grouped by what they actually measure, not
+// just "whatever fit" -- Today's Snapshot (point-in-time), Punctuality
+// (period-bound, split cleanly into check-in-side vs check-out-side so each
+// anomaly lives on the tile whose own metric it's derived from), Workload
+// (period-bound), and Absenteeism Rate (period-bound).
 export function getAttendanceOverviewConfig(kpis = {}) {
   const calcDelta = (current, previous) => {
     if (previous === null || previous === undefined) return null;
@@ -28,10 +37,30 @@ export function getAttendanceOverviewConfig(kpis = {}) {
   const deltaIcon = (delta) =>
     delta === null ? null : delta >= 0 ? TrendUpIcon : TrendDownIcon;
 
+  // "08:42" (24h, from the RPC) -> "8:42 AM". Purely a display transform --
+  // the date component is a fixed placeholder, only the HH:MM matters.
+  const formatTimeDisplay = (hhmm) => {
+    if (!hhmm) return "--:--";
+    return new Date(`1970-01-01T${hhmm}:00`).toLocaleTimeString("en-MY", {
+      timeStyle: "short",
+    });
+  };
+
+  // Hours as a decimal (e.g. 4.2) -- switches to days once it crosses 24h,
+  // since "Oldest Pending Approval" can genuinely span multiple days.
+  const formatHours = (hours) => {
+    if (hours === null || hours === undefined) return "N/A";
+    return hours >= 24 ? `${(hours / 24).toFixed(1)}d` : `${hours.toFixed(1)}h`;
+  };
+
   const avgHoursDelta = calcDelta(kpis.avgHoursWorked, kpis.prevAvgHoursWorked);
   const absentDaysDelta = calcDelta(
     kpis.absentDaysCount,
     kpis.prevAbsentDaysCount,
+  );
+  const overtimeDelta = calcDelta(
+    kpis.overtimeHoursTotal,
+    kpis.prevOvertimeHoursTotal,
   );
 
   return [
@@ -68,6 +97,34 @@ export function getAttendanceOverviewConfig(kpis = {}) {
       to: "../list?hrFlag=Pending%20App%20Approval",
       metrics: [
         {
+          label: "Avg Approval Turnaround",
+          value: formatHours(kpis.avgApprovalTurnaroundHours),
+        },
+        {
+          label: "Oldest Pending Approval",
+          value: formatHours(kpis.oldestPendingApprovalHours),
+        },
+      ],
+      title:
+        "Self-service app clock-ins awaiting HR/manager approval today, plus two turnaround signals: Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (how long the longest-waiting Pending activity has been sitting, right now). Click through to today's List, pre-filtered to Pending App Approval.",
+    },
+    {
+      icon: WarningCircleIcon,
+      label: "Attendance Anomalies",
+      sublabel: "Today, Data-Quality Exceptions",
+      // Sum-of-sub-metrics headline, same pattern Employee Overview's own
+      // "HR Actions Needed" tile uses -- these are a different anomaly
+      // class from Pending Approvals above (data-quality exceptions in the
+      // raw punch data, not an approval-workflow state), so they get their
+      // own tile rather than being folded into it.
+      value: (kpis.missingCheckoutsCount || 0) + (kpis.incompleteScansCount || 0),
+      variant:
+        (kpis.missingCheckoutsCount || 0) + (kpis.incompleteScansCount || 0) > 0
+          ? "redCard"
+          : "greenCard",
+      to: "../list?hrFlag=Missing%20App%20Check-Out",
+      metrics: [
+        {
           label: "Missing Check-Outs",
           value: kpis.missingCheckoutsCount || 0,
         },
@@ -77,11 +134,50 @@ export function getAttendanceOverviewConfig(kpis = {}) {
         },
       ],
       title:
-        "Self-service app clock-ins awaiting HR/manager approval today, plus two related anomaly counts -- an app session left open with no clock-out, and a hardware scan with only one badge tap recorded (no matching in/out pair). Click through to today's List, pre-filtered to Pending App Approval.",
+        "Today's raw punch-data exceptions: an app clock-in session left open with no clock-out, and a hardware badge scan with only one tap recorded (no matching in/out pair). Point-in-time -- ignores the period filter below.",
     },
 
     // ==========================================
-    // THIS PERIOD (period-bound)
+    // PUNCTUALITY (period-bound) -- split by check-in vs check-out side, so
+    // each anomaly (Late Arrivals, Early Leave) lives on the tile whose own
+    // average time it's derived from.
+    // ==========================================
+
+    {
+      icon: SignInIcon,
+      label: "Average Check-In",
+      sublabel: "This Period",
+      value: formatTimeDisplay(kpis.avgCheckInTime),
+      variant: "blueCard",
+      to: null,
+      metrics: [
+        {
+          label: "Late Arrivals",
+          value: `${kpis.lateArrivalsCount || 0} (${kpis.lateArrivalRatePct || 0}%)`,
+        },
+      ],
+      title:
+        "Average first_in time-of-day across working-day records in the selected period (Weekend/Rest-Day and Absent records excluded). Late Arrivals is a fixed 09:00 company-wide assumption, not a real per-employee/department shift -- no shift/schedule table exists in this system yet; revisit this threshold once one does.",
+    },
+    {
+      icon: SignOutIcon,
+      label: "Average Check-Out",
+      sublabel: "This Period",
+      value: formatTimeDisplay(kpis.avgCheckOutTime),
+      variant: "blueCard",
+      to: null,
+      metrics: [
+        {
+          label: "Early Leave",
+          value: `${kpis.earlyLeaveCount || 0} (${kpis.earlyLeaveRatePct || 0}%)`,
+        },
+      ],
+      title:
+        "Average last_out time-of-day across working-day records in the selected period (Weekend/Rest-Day and Absent records excluded). Early Leave is a fixed 18:00 company-wide assumption, symmetric to Average Check-In's 09:00 -- same caveat: not a real per-employee/department shift, revisit once shift data exists.",
+    },
+
+    // ==========================================
+    // WORKLOAD (period-bound)
     // ==========================================
 
     {
@@ -101,6 +197,32 @@ export function getAttendanceOverviewConfig(kpis = {}) {
       title:
         "Average hours_worked across working-day records in the selected period (Weekend/Rest-Day and Absent records excluded).",
     },
+    {
+      icon: AlarmIcon,
+      label: "Overtime Hours",
+      sublabel: "Total, This Period",
+      value: `${kpis.overtimeHoursTotal || 0}h`,
+      variant: kpis.overtimeHoursTotal > 0 ? "yellowCard" : "greenCard",
+      to: null,
+      metrics: [
+        {
+          label: "Prev. Period",
+          value: deltaText(overtimeDelta),
+          icon: deltaIcon(overtimeDelta),
+        },
+        {
+          label: "Employees With Overtime",
+          value: kpis.employeesWithOvertimeCount || 0,
+        },
+      ],
+      title:
+        "Sum of hours worked beyond 8h/day across working-day records in the selected period. Employees With Overtime shows whether it's concentrated in a few people or spread across the workforce.",
+    },
+
+    // ==========================================
+    // ABSENTEEISM (period-bound)
+    // ==========================================
+
     {
       icon: UserMinusIcon,
       label: "Absenteeism Rate",

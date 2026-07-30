@@ -116,3 +116,13 @@ export const ATTENDANCE_FLAG_COLORS = {
   Absent: "#d76363",
   "Weekend / Rest Day": "#9CA3AF",
 };
+
+// ATTENDANCE WORK CHANNEL MIX (unified_daily_attendance's hw_check_in vs
+// app_check_in presence) -- doc-02's "WFH vs office split" KPI, in Hyrax's
+// actual terms (hardware badge scan vs self-service app clock-in).
+export const WORK_CHANNEL_COLORS = {
+  Office: "#1abee4",
+  Remote: "#6763d7",
+  Both: "#4bc793",
+  Unclassified: "#9CA3AF",
+};

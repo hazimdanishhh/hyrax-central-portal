@@ -8,6 +8,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import AttendanceCard from "../../../../../components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "../../../../../components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
 import Button from "../../../../../components/buttons/button/Button";
@@ -16,20 +17,18 @@ import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/Ac
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import PageActions from "../../../../../components/crud/pageActions/PageActions";
+import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
-// Reuses PageResult's container/layout classes for the day navigator below
-// (pageResultContainer/pageNumberContainer) without repurposing the
-// row-count PageResult component itself, which doesn't fit a date axis.
-import "../../../../../components/crud/pageResult/PageResult.scss";
 import { useMessage } from "../../../../../context/MessageContext";
 import { useAttendanceActivitiesMetadata } from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import useAttendanceActivityMutations from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 import useAttendanceDailyList from "../../../../../features/hr/attendance/private/hooks/useAttendanceDailyList";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { uploadAttendancePhoto } from "../../../../../services/storage/uploadAttendancePhoto";
@@ -39,7 +38,23 @@ import { getAttendanceActivitiesFilterConfig } from "./filterConfig";
 import { getAttendanceActivitiesLayoutConfig } from "./layoutConfig";
 import { getAttendanceActivitiesSortConfig } from "./sortConfig";
 import { attendanceDailySummaryTableConfig } from "./tableConfig";
-import { fetchUnifiedAttendance } from "../../../../../features/hr/attendance/private/api/attendanceOverviewService";
+import {
+  fetchUnifiedAttendance,
+  fetchUnifiedAttendanceSearch,
+} from "../../../../../features/hr/attendance/private/api/attendanceOverviewService";
+
+// Which filter keys promote the page from Day mode (one calendar day) into
+// Search mode (all dates unless narrowed, row-paginated) -- see
+// useAttendanceDailyList/fetchUnifiedAttendanceSearch's own header comments
+// for why these need genuinely different query/pagination strategies.
+const SEARCH_MODE_FILTER_KEYS = [
+  "employee",
+  "department",
+  "manager",
+  "hrFlag",
+  "startDate",
+  "endDate",
+];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {
   weekday: "long",
@@ -83,23 +98,52 @@ export default function AttendanceManagement() {
   // HOOKS
   // ==============
 
+  // DAY MODE vs SEARCH MODE: the moment Employee/Department/Manager/Status/
+  // date-range is set, or search text is typed, the page stops being "one
+  // calendar day" and becomes an ordinary all-dates-unless-narrowed,
+  // row-paginated filtered list -- otherwise a filter like "this one
+  // employee" would only ever show their single row for whatever date
+  // happened to be selected, not their actual history.
+  const [searchParams] = useSearchParams();
+  const isSearchMode =
+    SEARCH_MODE_FILTER_KEYS.some((key) => searchParams.get(key)) ||
+    Boolean(searchParams.get("search"));
+
   // ONE PAGE = ONE CALENDAR DAY (see useAttendanceDailyList) -- defaults to
   // today, and a day's roster is never split across pages since it's fetched
-  // in one shot rather than OFFSET/LIMIT-sliced.
+  // in one shot rather than OFFSET/LIMIT-sliced. Only active (fetches) in
+  // Day mode.
+  const dayModeResult = useAttendanceDailyList({
+    queryKey: "attendance_daily",
+    queryFn: fetchUnifiedAttendance,
+    defaultSortBy: "full_name",
+    defaultSortOrder: "ascending",
+    enabled: !isSearchMode,
+  });
+
+  // ALL DATES, ROW-PAGINATED (see fetchUnifiedAttendanceSearch) -- only
+  // active (fetches) in Search mode. Default sort is most-recent-date-first,
+  // since this mode exists specifically to browse a filter's full history.
+  const searchModeResult = usePaginatedQuery({
+    queryKey: "attendance_search",
+    queryFn: fetchUnifiedAttendanceSearch,
+    pageSize: 50,
+    defaultSortBy: "work_date",
+    defaultSortOrder: "descending",
+    enabled: isSearchMode,
+  });
+
+  const active = isSearchMode ? searchModeResult : dayModeResult;
+
   const {
     data: activities,
     totalCount,
-    date,
     search,
     filters,
     sortBy,
     sortOrder,
     activeFilters,
     hasActiveFilters,
-    setDate,
-    goToPreviousDay,
-    goToNextDay,
-    goToToday,
     setSearch,
     setFilters,
     setSortBy,
@@ -108,12 +152,14 @@ export default function AttendanceManagement() {
     isLoading: attendanceActivitiesLoading,
     isFetching,
     error,
-  } = useAttendanceDailyList({
-    queryKey: "attendance_daily",
-    queryFn: fetchUnifiedAttendance,
-    defaultSortBy: "full_name",
-    defaultSortOrder: "ascending",
-  });
+  } = active;
+
+  // Day-mode-only / search-mode-only navigation state -- both hooks are
+  // always called (rules of hooks), so these are always available; only the
+  // relevant set is ever rendered, based on isSearchMode.
+  const { date, setDate, goToPreviousDay, goToNextDay, goToToday } =
+    dayModeResult;
+  const { page, totalPages, setPage } = searchModeResult;
 
   // ==============
   // METADATA
@@ -181,12 +227,14 @@ export default function AttendanceManagement() {
   const handleClockOut = async (id) => {
     await clockOutAttendanceActivity(id);
 
-    // Both the day's roster list AND the sidebar's per-day punch timeline
-    // (AttendanceSidebarHR's own useQuery, keyed ["attendance_activities",
-    // employee_uuid, work_date]) need refetching -- these are two different
-    // query keys since the list itself was renamed to "attendance_daily".
+    // Day mode's roster, Search mode's list, AND the sidebar's per-day punch
+    // timeline (AttendanceSidebarHR's own useQuery, keyed
+    // ["attendance_activities", employee_uuid, work_date]) all need
+    // refetching -- three different query keys, only one of which is
+    // actually active at a time (the other is disabled and won't refetch).
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["attendance_daily"] }),
+      queryClient.invalidateQueries({ queryKey: ["attendance_search"] }),
       queryClient.invalidateQueries({ queryKey: ["attendance_activities"] }),
     ]);
 
@@ -288,11 +336,11 @@ export default function AttendanceManagement() {
         await handleReject(selectedId, reason);
       }
 
-      // Both the day's roster list AND the sidebar's per-day punch timeline
-      // (AttendanceSidebarHR's own useQuery, keyed ["attendance_activities",
-      // employee_uuid, work_date]) need refetching -- see handleClockOut.
+      // Day mode's roster, Search mode's list, AND the sidebar's per-day
+      // punch timeline all need refetching -- see handleClockOut.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["attendance_daily"] }),
+        queryClient.invalidateQueries({ queryKey: ["attendance_search"] }),
         queryClient.invalidateQueries({ queryKey: ["attendance_activities"] }),
       ]);
 
@@ -306,9 +354,10 @@ export default function AttendanceManagement() {
 
   return (
     <>
-      {/* SEARCH AND FILTER BAR -- no date-range picker here; the day
-          navigator below replaces it, since this page is always exactly one
-          calendar day, not a range. */}
+      {/* SEARCH AND FILTER BAR -- setting the date range here (or Employee/
+          Department/Manager/Status) is itself what promotes the page into
+          Search mode; leaving everything unset keeps today's day-navigator
+          as the default. */}
       <SearchFilterBar
         search={search}
         onSearchChange={setSearch}
@@ -316,6 +365,7 @@ export default function AttendanceManagement() {
         onFilterChange={setFilters}
         filterConfig={filterConfig}
         placeholder="Search attendance..."
+        enableDateRange
       />
 
       <PageHeader>
@@ -358,52 +408,67 @@ export default function AttendanceManagement() {
         />
       )}
 
-      {/* DAY NAVIGATOR -- replaces PageResult's row-count pagination. One
-          page = one calendar day; Prev/Next always move by exactly one day,
-          the date input jumps directly to any day, and "Today" resets to
-          the default. */}
-      <CardLayout style="pageResultContainer">
-        {error ? (
-          <p className="textRegular textXXS">Error loading results</p>
-        ) : (
-          <p className="textRegular textXXS">
-            <strong>{totalCount}</strong> employee
-            {totalCount === 1 ? "" : "s"} &mdash; {formatDayLabel(date)}
-          </p>
-        )}
+      {/* DAY NAVIGATOR (Day mode only) -- one page = one calendar day;
+          Prev/Next always move by exactly one day, the date input jumps
+          directly to any day, and "Today" resets to the default. */}
+      {!isSearchMode && (
+        <CardLayout style="pageResultContainer">
+          {error ? (
+            <p className="textRegular textXXS">Error loading results</p>
+          ) : (
+            <p className="textRegular textXXS">
+              <strong>{totalCount}</strong> employee
+              {totalCount === 1 ? "" : "s"} &mdash; {formatDayLabel(date)}
+            </p>
+          )}
 
-        <CardLayout style="pageNumberContainer">
-          <Button
-            size={20}
-            icon={CaretLeftIcon}
-            style="iconButton2 textXXS"
-            title="Previous Day"
-            onClick={goToPreviousDay}
-          />
+          <CardLayout style="pageNumberContainer">
+            <Button
+              size={20}
+              icon={CaretLeftIcon}
+              style="iconButton2 textXXS"
+              title="Previous Day"
+              onClick={goToPreviousDay}
+            />
 
-          <input
-            type="date"
-            value={date}
-            max={new Date().toLocaleDateString("en-CA")}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            className="pageInput"
-          />
+            <input
+              type="date"
+              value={date}
+              max={new Date().toLocaleDateString("en-CA")}
+              onChange={(e) => e.target.value && setDate(e.target.value)}
+              className="pageInput"
+            />
 
-          <Button
-            size={20}
-            icon={CaretRightIcon}
-            style="iconButton2 textXXS"
-            title="Next Day"
-            onClick={goToNextDay}
-          />
+            <Button
+              size={20}
+              icon={CaretRightIcon}
+              style="iconButton2 textXXS"
+              title="Next Day"
+              onClick={goToNextDay}
+            />
 
-          <Button
-            name="Today"
-            style="button buttonType4 textXXS"
-            onClick={goToToday}
-          />
+            <Button
+              name="Today"
+              style="button buttonType4 textXXS"
+              onClick={goToToday}
+            />
+          </CardLayout>
         </CardLayout>
-      </CardLayout>
+      )}
+
+      {/* RESULT NUMBER + NEXT/PREVIOUS PAGE (Search mode only) -- an
+          ordinary paginated list spanning however many dates match the
+          active filters. */}
+      {isSearchMode && (
+        <PageResult
+          data={activities}
+          totalCount={totalCount}
+          page={page}
+          setPage={setPage}
+          totalPages={totalPages}
+          error={error}
+        />
+      )}
 
       {/* TABLE DISPLAY UI */}
       <div className="cardWrapperScroll generalCard">
@@ -412,7 +477,13 @@ export default function AttendanceManagement() {
             <LoadingIcon />
           </CardLayout>
         ) : !hasData ? (
-          <NoResult title="No attendance data for this date." />
+          <NoResult
+            title={
+              isSearchMode
+                ? "No attendance records match these filters."
+                : "No attendance data for this date."
+            }
+          />
         ) : layout === 2 ? (
           // TABLE VIEW
           <DataTable

@@ -85,6 +85,104 @@ export async function fetchUnifiedAttendance({ date, search, filters, sortBy, so
   };
 }
 
+/**
+ * Unified Daily Attendance View -- Search mode: all dates (unless narrowed
+ * by an explicit startDate/endDate), row-paginated.
+ *
+ * Sibling to fetchUnifiedAttendance (day mode). Used the moment any of
+ * Employee/Department/Manager/Status/date-range is set, or search text is
+ * typed (see AttendanceManagement.jsx's isSearchMode) -- filtering by e.g.
+ * one employee should show that employee's whole history, not just their
+ * one row for whatever single date happened to be selected. Row-offset
+ * pagination is safe here (unlike the old pre-day-mode version of this
+ * page) because a secondary sort tie-break (full_name) makes results
+ * deterministic across pages even when a page boundary falls mid-day --
+ * that's just an ordinary paginated list now, not a bug, same as every
+ * other list page in this app.
+ */
+export async function fetchUnifiedAttendanceSearch({
+  page,
+  pageSize,
+  search,
+  filters,
+  sortBy,
+  sortOrder,
+}) {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from("unified_daily_attendance")
+    .select("*", { count: "exact" })
+    .order(sortBy || "work_date", { ascending: sortOrder === "ascending" })
+    .order("full_name", { ascending: true });
+
+  // -------------------
+  // SEARCH
+  // -------------------
+
+  if (search) {
+    query = query.or(
+      [
+        `full_name.ilike.%${search}%`,
+        `company_employee_code.ilike.%${search}%`,
+        `department_name.ilike.%${search}%`,
+      ].join(","),
+    );
+  }
+
+  // -------------------
+  // FILTERS
+  // -------------------
+  // Same employee/department/manager/hrFlag cases as fetchUnifiedAttendance,
+  // plus startDate/endDate -- both optional; with neither set, this is
+  // genuinely all-time.
+
+  Object.entries(filters || {}).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") return;
+
+    switch (key) {
+      case "employee":
+        query = query.eq("employee_uuid", value);
+        break;
+
+      case "department":
+        query = query.eq("department_id", value);
+        break;
+
+      case "manager":
+        query = query.eq("manager_id", value);
+        break;
+
+      case "hrFlag":
+        query = query.eq("hr_flag", value);
+        break;
+
+      case "startDate":
+        query = query.gte("work_date", value);
+        break;
+
+      case "endDate":
+        query = query.lte("work_date", value);
+        break;
+
+      default:
+        break;
+    }
+  });
+
+  query = query.range(from, to);
+
+  const { data, count, error } = await query;
+
+  if (error) throw error;
+
+  return {
+    data: normalizeUnifiedAttendance(data || []),
+    totalCount: count || 0,
+  };
+}
+
 // FORMAT
 function normalizeUnifiedAttendance(rows) {
   return rows.map((row) => ({

@@ -25,6 +25,13 @@ export const attendanceDailySummaryTableConfig = () => [
     show: false,
   },
   {
+    key: "work_date",
+    label: "Date",
+    getValue: (activity) => activity.work_date,
+    editable: false,
+    editor: "text",
+  },
+  {
     key: "full_name",
     label: "Employee",
     getValue: (activity) => activity.full_name,

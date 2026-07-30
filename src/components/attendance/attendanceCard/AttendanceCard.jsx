@@ -2,7 +2,7 @@ import { SignInIcon, SignOutIcon } from "@phosphor-icons/react";
 import React, { useState } from "react";
 import "./AttendanceCard.scss";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import CardLayout from "../../cardLayout/CardLayout";
 import AttendanceType from "../attendanceType/AttendanceType";
@@ -28,6 +28,12 @@ function AttendanceCard({ activity, onClick }) {
         <p className="textBold textXS" title={activity.full_name}>
           {activity.full_name}
         </p>
+        {/* Only meaningful in Search mode, where a card's own date isn't
+            implied by the page the way it is in Day mode -- harmless to
+            always show. */}
+        {activity.work_date && (
+          <p className="textRegular textXXS textLight">{activity.work_date}</p>
+        )}
         {activity.daily_activities && (
           <AttendanceType attendanceType={activity.daily_activities} />
         )}

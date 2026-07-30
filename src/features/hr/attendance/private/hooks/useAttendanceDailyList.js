@@ -96,8 +96,12 @@ export default function useAttendanceDailyList({
   const filters = useMemo(() => {
     const obj = {};
 
+    // "page" is Search mode's own pagination param (see
+    // fetchUnifiedAttendanceSearch/usePaginatedQuery, both of which can share
+    // this same URL when the page switches modes) -- excluded here too so it
+    // never gets misread as a business filter while day mode is active.
     searchParams.forEach((value, key) => {
-      if (!["date", "search", "sortBy", "sortOrder"].includes(key)) {
+      if (!["date", "page", "search", "sortBy", "sortOrder"].includes(key)) {
         obj[key] = value;
       }
     });
