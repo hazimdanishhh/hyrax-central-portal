@@ -221,7 +221,7 @@ export default function EmployeeOverview() {
                     subtitle="Active Headcount by Department"
                     style="cardGapSmall"
                   >
-                    <BarChartRenderer
+                    <HorizontalBarChartRenderer
                       data={departmentData}
                       colorMap={GREEN_COLOR}
                     />

@@ -1,0 +1,4 @@
+-- table: sales_leads
+-- function: log_sales_leads_stage_change
+-- events: AFTER UPDATE, AFTER INSERT
+-- already done but i cant find the function and trigger code in supabase.

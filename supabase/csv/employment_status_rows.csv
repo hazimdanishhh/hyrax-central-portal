@@ -1,0 +1,11 @@
+id,created_at,name,description,updated_at
+1,2026-02-05 10:36:33.798537+00,Active,Currently working and on payroll,2026-02-05 10:36:33.798537+00
+2,2026-02-05 10:36:33.798537+00,Inactive,Temporarily not working,2026-02-05 10:36:33.798537+00
+3,2026-02-05 10:36:33.798537+00,Probation,New hires still in their probation period,2026-02-05 10:36:33.798537+00
+4,2026-02-05 10:36:33.798537+00,Terminated,Employment officially ended,2026-02-05 10:36:33.798537+00
+5,2026-02-05 10:36:33.798537+00,Resigned,Employee voluntarily resigned,2026-02-05 10:36:33.798537+00
+6,2026-02-05 10:36:33.798537+00,Retired,Employee retired from the company,2026-02-05 10:36:33.798537+00
+7,2026-02-05 10:36:33.798537+00,Sabbatical,On extended unpaid leave for personal or professional reasons,2026-02-05 10:36:33.798537+00
+8,2026-02-05 10:36:33.798537+00,Suspended,Temporarily suspended due to disciplinary action,2026-02-05 10:36:33.798537+00
+12,2026-02-05 10:36:33.798537+00,On Leave,On approved leave,2026-02-05 10:36:33.798537+00
+13,2026-02-05 10:36:33.798537+00,Terminated Notice,Employee has given notice,2026-02-05 10:36:33.798537+00

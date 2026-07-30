@@ -15,7 +15,7 @@ export async function fetchOrganizationHierarchy() {
     department_id,
     department:departments (id,name,sub),
     profile:profile_id (avatar_url),
-    employment_status:employment_status_id (id,name)
+    employment_status:employment_status_id (id,name,category)
   `);
 
   if (error) throw error;

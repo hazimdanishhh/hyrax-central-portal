@@ -9,9 +9,16 @@ WITH active_company_dates AS (
     FROM public.attendance_activities
 ),
 
--- 2. Expected Shifts: Cross join all active employees with the dates the company was open
+-- 2. Expected Shifts: Cross join active-bucket employees with the dates the
+-- company was open. Filtered via employment_status.category (see
+-- hyrax-data-platform/infrastructure/employment_status_category_migration.sql)
+-- -- the same canonical "active" bucket used by the Employee Overview RPC
+-- (Active, Probation, On Leave, Sabbatical). Before this filter existed,
+-- every employee who ever worked here (including people terminated years
+-- ago) got a row for every date the company was ever open, flagged
+-- 'Absent' forever -- pure noise inflating every single day's roster.
 expected_shifts AS (
-    SELECT 
+    SELECT
         e.id AS employee_uuid,
         e.profile_id,
         e.employee_id AS company_employee_code,
@@ -22,9 +29,8 @@ expected_shifts AS (
         e.employment_status_id,
         d.work_date
     FROM public.employees e
+    JOIN public.employment_status es ON es.id = e.employment_status_id AND es.category = 'active'
     CROSS JOIN active_company_dates d
-    -- Optional: Only include employees who are currently 'Active' in the company
-    -- WHERE e.employment_status_id = 'YOUR_ACTIVE_STATUS_ID' 
 ),
 
 -- 3. Hardware Logs (Remains unchanged)

@@ -4,25 +4,25 @@ import { supabase } from "../../../../../lib/supabaseClient";
 import { formatDate, formatDateTime, formatTime } from "@/functions/formatDate";
 
 /**
- * Unified Daily Attendance View
+ * Unified Daily Attendance View -- one calendar day's roster in one shot.
  * Source: unified_daily_attendance
+ *
+ * Deliberately NOT row-paginated: the view is one row per active employee
+ * per day, so a single day is already naturally bounded by active headcount
+ * (see employment_status_category_migration.sql -- the view's own
+ * expected_shifts CTE now filters to active-bucket employees). The previous
+ * version of this function used OFFSET/LIMIT page-of-100 pagination, which
+ * silently split a single day's roster across two "pages" the moment active
+ * headcount neared/exceeded 100. Callers now page by `date`
+ * (see useAttendanceDailyList), not by row offset.
  */
-export async function fetchUnifiedAttendance({
-  page,
-  pageSize,
-  search,
-  filters,
-  sortBy,
-  sortOrder,
-}) {
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
+export async function fetchUnifiedAttendance({ date, search, filters, sortBy, sortOrder }) {
   let query = supabase
     .from("unified_daily_attendance")
-    .select("*", { count: "exact" })
-    .order(sortBy || "work_date", {
-      ascending: sortOrder === "ascending",
+    .select("*")
+    .eq("work_date", date)
+    .order(sortBy || "full_name", {
+      ascending: sortOrder !== "descending",
     });
 
   // -------------------
@@ -42,6 +42,13 @@ export async function fetchUnifiedAttendance({
   // -------------------
   // FILTERS
   // -------------------
+  // Only columns that actually exist on unified_daily_attendance -- verified
+  // against hr_unified_daily_attendance_view.sql's SELECT list. "attendanceType"
+  // (app_attendance_type) and "approvalStatus" (app_approval_status) used to be
+  // handled here but those columns don't exist on this view (a leftover from
+  // the old per-activity `attendance_activities` model this page used to
+  // query) -- hr_flag already captures approval/anomaly state, e.g.
+  // "Pending App Approval".
 
   Object.entries(filters || {}).forEach(([key, value]) => {
     if (value === null || value === undefined || value === "") return;
@@ -59,24 +66,8 @@ export async function fetchUnifiedAttendance({
         query = query.eq("manager_id", value);
         break;
 
-      case "approvalStatus":
-        query = query.eq("app_approval_status", value);
-        break;
-
-      case "attendanceType":
-        query = query.eq("app_attendance_type", value);
-        break;
-
       case "hrFlag":
         query = query.eq("hr_flag", value);
-        break;
-
-      case "startDate":
-        query = query.gte("work_date", value);
-        break;
-
-      case "endDate":
-        query = query.lte("work_date", value);
         break;
 
       default:
@@ -84,15 +75,13 @@ export async function fetchUnifiedAttendance({
     }
   });
 
-  query = query.range(from, to);
-
-  const { data, count, error } = await query;
+  const { data, error } = await query;
 
   if (error) throw error;
 
   return {
     data: normalizeUnifiedAttendance(data || []),
-    totalCount: count || 0,
+    totalCount: data?.length || 0,
   };
 }
 

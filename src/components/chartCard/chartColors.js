@@ -104,3 +104,15 @@ export const PRODUCT_TYPE_COLORS = {
   LUBRICANTS: "#4bc793",
   MIXED: "#ffb74d",
 };
+
+// ATTENDANCE HR_FLAG (unified_daily_attendance) -- same green/yellow/red
+// convention StatusBox already uses for this field elsewhere (AttendanceCard).
+export const ATTENDANCE_FLAG_COLORS = {
+  OK: "#4bc793",
+  Approved: "#4bc793",
+  "Pending App Approval": "#ffb74d",
+  "Missing App Check-Out": "#d76363",
+  "Incomplete Card Scans": "#d76363",
+  Absent: "#d76363",
+  "Weekend / Rest Day": "#9CA3AF",
+};

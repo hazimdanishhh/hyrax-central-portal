@@ -29,6 +29,7 @@ select
   mp.avatar_url as manager_avatar_url,
   md.name as manager_department_name,
   es.name as employment_status_name,
+  es.category as employment_status_category,
   mes.name as manager_employment_status_name,
   case
     when app.latest_event_time is not null

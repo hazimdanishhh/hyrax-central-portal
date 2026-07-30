@@ -109,6 +109,8 @@ export default function AttendanceSidebarHR({
               activity={activity}
               setModalType={setModalType}
               setModalOpen={setModalOpen}
+              setSelectedId={setSelectedId}
+              clockOutAttendanceActivity={clockOutAttendanceActivity}
             />
           ))}
         </div>

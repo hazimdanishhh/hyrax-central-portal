@@ -16,8 +16,13 @@ export function useOrganizationHierarchy({ departmentId, managerId } = {}) {
     queryFn: fetchOrganizationHierarchy,
   });
 
+  // "Active" for org-structure purposes means the same canonical bucket
+  // Employee Overview uses (Active, Probation, On Leave, Sabbatical), not
+  // literally the "Active" status alone -- a Probation/On-Leave/Sabbatical
+  // employee (or their manager) shouldn't vanish or get mis-rooted here.
   const activeEmployees = useMemo(
-    () => (data || []).filter((e) => e.employment_status?.name === "Active"),
+    () =>
+      (data || []).filter((e) => e.employment_status?.category === "active"),
     [data],
   );
 

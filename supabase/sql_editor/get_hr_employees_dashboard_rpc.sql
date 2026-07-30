@@ -42,24 +42,21 @@ if p_start_date is not null and p_end_date is not null then
 end if;
 
 -- Status-bucket classification, computed once and reused everywhere below.
--- Mutually exclusive by construction -- fixes a real bug found in the
--- client-side version this RPC replaces (useEmployeesOverview.js), where
--- "Inactive" and "Suspended" sat in BOTH the Terminated and Inactive sets.
--- These are the only names the app has ever used (no DB-side category
--- column exists on employment_status to derive this from) -- verify these
--- match your live employment_status.name rows before relying on this.
---   Active (currently working): Active, Probation, On Leave, Sabbatical
---   Terminated (separated): Terminated, Resigned, Retired, Terminated Notice
---   Inactive (administrative hold, not separated): Inactive, Suspended
+-- Sourced from employment_status.category (see
+-- hyrax-data-platform/infrastructure/employment_status_category_migration.sql)
+-- instead of a hardcoded name list -- this used to be a local `case/in`
+-- block here, which was also the ONLY place this bucket was documented; it
+-- has since been found to disagree with at least three other places in the
+-- app that each re-derived their own version (Organization Chart, public
+-- employee directory, attendance's unified_daily_attendance view). Now
+-- every consumer reads the same DB column, so this can't drift again.
+--   active     (currently working): Active, Probation, On Leave, Sabbatical
+--   terminated (separated): Terminated, Resigned, Retired, Terminated Notice
+--   inactive   (administrative hold, not separated): Inactive, Suspended
 with base_employees as (
     select
         e.*,
-        case
-            when es.name in ('Active', 'Probation', 'On Leave', 'Sabbatical') then 'active'
-            when es.name in ('Terminated', 'Resigned', 'Retired', 'Terminated Notice') then 'terminated'
-            when es.name in ('Inactive', 'Suspended') then 'inactive'
-            else 'unknown'
-        end as status_bucket,
+        coalesce(es.category, 'inactive') as status_bucket,
         et.name as employment_type_name,
         es.name as employment_status_name,
         -- Departures use end_date as the authoritative separation date,

@@ -5,7 +5,6 @@ import { useAttendanceActivitiesMetadata } from "../../../../features/hr/attenda
 import useAttendanceActivityMutations from "../../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 import { attendanceActivitiesChangeClockInTimeConfig } from "../../../../pages/user/hr/attendanceManagement/list/changeClockInTimeConfig";
 import { attendanceActivitiesChangeClockOutTimeConfig } from "../../../../pages/user/hr/attendanceManagement/list/changeClockOutTimeConfig";
-import { getAttendanceActivitiesFilterConfig } from "../../../../pages/user/hr/attendanceManagement/list/filterConfig";
 import Button from "../../../buttons/button/Button";
 import StackedBarRenderer from "../../../chartCard/StackedBarRenderer";
 import DataForm from "../../../crud/dataForm/DataForm";
@@ -15,39 +14,25 @@ import AttendanceType from "../../attendanceType/AttendanceType";
 import { attendanceActivityTableConfig } from "./tableConfig";
 import AttendanceClock from "../../attendanceClock/AttendanceClock";
 
-// Utility for formatting time natively
-const formatTime = (timeString) => {
-  if (!timeString) return "--:--";
-  return new Date(timeString).toLocaleTimeString("en-MY", {
-    timeStyle: "short",
-  });
-};
-
 export default function AttendanceTimelineCard({
   activity,
   setModalType,
   setModalOpen,
+  setSelectedId,
   clockOutAttendanceActivity,
 }) {
   const queryClient = useQueryClient();
-  const [rowId, setRowId] = useState(null);
   const [isEditing, setIsEditing] = useState("none"); // "none" | "edit" | "clockIn" | "clockOut"
 
   // ==============
   // METADATA
   // ==============
-  const {
-    employees,
-    departments,
-    attendanceTypes,
-    isLoading: metadataLoading,
-  } = useAttendanceActivitiesMetadata();
+  const { employees, attendanceTypes } = useAttendanceActivitiesMetadata();
 
   // ==============
   // MUTATIONS HOOK
   // ==============
   const {
-    createAttendanceActivity: createRow,
     updateAttendanceActivity: updateRow,
     deleteAttendanceActivity: deleteRow,
     saving,
@@ -62,12 +47,6 @@ export default function AttendanceTimelineCard({
   //   CLOCK IN / OUT COLUMNS
   const clockInColumns = attendanceActivitiesChangeClockInTimeConfig();
   const clockOutColumns = attendanceActivitiesChangeClockOutTimeConfig();
-
-  const filterConfig = getAttendanceActivitiesFilterConfig({
-    employees,
-    departments,
-    attendanceTypes,
-  });
 
   // ==============
   // SAVE + UPDATE
@@ -190,7 +169,7 @@ export default function AttendanceTimelineCard({
                 <>
                   <Button
                     onClick={() => {
-                      setRowId(activity.activity_id); // Target THIS specific activity
+                      setSelectedId(activity.activity_id); // Target THIS specific activity
                       setModalType("approve");
                       setModalOpen(true);
                     }}
@@ -200,7 +179,7 @@ export default function AttendanceTimelineCard({
                   />
                   <Button
                     onClick={() => {
-                      setRowId(activity.activity_id); // Target THIS specific activity
+                      setSelectedId(activity.activity_id); // Target THIS specific activity
                       setModalType("reject");
                       setModalOpen(true);
                     }}

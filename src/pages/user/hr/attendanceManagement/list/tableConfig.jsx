@@ -1,16 +1,21 @@
-// employeesTableConfig.jsx
-
+// tableConfig.jsx
+//
+// Read-only display columns for the List page's Table view, matching
+// unified_daily_attendance's real shape (hr_unified_daily_attendance_view.sql)
+// -- a computed reconciliation view, not a writable table, so every column
+// here is editable: false. This used to be modeled on the raw
+// attendance_activities table (employee_id/attendance_type_id/photo_url/
+// notes), which rendered blank cells against these daily-summary rows.
+// The "Add Attendance" create form uses a separate config instead --
+// createAttendanceActivityFormConfig.jsx -- since creating still inserts
+// into the raw attendance_activities table, a different shape entirely.
+//
 // key = actual database field name
 // label = UI name
 // getValue = data name
 // editor = data type
-// options = for option input
-// editable = boolean
 
-export const attendanceActivitiesTableConfig = ({
-  employees,
-  attendanceTypes,
-}) => [
+export const attendanceDailySummaryTableConfig = () => [
   {
     key: "id",
     label: "ID",
@@ -20,103 +25,66 @@ export const attendanceActivitiesTableConfig = ({
     show: false,
   },
   {
-    key: "employee_id",
+    key: "full_name",
     label: "Employee",
-    getValue: (activity) => activity.employee_id,
-    displayValue: (activity) => activity.employee?.full_name,
-    editable: true,
-    editor: "select",
-    options: employees.map((e) => ({
-      label: e.full_name,
-      value: e.id,
-    })),
-    required: true,
-  },
-  {
-    key: "attendance_type_id",
-    label: "Attendance Type",
-    getValue: (activity) => activity.attendance_type_id,
-    displayValue: (activity) => activity.attendance_type?.name,
-    editable: true,
-    editor: "select",
-    options: attendanceTypes.map((n) => ({
-      label: n.name,
-      value: n.id,
-    })),
-    isSearchable: false,
-    required: true,
-  },
-  {
-    key: "photo_url",
-    label: "Attendance Photo",
-    getValue: (activity) => activity.photo_url,
-    editable: true,
-    editor: "image",
-    // required: true,
-  },
-  {
-    key: "notes",
-    label: "Notes",
-    getValue: (activity) => activity.notes,
-    editable: true,
+    getValue: (activity) => activity.full_name,
+    editable: false,
     editor: "text",
   },
-  //   {
-  //     key: "location",
-  //     label: "Location",
-  //     getValue: (activity) => activity.location,
-  //     editable: true,
-  //     editor: "text",
-  //   },
-  // {
-  //   key: "clocked_in_at",
-  //   label: "Clock In Date",
-  //   getValue: (activity) => activity.clocked_in_at,
-  //   editable: true,
-  //   editor: "dateTime",
-  //   required: true,
-  // },
-  // {
-  //   key: "clocked_out_at",
-  //   label: "Clock Out Date",
-  //   getValue: (activity) => activity.clocked_out_at,
-  //   editable: true,
-  //   editor: "dateTime",
-  // },
-  //   {
-  //     key: "approved_by",
-  //     label: "Approver",
-  //     getValue: (activity) => activity.approved_by,
-  //     displayValue: (activity) => activity.approved_by?.full_name,
-  //     editable: true,
-  //     editor: "select",
-  //     options: employees.map((e) => ({
-  //       label: e.full_name,
-  //       value: e.id,
-  //     })),
-  //   },
-  //   {
-  //     key: "approved_at",
-  //     label: "Approval Date",
-  //     getValue: (activity) => activity.approved_at,
-  //     editable: true,
-  //     editor: "dateTime",
-  //   },
-  //   {
-  //     key: "rejection_reason",
-  //     label: "Rejection Reason",
-  //     getValue: (activity) => activity.rejection_reason,
-  //     editable: true,
-  //     editor: "text",
-  //   },
-  //   {
-  //     key: "approval_status",
-  //     label: "Approval Status",
-  //     getValue: (activity) => activity.approval_status,
-  //     editable: true,
-  //     editor: "select",
-  //     options: [{ label: "Pending", value: "Pending" }],
-  //     isSearchable: false,
-  //     required: true,
-  //   },
+  {
+    key: "department_name",
+    label: "Department",
+    getValue: (activity) => activity.department_name,
+    editable: false,
+    editor: "text",
+  },
+  {
+    key: "position",
+    label: "Position",
+    getValue: (activity) => activity.position,
+    editable: false,
+    editor: "text",
+  },
+  {
+    key: "first_in",
+    label: "First In",
+    getValue: (activity) => activity.first_in,
+    editable: false,
+    editor: "text",
+  },
+  {
+    key: "last_out",
+    label: "Last Out",
+    getValue: (activity) => activity.last_out,
+    editable: false,
+    editor: "text",
+  },
+  {
+    key: "hours_worked",
+    label: "Hours Worked",
+    getValue: (activity) => activity.hours_worked,
+    editable: false,
+    editor: "text",
+  },
+  {
+    key: "hr_flag",
+    label: "Status",
+    getValue: (activity) => activity.hr_flag,
+    editable: false,
+    editor: "text",
+  },
+  {
+    key: "daily_activities",
+    label: "Activities",
+    getValue: (activity) => activity.daily_activities,
+    editable: false,
+    editor: "text",
+  },
+  {
+    key: "total_hw_scans",
+    label: "Scanner Scans",
+    getValue: (activity) => activity.total_hw_scans,
+    editable: false,
+    editor: "text",
+  },
 ];
