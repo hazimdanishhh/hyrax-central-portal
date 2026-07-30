@@ -276,6 +276,8 @@ export default function EmployeeManagement() {
           actionButtons={[
             {
               icon: PlusCircleIcon,
+              name: "Add Employee",
+              style: "button buttonType5 approval textXXS",
               onClick: () => {
                 setSelectedRow({});
                 setSidebarOpen(true);
