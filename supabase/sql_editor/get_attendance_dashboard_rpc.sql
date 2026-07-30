@@ -15,17 +15,20 @@
 -- folded into Employee Management -- this filter is what gives it the
 -- per-employee angle that would otherwise be the reason to fold it in.
 --
--- Point-in-time vs period-bound (DASHBOARD-CONVENTIONS.md): the "Today"
--- KPIs (presentTodayCount, pendingApprovalsCount, missingCheckoutsCount,
--- incompleteScansCount, oldestPendingApprovalHours) always read
--- work_date = current_date (or, for pending approvals, "right now") and
--- ignore p_start_date/p_end_date, same as Finance's AR aging.
--- activeHeadcountToday is read from employees/employment_status directly,
--- NOT from unified_daily_attendance -- that view only produces a row for a
--- given date once at least one scan/activity happens somewhere that day
--- (its own active_company_dates spine), so reading headcount from it would
--- show 0 before the first scan of the morning ("nobody's employed" instead
--- of "nobody's scanned yet").
+-- Point-in-time vs period-bound (DASHBOARD-CONVENTIONS.md): presentTodayCount/
+-- activeHeadcountToday/pending_backlog_count/missing_checkout_backlog_count/
+-- incomplete_scans_today_count/oldest_pending_backlog_hours are always
+-- computed (today or true unbounded backlog, matching Finance's AR aging
+-- convention), but which of those vs. their period-scoped siblings actually
+-- surfaces in the final `attendanceRatePct`/`pendingApprovalsCount`/
+-- `missingCheckoutsCount`/`incompleteScansCount`/`oldestPendingApprovalHours`
+-- keys depends on v_has_period -- see "Pass 4" below. activeHeadcountToday
+-- is read from employees/employment_status directly, NOT from
+-- unified_daily_attendance -- that view only produces a row for a given
+-- date once at least one scan/activity happens somewhere that day (its own
+-- active_company_dates spine), so reading headcount from it would show 0
+-- before the first scan of the morning ("nobody's employed" instead of
+-- "nobody's scanned yet").
 --
 -- KPI/metric selection ("Pass 2", metrics-expansion pass): cross-referenced
 -- against hyrax-data-platform/docs/sap-data-architecture-plans/
@@ -53,6 +56,27 @@
 -- exceptions) -- split into their own Attendance Anomalies tile instead,
 -- same "sum of sub-metrics as headline" pattern Employee Overview's own HR
 -- Actions Needed tile already uses.
+--
+-- Today-vs-period toggle + backlog fix ("Pass 4"): Attendance Rate/Pending
+-- Approvals/Attendance Anomalies previously always computed from literal
+-- work_date = current_date, regardless of the period filter selected
+-- elsewhere on the page. Per the user's decision: fall back to today when
+-- no period is selected, switch to reflect the selected period once one is
+-- chosen (v_has_period drives this, same test already used for
+-- prev_period_rows/v_trend_bucket). While designing that, a real bug
+-- surfaced: hr_flag values like 'Pending App Approval'/'Missing App
+-- Check-Out' are anchored to the day the *original activity* was clocked
+-- in, not to today -- an activity clocked in 3 days ago that's still
+-- pending/still has no checkout never appears in today_rows (work_date =
+-- current_date), so the old "Pending Approvals" count silently excluded
+-- any backlog older than today. Fixed by sourcing the no-period fallback
+-- from the true, unbounded-by-date backlog (pending_activity_rows/
+-- open_session_rows) instead of today_rows -- this is a correctness fix
+-- independent of the period-toggle feature, not just a side effect of it.
+-- Incomplete Card Scans is NOT given this backlog treatment -- it's a
+-- per-day hardware fact (one scan that day, no in/out pair), not a
+-- lingering state that later resolves, so "today" is the right no-period
+-- default the same way it always was.
 create or replace function get_attendance_dashboard(
     p_start_date    date default null,
     p_end_date      date default null,
@@ -69,6 +93,11 @@ declare
     v_prev_start_date date;
     v_prev_end_date date;
     v_trend_bucket text;
+    -- Drives the "today fallback, period once selected" behavior for the
+    -- Attendance Rate / Pending Approvals / Attendance Anomalies tiles
+    -- ("Pass 4" -- see header comment). Same test already used for
+    -- prev_period_rows/v_trend_bucket, reused here as the single switch.
+    v_has_period boolean;
     -- ASSUMPTION, not a real company policy: no shift/schedule table exists
     -- anywhere in this schema (no expected start time per employee/
     -- department), so "late" has no real threshold to compute against.
@@ -88,6 +117,8 @@ if p_start_date is not null and p_end_date is not null then
     v_prev_end_date := p_start_date - 1;
     v_prev_start_date := v_prev_end_date - v_interval;
 end if;
+
+v_has_period := (p_start_date is not null and p_end_date is not null);
 
 -- 2. Trend-chart bucket size: day by default, week once the selected range
 -- exceeds 60 days (e.g. "This Year") -- keeps the two trend charts readable
@@ -157,8 +188,10 @@ approved_activity_rows as (
     and aa.clocked_in_at::date <= coalesce(p_end_date, current_date)
 ),
 
--- Point-in-time (ignores the period filter) -- "how long has this been
--- sitting" is about right now, not the selected period.
+-- The TRUE current Pending-Approval backlog -- unbounded by date (see
+-- header comment's "Pass 4" note). kpi_totals below further splits this
+-- into a backlog-scoped and a period-scoped scalar; which one actually
+-- surfaces in the final kpis object depends on v_has_period.
 pending_activity_rows as (
     select aa.*
     from attendance_activities aa
@@ -168,22 +201,64 @@ pending_activity_rows as (
     and (p_employee_id is null or aa.employee_id = p_employee_id)
 ),
 
+-- The TRUE current Missing-Check-Out backlog -- same shape/filters as
+-- pending_activity_rows, unbounded by date. Condition mirrors
+-- unified_daily_attendance's own has_missing_app_checkout definition
+-- exactly (clocked_out_at is null, not Rejected).
+open_session_rows as (
+    select aa.*
+    from attendance_activities aa
+    join employees e on e.id = aa.employee_id
+    where aa.clocked_out_at is null
+    and aa.approval_status <> 'Rejected'
+    and (p_department_id is null or e.department_id = p_department_id)
+    and (p_employee_id is null or aa.employee_id = p_employee_id)
+),
+
 kpi_totals as (
     select
         (select headcount from active_headcount_today) as active_headcount_today,
 
-        -- "Present" = has any real check-in data today -- every hr_flag
-        -- other than Absent/Weekend implies at least a first_in exists.
+        -- "Present" = has any real check-in data -- every hr_flag other
+        -- than Absent/Weekend implies at least a first_in exists. Today and
+        -- period variants both computed; the kpis object below picks
+        -- whichever v_has_period calls for.
         (select count(*) from today_rows where hr_flag not in ('Absent', 'Weekend / Rest Day')) as present_today_count,
-        (select count(*) from today_rows where hr_flag = 'Pending App Approval') as pending_approvals_count,
-        (select count(*) from today_rows where hr_flag = 'Missing App Check-Out') as missing_checkouts_count,
-        (select count(*) from today_rows where hr_flag = 'Incomplete Card Scans') as incomplete_scans_count,
+        (select count(*) from period_rows where hr_flag not in ('Absent', 'Weekend / Rest Day')) as present_period_count,
+
+        -- Pending Approvals -- backlog (unbounded by date, the TRUE current
+        -- state) vs period-scoped (originated within the selected period).
+        -- See header comment's "Pass 4" note for why the backlog variant
+        -- replaced a today_rows-based count that silently missed anything
+        -- older than today.
+        (select count(*) from pending_activity_rows) as pending_backlog_count,
+        (select count(*) from pending_activity_rows
+         where clocked_in_at::date >= p_start_date and clocked_in_at::date <= p_end_date) as pending_period_count,
+
+        -- Missing Check-Outs -- same backlog/period split as Pending
+        -- Approvals, same reasoning (an open app session from days ago
+        -- shouldn't disappear from view just because it isn't "today").
+        (select count(*) from open_session_rows) as missing_checkout_backlog_count,
+        (select count(*) from open_session_rows
+         where clocked_in_at::date >= p_start_date and clocked_in_at::date <= p_end_date) as missing_checkout_period_count,
+
+        -- Incomplete Card Scans -- NOT given the backlog treatment: this is
+        -- a per-day hardware fact (one scan that day, no in/out pair), not
+        -- a lingering state that later resolves. Today vs period-total only.
+        (select count(*) from today_rows where hr_flag = 'Incomplete Card Scans') as incomplete_scans_today_count,
+        (select count(*) from period_rows where hr_flag = 'Incomplete Card Scans') as incomplete_scans_period_count,
 
         -- Approval turnaround (Pending Approvals tile's "so what/now what").
+        -- Already period-shaped (silently defaults to "This Month" via
+        -- coalesce, same as Average Hours Worked/Overtime) -- a rate/average,
+        -- not a backlog count, so it isn't part of the v_has_period toggle.
         (select round(avg(extract(epoch from (approved_at - clocked_in_at)) / 3600)::numeric, 1)
          from approved_activity_rows) as avg_approval_turnaround_hours,
         (select round(max(extract(epoch from (now() - clocked_in_at)) / 3600)::numeric, 1)
-         from pending_activity_rows) as oldest_pending_approval_hours,
+         from pending_activity_rows) as oldest_pending_backlog_hours,
+        (select round(max(extract(epoch from (now() - clocked_in_at)) / 3600)::numeric, 1)
+         from pending_activity_rows
+         where clocked_in_at::date >= p_start_date and clocked_in_at::date <= p_end_date) as oldest_pending_period_hours,
 
         -- Average check-in/check-out time-of-day, formatted "HH24:MI" here
         -- (same "format server-side" convention hr_flag/hours_worked
@@ -234,14 +309,25 @@ select json_build_object(
         select json_build_object(
             'activeHeadcountToday', active_headcount_today,
             'presentTodayCount', present_today_count,
-            'attendanceRatePct', case when active_headcount_today > 0
-                then round((present_today_count::numeric / active_headcount_today) * 100, 1)
-                else 0 end,
-            'pendingApprovalsCount', pending_approvals_count,
-            'missingCheckoutsCount', missing_checkouts_count,
-            'incompleteScansCount', incomplete_scans_count,
+            'presentPeriodCount', present_period_count,
+            'workingDayRecordsCount', working_day_records_count,
+            -- Today fallback, period once selected (v_has_period) -- see
+            -- header comment's "Pass 4" note. Pooled rate across the period
+            -- (present/roster summed, not an average-of-daily-rates).
+            'attendanceRatePct', case
+                when v_has_period then case when working_day_records_count > 0
+                    then round((present_period_count::numeric / working_day_records_count) * 100, 1)
+                    else 0 end
+                else case when active_headcount_today > 0
+                    then round((present_today_count::numeric / active_headcount_today) * 100, 1)
+                    else 0 end
+                end,
+            -- Backlog (unbounded) fallback, period-originated once selected.
+            'pendingApprovalsCount', case when v_has_period then pending_period_count else pending_backlog_count end,
+            'missingCheckoutsCount', case when v_has_period then missing_checkout_period_count else missing_checkout_backlog_count end,
+            'incompleteScansCount', case when v_has_period then incomplete_scans_period_count else incomplete_scans_today_count end,
             'avgApprovalTurnaroundHours', avg_approval_turnaround_hours,
-            'oldestPendingApprovalHours', oldest_pending_approval_hours,
+            'oldestPendingApprovalHours', case when v_has_period then oldest_pending_period_hours else oldest_pending_backlog_hours end,
             'avgCheckInTime', avg_check_in_time,
             'avgCheckOutTime', avg_check_out_time,
             'lateArrivalsCount', late_arrivals_count,

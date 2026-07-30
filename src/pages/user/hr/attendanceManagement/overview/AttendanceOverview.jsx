@@ -70,7 +70,12 @@ export default function AttendanceOverview() {
   const isError = dashboardError || metadataError;
 
   const kpis = dashboard?.kpis ?? {};
-  const overviewItems = getAttendanceOverviewConfig(kpis);
+  // Mirrors get_attendance_dashboard_rpc.sql's own v_has_period test exactly
+  // -- the RPC already branches every affected kpis.* value between its
+  // today/backlog and period-scoped variants; this only picks which
+  // labels/sublabels to render for whichever value came back.
+  const isPeriodFiltered = Boolean(filters.startDate) && Boolean(filters.endDate);
+  const overviewItems = getAttendanceOverviewConfig(kpis, isPeriodFiltered);
 
   const hrFlagBreakdownData = dashboard?.hrFlagBreakdownData ?? [];
   const departmentAttendanceData = dashboard?.departmentAttendanceData ?? [];
@@ -181,8 +186,9 @@ export default function AttendanceOverview() {
                     <h2 className="textL textBold">Attendance KPIs</h2>
                   </div>
                   <p className="textXS textLight">
-                    Who's here today, what needs HR action, and how attendance
-                    is trending this period.
+                    {isPeriodFiltered
+                      ? "Attendance for the selected period, what needs HR action, and how it's trending."
+                      : "Who's here today, what needs HR action, and how attendance is trending this period."}
                   </p>
                 </div>
 

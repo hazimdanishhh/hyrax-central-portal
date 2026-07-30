@@ -18,7 +18,15 @@ import {
 // (period-bound, split cleanly into check-in-side vs check-out-side so each
 // anomaly lives on the tile whose own metric it's derived from), Workload
 // (period-bound), and Absenteeism Rate (period-bound).
-export function getAttendanceOverviewConfig(kpis = {}) {
+//
+// isPeriodFiltered ("Pass 4"): Attendance Rate/Pending Approvals/Attendance
+// Anomalies fall back to today (or, for the two anomaly tiles' backlog
+// counts, the true current backlog -- see get_attendance_dashboard_rpc.sql's
+// header comment) when no period is selected, and switch to reflect the
+// selected period once one is chosen. The RPC does the actual branching --
+// this flag only picks which labels/sublabels/metric-row pairing to render,
+// since kpis.* already carries whichever value applies.
+export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false) {
   const calcDelta = (current, previous) => {
     if (previous === null || previous === undefined) return null;
     if (previous === 0 && current === 0) return 0;
@@ -71,27 +79,41 @@ export function getAttendanceOverviewConfig(kpis = {}) {
     {
       icon: GaugeIcon,
       label: "Attendance Rate",
-      sublabel: "Today, vs Active Headcount",
+      sublabel: isPeriodFiltered
+        ? "This Period, vs Working-Day Records"
+        : "Today, vs Active Headcount",
       value: `${kpis.attendanceRatePct || 0}%`,
       variant: "blueCardFill",
       to: null,
-      metrics: [
-        {
-          label: "Present Today",
-          value: kpis.presentTodayCount || 0,
-        },
-        {
-          label: "Active Headcount",
-          value: kpis.activeHeadcountToday || 0,
-        },
-      ],
-      title:
-        "Employees with any real check-in data today (hardware scan or app clock-in), divided by active headcount (Active/Probation/On Leave/Sabbatical). Point-in-time -- ignores the period filter below.",
+      metrics: isPeriodFiltered
+        ? [
+            {
+              label: "Present This Period",
+              value: kpis.presentPeriodCount || 0,
+            },
+            {
+              label: "Working-Day Records",
+              value: kpis.workingDayRecordsCount || 0,
+            },
+          ]
+        : [
+            {
+              label: "Present Today",
+              value: kpis.presentTodayCount || 0,
+            },
+            {
+              label: "Active Headcount",
+              value: kpis.activeHeadcountToday || 0,
+            },
+          ],
+      title: isPeriodFiltered
+        ? "Employees with any real check-in data, divided by working-day records (Weekend/Rest-Day excluded), pooled across the selected period. Falls back to today's real-time snapshot whenever no period is selected."
+        : "Employees with any real check-in data today (hardware scan or app clock-in), divided by active headcount (Active/Probation/On Leave/Sabbatical). Real-time by default -- switches to a period-wide rate once a period is selected below.",
     },
     {
       icon: ClockUserIcon,
       label: "Pending Approvals",
-      sublabel: "Today",
+      sublabel: isPeriodFiltered ? "Originated This Period" : "Current Backlog",
       value: kpis.pendingApprovalsCount || 0,
       variant: kpis.pendingApprovalsCount > 0 ? "yellowCardFill" : "greenCard",
       to: "../list?hrFlag=Pending%20App%20Approval",
@@ -105,13 +127,16 @@ export function getAttendanceOverviewConfig(kpis = {}) {
           value: formatHours(kpis.oldestPendingApprovalHours),
         },
       ],
-      title:
-        "Self-service app clock-ins awaiting HR/manager approval today, plus two turnaround signals: Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (how long the longest-waiting Pending activity has been sitting, right now). Click through to today's List, pre-filtered to Pending App Approval.",
+      title: isPeriodFiltered
+        ? "Self-service app clock-ins awaiting HR/manager approval that were clocked in during the selected period and are still Pending, plus two turnaround signals: Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (the longest-waiting Pending activity originated this period, how long it's been sitting, right now). Click through to today's List, pre-filtered to Pending App Approval."
+        : "The true current backlog of self-service app clock-ins awaiting HR/manager approval, regardless of which day they were originally clocked in on (fixed from an earlier version of this tile that only counted items clocked in today) -- switches to only what originated in the selected period once one is chosen. Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (how long the longest-waiting Pending activity has been sitting, right now). Click through to today's List, pre-filtered to Pending App Approval.",
     },
     {
       icon: WarningCircleIcon,
       label: "Attendance Anomalies",
-      sublabel: "Today, Data-Quality Exceptions",
+      sublabel: isPeriodFiltered
+        ? "This Period, Data-Quality Exceptions"
+        : "Current Exceptions",
       // Sum-of-sub-metrics headline, same pattern Employee Overview's own
       // "HR Actions Needed" tile uses -- these are a different anomaly
       // class from Pending Approvals above (data-quality exceptions in the
@@ -123,18 +148,28 @@ export function getAttendanceOverviewConfig(kpis = {}) {
           ? "redCard"
           : "greenCard",
       to: "../list?hrFlag=Missing%20App%20Check-Out",
+      // Missing Check-Outs is a true backlog (an open session from days ago
+      // is still worth flagging), Incomplete Card Scans is a per-day
+      // hardware fact that never "resolves" -- so with no period selected,
+      // the two sub-metrics genuinely mean different things (backlog vs
+      // today). Tagged explicitly here rather than left ambiguous.
       metrics: [
         {
-          label: "Missing Check-Outs",
+          label: isPeriodFiltered
+            ? "Missing Check-Outs"
+            : "Missing Check-Outs (Backlog)",
           value: kpis.missingCheckoutsCount || 0,
         },
         {
-          label: "Incomplete Card Scans",
+          label: isPeriodFiltered
+            ? "Incomplete Card Scans"
+            : "Incomplete Card Scans (Today)",
           value: kpis.incompleteScansCount || 0,
         },
       ],
-      title:
-        "Today's raw punch-data exceptions: an app clock-in session left open with no clock-out, and a hardware badge scan with only one tap recorded (no matching in/out pair). Point-in-time -- ignores the period filter below.",
+      title: isPeriodFiltered
+        ? "This period's raw punch-data exceptions: app clock-in sessions clocked in during the period that are still left open with no clock-out, and hardware badge scans with only one tap recorded that day (no matching in/out pair)."
+        : "Current raw punch-data exceptions: Missing Check-Outs is the true backlog of app clock-in sessions still left open with no clock-out, regardless of which day they started (fixed from an earlier version that only counted sessions opened today). Incomplete Card Scans is today's count of hardware badge scans with only one tap recorded (no matching in/out pair) -- a per-day fact, not a lingering backlog.",
     },
 
     // ==========================================
