@@ -70,7 +70,7 @@ function resolveParentId(employee, employeesById, idSet) {
  *     tree-structure-derived, not level-grouped) -- a full "cluster by
  *     level" layout is a materially harder problem than this fix.
  */
-export function buildOrganizationTree(employees) {
+export function buildOrganizationTree(employees, currentUserId = null) {
   if (!employees || employees.length === 0) {
     return { nodes: [], edges: [] };
   }
@@ -115,6 +115,7 @@ export function buildOrganizationTree(employees) {
         isCrossDepartment: Boolean(
           manager && employee.department_id !== manager.department_id,
         ),
+        isCurrentUser: currentUserId != null && employee.id === currentUserId,
       },
     });
 

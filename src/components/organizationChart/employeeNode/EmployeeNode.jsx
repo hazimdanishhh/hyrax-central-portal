@@ -1,12 +1,14 @@
 import { Handle, Position } from "@xyflow/react";
-import { TreeStructureIcon } from "@phosphor-icons/react";
+import { TreeStructureIcon, UserCircleIcon } from "@phosphor-icons/react";
 import "./EmployeeNode.scss";
 
 function EmployeeNode({ data }) {
-  const { employee, isDimmed, isCrossDepartment } = data;
+  const { employee, isDimmed, isCrossDepartment, isCurrentUser } = data;
 
   return (
-    <div className={`employeeNode${isDimmed ? " employeeNodeDimmed" : ""}`}>
+    <div
+      className={`employeeNode${isDimmed ? " employeeNodeDimmed" : ""}${isCurrentUser ? " employeeNodeCurrentUser" : ""}`}
+    >
       <Handle type="target" position={Position.Top} />
 
       <div className="employeeNodePhoto">
@@ -19,6 +21,11 @@ function EmployeeNode({ data }) {
       <div className="employeeNodeDetails">
         <p className="textBold textXS employeeNodeName">
           {employee.full_name}
+          {isCurrentUser && (
+            <span className="employeeNodeYouFlag" title="This is you">
+              <UserCircleIcon size={12} weight="fill" />
+            </span>
+          )}
         </p>
         <p className="textLight textXXS employeeNodePosition">
           {employee.position || "—"}

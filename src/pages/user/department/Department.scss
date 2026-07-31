@@ -1,14 +1,12 @@
-.departmentHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid $neutral600;
-  flex-wrap: wrap;
+.departmentOrgChartCount {
+  padding: 0 1rem;
+}
 
-  @media screen and (max-width: 425px) {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-  }
+.departmentOrgChartCanvas {
+  width: 100%;
+  height: 70vh;
+  min-height: 500px;
+  border: 1px solid $neutral500;
+  border-radius: 10px;
+  overflow: hidden;
 }

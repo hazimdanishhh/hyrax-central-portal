@@ -73,3 +73,16 @@
 .employeeNodeDimmed {
   opacity: 0.25;
 }
+
+.employeeNodeCurrentUser {
+  border-color: $primary;
+  border-width: 2px;
+  background-color: rgba($primary, 0.08);
+}
+
+.employeeNodeYouFlag {
+  display: inline-flex;
+  align-items: center;
+  color: $primary;
+  margin-left: 0.3rem;
+}

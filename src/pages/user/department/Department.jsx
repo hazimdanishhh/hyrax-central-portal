@@ -1,20 +1,42 @@
-import { useState } from "react";
-import { useTheme } from "../../../context/ThemeContext";
-import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
-import CardSection from "../../../components/cardSection/CardSection";
-import CardLayout from "../../../components/cardLayout/CardLayout";
-import "./Department.scss";
+import { useMemo } from "react";
 import { useNavigate } from "react-router";
-import EmployeeCard from "../../../components/employeeCard/EmployeeCard";
-import SectionHeader from "../../../components/sectionHeader/SectionHeader";
-import { UserCircleIcon, UsersThreeIcon } from "@phosphor-icons/react";
-import CardWrapper from "../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
+import { ReactFlow, Background, Controls, MiniMap } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { TreeStructureIcon } from "@phosphor-icons/react";
+
+import { useTheme } from "../../../context/ThemeContext";
 import { useEmployee } from "../../../context/EmployeeContext";
+import useAllEmployeesPublic from "../../../features/hr/employees/public/hooks/useAllEmployeesPublic";
+import {
+  buildOrganizationTree,
+  getManagerSubtreeIds,
+} from "../../../functions/buildOrganizationTree";
+import EmployeeNode from "../../../components/organizationChart/employeeNode/EmployeeNode";
+import LoadingIcon from "../../../components/loadingIcon/LoadingIcon";
+import CardWrapper from "../../../components/cardWrapper/CardWrapper";
+import CardLayout from "../../../components/cardLayout/CardLayout";
+import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import NoResult from "../../../components/crud/noResult/NoResult";
-import useDepartmentEmployeesPublic from "../../../features/hr/employees/public/hooks/useDepartmentEmployeesPublic";
-import useSubordinatesPublic from "../../../features/hr/employees/public/hooks/useSubordinatesPublic";
-import useEmployeePublic from "../../../features/hr/employees/public/hooks/useEmployeePublic";
+import "./Department.scss";
+
+const nodeTypes = { employee: EmployeeNode };
+
+// employees_public is flat (manager_* fields only on the row's own manager) --
+// buildOrganizationTree/EmployeeNode expect the same nested shape the
+// private-table org chart uses (department/profile as objects), so each row
+// is adapted once here rather than teaching the shared tree-builder/node
+// renderer two different input shapes.
+function toTreeEmployee(row) {
+  return {
+    id: row.id,
+    full_name: row.full_name,
+    position: row.position,
+    manager_id: row.manager_id,
+    department_id: row.department_id,
+    department: { id: row.department_id, name: row.department_name },
+    profile: { avatar_url: row.avatar_url },
+  };
+}
 
 export default function Department() {
   const navigate = useNavigate();
@@ -26,126 +48,94 @@ export default function Department() {
   } = useEmployee();
 
   const {
-    data: employeePublic,
-    isLoading: employeePublicLoad,
-    error: employeePublicError,
-  } = useEmployeePublic(employee?.id);
+    data: allEmployeesPublic,
+    isLoading: allEmployeesLoading,
+    error: allEmployeesError,
+  } = useAllEmployeesPublic();
 
-  const manager = employeePublic?.manager_id
-    ? {
-        id: employeePublic.manager_id,
-        full_name: employeePublic.manager_name,
-        employee_id: employeePublic.manager_employee_id,
-        profile_id: employeePublic.manager_profile_id,
-        preferred_name: employeePublic.manager_preferred_name,
-        position: employeePublic.manager_position,
-        phone_work: employeePublic.manager_phone,
-        email_work: employeePublic.manager_email,
-        address_work: employeePublic.manager_address_work,
-        avatar_url: employeePublic.manager_avatar_url,
-        department_name: employeePublic.manager_department_name,
-        employment_status_name: employeePublic.manager_employment_status_name,
-      }
-    : null;
+  const isLoading = employeeLoading || allEmployeesLoading;
+  const error = employeeError || allEmployeesError;
 
-  const {
-    data: departmentEmployees,
-    isLoading: departmentEmployeesLoading,
-    error: departmentEmployeesError,
-  } = useDepartmentEmployeesPublic(employee?.department?.id);
+  // Root the chart at the current user's manager -- the ask ("only based on
+  // the current user's manager"). Falls back to the current user's own id
+  // when they have no manager on file (e.g. the top of the company), so that
+  // case shows their own team instead of an empty page.
+  const rootId = employee?.manager_id || employee?.id || null;
 
-  const {
-    data: subordinates,
-    isLoading: subordinatesLoading,
-    error: subordinatesError,
-  } = useSubordinatesPublic(employee?.id);
+  const { nodes, edges, visibleCount } = useMemo(() => {
+    if (!rootId || !allEmployeesPublic) {
+      return { nodes: [], edges: [], visibleCount: 0 };
+    }
 
-  const loading =
-    employeeLoading || departmentEmployeesLoading || subordinatesLoading;
-  const error = employeeError || departmentEmployeesError || subordinatesError;
+    const subtreeIds = getManagerSubtreeIds(allEmployeesPublic, rootId);
+    const subtreeEmployees = allEmployeesPublic
+      .filter((row) => subtreeIds.has(row.id))
+      .map(toTreeEmployee);
+
+    const { nodes: builtNodes, edges: builtEdges } = buildOrganizationTree(
+      subtreeEmployees,
+      employee?.id,
+    );
+
+    return {
+      nodes: builtNodes,
+      edges: builtEdges,
+      visibleCount: subtreeEmployees.length,
+    };
+  }, [allEmployeesPublic, rootId, employee?.id]);
+
+  function handleNodeClick(_event, node) {
+    navigate(`/app/employees/${node.id}`);
+  }
 
   return (
-    <>
-      <section className={darkMode ? "sectionDark" : "sectionLight"}>
-        <div className="sectionWrapper">
-          <div className="sectionContent">
-            <Breadcrumbs
-              icon={UsersThreeIcon}
-              current={`My Department: ${employee?.department?.name || null}`}
-            />
-            {loading ? (
-              <LoadingIcon />
+    <section className={darkMode ? "sectionDark" : "sectionLight"}>
+      <div className="sectionWrapper">
+        <div className="sectionContent">
+          <Breadcrumbs icon={TreeStructureIcon} current="My Reporting Line" />
+
+          <CardWrapper>
+            {isLoading ? (
+              <CardLayout style="cardLayoutFlexFull">
+                <LoadingIcon />
+              </CardLayout>
             ) : error ? (
-              <NoResult />
+              <CardLayout style="cardLayoutFlexFull">
+                <NoResult title="Error loading your reporting line." />
+              </CardLayout>
+            ) : nodes.length === 0 ? (
+              <CardLayout style="cardLayoutFlexFull">
+                <NoResult title="No reporting line on file for your account yet." />
+              </CardLayout>
             ) : (
-              <CardWrapper>
-                {/* MY REPORTING MANAGER SECTION */}
-                {manager && (
-                  <CardLayout style="generalCard">
-                    <Breadcrumbs
-                      icon={UserCircleIcon}
-                      current="My Reporting Manager"
-                    />
-                    <CardLayout style="cardLayout2">
-                      <EmployeeCard
-                        className="employeeCard"
-                        onClick={() =>
-                          navigate(`/app/employees/${manager?.id}`)
-                        }
-                        employee={manager}
-                      />
-                    </CardLayout>
-                  </CardLayout>
-                )}
+              <>
+                <p className="textLight textXXS departmentOrgChartCount">
+                  Showing {visibleCount}{" "}
+                  {visibleCount === 1 ? "person" : "people"} in your reporting
+                  line
+                </p>
 
-                {/* MY DEPARTMENT SECTION */}
-                {employee?.department_id && (
-                  <CardLayout style="generalCard">
-                    <Breadcrumbs
-                      icon={UsersThreeIcon}
-                      current="My Department"
-                    />
-                    <CardLayout style="cardLayout2">
-                      {departmentEmployees.map((emp) => {
-                        const isMyManager = emp.id === employee?.manager_id;
-
-                        return (
-                          <EmployeeCard
-                            key={emp.id}
-                            className="employeeCard"
-                            onClick={() => navigate(`/app/employees/${emp.id}`)}
-                            employee={emp}
-                            isMyManager={isMyManager}
-                          />
-                        );
-                      })}
-                    </CardLayout>
-                  </CardLayout>
-                )}
-
-                {/* MY SUBORDINATES SECTION */}
-                {subordinates && (
-                  <CardLayout style="generalCard">
-                    <Breadcrumbs icon={UsersThreeIcon} current="My Staff" />
-                    <CardLayout style="cardLayout2">
-                      {subordinates.map((emp) => {
-                        return (
-                          <EmployeeCard
-                            key={emp.id}
-                            className="employeeCard"
-                            onClick={() => navigate(`/app/employees/${emp.id}`)}
-                            employee={emp}
-                          />
-                        );
-                      })}
-                    </CardLayout>
-                  </CardLayout>
-                )}
-              </CardWrapper>
+                <div className="departmentOrgChartCanvas">
+                  <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    fitView
+                    colorMode={darkMode ? "dark" : "light"}
+                    nodesConnectable={false}
+                    elementsSelectable={false}
+                    onNodeClick={handleNodeClick}
+                  >
+                    <Background />
+                    <Controls showInteractive={false} />
+                    <MiniMap pannable zoomable />
+                  </ReactFlow>
+                </div>
+              </>
             )}
-          </div>
+          </CardWrapper>
         </div>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }
