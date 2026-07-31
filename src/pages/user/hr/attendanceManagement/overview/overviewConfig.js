@@ -19,14 +19,30 @@ import {
 // anomaly lives on the tile whose own metric it's derived from), Workload
 // (period-bound), and Absenteeism Rate (period-bound).
 //
-// isPeriodFiltered ("Pass 4"): Attendance Rate/Pending Approvals/Attendance
-// Anomalies fall back to today (or, for the two anomaly tiles' backlog
-// counts, the true current backlog -- see get_attendance_dashboard_rpc.sql's
-// header comment) when no period is selected, and switch to reflect the
-// selected period once one is chosen. The RPC does the actual branching --
-// this flag only picks which labels/sublabels/metric-row pairing to render,
-// since kpis.* already carries whichever value applies.
-export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false) {
+// isPeriodFiltered: Attendance Rate/Pending Approvals/Attendance Anomalies
+// fall back to today (or, for the two anomaly tiles' backlog counts, the
+// true current backlog -- see get_attendance_dashboard_rpc.sql's header
+// comment) when no period is selected, and switch to reflect the selected
+// period once one is chosen. The RPC does the actual branching -- this flag
+// only picks which labels/sublabels/metric-row pairing to render, since
+// kpis.* already carries whichever value applies.
+//
+// Drill-through pass: `filters` is the Overview's OWN active department/
+// employee/period filters -- threaded into every link below so a tile click
+// doesn't silently drop whatever the user had already narrowed down to.
+// Unlike Employee Overview (all-time default), Attendance's period-bound
+// KPIs default to MONTH-TO-DATE server-side when no period is selected
+// (get_attendance_dashboard_rpc.sql), so periodFilter below reproduces that
+// MTD default explicitly rather than leaving dates unbounded, which would
+// show a different, larger all-time set than the KPI actually represents.
+// Two tiles are the exception and use a true unbounded backlog instead of
+// MTD when unfiltered -- Pending Approvals and Missing Check-Outs -- handled
+// individually below, mirroring the RPC's own v_has_period branching.
+export function getAttendanceOverviewConfig(
+  kpis = {},
+  isPeriodFiltered = false,
+  filters = {},
+) {
   const calcDelta = (current, previous) => {
     if (previous === null || previous === undefined) return null;
     if (previous === 0 && current === 0) return 0;
@@ -71,6 +87,34 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
     kpis.prevOvertimeHoursTotal,
   );
 
+  // Carried into every link below -- the Overview's own department/employee
+  // narrowing, so a tile click never silently resets it.
+  const baseFilter = {
+    ...(filters.department && { department: filters.department }),
+    ...(filters.employee && { employee: filters.employee }),
+  };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = `${new Date().getFullYear()}-${String(
+    new Date().getMonth() + 1,
+  ).padStart(2, "0")}-01`;
+
+  // Every period-bound tile's default when unfiltered is MTD, not all-time
+  // (see header comment) -- this always has a value, unlike Employee
+  // Overview's equivalent helper.
+  const periodFilter = {
+    startDate: filters.startDate || monthStart,
+    endDate: filters.endDate || today,
+  };
+
+  // "Today" tiles (Attendance Rate's Present/Working-Day sub-metrics,
+  // Incomplete Card Scans when unfiltered) use today specifically, not MTD,
+  // matching presentTodayCount/activeHeadcountToday/incompleteScansCount's
+  // own true-today scope in the RPC.
+  const todaySnapshotDates = isPeriodFiltered
+    ? { startDate: filters.startDate, endDate: filters.endDate }
+    : { startDate: today, endDate: today };
+
   return [
     // ==========================================
     // TODAY'S SNAPSHOT (point-in-time, ignores the period filter)
@@ -84,26 +128,52 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
         : "Today, vs Active Headcount",
       value: `${kpis.attendanceRatePct || 0}%`,
       variant: "blueCardFill",
+      // A rate has no matching row-set -- was already correctly unlinked.
       to: null,
       metrics: isPeriodFiltered
         ? [
             {
               label: "Present This Period",
               value: kpis.presentPeriodCount || 0,
+              to: "../list",
+              filter: {
+                ...baseFilter,
+                presentOnly: "true",
+                ...todaySnapshotDates,
+              },
             },
             {
               label: "Working-Day Records",
               value: kpis.workingDayRecordsCount || 0,
+              to: "../list",
+              filter: {
+                ...baseFilter,
+                workingDayOnly: "true",
+                ...todaySnapshotDates,
+              },
             },
           ]
         : [
             {
               label: "Present Today",
               value: kpis.presentTodayCount || 0,
+              to: "../list",
+              filter: {
+                ...baseFilter,
+                presentOnly: "true",
+                ...todaySnapshotDates,
+              },
             },
             {
               label: "Active Headcount",
               value: kpis.activeHeadcountToday || 0,
+              // Sourced from employees/employment_status directly, not
+              // attendance data (unified_daily_attendance only has rows for
+              // days something already happened) -- the only accurate
+              // target is the Employee List's own active-bucket filter, a
+              // cross-page link.
+              to: "/app/hr/employees/list",
+              filter: { statusBucket: "active" },
             },
           ],
       title: isPeriodFiltered
@@ -116,7 +186,18 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
       sublabel: isPeriodFiltered ? "Originated This Period" : "Current Backlog",
       value: kpis.pendingApprovalsCount || 0,
       variant: kpis.pendingApprovalsCount > 0 ? "yellowCardFill" : "greenCard",
-      to: "../list?hrFlag=Pending%20App%20Approval",
+      to: "../list",
+      // Backlog (no date bound) when unfiltered, mirroring
+      // pending_backlog_count exactly -- only date-bound once a period is
+      // actually selected, mirroring pending_period_count.
+      filter: {
+        ...baseFilter,
+        hrFlag: "Pending App Approval",
+        ...(isPeriodFiltered && {
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+        }),
+      },
       metrics: [
         {
           label: "Avg Approval Turnaround",
@@ -128,8 +209,8 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
         },
       ],
       title: isPeriodFiltered
-        ? "Self-service app clock-ins awaiting HR/manager approval that were clocked in during the selected period and are still Pending, plus two turnaround signals: Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (the longest-waiting Pending activity originated this period, how long it's been sitting, right now). Click through to today's List, pre-filtered to Pending App Approval."
-        : "The true current backlog of self-service app clock-ins awaiting HR/manager approval, regardless of which day they were originally clocked in on (fixed from an earlier version of this tile that only counted items clocked in today) -- switches to only what originated in the selected period once one is chosen. Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (how long the longest-waiting Pending activity has been sitting, right now). Click through to today's List, pre-filtered to Pending App Approval.",
+        ? "Self-service app clock-ins awaiting HR/manager approval that were clocked in during the selected period and are still Pending, plus two turnaround signals: Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (the longest-waiting Pending activity originated this period, how long it's been sitting, right now). Click through to the List, pre-filtered to Pending App Approval."
+        : "The true current backlog of self-service app clock-ins awaiting HR/manager approval, regardless of which day they were originally clocked in on (fixed from an earlier version of this tile that only counted items clocked in today) -- switches to only what originated in the selected period once one is chosen. Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (how long the longest-waiting Pending activity has been sitting, right now). Click through to the List, pre-filtered to Pending App Approval.",
     },
     {
       icon: WarningCircleIcon,
@@ -147,24 +228,38 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
         (kpis.missingCheckoutsCount || 0) + (kpis.incompleteScansCount || 0) > 0
           ? "redCard"
           : "greenCard",
-      to: "../list?hrFlag=Missing%20App%20Check-Out",
-      // Missing Check-Outs is a true backlog (an open session from days ago
-      // is still worth flagging), Incomplete Card Scans is a per-day
-      // hardware fact that never "resolves" -- so with no period selected,
-      // the two sub-metrics genuinely mean different things (backlog vs
-      // today). Tagged explicitly here rather than left ambiguous.
+      // The headline sums two independent hr_flag buckets -- no single
+      // filter reproduces it (the previous hardcoded link only ever showed
+      // half of what was summed). Each reason is its own sub-metric
+      // instead, same treatment as Employee Overview's Data Gaps tile.
+      to: null,
       metrics: [
         {
           label: isPeriodFiltered
             ? "Missing Check-Outs"
             : "Missing Check-Outs (Backlog)",
           value: kpis.missingCheckoutsCount || 0,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            hrFlag: "Missing App Check-Out",
+            ...(isPeriodFiltered && {
+              startDate: filters.startDate,
+              endDate: filters.endDate,
+            }),
+          },
         },
         {
           label: isPeriodFiltered
             ? "Incomplete Card Scans"
             : "Incomplete Card Scans (Today)",
           value: kpis.incompleteScansCount || 0,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            hrFlag: "Incomplete Card Scans",
+            ...todaySnapshotDates,
+          },
         },
       ],
       title: isPeriodFiltered
@@ -184,11 +279,16 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
       sublabel: "This Period",
       value: formatTimeDisplay(kpis.avgCheckInTime),
       variant: "blueCard",
-      to: null,
+      // An average has no exact matching row-set -- links to the working-day
+      // population it's averaged over, the best available "see who" target.
+      to: "../list",
+      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
       metrics: [
         {
           label: "Late Arrivals",
           value: `${kpis.lateArrivalsCount || 0} (${kpis.lateArrivalRatePct || 0}%)`,
+          to: "../list",
+          filter: { ...baseFilter, lateArrival: "true", ...periodFilter },
         },
       ],
       title:
@@ -200,11 +300,14 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
       sublabel: "This Period",
       value: formatTimeDisplay(kpis.avgCheckOutTime),
       variant: "blueCard",
-      to: null,
+      to: "../list",
+      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
       metrics: [
         {
           label: "Early Leave",
           value: `${kpis.earlyLeaveCount || 0} (${kpis.earlyLeaveRatePct || 0}%)`,
+          to: "../list",
+          filter: { ...baseFilter, earlyLeave: "true", ...periodFilter },
         },
       ],
       title:
@@ -221,12 +324,14 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
       sublabel: "This Period",
       value: `${kpis.avgHoursWorked || 0}h`,
       variant: "greenCard",
-      to: null,
+      to: "../list",
+      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
       metrics: [
         {
           label: "Prev. Period",
           value: deltaText(avgHoursDelta),
           icon: deltaIcon(avgHoursDelta),
+          // A delta has no matching row-set -- not linked.
         },
       ],
       title:
@@ -238,7 +343,8 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
       sublabel: "Total, This Period",
       value: `${kpis.overtimeHoursTotal || 0}h`,
       variant: kpis.overtimeHoursTotal > 0 ? "yellowCard" : "greenCard",
-      to: null,
+      to: "../list",
+      filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
       metrics: [
         {
           label: "Prev. Period",
@@ -248,10 +354,12 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
         {
           label: "Employees With Overtime",
           value: kpis.employeesWithOvertimeCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
         },
       ],
       title:
-        "Sum of hours worked beyond 8h/day across working-day records in the selected period. Employees With Overtime shows whether it's concentrated in a few people or spread across the workforce.",
+        "Sum of hours worked beyond 8h/day across working-day records in the selected period. Employees With Overtime is a distinct-employee count, while its link shows one row per qualifying day -- an employee with overtime on 3 different days appears 3 times in the list but counts once here.",
     },
 
     // ==========================================
@@ -264,11 +372,17 @@ export function getAttendanceOverviewConfig(kpis = {}, isPeriodFiltered = false)
       sublabel: "This Period",
       value: `${kpis.absenteeismRatePct || 0}%`,
       variant: kpis.absenteeismRatePct > 0 ? "redCard" : "greenCard",
-      to: null,
+      // The rate's own denominator population (all working-day records),
+      // not just the absent slice -- Absent Days below is the sub-metric
+      // for that.
+      to: "../list",
+      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
       metrics: [
         {
           label: "Absent Days",
           value: kpis.absentDaysCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, hrFlag: "Absent", ...periodFilter },
         },
         {
           label: "Prev. Period",

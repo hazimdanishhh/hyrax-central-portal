@@ -136,9 +136,19 @@ SELECT
 
     -- Absolute First In (Ignores Rejected App Logs)
     (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v)) AS first_in,
-    
+
     -- Absolute Last Out (Ignores Rejected App Logs)
-    (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v)) AS last_out
+    (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v)) AS last_out,
+
+    -- Time-of-day only versions of first_in/last_out -- lets the List page
+    -- filter "first_in later than 9am" as a plain column comparison
+    -- regardless of calendar date (a full timestamptz can't be compared
+    -- against a bare time-of-day cutoff via PostgREST). Mirrors the same
+    -- 09:00/18:00 thresholds get_attendance_dashboard_rpc.sql already uses
+    -- for lateArrivalsCount/earlyLeaveCount, so the List filter and the RPC
+    -- KPI can never disagree.
+    (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time AS first_in_time_of_day,
+    (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time AS last_out_time_of_day
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date

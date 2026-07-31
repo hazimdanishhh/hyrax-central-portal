@@ -19,8 +19,13 @@ export async function fetchLeads({
   const to = from + pageSize - 1;
   const FILTER_NULL = "__null__";
 
+  // Reads through a view (not the sales_leads table directly) so closed_date
+  // -- previously only computable inside get_sales_leads_dashboard_rpc.sql's
+  // own query -- exists as a real, filterable column here too. Mutations
+  // (leadsMutationsService.js) still write to sales_leads directly; this
+  // view is additive and read-only.
   let query = supabase
-    .from("sales_leads")
+    .from("sales_leads_with_closed_date")
     .select(
       `
       *,
@@ -43,13 +48,43 @@ export async function fetchLeads({
   Object.entries(filters).forEach(([key, value]) => {
     if (value === undefined || value === "") return;
 
-    // DATE RANGE FILTERS
+    // DATE RANGE FILTERS (created_at)
     if (key === "startDate") {
       query = query.gte("created_at", `${value}T00:00:00`);
     }
 
     if (key === "endDate") {
       query = query.lte("created_at", `${value}T23:59:59`);
+    }
+
+    // CLOSED-DATE RANGE (view-only column) -- mirrors the dashboard RPC's
+    // own `closed_date <= p_end_date + interval '1 day'` upper bound exactly,
+    // so a link built from a KPI's closed_date window returns the same rows.
+    if (key === "closedDateFrom") {
+      query = query.gte("closed_date", `${value}T00:00:00`);
+    }
+
+    if (key === "closedDateTo") {
+      const nextDay = new Date(`${value}T00:00:00Z`);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      query = query.lte("closed_date", nextDay.toISOString());
+    }
+
+    // "activePipelineOnly" -- open, non-cancelled pipeline (stage not in
+    // WON/LOST), mirrors activeLeads/activePipelineValue/
+    // weightedPipelineValue's shared predicate exactly. Composable with the
+    // existing onHold filter below to also back onHoldPipeline exactly
+    // (stage not in WON/LOST + is_on_hold + not cancelled).
+    if (key === "activePipelineOnly" && value === "true") {
+      query = query.not("stage", "in", "(WON,LOST)").eq("is_cancelled", false);
+    }
+
+    // "lostOrCancelled" -- mirrors lostRevenue/lostLeads' own
+    // (stage = 'LOST' OR is_cancelled) union exactly. stage and is_cancelled
+    // are orthogonal columns (a lead can be cancelled from any stage), so no
+    // single-column filter could express this before.
+    if (key === "lostOrCancelled" && value === "true") {
+      query = query.or("stage.eq.LOST,is_cancelled.eq.true");
     }
 
     const map = {

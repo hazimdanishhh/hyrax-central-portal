@@ -185,7 +185,23 @@ export default function LeadsOverview() {
   const isError = dashboardError || metadataError || targetError;
 
   // const overviewItems = getLeadsOverviewConfig(kpis);
-  const overviewItems = getLeadsOverviewConfig(kpis, targetData);
+  const overviewItems = getLeadsOverviewConfig(kpis, targetData, filters);
+
+  // Same baseFilter shape overviewConfig.js builds internally for tile links
+  // -- duplicated here since these chart-card "View All" links are plain
+  // JSX props, not part of the tile config array itself. No date bounds are
+  // ever added to these three (see overviewConfig.js's chart-link comments
+  // for why -- their RPC conditions are an OR across created_at/closed_date
+  // that only degrades to something clean when unfiltered).
+  const chartBaseFilter = {
+    ...(filters.owner && { owner: filters.owner }),
+    ...(filters.client && { client: filters.client }),
+    ...(filters.leadSourceType && { leadSourceType: filters.leadSourceType }),
+    ...(filters.stage && { stage: filters.stage }),
+    ...(filters.onHold && { onHold: filters.onHold }),
+    ...(filters.cancelled && { cancelled: filters.cancelled }),
+    ...(filters.productType && { productType: filters.productType }),
+  };
 
   const formatCurrency = (value) => {
     if (!value && value !== 0) return "RM0";
@@ -347,6 +363,8 @@ export default function LeadsOverview() {
                     title="Lead Stages"
                     subtitle="Active Pipeline Drop-off"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ ...chartBaseFilter, cancelled: "false" }}
                   >
                     <HorizontalBarChartRenderer
                       data={stageData}
@@ -359,6 +377,11 @@ export default function LeadsOverview() {
                     title="Active Pipeline Health"
                     subtitle="By Probability (%)"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{
+                      ...chartBaseFilter,
+                      activePipelineOnly: "true",
+                    }}
                   >
                     <BarChartRenderer
                       data={probabilityHealthData}
@@ -371,6 +394,8 @@ export default function LeadsOverview() {
                     title="Revenue Lost"
                     subtitle="By Reason"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ ...chartBaseFilter, stage: "LOST" }}
                   >
                     <HorizontalBarChartRenderer
                       data={lossReasonData}

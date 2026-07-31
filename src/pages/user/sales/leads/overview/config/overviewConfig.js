@@ -15,7 +15,18 @@ import {
   HourglassHighIcon,
 } from "@phosphor-icons/react";
 
-export function getLeadsOverviewConfig(kpis, targetData) {
+// Drill-through pass: `filters` is the Overview's own active owner/client/
+// leadSourceType/period (and any of stage/onHold/cancelled/productType that
+// happen to be set, even though the Overview's own filter bar doesn't expose
+// those controls today -- fetchLeadsDashboard.js still honors them from the
+// URL) -- threaded into every link below so a tile click never silently
+// drops what the user had already narrowed down to.
+//
+// Sales Leads' period-bound KPIs default to ALL-TIME when no date range is
+// selected (every RPC condition collapses to true when p_start_date is
+// null) -- unlike Attendance's month-to-date default, periodFilter/
+// closedPeriodFilter below are correctly just {} when unset.
+export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
   const isVariancePositive = (kpis.forecastVariance || 0) >= 0;
 
   // ==========================================
@@ -55,6 +66,31 @@ export function getLeadsOverviewConfig(kpis, targetData) {
         : `↓ ${Math.abs(wonDelta)}% vs last period`
       : "No prior data";
 
+  // Carried into every link below -- the Overview's own narrowing, so a tile
+  // click never silently resets it.
+  const baseFilter = {
+    ...(filters.owner && { owner: filters.owner }),
+    ...(filters.client && { client: filters.client }),
+    ...(filters.leadSourceType && { leadSourceType: filters.leadSourceType }),
+    ...(filters.stage && { stage: filters.stage }),
+    ...(filters.onHold && { onHold: filters.onHold }),
+    ...(filters.cancelled && { cancelled: filters.cancelled }),
+    ...(filters.productType && { productType: filters.productType }),
+  };
+
+  const isPeriodFiltered = Boolean(filters.startDate) && Boolean(filters.endDate);
+  // created_at window -- backs "generated" KPIs (Leads Created, Pipeline
+  // Generated).
+  const periodFilter = isPeriodFiltered
+    ? { startDate: filters.startDate, endDate: filters.endDate }
+    : {};
+  // closed_date window (view-only column, see sales_leads_with_closed_date.sql)
+  // -- backs Won/Lost/Cancelled KPIs, which are windowed by when a deal
+  // closed, not when it was created.
+  const closedPeriodFilter = isPeriodFiltered
+    ? { closedDateFrom: filters.startDate, closedDateTo: filters.endDate }
+    : {};
+
   return [
     // ==========================================
     // PILLAR 1: Current Health (What are we working on?)
@@ -65,29 +101,44 @@ export function getLeadsOverviewConfig(kpis, targetData) {
       sublabel: "Total Active Expected Revenue",
       value: `RM ${(kpis.activePipelineValue || 0).toLocaleString()}`,
       variant: "blueCardFill",
-      filter: null,
+      to: "../list",
+      filter: { ...baseFilter, activePipelineOnly: "true" },
       metrics: [
         {
           label: "Active Leads",
           value: kpis.activeLeads || 0,
+          to: "../list",
+          filter: { ...baseFilter, activePipelineOnly: "true" },
         },
         {
           label: "Weighted Pipeline",
           value: `RM ${(kpis.weightedPipelineValue || 0).toLocaleString()}`,
           icon: ScalesIcon,
+          // Derived weighted sum (expected_revenue * probability) -- no
+          // matching row-set, left unlinked.
         },
         {
           label: "In Negotiation",
           value: `RM ${(kpis.negotiationPipeline || 0).toLocaleString()}`,
           icon: TargetIcon,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            stage: "NEGOTIATION",
+            cancelled: "false",
+            onHold: "false",
+          },
         },
         {
           label: "On-Hold Cash",
           value: `RM ${(kpis.onHoldPipeline || 0).toLocaleString()}`,
           icon: PauseCircleIcon,
+          to: "../list",
+          filter: { ...baseFilter, activePipelineOnly: "true", onHold: "true" },
         },
       ],
-      title: "Current Pipeline Health (Not based on filters)",
+      title:
+        "Current pipeline health -- not date-bound (unlike every other tile here), since this is a snapshot of what's open right now, not what happened in a period.",
     },
 
     // ==========================================
@@ -99,11 +150,14 @@ export function getLeadsOverviewConfig(kpis, targetData) {
       sublabel: "Total Generated Expected Revenue",
       value: `RM ${(kpis.pipelineGenerated || 0).toLocaleString()}`,
       variant: "blueCard",
-      filter: null,
+      to: "../list",
+      filter: { ...baseFilter, ...periodFilter },
       metrics: [
         {
           label: "Leads Created",
           value: kpis.totalLeadsCreated || 0,
+          to: "../list",
+          filter: { ...baseFilter, ...periodFilter },
         },
         {
           label: "Avg. Deal Size",
@@ -118,6 +172,16 @@ export function getLeadsOverviewConfig(kpis, targetData) {
           label: "Fast Track Deals",
           value: kpis.fastTrackDeals || 0,
           icon: LightningIcon,
+          // Needs BOTH windows simultaneously -- created_at in period AND
+          // closed_date in the same period -- mirrors fastTrackDeals' own
+          // dual-window formula exactly.
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            stage: "WON",
+            ...periodFilter,
+            ...closedPeriodFilter,
+          },
         },
       ],
     },
@@ -134,7 +198,8 @@ export function getLeadsOverviewConfig(kpis, targetData) {
           : "No Target Set for Period",
       value: `RM ${wonRevenue.toLocaleString()}`, // Keep the massive number as the actual cash
       variant: "greenCard",
-      filter: { stage: "WON" },
+      to: "../list",
+      filter: { ...baseFilter, stage: "WON", ...closedPeriodFilter },
       metrics: [
         {
           label: "Prev. Period (Delta)", // Updated label to reflect the new data
@@ -176,27 +241,51 @@ export function getLeadsOverviewConfig(kpis, targetData) {
       sublabel: "Expected Revenue (Lost/Cancelled)",
       value: `RM ${(kpis.lostRevenue || 0).toLocaleString()}`,
       variant: "redCard",
-      filter: { stage: "LOST" },
+      // stage and is_cancelled are orthogonal columns -- a lead can be
+      // cancelled from any stage, not just LOST. lostOrCancelled mirrors
+      // lostRevenue/lostLeads' own (stage='LOST' OR is_cancelled) union
+      // exactly (previously this linked stage=LOST only, silently dropping
+      // every cancelled-but-not-LOST lead from the linked list).
+      to: "../list",
+      filter: { ...baseFilter, lostOrCancelled: "true", ...closedPeriodFilter },
       metrics: [
         {
           label: "Total Lost Deals",
           value: kpis.lostLeads || 0,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            lostOrCancelled: "true",
+            ...closedPeriodFilter,
+          },
         },
         {
           label: "Avg. Lost Deal Size",
           value: `RM ${(kpis.avgLostDealSize || 0).toLocaleString()}`,
+          // Computed off stage='LOST' only (NOT the cancelled union above --
+          // a pre-existing inconsistency between sibling metrics on this
+          // tile, in the RPC itself, not something introduced here) -- links
+          // to that narrower population rather than the tile's own union.
+          to: "../list",
+          filter: { ...baseFilter, stage: "LOST", ...closedPeriodFilter },
         },
         {
           label: "Avg. Lost Cycle",
           value: `${kpis.avgLostCycle || 0} Days`,
           icon: HourglassHighIcon,
+          to: "../list",
+          filter: { ...baseFilter, stage: "LOST", ...closedPeriodFilter },
         },
         {
           label: "Cancelled / Junk",
           value: kpis.cancelledLeads || 0,
           icon: XCircleIcon,
+          to: "../list",
+          filter: { ...baseFilter, cancelled: "true", ...closedPeriodFilter },
         },
       ],
+      title:
+        "Lost Revenue and Total Lost Deals count both LOST-stage leads and cancelled leads (from any stage) together. Avg. Lost Deal Size and Avg. Lost Cycle are narrower -- LOST-stage leads only, excluding cancelled-but-not-LOST leads -- matching how the dashboard itself computes them.",
     },
   ];
 }

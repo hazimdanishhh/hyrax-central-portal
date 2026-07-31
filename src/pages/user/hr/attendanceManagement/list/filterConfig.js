@@ -41,5 +41,30 @@ export function getAttendanceActivitiesFilterConfig({
         { label: "Weekend / Rest Day", value: "Weekend / Rest Day" },
       ],
     },
+    {
+      key: "workingDayOnly",
+      label: "Working Days",
+      options: [{ label: "Exclude Weekend / Rest Day", value: "true" }],
+    },
+    {
+      key: "presentOnly",
+      label: "Presence",
+      options: [{ label: "Present Only (Exclude Absent/Weekend)", value: "true" }],
+    },
+    {
+      key: "overtimeOnly",
+      label: "Overtime",
+      options: [{ label: "Overtime Only (>8h)", value: "true" }],
+    },
+    {
+      key: "lateArrival",
+      label: "Late Arrival",
+      options: [{ label: "First In After 9:00 AM", value: "true" }],
+    },
+    {
+      key: "earlyLeave",
+      label: "Early Leave",
+      options: [{ label: "Last Out Before 6:00 PM", value: "true" }],
+    },
   ];
 }

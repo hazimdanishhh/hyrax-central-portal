@@ -75,7 +75,24 @@ export default function AttendanceOverview() {
   // today/backlog and period-scoped variants; this only picks which
   // labels/sublabels to render for whichever value came back.
   const isPeriodFiltered = Boolean(filters.startDate) && Boolean(filters.endDate);
-  const overviewItems = getAttendanceOverviewConfig(kpis, isPeriodFiltered);
+  const overviewItems = getAttendanceOverviewConfig(kpis, isPeriodFiltered, filters);
+
+  // Same baseFilter/periodFilter shape overviewConfig.js builds internally
+  // for tile links -- duplicated here (rather than exported) since these
+  // three chart-card "View All" links are plain JSX props, not part of the
+  // tile config array itself.
+  const chartBaseFilter = {
+    ...(filters.department && { department: filters.department }),
+    ...(filters.employee && { employee: filters.employee }),
+  };
+  const chartToday = new Date().toISOString().slice(0, 10);
+  const chartMonthStart = `${new Date().getFullYear()}-${String(
+    new Date().getMonth() + 1,
+  ).padStart(2, "0")}-01`;
+  const chartPeriodFilter = {
+    startDate: filters.startDate || chartMonthStart,
+    endDate: filters.endDate || chartToday,
+  };
 
   const hrFlagBreakdownData = dashboard?.hrFlagBreakdownData ?? [];
   const departmentAttendanceData = dashboard?.departmentAttendanceData ?? [];
@@ -281,6 +298,12 @@ export default function AttendanceOverview() {
                     title="Departments"
                     subtitle="Attendance Rate (%), This Period"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{
+                      ...chartBaseFilter,
+                      workingDayOnly: "true",
+                      ...chartPeriodFilter,
+                    }}
                   >
                     <HorizontalBarChartRenderer
                       data={departmentAttendanceData}
@@ -292,6 +315,12 @@ export default function AttendanceOverview() {
                     title="Status Breakdown"
                     subtitle="By Record, This Period (Excludes Weekend / Rest Day)"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{
+                      ...chartBaseFilter,
+                      workingDayOnly: "true",
+                      ...chartPeriodFilter,
+                    }}
                   >
                     <PieChartRenderer
                       data={hrFlagBreakdownData}
@@ -304,6 +333,12 @@ export default function AttendanceOverview() {
                     title="Work Channel Mix"
                     subtitle="Office (Hardware Scan) vs Remote (App), This Period"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{
+                      ...chartBaseFilter,
+                      workingDayOnly: "true",
+                      ...chartPeriodFilter,
+                    }}
                   >
                     <PieChartRenderer
                       data={workChannelMixData}
@@ -344,6 +379,12 @@ export default function AttendanceOverview() {
                     title="Top Absenteeism"
                     subtitle="By Absent Days, This Period"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{
+                      ...chartBaseFilter,
+                      hrFlag: "Absent",
+                      ...chartPeriodFilter,
+                    }}
                   >
                     <HorizontalBarChartRenderer
                       data={topAbsenteeismData}
@@ -355,6 +396,12 @@ export default function AttendanceOverview() {
                     title="Top Overtime"
                     subtitle="By Overtime Hours, This Period"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{
+                      ...chartBaseFilter,
+                      overtimeOnly: "true",
+                      ...chartPeriodFilter,
+                    }}
                   >
                     <HorizontalBarChartRenderer
                       data={topOvertimeData}

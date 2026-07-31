@@ -53,26 +53,7 @@ export async function fetchUnifiedAttendance({ date, search, filters, sortBy, so
   Object.entries(filters || {}).forEach(([key, value]) => {
     if (value === null || value === undefined || value === "") return;
 
-    switch (key) {
-      case "employee":
-        query = query.eq("employee_uuid", value);
-        break;
-
-      case "department":
-        query = query.eq("department_id", value);
-        break;
-
-      case "manager":
-        query = query.eq("manager_id", value);
-        break;
-
-      case "hrFlag":
-        query = query.eq("hr_flag", value);
-        break;
-
-      default:
-        break;
-    }
+    query = applyAttendanceFilter(query, key, value);
   });
 
   const { data, error } = await query;
@@ -83,6 +64,57 @@ export async function fetchUnifiedAttendance({ date, search, filters, sortBy, so
     data: normalizeUnifiedAttendance(data || []),
     totalCount: data?.length || 0,
   };
+}
+
+// Shared by both fetchers below -- named business-window filters mirroring
+// get_attendance_dashboard_rpc.sql's own thresholds exactly (09:00/18:00 for
+// late/early, >8h for overtime, hr_flag exclusions for working-day/present),
+// so a drill-through link's row count always matches the KPI it came from.
+function applyAttendanceFilter(query, key, value) {
+  switch (key) {
+    case "employee":
+      return query.eq("employee_uuid", value);
+
+    case "department":
+      return query.eq("department_id", value);
+
+    case "manager":
+      return query.eq("manager_id", value);
+
+    case "hrFlag":
+      return query.eq("hr_flag", value);
+
+    case "workingDayOnly":
+      return query.neq("hr_flag", "Weekend / Rest Day");
+
+    case "presentOnly":
+      return query
+        .neq("hr_flag", "Weekend / Rest Day")
+        .neq("hr_flag", "Absent");
+
+    case "overtimeOnly":
+      return query
+        .gt("hours_worked", 8)
+        .neq("hr_flag", "Weekend / Rest Day")
+        .neq("hr_flag", "Absent");
+
+    case "lateArrival":
+      return query
+        .not("first_in_time_of_day", "is", null)
+        .gt("first_in_time_of_day", "09:00:00")
+        .neq("hr_flag", "Weekend / Rest Day")
+        .neq("hr_flag", "Absent");
+
+    case "earlyLeave":
+      return query
+        .not("last_out_time_of_day", "is", null)
+        .lt("last_out_time_of_day", "18:00:00")
+        .neq("hr_flag", "Weekend / Rest Day")
+        .neq("hr_flag", "Absent");
+
+    default:
+      return query;
+  }
 }
 
 /**
@@ -134,40 +166,19 @@ export async function fetchUnifiedAttendanceSearch({
   // -------------------
   // FILTERS
   // -------------------
-  // Same employee/department/manager/hrFlag cases as fetchUnifiedAttendance,
-  // plus startDate/endDate -- both optional; with neither set, this is
-  // genuinely all-time.
+  // Same cases as fetchUnifiedAttendance (via the shared applyAttendanceFilter
+  // helper), plus startDate/endDate -- both optional; with neither set, this
+  // is genuinely all-time.
 
   Object.entries(filters || {}).forEach(([key, value]) => {
     if (value === null || value === undefined || value === "") return;
 
-    switch (key) {
-      case "employee":
-        query = query.eq("employee_uuid", value);
-        break;
-
-      case "department":
-        query = query.eq("department_id", value);
-        break;
-
-      case "manager":
-        query = query.eq("manager_id", value);
-        break;
-
-      case "hrFlag":
-        query = query.eq("hr_flag", value);
-        break;
-
-      case "startDate":
-        query = query.gte("work_date", value);
-        break;
-
-      case "endDate":
-        query = query.lte("work_date", value);
-        break;
-
-      default:
-        break;
+    if (key === "startDate") {
+      query = query.gte("work_date", value);
+    } else if (key === "endDate") {
+      query = query.lte("work_date", value);
+    } else {
+      query = applyAttendanceFilter(query, key, value);
     }
   });
 

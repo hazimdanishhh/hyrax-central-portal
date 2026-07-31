@@ -84,5 +84,15 @@ export function getFilterConfig({
         { label: "False", value: "false" },
       ],
     },
+    {
+      key: "activePipelineOnly",
+      label: "Active Pipeline",
+      options: [{ label: "Active Only (Not Won/Lost/Cancelled)", value: "true" }],
+    },
+    {
+      key: "lostOrCancelled",
+      label: "Lost or Cancelled",
+      options: [{ label: "Lost or Cancelled", value: "true" }],
+    },
   ];
 }

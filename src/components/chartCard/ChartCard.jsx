@@ -33,7 +33,7 @@ export default function ChartCard({
           <RouterButton
             to={linkTo}
             name="View All"
-            style="button buttonType5"
+            style="button buttonType5 textXXS"
             icon={CaretRightIcon}
           />
         </div>

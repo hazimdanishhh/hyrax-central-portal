@@ -54,6 +54,16 @@ const SEARCH_MODE_FILTER_KEYS = [
   "hrFlag",
   "startDate",
   "endDate",
+  // Defensive additions -- every real drill-through link using these also
+  // carries hrFlag/startDate/endDate (which already force search mode), but
+  // listing them here too avoids a silent Day-mode no-op if one is ever used
+  // alone via a hand-edited URL (the same class of bug the statusBucket
+  // embedded-filter fix addressed on the Employee List).
+  "workingDayOnly",
+  "presentOnly",
+  "overtimeOnly",
+  "lateArrival",
+  "earlyLeave",
 ];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {
