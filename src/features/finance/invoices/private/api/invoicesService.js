@@ -38,12 +38,24 @@ export async function fetchInvoices({
         if (value !== FILTER_NULL) query = query.eq("customer_code", value);
         break;
 
+      // Plural, distinct from "customerCode" above -- a one-off multi-value
+      // need (Sales Reports' Customer Concentration tile links its top-5
+      // customers at once), not a generic array-filter mechanism. Value is a
+      // comma-joined string (buildFilterUrl's existing array serialization).
+      case "customerCodes":
+        if (value) query = query.in("customer_code", String(value).split(","));
+        break;
+
       case "salesRepCode":
         if (value !== FILTER_NULL) query = query.eq("sales_rep_code", value);
         break;
 
       case "statusCode":
         if (value !== FILTER_NULL) query = query.eq("status_code", value);
+        break;
+
+      case "isCancelled":
+        if (value !== FILTER_NULL) query = query.eq("is_cancelled", value);
         break;
 
       case "overdueOnly":

@@ -51,6 +51,14 @@ function Reports() {
     roles: ["manager"],
   });
 
+  // finance/invoices and finance/payments are FIN-only, while this page is
+  // SAL/MGM -- same cross-department gate Finance's own dashboard already
+  // uses for its own links (canAccessFinanceOps). Without this, a Sales
+  // manager clicking Invoice Budget Attainment/Customer Concentration/
+  // Payments Collected would hit "Unauthorized."
+  const canAccessInvoices = canAccess({ departments: ["FIN"] });
+  const canAccessPayments = canAccess({ departments: ["FIN"] });
+
   const {
     data: dashboard,
     filters,
@@ -98,7 +106,27 @@ function Reports() {
     invoiceBudgetScorecardData,
     topInvoicedCustomersRaw,
     canAccessOrders,
+    canAccessInvoices,
+    canAccessPayments,
+    filters,
   );
+
+  // Same baseFilterCRM/periodFilter/closedPeriodFilter shape overviewConfig.js
+  // builds internally for tile links -- duplicated here since these
+  // chart-card "View All" links are plain JSX props, not part of the tile
+  // config array itself.
+  const chartBaseFilterCRM = {
+    ...(filters.owner && { owner: filters.owner }),
+    ...(filters.productType && { productType: filters.productType }),
+  };
+  const chartIsPeriodFiltered =
+    Boolean(filters.startDate) && Boolean(filters.endDate);
+  const chartPeriodFilter = chartIsPeriodFiltered
+    ? { startDate: filters.startDate, endDate: filters.endDate }
+    : {};
+  const chartClosedPeriodFilter = chartIsPeriodFiltered
+    ? { closedDateFrom: filters.startDate, closedDateTo: filters.endDate }
+    : {};
 
   // Reshape to the field names ScorecardList/LeadsScoreCard already expects
   // (it's a generic quota-progress card, not Leads-specific -- see
@@ -426,6 +454,7 @@ function Reports() {
                           subtitle="SAP Sales Orders (RM)"
                           style="cardGapSmall"
                           viewAllTo={canAccessOrders ? "../orders" : undefined}
+                          viewAllFilter={{ ...chartPeriodFilter }}
                         >
                           <HorizontalBarChartRenderer
                             data={orderBookData}
@@ -437,6 +466,12 @@ function Reports() {
                           title="Gross Profit by Rep"
                           subtitle="Revenue & GP (RM)"
                           style="cardGapSmall"
+                          viewAllTo={
+                            canAccessInvoices
+                              ? "/app/finance/invoices"
+                              : undefined
+                          }
+                          viewAllFilter={{ ...chartPeriodFilter }}
                         >
                           <HorizontalMultiBarRenderer
                             data={grossProfitByRepData}
@@ -459,6 +494,12 @@ function Reports() {
                           title="Top Customers by Invoiced Revenue"
                           subtitle="SAP Invoiced (RM)"
                           style="cardGapSmall"
+                          viewAllTo={
+                            canAccessInvoices
+                              ? "/app/finance/invoices"
+                              : undefined
+                          }
+                          viewAllFilter={{ ...chartPeriodFilter }}
                         >
                           <HorizontalBarChartRenderer
                             data={topInvoicedCustomersData}
@@ -516,6 +557,16 @@ function Reports() {
                           title="Pipeline Stage"
                           subtitle="Leads by Stage (Count) — Discovery to Won/Lost"
                           style="cardGapSmall"
+                          viewAllTo="../leads/list"
+                          // No date bounds -- this chart's own RPC condition
+                          // is an OR across created_at/closed_date that only
+                          // degrades to something clean when unfiltered, same
+                          // simplification already applied to Leads
+                          // Overview's own "Lead Stages" chart.
+                          viewAllFilter={{
+                            ...chartBaseFilterCRM,
+                            cancelled: "false",
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={stageData}
@@ -527,6 +578,12 @@ function Reports() {
                           title="Product-Type Mix"
                           subtitle="Won Revenue (RM)"
                           style="cardGapSmall"
+                          viewAllTo="../leads/list"
+                          viewAllFilter={{
+                            ...chartBaseFilterCRM,
+                            stage: "WON",
+                            ...chartClosedPeriodFilter,
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={productTypeData}
@@ -538,6 +595,12 @@ function Reports() {
                           title="Lead-Source ROI"
                           subtitle="Won Revenue (RM)"
                           style="cardGapSmall"
+                          viewAllTo="../leads/list"
+                          viewAllFilter={{
+                            ...chartBaseFilterCRM,
+                            stage: "WON",
+                            ...chartClosedPeriodFilter,
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={sourceData}
@@ -549,6 +612,12 @@ function Reports() {
                           title="Top Clients"
                           subtitle="Won Revenue (RM)"
                           style="cardGapSmall"
+                          viewAllTo="../leads/list"
+                          viewAllFilter={{
+                            ...chartBaseFilterCRM,
+                            stage: "WON",
+                            ...chartClosedPeriodFilter,
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={topClientsData}

@@ -87,6 +87,20 @@ export async function fetchLeads({
       query = query.or("stage.eq.LOST,is_cancelled.eq.true");
     }
 
+    // "closedOnly" -- WON+LOST, the Sales Reports Win Rate tile's own
+    // denominator population (WON / (WON+LOST)).
+    if (key === "closedOnly" && value === "true") {
+      query = query.in("stage", ["WON", "LOST"]);
+    }
+
+    // "hasQuotation" -- backs quoteToWinConversionPct's denominator (leads
+    // that had a quotation sent, regardless of outcome). Quotations has no
+    // standalone entity/list of its own -- quotation_url is just a column on
+    // sales_leads.
+    if (key === "hasQuotation" && value === "true") {
+      query = query.not("quotation_url", "is", null);
+    }
+
     const map = {
       client: "client_id",
       clientContact: "client_contact_id",

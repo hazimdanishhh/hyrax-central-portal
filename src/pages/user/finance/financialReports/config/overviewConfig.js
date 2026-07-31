@@ -128,6 +128,34 @@ export function getFinanceOverviewConfig(
     ? " Note: DSO uses today's AR balance, not the selected period's end-of-period balance — precision is reduced for historical periods."
     : "";
 
+  // Drill-through pass: thread this page's own active filters into every
+  // tile link. customerCode/salesRepCode only scope the AR side (Invoices/
+  // Payments); vendorCode only scopes the AP side (Bills/Vendor Payments);
+  // statusCode/cancelledOnly are shared across all four -- confirmed
+  // directly against the RPC's own base_invoices/base_bills/base_payments/
+  // base_vendor_payments CTEs. Payments/Vendor Payments support neither
+  // statusCode nor a rep/vendor-code-equivalent filter (ORCT/OVPM headers
+  // have no such column), so they get a narrower filter subset than
+  // Invoices/Bills.
+  const cancelledFilter =
+    filters?.cancelledOnly !== undefined
+      ? { isCancelled: filters.cancelledOnly === "true" ? "Y" : "N" }
+      : {};
+  const arFilter = {
+    ...(filters?.customerCode && { customerCode: filters.customerCode }),
+    ...(filters?.salesRepCode && { salesRepCode: filters.salesRepCode }),
+    ...(filters?.statusCode && { statusCode: filters.statusCode }),
+    ...cancelledFilter,
+  };
+  const paymentsFilter = {
+    ...(filters?.customerCode && { customerCode: filters.customerCode }),
+    ...cancelledFilter,
+  };
+  const periodFilter = {
+    ...(filters?.startDate && { startDate: filters.startDate }),
+    ...(filters?.endDate && { endDate: filters.endDate }),
+  };
+
   return [
     // ==========================================
     // PROFITABILITY
@@ -144,11 +172,13 @@ export function getFinanceOverviewConfig(
       // (FIN department, MGM excluded per R3) -- otherwise falls back to
       // OverviewCards' plain non-clickable card.
       to: canAccessFinanceOps ? "../invoices" : null,
-      filter: null,
+      filter: { ...arFilter, ...periodFilter },
       metrics: [
         {
           label: "Invoices Issued",
           value: kpis.periodInvoiceCount || 0,
+          to: canAccessFinanceOps ? "../invoices" : null,
+          filter: { ...arFilter, ...periodFilter },
         },
         {
           label: "Prev. Period",
@@ -188,6 +218,10 @@ export function getFinanceOverviewConfig(
         {
           label: "Invoice GP",
           value: formatRM(kpis.periodGrossProfit),
+          // The one non-GL figure on this tile -- invoice-line GP is a real
+          // Invoices-table sum, unlike the GL-sourced headline above.
+          to: canAccessFinanceOps ? "../invoices" : null,
+          filter: { ...arFilter, ...periodFilter },
         },
         {
           label: "Prev. Period",
@@ -263,14 +297,10 @@ export function getFinanceOverviewConfig(
       sublabel: "Total Collected This Period (Payment)",
       value: compactCurrency(kpis.totalCollected),
       variant: "greenCard",
-      // Payments list -- link straight through, unfiltered. Not passing the
-      // current date-range filter through, mirroring Revenue Invoiced's own
-      // "../invoices" link above, which doesn't pass its period filter
-      // through either. Only a real link for viewers who can open
-      // finance/payments (same FIN-only gate as Invoices/Bills/Vendor
-      // Payments, MGM excluded per R3).
+      // Only a real link for viewers who can open finance/payments (same
+      // FIN-only gate as Invoices/Bills/Vendor Payments, MGM excluded per R3).
       to: canAccessFinanceOps ? "../payments" : null,
-      filter: null,
+      filter: { ...paymentsFilter, ...periodFilter },
       metrics: [
         {
           label: "Collection Rate",
@@ -299,12 +329,17 @@ export function getFinanceOverviewConfig(
       value: compactCurrency(kpis.overdueValue),
       variant: "redCard",
       to: canAccessFinanceOps ? "../invoices" : null,
-      filter: { statusCode: "O", overdueOnly: "true" },
+      // statusCode:"O" (literal, after the spread) always wins over
+      // arFilter's own copy -- this tile is inherently about open invoices,
+      // regardless of what statusCode the page filter happens to be set to.
+      filter: { ...arFilter, statusCode: "O", overdueOnly: "true" },
       metrics: [
         {
           label: "Overdue Invoices",
           value: kpis.overdueInvoiceCount || 0,
           icon: HourglassHighIcon,
+          to: canAccessFinanceOps ? "../invoices" : null,
+          filter: { ...arFilter, statusCode: "O", overdueOnly: "true" },
         },
       ],
       title: `Open invoices past their due date, as of today — ${formatRM(kpis.overdueValue)}`,

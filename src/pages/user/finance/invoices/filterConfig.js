@@ -33,6 +33,14 @@ export function getInvoicesFilterConfig({ salesReps }) {
       ],
     },
     {
+      key: "isCancelled",
+      label: "Document State",
+      options: [
+        { label: "Active", value: "N" },
+        { label: "Cancelled", value: "Y" },
+      ],
+    },
+    {
       key: "overdueOnly",
       label: "Overdue Only",
       options: [

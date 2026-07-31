@@ -88,6 +88,41 @@ export default function FinancialReports() {
   const isError = dashboardError || metadataError;
 
   const kpis = dashboard?.kpis ?? {};
+
+  // Same AR/AP/Payments filter-subset shape overviewConfig.js builds
+  // internally for tile links -- duplicated here since these chart-card
+  // "View All" links are plain JSX props, not part of the tile config array.
+  // customerCode/salesRepCode scope AR only, vendorCode scopes AP only,
+  // statusCode/cancelledOnly (converted to the Y/N convention every
+  // transactional list actually uses) are shared across all four.
+  const chartCancelledFilter =
+    filters?.cancelledOnly !== undefined
+      ? { isCancelled: filters.cancelledOnly === "true" ? "Y" : "N" }
+      : {};
+  const chartArFilter = {
+    ...(filters?.customerCode && { customerCode: filters.customerCode }),
+    ...(filters?.salesRepCode && { salesRepCode: filters.salesRepCode }),
+    ...(filters?.statusCode && { statusCode: filters.statusCode }),
+    ...chartCancelledFilter,
+  };
+  const chartApFilter = {
+    ...(filters?.vendorCode && { vendorCode: filters.vendorCode }),
+    ...(filters?.statusCode && { statusCode: filters.statusCode }),
+    ...chartCancelledFilter,
+  };
+  const chartPaymentsFilter = {
+    ...(filters?.customerCode && { customerCode: filters.customerCode }),
+    ...chartCancelledFilter,
+  };
+  const chartVendorPaymentsFilter = {
+    ...(filters?.vendorCode && { vendorCode: filters.vendorCode }),
+    ...chartCancelledFilter,
+  };
+  const chartPeriodFilter = {
+    ...(filters?.startDate && { startDate: filters.startDate }),
+    ...(filters?.endDate && { endDate: filters.endDate }),
+  };
+
   const overviewItems = getFinanceOverviewConfig(
     kpis,
     filters,
@@ -545,7 +580,7 @@ export default function FinancialReports() {
                           viewAllTo={
                             canAccessFinanceOps ? "../invoices" : undefined
                           }
-                          viewAllFilter={{ statusCode: "O" }}
+                          viewAllFilter={{ ...chartArFilter, statusCode: "O" }}
                         >
                           <HorizontalBarChartRenderer
                             data={arAgingData}
@@ -557,6 +592,14 @@ export default function FinancialReports() {
                           title="Top Overdue Customers"
                           subtitle="Outstanding AR (RM)"
                           style="cardGapSmall"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../invoices" : undefined
+                          }
+                          viewAllFilter={{
+                            ...chartArFilter,
+                            statusCode: "O",
+                            overdueOnly: "true",
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={topOverdueCustomersData}
@@ -615,7 +658,10 @@ export default function FinancialReports() {
                           viewAllTo={
                             canAccessFinanceOps ? "../payments" : undefined
                           }
-                          viewAllFilter={{ unallocatedOnly: "true" }}
+                          viewAllFilter={{
+                            ...chartPaymentsFilter,
+                            unallocatedOnly: "true",
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={unallocatedPaymentsData}
@@ -659,7 +705,7 @@ export default function FinancialReports() {
                           viewAllTo={
                             canAccessFinanceOps ? "../bills" : undefined
                           }
-                          viewAllFilter={{ statusCode: "O" }}
+                          viewAllFilter={{ ...chartApFilter, statusCode: "O" }}
                         >
                           <HorizontalBarChartRenderer
                             data={apAgingData}
@@ -675,6 +721,7 @@ export default function FinancialReports() {
                             canAccessFinanceOps ? "../bills" : undefined
                           }
                           viewAllFilter={{
+                            ...chartApFilter,
                             statusCode: "O",
                             overdueOnly: "true",
                           }}
@@ -692,6 +739,10 @@ export default function FinancialReports() {
                           viewAllTo={
                             canAccessFinanceOps ? "../bills" : undefined
                           }
+                          viewAllFilter={{
+                            ...chartApFilter,
+                            ...chartPeriodFilter,
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={topVendorsBySpendData}
@@ -708,7 +759,10 @@ export default function FinancialReports() {
                               ? "../vendor-payments"
                               : undefined
                           }
-                          viewAllFilter={{ unallocatedOnly: "true" }}
+                          viewAllFilter={{
+                            ...chartVendorPaymentsFilter,
+                            unallocatedOnly: "true",
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={unallocatedOutgoingPaymentsData}
@@ -782,6 +836,13 @@ export default function FinancialReports() {
                           title="Top Customers by Revenue"
                           subtitle="Invoiced (RM)"
                           style="cardGapSmall"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../invoices" : undefined
+                          }
+                          viewAllFilter={{
+                            ...chartArFilter,
+                            ...chartPeriodFilter,
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={topCustomersByRevenueData}

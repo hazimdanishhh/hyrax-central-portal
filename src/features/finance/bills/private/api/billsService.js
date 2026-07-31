@@ -43,6 +43,10 @@ export async function fetchBills({
         if (value !== FILTER_NULL) query = query.eq("status_code", value);
         break;
 
+      case "isCancelled":
+        if (value !== FILTER_NULL) query = query.eq("is_cancelled", value);
+        break;
+
       case "overdueOnly":
         if (value === "true") {
           query = query.eq("status_code", "O").lt("due_date", today);

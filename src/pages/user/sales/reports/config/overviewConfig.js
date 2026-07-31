@@ -47,12 +47,27 @@ import { compactCurrency } from "../../../../../functions/formatNumber";
  * distinct from "Client" (this page's own "Top Clients" chart, sourced from
  * the CRM-native `clients` table, unchanged) -- this page now legitimately
  * uses both words, one per source table. See DASHBOARD-CONVENTIONS.md.
+ *
+ * Drill-through pass (Phase 4): `filters` is this page's own active Owner/
+ * Product Type/period filters, `canAccessInvoices`/`canAccessPayments` mirror
+ * `canAccessOrders` (computed in Reports.jsx via canAccess({departments:
+ * ["FIN"]})) -- Invoices/Payments are FIN-only while this page is SAL/MGM,
+ * so every link into them must degrade to `to: null` for a viewer who can't
+ * actually open the target, same pattern Finance's own dashboard already
+ * uses for its cross-page links. Owner/Product Type only ever thread into
+ * the CRM-side tiles (5-8) -- confirmed via the RPC that they scope
+ * base_leads only, with zero effect on any SAP-sourced KPI (Order Book,
+ * Invoiced, Collected, Customer Concentration), so threading them into a SAP
+ * tile's link would misrepresent what actually scoped that number.
  */
 export function getSalesReportsOverviewConfig(
   kpis,
   scorecard = [],
   topInvoicedCustomers = [],
   canAccessOrders = false,
+  canAccessInvoices = false,
+  canAccessPayments = false,
+  filters = {},
 ) {
   const totalBudget = scorecard.reduce(
     (sum, r) => sum + (r.budget_revenue || 0),
@@ -110,10 +125,13 @@ export function getSalesReportsOverviewConfig(
   // conservative" because topClientsData inner-joined clients and excluded
   // cancelled leads while its denominator, pipelineWonRevenue, didn't --
   // that caveat no longer applies.)
-  const top5InvoicedRevenue = [...topInvoicedCustomers]
+  const top5Invoiced = [...topInvoicedCustomers]
     .sort((a, b) => (b.revenue_myr || 0) - (a.revenue_myr || 0))
-    .slice(0, 5)
-    .reduce((sum, r) => sum + (r.revenue_myr || 0), 0);
+    .slice(0, 5);
+  const top5InvoicedRevenue = top5Invoiced.reduce(
+    (sum, r) => sum + (r.revenue_myr || 0),
+    0,
+  );
   const concentrationPct =
     kpis.totalInvoiced > 0
       ? Math.round((top5InvoicedRevenue / kpis.totalInvoiced) * 100)
@@ -125,6 +143,25 @@ export function getSalesReportsOverviewConfig(
   // than was booked this period, i.e. billing against orders booked earlier
   // -- same sign convention as the scorecard's own po_vs_invoice_variance_myr.
   const backlogGap = (kpis.orderBookValue || 0) - (kpis.totalInvoiced || 0);
+
+  // CRM-side filters only -- Owner/Product Type never thread into SAP tiles
+  // (see header comment).
+  const baseFilterCRM = {
+    ...(filters.owner && { owner: filters.owner }),
+    ...(filters.productType && { productType: filters.productType }),
+  };
+
+  const isPeriodFiltered =
+    Boolean(filters.startDate) && Boolean(filters.endDate);
+  // created_at window -- universal across SAP and CRM tiles.
+  const periodFilter = isPeriodFiltered
+    ? { startDate: filters.startDate, endDate: filters.endDate }
+    : {};
+  // closed_date window (Sales Leads' view-only column) -- backs Won/Lost/
+  // cycle-time CRM tiles, which are windowed by when a deal closed.
+  const closedPeriodFilter = isPeriodFiltered
+    ? { closedDateFrom: filters.startDate, closedDateTo: filters.endDate }
+    : {};
 
   return [
     // ==========================================
@@ -138,15 +175,23 @@ export function getSalesReportsOverviewConfig(
       sublabel: "Invoiced Revenue vs Invoice Budget (This Period)",
       value: `${budgetAttainmentPct}%`,
       variant: "greenCard",
-      to: null,
+      // Only a real link for viewers who can actually open finance/invoices
+      // (FIN department) -- otherwise falls back to OverviewCards' plain
+      // non-clickable card.
+      to: canAccessInvoices ? "/app/finance/invoices" : null,
+      filter: { ...periodFilter },
       metrics: [
         {
           label: "Invoiced Revenue",
           value: compactCurrency(kpis.totalInvoiced),
+          to: canAccessInvoices ? "/app/finance/invoices" : null,
+          filter: { ...periodFilter },
         },
         {
           label: "Revenue Budget",
           value: compactCurrency(totalBudget),
+          // Manually-set per-rep quota (sales_budgets) -- no list page
+          // exists for it, stays unlinked.
         },
       ],
       title: "Backward-looking, Invoiced Revenue VS Invoice Budget.",
@@ -161,7 +206,8 @@ export function getSalesReportsOverviewConfig(
       sublabel: "Total Collected (This Period)",
       value: compactCurrency(kpis.totalCollected),
       variant: "greenCard",
-      to: null,
+      to: canAccessPayments ? "/app/finance/payments" : null,
+      filter: { ...periodFilter },
       metrics: [
         {
           label: "Collection Rate",
@@ -177,29 +223,33 @@ export function getSalesReportsOverviewConfig(
         "Cash actually applied against invoices via SAP payment applications this period. Collection Rate is the share of invoiced revenue that was collected this period. Avg Invoice Value is the mean of all invoices issued this period, regardless of whether they were paid.",
     },
 
-    // TILE 3: Sales Order Book -- unchanged.
+    // TILE 3: Sales Order Book -- now period-filtered (previously
+    // deliberately unfiltered "consistent with Finance's Revenue Invoiced,"
+    // which is getting the same period-filter fix in this same pass).
     {
       icon: FileTextIcon,
       label: "Sales Order Book",
       sublabel: "Sales Orders Booked (This Period)",
       value: compactCurrency(kpis.orderBookValue),
       variant: "yellowCard",
-      // Links to the Sales Orders list, unfiltered -- not passing the
-      // period's startDate/endDate through, consistent with how Finance's
-      // "Revenue Invoiced" tile links to Invoices without its own period
-      // filter. Only a real link for viewers who can actually open
-      // sales/orders (SAL managers, MGM excluded per R3) -- otherwise falls
-      // back to OverviewCards' plain non-clickable card, same as every
-      // `to: null` tile, so a viewer without access never sees a dead link.
+      // Only a real link for viewers who can actually open sales/orders (SAL
+      // managers, MGM excluded per R3) -- otherwise falls back to
+      // OverviewCards' plain non-clickable card, same as every `to: null`
+      // tile, so a viewer without access never sees a dead link.
       to: canAccessOrders ? "../orders" : null,
+      filter: { ...periodFilter },
       metrics: [
         {
           label: "Sales Orders",
           value: kpis.orderBookCount || 0,
+          to: canAccessOrders ? "../orders" : null,
+          filter: { ...periodFilter },
         },
         {
           label: "Backlog Gap",
           value: compactCurrency(backlogGap),
+          // Spans two tables/date-windows (Orders minus Invoices) -- no
+          // single row-set, stays unlinked.
         },
       ],
       title:
@@ -221,15 +271,33 @@ export function getSalesReportsOverviewConfig(
           : concentrationPct >= 30
             ? "yellowCard"
             : "greenCard",
-      to: null,
+      // customerCodes (plural) links all 5 at once -- see invoicesService.js.
+      to: canAccessInvoices ? "/app/finance/invoices" : null,
+      filter: {
+        customerCodes: top5Invoiced.map((c) => c.customer_code).join(","),
+        ...periodFilter,
+      },
       metrics: [
         {
           label: "Top 5 Revenue",
           value: compactCurrency(top5InvoicedRevenue),
+          to: canAccessInvoices ? "/app/finance/invoices" : null,
+          filter: {
+            customerCodes: top5Invoiced.map((c) => c.customer_code).join(","),
+            ...periodFilter,
+          },
         },
         {
           label: "Top Customer",
           value: topInvoicedCustomers[0]?.customer_name ?? "—",
+          to:
+            canAccessInvoices && topInvoicedCustomers[0]?.customer_code
+              ? "/app/finance/invoices"
+              : null,
+          filter: {
+            customerCode: topInvoicedCustomers[0]?.customer_code,
+            ...periodFilter,
+          },
         },
       ],
       title:
@@ -247,15 +315,19 @@ export function getSalesReportsOverviewConfig(
       sublabel: "CRM, self-reported at deal-close, vs quota",
       value: `${kpis.pipelineAttainmentPct || 0}%`,
       variant: "blueCardFill",
-      to: null,
+      to: "../leads/list",
+      filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
       metrics: [
         {
           label: "Pipeline Won Revenue",
           value: compactCurrency(kpis.pipelineWonRevenue),
+          to: "../leads/list",
+          filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
         },
         {
           label: "Pipeline Target",
           value: compactCurrency(kpis.pipelineTargetRevenue),
+          // Manually-set quota (sales_targets) -- no list page, unlinked.
         },
       ],
       title:
@@ -272,11 +344,16 @@ export function getSalesReportsOverviewConfig(
       sublabel: "Open Pipeline (Today) vs This Period's Quota",
       value: formatRatio(coverageRatio),
       variant: "blueCardFill",
-      to: null,
+      // Live snapshot, ignores the date filter (see title) -- no period
+      // filter threaded through, only Owner/Product Type.
+      to: "../leads/list",
+      filter: { ...baseFilterCRM, activePipelineOnly: "true" },
       metrics: [
         {
           label: "Pipeline Value",
           value: compactCurrency(kpis.activePipelineValue),
+          to: "../leads/list",
+          filter: { ...baseFilterCRM, activePipelineOnly: "true" },
         },
         {
           label: "Velocity",
@@ -285,6 +362,7 @@ export function getSalesReportsOverviewConfig(
               ? "—"
               : `${compactCurrency(pipelineVelocity)}/day`,
           icon: LightningIcon,
+          // Derived rate (RM/day) -- no matching row-set, unlinked.
         },
       ],
       title:
@@ -292,23 +370,33 @@ export function getSalesReportsOverviewConfig(
         `${compactCurrency(kpis.weightedPipelineValue)}.`,
     },
 
-    // TILE 7: Win Rate -- unchanged.
+    // TILE 7: Win Rate -- unchanged formula, now linkable via the new
+    // closedOnly/hasQuotation filters (leadsService.js).
     {
       icon: TrophyIcon,
       label: "Leads Win Rate",
       sublabel: "WON vs WON + LOST (This Period)",
       value: `${kpis.winRatePct || 0}%`,
       variant: "greenCard",
-      to: null,
+      to: "../leads/list",
+      filter: { ...baseFilterCRM, closedOnly: "true", ...closedPeriodFilter },
       metrics: [
         {
           label: "Avg Deal Size",
           value: compactCurrency(kpis.avgDealSize),
+          to: "../leads/list",
+          filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
         },
         {
           label: "Quote → Win",
           value: `${kpis.quoteToWinConversionPct || 0}%`,
           icon: PercentIcon,
+          to: "../leads/list",
+          filter: {
+            ...baseFilterCRM,
+            hasQuotation: "true",
+            ...closedPeriodFilter,
+          },
         },
       ],
       title:
@@ -324,11 +412,14 @@ export function getSalesReportsOverviewConfig(
       sublabel: "Avg Days to Close (This Period)",
       value: `${kpis.avgDaysToClose || 0}d`,
       variant: "redCard",
-      to: null,
+      to: "../leads/list",
+      filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
       metrics: [
         {
           label: "Median Days to Win",
           value: `${kpis.medianDaysToWin || 0}d`,
+          to: "../leads/list",
+          filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
         },
       ],
       title:

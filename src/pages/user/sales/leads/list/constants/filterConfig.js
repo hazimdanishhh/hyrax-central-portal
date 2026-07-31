@@ -94,5 +94,15 @@ export function getFilterConfig({
       label: "Lost or Cancelled",
       options: [{ label: "Lost or Cancelled", value: "true" }],
     },
+    {
+      key: "closedOnly",
+      label: "Closed (Won or Lost)",
+      options: [{ label: "Won or Lost Only", value: "true" }],
+    },
+    {
+      key: "hasQuotation",
+      label: "Quotation",
+      options: [{ label: "Has Quotation Sent", value: "true" }],
+    },
   ];
 }
