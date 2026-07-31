@@ -2,6 +2,8 @@ import { Link } from "react-router";
 import CardLayout from "../cardLayout/CardLayout";
 import SectionHeader from "../sectionHeader/SectionHeader";
 import buildFilterUrl from "../../functions/convertFilter";
+import RouterButton from "../buttons/routerButton/RouterButton";
+import { CaretRightIcon } from "@phosphor-icons/react";
 
 export default function ChartCard({
   icon,
@@ -28,14 +30,17 @@ export default function ChartCard({
           }}
         >
           {title && <SectionHeader icon={icon} title={title} />}
-          <Link to={linkTo} className="textXXS textLight">
-            View All
-          </Link>
+          <RouterButton
+            to={linkTo}
+            name="View All"
+            style="button buttonType5"
+            icon={CaretRightIcon}
+          />
         </div>
       ) : (
         title && <SectionHeader icon={icon} title={title} />
       )}
-      {subtitle && <p className="textLight textXXXS">{subtitle}</p>}
+      {subtitle && <p className="textLight textXXXS textCenter">{subtitle}</p>}
 
       {children}
     </CardLayout>

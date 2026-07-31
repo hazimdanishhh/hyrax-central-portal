@@ -3,82 +3,90 @@ import CardLayout from "../../cardLayout/CardLayout";
 import buildFilterUrl from "../../../functions/convertFilter";
 import "./OverviewCards.scss";
 
+// `to`/`filter` -> a clickable href, or null if not clickable.
+// `defaultTo` is what's used when `to` is omitted entirely (undefined):
+// "../list" for a tile's own head region (the existing, unchanged default
+// every current tile config across the app already relies on), but null for
+// sub-metric rows -- a bare sub-metric with no `to` renders as a plain row,
+// not a guess at "../list", since defaulting a sub-metric to the generic
+// list would misrepresent it more often than it would help.
+function resolveLinkTo(to, filter, defaultTo) {
+  const base = to !== undefined ? to : defaultTo;
+  if (!base) return null;
+  const query = filter ? buildFilterUrl(filter) : "";
+  return `${base}${query}`;
+}
+
 export default function OverviewCards({ items = [] }) {
   return (
     <CardLayout style="overviewCard4">
       {items.map((item) => {
         const Icon = item.icon;
+        const linkTo = resolveLinkTo(item.to, item.filter, "../list");
+        const HeadWrapper = linkTo ? Link : "div";
+        const headWrapperProps = linkTo ? { to: linkTo } : {};
 
-        // `item.to` lets a page override the default "../list" drill-through
-        // target (or opt out entirely with `to: null`) for pages that don't
-        // have a sibling list route, or where a card has no sensible target.
-        const base = item.to !== undefined ? item.to : "../list";
-        const query = item.filter ? buildFilterUrl(item.filter) : "";
-        const linkTo = base ? `${base}${query}` : null;
+        return (
+          <CardLayout
+            key={item.label}
+            style={`generalCard ${item.variant || ""}`}
+            title={item.title}
+          >
+            {/* CLICKABLE HEAD REGION -- header + main metric only. Each
+                sub-metric below is its own independent link (or plain row),
+                a sibling of this one, not nested inside it -- nesting a
+                second <Link> inside this one would be invalid HTML (nested
+                anchors) and make click targeting ambiguous. */}
+            <HeadWrapper {...headWrapperProps} className="overviewCardLink">
+              <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding overviewCardHead">
+                {Icon && <Icon size={24} weight="fill" />}
+                <h3 className="textRegular textS">{item.label}</h3>
+              </CardLayout>
 
-        const cardContent = (
-          <CardLayout style={`generalCard ${item.variant || ""}`}>
-            {/* CARD HEADER */}
-            <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
-              {Icon && <Icon size={24} weight="fill" />}
-              <h3 className="textRegular textS">{item.label}</h3>
-            </CardLayout>
-
-            {/* MAIN METRIC */}
-            <div
-              style={{
-                width: "100%",
-              }}
-            >
-              {item.sublabel && (
-                <p className="textXXS textLight overviewCardLayout">
-                  {item.sublabel}
-                </p>
-              )}
-              <div className="overviewCardValue">
-                <p className="textXS">{item.subvalue}</p>
-                <h2 className="textXL">{item.value}</h2>
+              <div style={{ width: "100%" }}>
+                {item.sublabel && (
+                  <p className="textXXS textLight overviewCardLayout">
+                    {item.sublabel}
+                  </p>
+                )}
+                <div className="overviewCardValue">
+                  <p className="textXS">{item.subvalue}</p>
+                  <h2 className="textXL">{item.value}</h2>
+                </div>
               </div>
-            </div>
+            </HeadWrapper>
 
-            {/* SUB METRICS (FOOTER) */}
+            {/* SUB METRICS (FOOTER) -- each row independently clickable via
+                its own sub.to/sub.filter; no default fallback (see
+                resolveLinkTo). */}
             {item.metrics && item.metrics.length > 0 && (
               <div className="metricsCardLayout">
-                {item.metrics.map((sub, idx) => (
-                  <div key={idx} className="metricsCard">
-                    <span className="textXXS textLight metricsContent">
-                      {sub.label}
-                      {sub.icon && <sub.icon size={14} weight="bold" />}
-                    </span>
-                    <span className="textXS textBold">{sub.value}</span>
-                  </div>
-                ))}
+                {item.metrics.map((sub, idx) => {
+                  const subLinkTo = resolveLinkTo(sub.to, sub.filter, null);
+                  const SubWrapper = subLinkTo ? Link : "div";
+                  const subWrapperProps = subLinkTo ? { to: subLinkTo } : {};
+
+                  return (
+                    <SubWrapper
+                      {...subWrapperProps}
+                      key={sub.label ?? idx}
+                      className={
+                        subLinkTo
+                          ? "metricsCard metricsCardLink"
+                          : "metricsCard"
+                      }
+                    >
+                      <span className="textXXS textLight metricsContent">
+                        {sub.label}
+                        {sub.icon && <sub.icon size={14} weight="bold" />}
+                      </span>
+                      <span className="textXS textBold">{sub.value}</span>
+                    </SubWrapper>
+                  );
+                })}
               </div>
             )}
           </CardLayout>
-        );
-
-        if (!linkTo) {
-          return (
-            <div
-              key={item.label}
-              className="overviewCardLink"
-              title={item.title}
-            >
-              {cardContent}
-            </div>
-          );
-        }
-
-        return (
-          <Link
-            to={linkTo}
-            key={item.label}
-            className="overviewCardLink"
-            title={item.title}
-          >
-            {cardContent}
-          </Link>
         );
       })}
     </CardLayout>

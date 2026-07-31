@@ -92,6 +92,7 @@ export default function EmployeeOverview() {
     kpis,
     tenureDistributionData,
     ageDistributionData,
+    filters,
   );
   const topManagersData = dashboard?.topManagersData ?? [];
   const terminationReasonsData = dashboard?.terminationReasonsData ?? [];
@@ -220,6 +221,8 @@ export default function EmployeeOverview() {
                     title="Departments"
                     subtitle="Active Headcount by Department"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ statusBucket: "active" }}
                   >
                     <HorizontalBarChartRenderer
                       data={departmentData}
@@ -231,6 +234,8 @@ export default function EmployeeOverview() {
                     title="Employment Type"
                     subtitle="Active Headcount (Share)"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ statusBucket: "active" }}
                   >
                     <PieChartRenderer
                       data={employmentTypeData}
@@ -243,6 +248,8 @@ export default function EmployeeOverview() {
                     title="Gender Distribution"
                     subtitle="Active Headcount (Share)"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ statusBucket: "active" }}
                   >
                     <PieChartRenderer
                       data={genderData}
@@ -255,6 +262,8 @@ export default function EmployeeOverview() {
                     title="Nationality"
                     subtitle="Active Headcount"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ statusBucket: "active" }}
                   >
                     <HorizontalBarChartRenderer
                       data={nationalityData}
@@ -266,6 +275,8 @@ export default function EmployeeOverview() {
                     title="Age Distribution"
                     subtitle="Active Employees, by Age Band"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ statusBucket: "active" }}
                   >
                     <BarChartRenderer
                       data={ageDistributionData}
@@ -317,6 +328,8 @@ export default function EmployeeOverview() {
                     title="Tenure Distribution"
                     subtitle="Active Employees, by Years of Service"
                     style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ statusBucket: "active" }}
                   >
                     <BarChartRenderer
                       data={tenureDistributionData}

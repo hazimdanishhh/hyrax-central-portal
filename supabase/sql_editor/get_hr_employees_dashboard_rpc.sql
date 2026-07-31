@@ -419,14 +419,17 @@ select json_build_object(
         ) x
     ),
 
+    -- id included (not just full_name) so the frontend can link this chart
+    -- to ?manager=<id> on the Employee List -- previously had no id to
+    -- build that link from at all.
     'topManagersData', (
         select coalesce(json_agg(x), '[]'::json)
         from (
-            select m.full_name as name, count(*) as value
+            select m.id, m.full_name as name, count(*) as value
             from base_employees be
             join employees m on m.id = be.manager_id
             where be.status_bucket = 'active'
-            group by m.full_name
+            group by m.id, m.full_name
             order by count(*) desc
             limit 5
         ) x

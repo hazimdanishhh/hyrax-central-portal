@@ -257,7 +257,10 @@ export default function EmployeeManagement() {
 
   return (
     <>
-      {/* SEARCH AND FILTER BAR */}
+      {/* SEARCH AND FILTER BAR -- enableDateRange's startDate/endDate maps to
+          join_date (hire date) in fetchEmployees, unlocking hiresInPeriod/
+          ytdHiresCount/tenureDistributionData drill-through from Employee
+          Overview. */}
       <SearchFilterBar
         search={search}
         onSearchChange={setSearch}
@@ -265,6 +268,7 @@ export default function EmployeeManagement() {
         onFilterChange={setFilters}
         filterConfig={filterConfig}
         placeholder="Search employees..."
+        enableDateRange
       />
 
       <PageHeader>
