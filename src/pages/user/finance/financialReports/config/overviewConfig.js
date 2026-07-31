@@ -15,6 +15,7 @@ import {
   ArrowsClockwiseIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../../functions/formatNumber";
+import { getStatusVariant } from "../../../../../functions/statusVariant";
 
 // Finance Reports redesign, Pass 1 (added 2026-07): rebuilt from 14 headline
 // tiles down to 8, following the "~7 headline numbers" / "what -> so what ->
@@ -128,6 +129,49 @@ export function getFinanceOverviewConfig(
     ? " Note: DSO uses today's AR balance, not the selected period's end-of-period balance — precision is reduced for historical periods."
     : "";
 
+  // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
+  // Color & Fill Convention"). All four sign-good tiles surrender the
+  // static blue/green hero treatment they used to have -- a loss or a
+  // working-capital deficit must never render as if it were healthy.
+  // Margin/ratio floors below are documented estimates, not audited Finance
+  // targets -- tune freely without touching statusVariant.js itself.
+  const grossProfitStatus = getStatusVariant(kpis.glGrossProfit, {
+    direction: "sign-good",
+    thresholds: { warningRatio: kpis.glGrossProfitMarginPct, warningFloor: 15 },
+  });
+  const netProfitStatus = getStatusVariant(kpis.netProfit, {
+    direction: "sign-good",
+    thresholds: { warningRatio: kpis.netProfitMarginPct, warningFloor: 5 },
+  });
+  const ebitdaStatus = getStatusVariant(kpis.ebitda, {
+    direction: "sign-good",
+    thresholds: { warningRatio: kpis.ebitdaMarginPct, warningFloor: 10 },
+  });
+  // Same 70/90 band as Sales Reports' Payments Collected -- same RCT2 chain,
+  // must read the same on both dashboards.
+  const cashCollectedStatus = getStatusVariant(kpis.collectionRatePct, {
+    direction: "high-good",
+    thresholds: { warningAt: 70, goodAt: 90 },
+  });
+  // Borrowed signal: share of outstanding AR that's overdue, not the tile's
+  // own currency magnitude.
+  const overdueSharePct =
+    kpis.outstandingAR > 0 ? (kpis.overdueValue / kpis.outstandingAR) * 100 : 0;
+  const overdueRiskStatus = getStatusVariant(overdueSharePct, {
+    direction: "low-good",
+    thresholds: { warningAt: 10, criticalAt: 25 },
+  });
+  // DSO only -- DPO's polarity is genuinely ambiguous (slower payment helps
+  // cash, hurts vendor relations), stays a plain uncolored sub-metric.
+  const cashCycleStatus = getStatusVariant(kpis.dso, {
+    direction: "low-good",
+    thresholds: { warningAt: 46, criticalAt: 61 },
+  });
+  const workingCapitalStatus = getStatusVariant(kpis.workingCapital, {
+    direction: "sign-good",
+    thresholds: { warningRatio: kpis.currentRatio ?? undefined, warningFloor: 1.5 },
+  });
+
   // Drill-through pass: thread this page's own active filters into every
   // tile link. customerCode/salesRepCode only scope the AR side (Invoices/
   // Payments); vendorCode only scopes the AP side (Bills/Vendor Payments);
@@ -201,7 +245,11 @@ export function getFinanceOverviewConfig(
       sublabel: "Total Gross Profit This Period (General Ledger)",
       value: compactCurrency(kpis.glGrossProfit),
       subvalue: `(${kpis.glGrossProfitMarginPct || 0}% margin)`,
-      variant: "greenCardFill",
+      variant: grossProfitStatus.variant,
+      status: {
+        icon: grossProfitStatus.statusIcon,
+        label: grossProfitStatus.statusLabel,
+      },
       to: null,
       filter: null,
       metrics: [
@@ -243,7 +291,11 @@ export function getFinanceOverviewConfig(
       label: "Net Profit",
       sublabel: "Total Net Profit This Period (General Ledger)",
       value: compactCurrency(kpis.netProfit),
-      variant: "greenCard",
+      variant: netProfitStatus.variant,
+      status: {
+        icon: netProfitStatus.statusIcon,
+        label: netProfitStatus.statusLabel,
+      },
       to: null,
       filter: null,
       metrics: [
@@ -273,7 +325,11 @@ export function getFinanceOverviewConfig(
       sublabel:
         "Approximate (General Ledger) — Net Profit + Interest + Tax + D&A",
       value: compactCurrency(kpis.ebitda),
-      variant: "blueCard",
+      variant: ebitdaStatus.variant,
+      status: {
+        icon: ebitdaStatus.statusIcon,
+        label: ebitdaStatus.statusLabel,
+      },
       to: null,
       filter: null,
       metrics: [
@@ -296,7 +352,11 @@ export function getFinanceOverviewConfig(
       label: "Cash Collected",
       sublabel: "Total Collected This Period (Payment)",
       value: compactCurrency(kpis.totalCollected),
-      variant: "greenCard",
+      variant: cashCollectedStatus.variant,
+      status: {
+        icon: cashCollectedStatus.statusIcon,
+        label: cashCollectedStatus.statusLabel,
+      },
       // Only a real link for viewers who can open finance/payments (same
       // FIN-only gate as Invoices/Bills/Vendor Payments, MGM excluded per R3).
       to: canAccessFinanceOps ? "../payments" : null,
@@ -327,7 +387,11 @@ export function getFinanceOverviewConfig(
       label: "Overdue Risk",
       sublabel: "Value Past Due Date (Not based on period)",
       value: compactCurrency(kpis.overdueValue),
-      variant: "redCard",
+      variant: overdueRiskStatus.variant,
+      status: {
+        icon: overdueRiskStatus.statusIcon,
+        label: overdueRiskStatus.statusLabel,
+      },
       to: canAccessFinanceOps ? "../invoices" : null,
       // statusCode:"O" (literal, after the spread) always wins over
       // arFilter's own copy -- this tile is inherently about open invoices,
@@ -353,7 +417,11 @@ export function getFinanceOverviewConfig(
       label: "Cash Cycle",
       sublabel: "Avg. Days to Collect vs. Pay (Not based on period)",
       value: `${kpis.dso || 0} Days`,
-      variant: "yellowCard",
+      variant: cashCycleStatus.variant,
+      status: {
+        icon: cashCycleStatus.statusIcon,
+        label: cashCycleStatus.statusLabel,
+      },
       to: null,
       filter: null,
       metrics: [
@@ -375,7 +443,11 @@ export function getFinanceOverviewConfig(
       sublabel:
         "Current Assets minus Current Liabilities (General Ledger, Not based on period)",
       value: compactCurrency(kpis.workingCapital),
-      variant: "blueCardFill",
+      variant: workingCapitalStatus.variant,
+      status: {
+        icon: workingCapitalStatus.statusIcon,
+        label: workingCapitalStatus.statusLabel,
+      },
       to: null,
       filter: null,
       metrics: [

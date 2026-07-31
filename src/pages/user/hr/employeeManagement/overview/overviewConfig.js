@@ -12,6 +12,7 @@ import {
   TrendDownIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
+import { getStatusVariant } from "../../../../../functions/statusVariant";
 
 // Mirrors getFinanceOverviewConfig's tile shape and previous-period delta
 // pattern exactly (calcDelta -> "up/down X% vs last period" sub-metric).
@@ -94,6 +95,41 @@ export function getEmployeesOverviewConfig(
   const currentYearStart = `${new Date().getFullYear()}-01-01`;
   const today = new Date().toISOString().slice(0, 10);
 
+  // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
+  // Color & Fill Convention"). Thresholds below are documented estimates,
+  // not audited HR policy -- tune freely without touching statusVariant.js.
+  const dataGapsStatus = getStatusVariant(kpis.dataGapsCount || 0, {
+    direction: "low-good",
+    tiers: 2,
+    badLevel: "critical",
+    thresholds: { criticalAt: 1 },
+  });
+  // Delta-as-value: departuresDelta is % change vs the prior period, not the
+  // raw count -- color follows the trend, not a fixed "departures = bad".
+  const departuresStatus = getStatusVariant(departuresDelta, {
+    direction: "low-good",
+    thresholds: { warningAt: 1, criticalAt: 21 },
+  });
+  const attritionStatus = getStatusVariant(kpis.attritionRatePct || 0, {
+    direction: "low-good",
+    thresholds: { warningAt: 2, criticalAt: 4 },
+  });
+  // Multi-field OR condition collapsed into one severity score (2 = an
+  // overdue confirmation exists, 1 = something's merely upcoming, 0 = clear)
+  // so it can still route through the shared tiering/fill logic. The safe
+  // branch is "good" (green), not blue -- a blue safe-branch here would be an
+  // unearned "informational" claim on a tile that's actively evaluating.
+  const hrActionsSeverity =
+    kpis.lateConfirmationsCount > 0
+      ? 2
+      : kpis.confirmationsDueSoonCount > 0 || kpis.contractActionsDueCount > 0
+        ? 1
+        : 0;
+  const hrActionsStatus = getStatusVariant(hrActionsSeverity, {
+    direction: "low-good",
+    thresholds: { warningAt: 1, criticalAt: 2 },
+  });
+
   return [
     // ==========================================
     // WORKFORCE SNAPSHOT (point-in-time)
@@ -128,7 +164,9 @@ export function getEmployeesOverviewConfig(
       label: "Average Tenure",
       sublabel: "Active Employees (Today)",
       value: `${kpis.avgTenureYears || 0}y`,
-      variant: "greenCard",
+      // Informational -- no documented retention-risk floor to evaluate
+      // against. Blue, not green: this tile isn't making a good/bad claim.
+      variant: "blueCard",
       // An average has no exact matching row-set -- links to the active
       // population it's averaged over, the best available "see who" target.
       to: "../list",
@@ -155,7 +193,11 @@ export function getEmployeesOverviewConfig(
       label: "Average Age",
       sublabel: "Active Employees (Today)",
       value: `${kpis.avgAgeYears || 0}y`,
-      variant: "yellowCardFill",
+      // Informational, defaulting to neutral pending confirmation: it's
+      // genuinely unclear whether an aging workforce is a real concern here
+      // (succession/retirement risk) or a pure demographic fact -- ships
+      // blue, never a guessed warning color, until HR weighs in.
+      variant: "blueCard",
       to: "../list",
       filter: { statusBucket: "active" },
       metrics: [
@@ -212,7 +254,8 @@ export function getEmployeesOverviewConfig(
       label: "Data Gaps",
       sublabel: "Missing Manager, Department, or Profile Link",
       value: kpis.dataGapsCount || 0,
-      variant: kpis.dataGapsCount > 0 ? "redCard" : "greenCard",
+      variant: dataGapsStatus.variant,
+      status: { icon: dataGapsStatus.statusIcon, label: dataGapsStatus.statusLabel },
       // The headline is an OR of 4 independent reasons -- no single filter
       // reproduces it faithfully (the previous manager=__null__-only link
       // both dropped 3 of the 4 reasons and wasn't active-bucket-scoped).
@@ -261,7 +304,9 @@ export function getEmployeesOverviewConfig(
       label: "New Hires",
       sublabel: "Joined This Period",
       value: kpis.hiresInPeriod || 0,
-      variant: "greenCard",
+      // Informational -- "more hires" isn't inherently good/bad without a
+      // hiring plan to evaluate against.
+      variant: "blueCard",
       to: "../list",
       filter: hirePeriodFilter,
       metrics: [
@@ -286,7 +331,8 @@ export function getEmployeesOverviewConfig(
       label: "Departures",
       sublabel: "Left This Period",
       value: kpis.departuresInPeriod || 0,
-      variant: "redCard",
+      variant: departuresStatus.variant,
+      status: { icon: departuresStatus.statusIcon, label: departuresStatus.statusLabel },
       to: "../list",
       filter: { statusBucket: "terminated", ...departurePeriodFilter },
       metrics: [
@@ -314,7 +360,8 @@ export function getEmployeesOverviewConfig(
       label: "Attrition Rate",
       sublabel: "Departures vs Average Headcount, This Period",
       value: `${kpis.attritionRatePct || 0}%`,
-      variant: "yellowCard",
+      variant: attritionStatus.variant,
+      status: { icon: attritionStatus.statusIcon, label: attritionStatus.statusLabel },
       // A ratio has no matching row-set -- was already correctly unlinked,
       // not a bug.
       to: null,
@@ -339,7 +386,8 @@ export function getEmployeesOverviewConfig(
         (kpis.confirmationsDueSoonCount || 0) +
         (kpis.lateConfirmationsCount || 0) +
         (kpis.contractActionsDueCount || 0),
-      variant: kpis.lateConfirmationsCount > 0 ? "redCard" : "blueCard",
+      variant: hrActionsStatus.variant,
+      status: { icon: hrActionsStatus.statusIcon, label: hrActionsStatus.statusLabel },
       // Same OR-of-unrelated-cohorts issue as Data Gaps -- the previous
       // employmentStatus=3-only link dumped every Probation employee
       // (most not due/overdue at all) and omitted Contracts Ending

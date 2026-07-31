@@ -14,6 +14,7 @@ import {
   XCircleIcon,
   HourglassHighIcon,
 } from "@phosphor-icons/react";
+import { getStatusVariant } from "../../../../../../functions/statusVariant";
 
 // Drill-through pass: `filters` is the Overview's own active owner/client/
 // leadSourceType/period (and any of stage/onHold/cancelled/productType that
@@ -65,6 +66,25 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         ? `↑ ${wonDelta}% vs last period`
         : `↓ ${Math.abs(wonDelta)}% vs last period`
       : "No prior data";
+
+  // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
+  // Color & Fill Convention"). Thresholds below are documented estimates,
+  // not audited Sales targets -- tune freely without touching
+  // statusVariant.js. Same 80/100 attainment band as Sales Reports' own
+  // attainment-style tiles -- keep in sync.
+  const revenueAttainmentStatus = getStatusVariant(pacingPercentage, {
+    direction: "high-good",
+    thresholds: { warningAt: 80, goodAt: 100 },
+  });
+  const lostRevenue = kpis.lostRevenue || 0;
+  const lostRevenueSharePct =
+    wonRevenue + lostRevenue > 0
+      ? (lostRevenue / (wonRevenue + lostRevenue)) * 100
+      : 0;
+  const lostRevenueStatus = getStatusVariant(lostRevenueSharePct, {
+    direction: "low-good",
+    thresholds: { warningAt: 20, criticalAt: 40 },
+  });
 
   // Carried into every link below -- the Overview's own narrowing, so a tile
   // click never silently resets it.
@@ -197,7 +217,11 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
           ? `Target Quota: RM ${targetRevenue.toLocaleString()}`
           : "No Target Set for Period",
       value: `RM ${wonRevenue.toLocaleString()}`, // Keep the massive number as the actual cash
-      variant: "greenCard",
+      variant: revenueAttainmentStatus.variant,
+      status: {
+        icon: revenueAttainmentStatus.statusIcon,
+        label: revenueAttainmentStatus.statusLabel,
+      },
       to: "../list",
       filter: { ...baseFilter, stage: "WON", ...closedPeriodFilter },
       metrics: [
@@ -239,8 +263,9 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       icon: WarningCircleIcon,
       label: "Lost Revenue",
       sublabel: "Expected Revenue (Lost/Cancelled)",
-      value: `RM ${(kpis.lostRevenue || 0).toLocaleString()}`,
-      variant: "redCard",
+      value: `RM ${lostRevenue.toLocaleString()}`,
+      variant: lostRevenueStatus.variant,
+      status: { icon: lostRevenueStatus.statusIcon, label: lostRevenueStatus.statusLabel },
       // stage and is_cancelled are orthogonal columns -- a lead can be
       // cancelled from any stage, not just LOST. lostOrCancelled mirrors
       // lostRevenue/lostLeads' own (stage='LOST' OR is_cancelled) union

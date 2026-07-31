@@ -11,6 +11,7 @@ import {
   WalletIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../../functions/formatNumber";
+import { getStatusVariant } from "../../../../../functions/statusVariant";
 
 /**
  * Sales Reports redesign (added 2026-07), rebalanced (added 2026-07): the
@@ -144,6 +145,48 @@ export function getSalesReportsOverviewConfig(
   // -- same sign convention as the scorecard's own po_vs_invoice_variance_myr.
   const backlogGap = (kpis.orderBookValue || 0) - (kpis.totalInvoiced || 0);
 
+  // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
+  // Color & Fill Convention"). Thresholds below are documented estimates,
+  // not audited Sales targets -- tune freely without touching
+  // statusVariant.js. This page ends with zero permanently-filled tiles by
+  // design: its two forecasts are "deliberately never blended" (see header
+  // comment), so no single tile is crowned a fixed hero.
+  const invoiceBudgetStatus = getStatusVariant(budgetAttainmentPct, {
+    direction: "high-good",
+    thresholds: { warningAt: 80, goodAt: 100 },
+  });
+  // Borrowed signal: same 70/90 collection-rate band as Finance Reports'
+  // Cash Collected -- same RCT2 chain, must read the same on both dashboards.
+  const paymentsCollectedStatus = getStatusVariant(kpis.collectionRatePct, {
+    direction: "high-good",
+    thresholds: { warningAt: 70, goodAt: 90 },
+  });
+  // concentrationPct is null when there's no invoiced revenue to divide by --
+  // getStatusVariant renders that as neutral/informational, not a guessed
+  // "good" (the old static-ternary version silently read a null as green).
+  const concentrationStatus = getStatusVariant(concentrationPct, {
+    direction: "low-good",
+    thresholds: { warningAt: 30, criticalAt: 60 },
+  });
+  const pipelineAttainmentStatus = getStatusVariant(
+    kpis.pipelineAttainmentPct || 0,
+    { direction: "high-good", thresholds: { warningAt: 80, goodAt: 100 } },
+  );
+  // coverageRatio is null when there's no pipeline target set this period --
+  // renders neutral, not a guessed critical.
+  const pipelineHealthStatus = getStatusVariant(coverageRatio, {
+    direction: "high-good",
+    thresholds: { warningAt: 1.5, goodAt: 3 },
+  });
+  const winRateStatus = getStatusVariant(kpis.winRatePct || 0, {
+    direction: "high-good",
+    thresholds: { warningAt: 25, goodAt: 40 },
+  });
+  const salesCycleStatus = getStatusVariant(kpis.avgDaysToClose || 0, {
+    direction: "low-good",
+    thresholds: { warningAt: 31, criticalAt: 46 },
+  });
+
   // CRM-side filters only -- Owner/Product Type never thread into SAP tiles
   // (see header comment).
   const baseFilterCRM = {
@@ -174,7 +217,11 @@ export function getSalesReportsOverviewConfig(
       label: "Invoice Budget Attainment",
       sublabel: "Invoiced Revenue vs Invoice Budget (This Period)",
       value: `${budgetAttainmentPct}%`,
-      variant: "greenCard",
+      variant: invoiceBudgetStatus.variant,
+      status: {
+        icon: invoiceBudgetStatus.statusIcon,
+        label: invoiceBudgetStatus.statusLabel,
+      },
       // Only a real link for viewers who can actually open finance/invoices
       // (FIN department) -- otherwise falls back to OverviewCards' plain
       // non-clickable card.
@@ -205,7 +252,11 @@ export function getSalesReportsOverviewConfig(
       label: "Payments Collected",
       sublabel: "Total Collected (This Period)",
       value: compactCurrency(kpis.totalCollected),
-      variant: "greenCard",
+      variant: paymentsCollectedStatus.variant,
+      status: {
+        icon: paymentsCollectedStatus.statusIcon,
+        label: paymentsCollectedStatus.statusLabel,
+      },
       to: canAccessPayments ? "/app/finance/payments" : null,
       filter: { ...periodFilter },
       metrics: [
@@ -231,7 +282,9 @@ export function getSalesReportsOverviewConfig(
       label: "Sales Order Book",
       sublabel: "Sales Orders Booked (This Period)",
       value: compactCurrency(kpis.orderBookValue),
-      variant: "yellowCard",
+      // Informational -- no computable comparator (Backlog Gap sub-metric's
+      // own polarity is ambiguous: could mean healthy backlog or billing lag).
+      variant: "blueCard",
       // Only a real link for viewers who can actually open sales/orders (SAL
       // managers, MGM excluded per R3) -- otherwise falls back to
       // OverviewCards' plain non-clickable card, same as every `to: null`
@@ -265,12 +318,11 @@ export function getSalesReportsOverviewConfig(
       label: "Customer Concentration",
       sublabel: "Top 5 Customers' Share of Invoiced Revenue",
       value: concentrationPct === null ? "—" : `${concentrationPct}%`,
-      variant:
-        concentrationPct >= 60
-          ? "redCard"
-          : concentrationPct >= 30
-            ? "yellowCard"
-            : "greenCard",
+      variant: concentrationStatus.variant,
+      status: {
+        icon: concentrationStatus.statusIcon,
+        label: concentrationStatus.statusLabel,
+      },
       // customerCodes (plural) links all 5 at once -- see invoicesService.js.
       to: canAccessInvoices ? "/app/finance/invoices" : null,
       filter: {
@@ -314,7 +366,11 @@ export function getSalesReportsOverviewConfig(
       label: "Leads Pipeline Attainment",
       sublabel: "CRM, self-reported at deal-close, vs quota",
       value: `${kpis.pipelineAttainmentPct || 0}%`,
-      variant: "blueCardFill",
+      variant: pipelineAttainmentStatus.variant,
+      status: {
+        icon: pipelineAttainmentStatus.statusIcon,
+        label: pipelineAttainmentStatus.statusLabel,
+      },
       to: "../leads/list",
       filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
       metrics: [
@@ -343,7 +399,11 @@ export function getSalesReportsOverviewConfig(
       label: "Leads Pipeline Health",
       sublabel: "Open Pipeline (Today) vs This Period's Quota",
       value: formatRatio(coverageRatio),
-      variant: "blueCardFill",
+      variant: pipelineHealthStatus.variant,
+      status: {
+        icon: pipelineHealthStatus.statusIcon,
+        label: pipelineHealthStatus.statusLabel,
+      },
       // Live snapshot, ignores the date filter (see title) -- no period
       // filter threaded through, only Owner/Product Type.
       to: "../leads/list",
@@ -377,7 +437,8 @@ export function getSalesReportsOverviewConfig(
       label: "Leads Win Rate",
       sublabel: "WON vs WON + LOST (This Period)",
       value: `${kpis.winRatePct || 0}%`,
-      variant: "greenCard",
+      variant: winRateStatus.variant,
+      status: { icon: winRateStatus.statusIcon, label: winRateStatus.statusLabel },
       to: "../leads/list",
       filter: { ...baseFilterCRM, closedOnly: "true", ...closedPeriodFilter },
       metrics: [
@@ -411,7 +472,8 @@ export function getSalesReportsOverviewConfig(
       label: "Sales Leads Cycle",
       sublabel: "Avg Days to Close (This Period)",
       value: `${kpis.avgDaysToClose || 0}d`,
-      variant: "redCard",
+      variant: salesCycleStatus.variant,
+      status: { icon: salesCycleStatus.statusIcon, label: salesCycleStatus.statusLabel },
       to: "../leads/list",
       filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
       metrics: [

@@ -10,6 +10,15 @@
   gap: 0.4rem;
 }
 
+.overviewCardStatus {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+
 .metricsCardLayout {
   border-top: 1px solid rgb($neutral400, 0.5);
   padding-top: 0.4rem;

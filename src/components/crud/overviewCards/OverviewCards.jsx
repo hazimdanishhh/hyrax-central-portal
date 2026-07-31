@@ -53,6 +53,19 @@ export default function OverviewCards({ items = [] }) {
                   <p className="textXS">{item.subvalue}</p>
                   <h2 className="textXL">{item.value}</h2>
                 </div>
+                {/* Severity badge for dynamic tiles (see getStatusVariant) --
+                    icon + word, never color alone, so a colorblind or
+                    screen-reader user still gets the reading. */}
+                {item.status && (
+                  <div className="overviewCardStatus">
+                    {item.status.icon && (
+                      <item.status.icon size={14} weight="bold" />
+                    )}
+                    <span className="textXXS textBold">
+                      {item.status.label}
+                    </span>
+                  </div>
+                )}
               </div>
             </HeadWrapper>
 

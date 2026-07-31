@@ -10,6 +10,7 @@ import {
   UserMinusIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
+import { getStatusVariant } from "../../../../../functions/statusVariant";
 
 // Mirrors getEmployeesOverviewConfig's tile shape and previous-period delta
 // pattern exactly (calcDelta -> "up/down X% vs last period" sub-metric), and
@@ -115,6 +116,43 @@ export function getAttendanceOverviewConfig(
     ? { startDate: filters.startDate, endDate: filters.endDate }
     : { startDate: today, endDate: today };
 
+  // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
+  // Color & Fill Convention"). Thresholds below are documented estimates,
+  // not audited HR policy -- tune freely without touching statusVariant.js.
+  const pendingApprovalsCount = kpis.pendingApprovalsCount || 0;
+  // A backlog to clear, not a crisis -- worst tier is "warning", not
+  // "critical", so it fills yellow, never red.
+  const pendingApprovalsStatus = getStatusVariant(pendingApprovalsCount, {
+    direction: "low-good",
+    tiers: 2,
+    badLevel: "warning",
+    thresholds: { criticalAt: 1 },
+  });
+  const attendanceAnomaliesCount =
+    (kpis.missingCheckoutsCount || 0) + (kpis.incompleteScansCount || 0);
+  const attendanceAnomaliesStatus = getStatusVariant(attendanceAnomaliesCount, {
+    direction: "low-good",
+    tiers: 2,
+    badLevel: "critical",
+    thresholds: { criticalAt: 1 },
+  });
+  const avgHoursWorkedStatus = getStatusVariant(kpis.avgHoursWorked, {
+    direction: "target-band",
+    thresholds: { target: 8, warningTolerance: 0.5, criticalTolerance: 1 },
+  });
+  // 0.01 approximates "any nonzero total" for a continuous hours value,
+  // same as the count-based tiles above do for integers with criticalAt: 1.
+  const overtimeStatus = getStatusVariant(kpis.overtimeHoursTotal || 0, {
+    direction: "low-good",
+    tiers: 2,
+    badLevel: "warning",
+    thresholds: { criticalAt: 0.01 },
+  });
+  const absenteeismStatus = getStatusVariant(kpis.absenteeismRatePct || 0, {
+    direction: "low-good",
+    thresholds: { warningAt: 3, criticalAt: 6 },
+  });
+
   return [
     // ==========================================
     // TODAY'S SNAPSHOT (point-in-time, ignores the period filter)
@@ -184,8 +222,12 @@ export function getAttendanceOverviewConfig(
       icon: ClockUserIcon,
       label: "Pending Approvals",
       sublabel: isPeriodFiltered ? "Originated This Period" : "Current Backlog",
-      value: kpis.pendingApprovalsCount || 0,
-      variant: kpis.pendingApprovalsCount > 0 ? "yellowCardFill" : "greenCard",
+      value: pendingApprovalsCount,
+      variant: pendingApprovalsStatus.variant,
+      status: {
+        icon: pendingApprovalsStatus.statusIcon,
+        label: pendingApprovalsStatus.statusLabel,
+      },
       to: "../list",
       // Backlog (no date bound) when unfiltered, mirroring
       // pending_backlog_count exactly -- only date-bound once a period is
@@ -223,11 +265,12 @@ export function getAttendanceOverviewConfig(
       // class from Pending Approvals above (data-quality exceptions in the
       // raw punch data, not an approval-workflow state), so they get their
       // own tile rather than being folded into it.
-      value: (kpis.missingCheckoutsCount || 0) + (kpis.incompleteScansCount || 0),
-      variant:
-        (kpis.missingCheckoutsCount || 0) + (kpis.incompleteScansCount || 0) > 0
-          ? "redCard"
-          : "greenCard",
+      value: attendanceAnomaliesCount,
+      variant: attendanceAnomaliesStatus.variant,
+      status: {
+        icon: attendanceAnomaliesStatus.statusIcon,
+        label: attendanceAnomaliesStatus.statusLabel,
+      },
       // The headline sums two independent hr_flag buckets -- no single
       // filter reproduces it (the previous hardcoded link only ever showed
       // half of what was summed). Each reason is its own sub-metric
@@ -323,7 +366,11 @@ export function getAttendanceOverviewConfig(
       label: "Average Hours Worked",
       sublabel: "This Period",
       value: `${kpis.avgHoursWorked || 0}h`,
-      variant: "greenCard",
+      variant: avgHoursWorkedStatus.variant,
+      status: {
+        icon: avgHoursWorkedStatus.statusIcon,
+        label: avgHoursWorkedStatus.statusLabel,
+      },
       to: "../list",
       filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
       metrics: [
@@ -342,7 +389,8 @@ export function getAttendanceOverviewConfig(
       label: "Overtime Hours",
       sublabel: "Total, This Period",
       value: `${kpis.overtimeHoursTotal || 0}h`,
-      variant: kpis.overtimeHoursTotal > 0 ? "yellowCard" : "greenCard",
+      variant: overtimeStatus.variant,
+      status: { icon: overtimeStatus.statusIcon, label: overtimeStatus.statusLabel },
       to: "../list",
       filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
       metrics: [
@@ -371,7 +419,8 @@ export function getAttendanceOverviewConfig(
       label: "Absenteeism Rate",
       sublabel: "This Period",
       value: `${kpis.absenteeismRatePct || 0}%`,
-      variant: kpis.absenteeismRatePct > 0 ? "redCard" : "greenCard",
+      variant: absenteeismStatus.variant,
+      status: { icon: absenteeismStatus.statusIcon, label: absenteeismStatus.statusLabel },
       // The rate's own denominator population (all working-day records),
       // not just the absent slice -- Absent Days below is the sub-metric
       // for that.

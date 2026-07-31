@@ -113,6 +113,32 @@ Two figures can legitimately disagree (e.g. GL revenue vs. invoice-subledger rev
 - **Don't sort by a bare enum column when order matters** (e.g. a pipeline-stage funnel) — `order by <enum_column>` sorts by the enum's `CREATE TYPE` declaration order, which may not be defined anywhere in this repo's own SQL and so can't be relied on to match a business sequence (Discovery → ... → Won/Lost). Use an explicit `case when value then N ... end` ordinal instead.
 - **Null-guard multi-parameter date-range filters independently, not with one combined `is null` gate.** A pattern like `(p_start_date is null) or (created_at between p_start_date and p_end_date)` silently evaluates to `NULL` — and the row is dropped — the moment `p_start_date` is set but `p_end_date` is left null, because `p_end_date`-involving comparisons propagate `NULL` through the `OR`. This is reachable whenever a date-range filter UI renders two independent, uncoupled date inputs (the common case in this app). Guard each bound on its own: `(p_start_date is null or created_at >= p_start_date) and (p_end_date is null or created_at <= p_end_date + interval '1 day')`.
 
+## 4. KPI Card Color & Fill Convention (added 2026-07)
+
+Every KPI tile renders through one shared component, `OverviewCards` (`src/components/crud/overviewCards/OverviewCards.jsx`), which just applies whatever `variant` string a tile config hands it as a CSS class (`src/styles/index.scss`'s `.generalCard` block: `green/yellow/red/blueCard` = tint/outline, `green/yellow/red/blueCardFill` = solid fill). Before this convention, each dashboard's `overviewConfig.js` hand-picked a variant per tile with no shared rule — most were a hardcoded literal with no relationship to whether the underlying number was actually good or bad (a real bug: Finance Reports' Net Profit/Gross Profit/EBITDA/Working Capital were all static green/blue regardless of sign, so a loss or a working-capital deficit rendered exactly like a healthy period).
+
+**Static vs. dynamic.** A tile is **dynamic** only if it has both (a) an inherent direction of "better" — `high-good`, `low-good`, or `sign-good` (crossing zero is a qualitatively different state, not just a smaller number) — and (b) a comparator computable today from fields already in `kpis` (a threshold, a companion percentage, a zero-line), never an invented number. Everything else is **static**:
+
+- **Hero** — the page's one designated headline metric. Fixed blue, always filled, permanently — an identity marker, never a verdict.
+- **Informational** — a fact with no computable comparator, or no real polarity at all. Fixed blue, tint only.
+
+**Blue is reserved for hero/informational identity, never a verdict.** Green/yellow/red are a fixed, reserved severity ramp used only when a real evaluation is happening.
+
+**Fill means "this tile outranks its neighbors right now."** Exactly two sources, mutually exclusive per tile: a fixed **hero**, or a dynamic metric's currently-active **worst severity tier**. A dynamic metric's "good" or "warning" reading is always tint; only its single worst/critical tier ever fills. A metric that develops real evaluative/sign risk surrenders hero-blue for the severity ramp — truthful severity outranks brand consistency (this is why Finance's Gross Profit/Net Profit/EBITDA/Working Capital moved off static blue/green once they were made dynamic).
+
+**Status badge.** A dynamic tile also gets a small `{icon, label}` badge next to its value (`item.status` on the tile config, rendered by `OverviewCards.jsx`) — e.g. a warning-triangle + "Watch", an octagon + "Critical" — so severity is never color-alone.
+
+**Shared utility:** `src/functions/statusVariant.js`'s `getStatusVariant(value, options)` computes `{ level, variant, statusIcon, statusLabel }` from a direction (`high-good`/`low-good`/`sign-good`/`target-band`), thresholds, and a tier count (2 or 3) — every dynamic tile calls this instead of hand-writing a ternary. Two techniques make several tiles possible without new RPC fields:
+
+- **Borrowed-signal evaluation** — color driven by a sibling `kpis` field, not the tile's own displayed value (e.g. Overdue Risk's color comes from `overdueValue / outstandingAR`, not its own currency magnitude).
+- **Delta-as-value** — the existing `calcDelta(...)` output fed in directly for metrics with no absolute target but a clear favorable direction of change (e.g. Departures).
+
+Static-hero/informational tiles never call `getStatusVariant` — they keep hardcoding `"blueCardFill"`/`"blueCard"` directly.
+
+**Numeric thresholds are documented estimates, not audited business targets.** Where a dynamic tile needed a real cutoff with no existing target/budget on the page (margin floors, DSO targets, attrition/absenteeism benchmarks, etc.), the threshold is commented inline in that tile's config as a starting point, tunable by Finance/HR/Sales without needing to touch the shared utility.
+
+---
+
 ### What this app owns vs. what it doesn't
 
 This app (and its docs) own the IA conventions above, the current build state, and the app-specific build roadmap. It does **not** own the SAP schema, target data architecture, or department-level data-source catalog — that's `hyrax-data-platform/docs/sap-data-architecture-plans/`. Dashboards here get built once that repo has delivered populated, correct tables — don't re-derive SAP table/column semantics in this repo's docs.
