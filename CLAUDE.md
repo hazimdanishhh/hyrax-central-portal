@@ -11,6 +11,17 @@ Module status, so "custom-built" isn't mistaken for "temporary/incomplete":
 - **IT** (`features/it/assets`): fully custom today, with a possible future integration with **ManageEngine Endpoint Central Cloud** for asset data — treat the asset schema/service layer as something that may need to accommodate an external sync source later.
 - **HR** (`features/hr/employees`, attendance, leave, recruitment, performance): semi-custom for now. Legacy HR data is expected to be migrated in through the Data Platform project eventually, which may reshape parts of this module.
 
+## Research discipline
+
+**When a task depends on a fact this repo doesn't already have verified — research it before proceeding on an assumption, a guess, or a plausible-sounding default.** This applies to anything requiring more context or understanding than what's already documented: whether a SAP table/library/API actually has a capability, why a dashboard figure doesn't reconcile against another one, what a live data value actually is. Use web search when the question is about an external system/library/API; when the question is about the underlying SAP data feeding this app's dashboards, check with `hyrax-data-platform` (that repo owns SAP schema — it can run live discovery queries against SAP itself) rather than guessing from this repo's own cached assumptions about what a `sap_*` table contains.
+
+Two concrete precedents, not hypothetical, both from the sibling `hyrax-data-platform` repo's 2026-08 Cash Flow Statement work (documented in full in its `docs/sap-data-architecture-plans/06-finance-expansion-execution-plan.md`, which this repo's `get_finance_dashboard_rpc.sql`/`RPC-REFERENCE.md` both inherit):
+
+1. The obvious-sounding assumption was "SAP B1 has no cash flow tables." Live web research instead found a real native module (`OCFW`/`OCFT`), then verified against live SAP whether it was actually in use (it wasn't) — research changed the decision from "assume and build" to "verify, then build with confidence."
+2. Days later, a live reconciliation test on the shipped Cash Flow Statement reported material drift. The obvious-sounding assumption inside `get_finance_dashboard_rpc.sql` was "all of Current Liabilities is trade payables." Walking the real chart-of-accounts ancestry live found a -RM42.8M short-term-borrowings category sitting exactly where that assumption said it wouldn't be — a real bug that shipped because a plausible classification went unverified.
+
+If you're offered/offering a multiple-choice decision and one branch depends on an unverified fact rather than a genuine preference or tradeoff, that's a signal to research first, not to guess or ask the user to guess.
+
 ## Commands
 
 - `npm run dev` — start Vite dev server

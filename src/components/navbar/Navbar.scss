@@ -6,7 +6,7 @@
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  height: 70px;
+  height: 50px;
   border-bottom: 1px solid $dark;
   z-index: 1800;
 
@@ -15,7 +15,7 @@
     justify-content: center;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.7rem 1rem;
+    padding: 0 1rem;
 
     &.navbarLogoContainer {
       justify-content: space-between;

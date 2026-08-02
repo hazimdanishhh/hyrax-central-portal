@@ -21,6 +21,7 @@ import {
   HandCoinsIcon,
   BookOpenIcon,
   TreeStructureIcon,
+  ArrowsClockwiseIcon,
 } from "@phosphor-icons/react";
 
 // Config-driven "department link cards" shown on the Dashboard homepage.
@@ -168,6 +169,18 @@ export const departmentLinkCardData = [
         description: "Reference list of Hyrax's chart of accounts.",
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
+
+        departments: ["FIN"],
+      },
+
+      // Matches finance/cash-flow's AccessRoute gate exactly (department-only,
+      // no role restriction). Added 2026-08, Finance Expansion Phase 3.
+      {
+        label: "Cash Flow",
+        description:
+          "Statement of cash flows (Operating/Investing/Financing) for a selected period.",
+        icon: ArrowsClockwiseIcon,
+        path: "finance/cash-flow",
 
         departments: ["FIN"],
       },

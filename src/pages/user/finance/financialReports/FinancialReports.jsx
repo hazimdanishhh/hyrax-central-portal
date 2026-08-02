@@ -33,6 +33,8 @@ import AISummary from "../../../../components/aiSummary/AISummary";
 import GenerateAiButton from "../../../../components/aiSummary/generateAIButton/GenerateAIButton";
 import useDashboardQuery from "../../../../hooks/useDashboardQuery";
 import { fetchFinanceDashboard } from "../../../../features/finance/reports/private/api/fetchFinanceDashboard";
+import { compactCurrency } from "../../../../functions/formatNumber";
+import { getStatusVariant } from "../../../../functions/statusVariant";
 import { useFinanceMetadata } from "../../../../features/finance/reports/private/hooks/useFinanceMetadata";
 import { getFilterConfig } from "./config/filterConfig";
 import { getFinanceOverviewConfig } from "./config/overviewConfig";
@@ -40,6 +42,15 @@ import { useTheme } from "../../../../context/ThemeContext";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { formatDateTime } from "../../../../functions/formatDate";
+
+// Text-only good/bad/neutral coloring for the Cash Flow reconciliation
+// card below -- see CashFlow.jsx's identical helper for why this maps
+// getStatusVariant's level to a plain color instead of its `variant`
+// class string (that string is a compound class meant for a full KPI
+// card, not a bare inline <span>).
+const LEVEL_COLOR = { good: GREEN_COLOR, warning: YELLOW_COLOR, critical: RED_COLOR };
+const colorFor = (value, options) =>
+  options ? LEVEL_COLOR[getStatusVariant(value, options).level] : undefined;
 
 export default function FinancialReports() {
   const { darkMode } = useTheme();
@@ -263,6 +274,37 @@ export default function FinancialReports() {
       "OpEx (GL, RM)": d.opex_myr,
       "Net Profit (GL, RM)": d.net_profit_myr,
     })) ?? [];
+
+  // Cash Flow Statement (Finance Expansion Phase 3, added 2026-08). Both
+  // cashFlowStatementData/cashFlowWaterfallData are null when no explicit
+  // date range is selected (see get_finance_dashboard_rpc.sql's own comment
+  // on why a cash flow statement needs a defined period) -- the chart and
+  // reconciliation note below render their own "select a date range" empty
+  // state in that case, same pattern as every null-until-filtered figure
+  // elsewhere on this page.
+  const cashFlowWaterfallData = dashboard?.cashFlowWaterfallData
+    ? Object.entries(dashboard.cashFlowWaterfallData).map(([name, value]) => ({
+        name,
+        value,
+      }))
+    : [];
+  const cashFlowStatement = dashboard?.cashFlowStatementData ?? null;
+
+  // Materiality baseline for the reconciliation checks' "target-band"
+  // coloring below -- see CashFlow.jsx's identical calculation for the
+  // full reasoning (scales to this period's own cash flow, floored so a
+  // quiet period doesn't flag a small absolute residual as "critical").
+  const cfMaterialityBase = cashFlowStatement
+    ? Math.max(Math.abs(cashFlowStatement.netChangeInCash), 50_000)
+    : 0;
+  const cfReconciliationBand = {
+    direction: "target-band",
+    thresholds: {
+      target: 0,
+      warningTolerance: cfMaterialityBase * 0.15,
+      criticalTolerance: cfMaterialityBase * 0.4,
+    },
+  };
 
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -540,6 +582,153 @@ export default function FinancialReports() {
                               },
                             ]}
                           />
+                        </ChartCard>
+                      </CardLayout>
+                    </div>
+                  </div>
+
+                  {/* TIER 2.5: CASH FLOW (Finance Expansion Phase 3, added 2026-08) */}
+                  <div className="pdfOverviewSection">
+                    <div
+                      style={{
+                        justifyContent: "start",
+                        textAlign: "start",
+                      }}
+                    >
+                      <div style={{ marginBottom: "1rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
+                          <GaugeIcon size={24} />
+                          <h2 className="textL textBold">Cash Flow</h2>
+                        </div>
+                        <p className="textXS textLight">
+                          Where cash came from and went this period — select a
+                          date range above to see it (a cash flow statement
+                          needs a defined period, unlike the other charts on
+                          this page).
+                        </p>
+                      </div>
+
+                      <CardLayout style="cardLayout2">
+                        <ChartCard
+                          title="Cash Flow Waterfall"
+                          subtitle="Operating → Investing → Financing → Net Change in Cash (RM), this period — General Ledger postings, indirect method"
+                          style="cardGapSmall"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../cash-flow" : undefined
+                          }
+                          viewAllFilter={chartPeriodFilter}
+                        >
+                          {cashFlowWaterfallData.length > 0 ? (
+                            <HorizontalBarChartRenderer
+                              data={cashFlowWaterfallData}
+                              colorMap={BLUE_COLOR}
+                            />
+                          ) : (
+                            <p className="textXS textLight textCenter">
+                              Select a date range to see the cash flow
+                              statement for that period.
+                            </p>
+                          )}
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Reconciliation Check"
+                          subtitle="Computed net change in cash vs. two independent sources — a small residual is expected (FX effect), not necessarily an error"
+                          style="cardGapSmall"
+                        >
+                          {cashFlowStatement ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.6rem",
+                                padding: "0.5rem 0",
+                              }}
+                            >
+                              <div className="textXS">
+                                <span className="textLight">
+                                  Net Change in Cash (computed):{" "}
+                                </span>
+                                <span
+                                  className="textBold"
+                                  style={{
+                                    color: colorFor(
+                                      cashFlowStatement.netChangeInCash,
+                                      { direction: "sign-good" },
+                                    ),
+                                  }}
+                                >
+                                  {compactCurrency(
+                                    cashFlowStatement.netChangeInCash,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="textXS">
+                                <span className="textLight">
+                                  Effect of exchange rate changes (vs. G/L
+                                  cash balance):{" "}
+                                </span>
+                                <span
+                                  className="textBold"
+                                  style={{
+                                    color: colorFor(
+                                      cashFlowStatement.reconciliationDeltaVsGl,
+                                      cfReconciliationBand,
+                                    ),
+                                  }}
+                                >
+                                  {compactCurrency(
+                                    cashFlowStatement.reconciliationDeltaVsGl,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="textXS">
+                                <span className="textLight">
+                                  Effect of exchange rate changes (vs. bank
+                                  account movements, OBNK):{" "}
+                                </span>
+                                <span
+                                  className="textBold"
+                                  style={{
+                                    color: colorFor(
+                                      cashFlowStatement.reconciliationDeltaVsBank,
+                                      cfReconciliationBand,
+                                    ),
+                                  }}
+                                >
+                                  {compactCurrency(
+                                    cashFlowStatement.reconciliationDeltaVsBank,
+                                  )}
+                                </span>
+                              </div>
+                              <p className="textXXXS textLight">
+                                Hyrax holds foreign-currency cash and loan
+                                accounts (USD/LKR) that SAP revalues at
+                                period-end — a real, non-cash effect on the
+                                reported balance, the same "Effect of
+                                exchange rate changes on cash" line a
+                                standard cash flow statement carries. These
+                                two figures should be close to each other and
+                                roughly the size of plausible FX movement for
+                                the period — if they diverge sharply from
+                                each other, or dwarf that, that's still the
+                                signal to revisit account classification —
+                                see get_finance_dashboard_rpc.sql's Cash Flow
+                                Statement comments.
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="textXS textLight textCenter">
+                              Select a date range to see the reconciliation
+                              check for that period.
+                            </p>
+                          )}
                         </ChartCard>
                       </CardLayout>
                     </div>

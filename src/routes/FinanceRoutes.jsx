@@ -8,6 +8,7 @@ import ClaimsManagement from "../pages/user/finance/claimsManagement/ClaimsManag
 import FinancialReports from "../pages/user/finance/financialReports/FinancialReports";
 import JournalEntries from "../pages/user/finance/journalEntries/JournalEntries";
 import ChartOfAccounts from "../pages/user/finance/chartOfAccounts/ChartOfAccounts";
+import CashFlow from "../pages/user/finance/cashFlow/CashFlow";
 
 export default (
   <Route path="finance">
@@ -80,6 +81,19 @@ export default (
       element={
         <AccessRoute departments={["FIN"]}>
           <ChartOfAccounts />
+        </AccessRoute>
+      }
+    />
+
+    {/* CASH FLOW (Finance Expansion Phase 3, added 2026-08) -- same access
+        gate as Journal Entries/Chart of Accounts (department-only, no role
+        restriction): a computed statement, not a browsable list, but reuses
+        that same read-only Finance reference-page pattern. */}
+    <Route
+      path="cash-flow"
+      element={
+        <AccessRoute departments={["FIN"]}>
+          <CashFlow />
         </AccessRoute>
       }
     />

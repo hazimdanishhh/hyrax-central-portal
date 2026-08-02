@@ -610,11 +610,188 @@ gl_balance_agg as (
     from gl_balance_sheet
 ),
 
+-- ─── Cash Flow Statement (Finance Expansion Phase 3, added 2026-08) ────────
+-- Indirect method: Operating = Net Profit + D&A add-back +/- ΔWorking
+-- Capital (Current Assets/200 EXCLUDING cash/cash-equivalents -- including
+-- cash here would double-count the very figure this statement is solving
+-- for -- and Current Liabilities/300 EXCLUDING short-term borrowings, see
+-- the classification fix below); Investing = -ΔFixed Assets/100; Financing
+-- = ΔEquity/400 + ΔShort-Term Borrowings/3200. Reads
+-- private.mv_gl_monthly_balance_sheet_snapshot (gl_balance_history_
+-- migration.sql), NOT mv_gl_monthly_account_summary above -- that view
+-- excludes SAP's period-end closing entries (trans_type=-3), correct for
+-- P&L reporting but wrong for a balance-sheet reconstruction (a closing
+-- entry's offsetting debit/credit typically lands on Equity). See that
+-- migration file's own header for the full reasoning.
+--
+-- Classification reuses the already-structurally-confirmed level2_ancestor/
+-- level3_ancestor categories from gl_account_ancestry above rather than a
+-- separate hand-seeded mapping table. See
+-- hyrax-data-platform/docs/sap-data-architecture-plans/
+-- 06-finance-expansion-execution-plan.md's Phase 3 for the full derivation.
+--
+-- **Follow-up fix (2026-08): reconciliation drift traced and corrected.**
+-- The first version of this CTE treated *all* of level2_ancestor='300'
+-- (Current Liabilities) as operating and *all* of '200' (excluding only
+-- '2600') as ordinary working capital -- exactly the open risk flagged in
+-- the original comment here ("if [an interest-bearing loan account]
+-- exists, it should move to Financing manually"). Walking the real
+-- FatherNum ancestry live (not the account-code prefix, which is
+-- documented elsewhere as unreliable) found two real Level-3 categories
+-- landing in the wrong bucket:
+--   - '3200' "Short Term Borrowings" -- a real Level-3 node directly under
+--     '300', sibling to '3000' Trade Payable/'3100' Other Payable &
+--     Accruals/'3300' Output Tax. -RM42.8M live balance: term loans,
+--     hire-purchase facilities, and revolving trade-financing lines (EXIM
+--     Bank, Ambank Islamic, RHB BA/TR Financing, several SME facilities),
+--     with heavy ongoing drawdown/repayment activity through 2026-07.
+--     Every drawdown/repayment on this was being misclassified as an
+--     operating working-capital swing instead of a financing cash flow --
+--     the dominant cause of the drift this fix addresses.
+--   - '2500' "Fixed Deposits with License Bank" -- a Level-3 node under
+--     '200', sibling to '2600' Cash and Bank Balances. RM6.0M live
+--     balance, real bank<->fixed-deposit transfer activity. Standard
+--     practice pools this with cash as a "cash equivalent," excluded from
+--     working capital -- a smaller but real secondary contributor to the
+--     drift.
+-- Now excluded/reclassified accordingly below. **Checked and confirmed NOT
+-- currently contributing** (live query, 2026-08): '4100' Revaluation
+-- Reserve and '4200' Retain Profit (both under Equity/400) had zero
+-- postings in the trailing 24 months -- in principle both are non-cash
+-- risks (a revaluation surplus is a pure re-measurement; Retained
+-- Earnings' only driver is the fiscal-year closing entry, whose effect is
+-- already reflected via Net Profit) that would need the same kind of
+-- exclusion if a closing entry ever lands inside a tested period, but
+-- neither is live right now, so this fix doesn't chase a dormant risk.
+--
+-- **Second follow-up fix (2026-08): the dormant risk above wasn't dormant
+-- once tested per fiscal year.** Testing full fiscal-year windows (not
+-- just trailing-months ones) surfaced material drift again. Traced live:
+-- SAP posts the closing entry into '4200130 Period End Closing Account' on
+-- the LAST DAY of the fiscal year being closed -- inside that same
+-- window, not the next one -- then reverses it into '4200110 Retain
+-- Earning' on the first day of the following fiscal year. A live query
+-- confirmed closing entries (trans_type='-3') touch ONLY drawers 3
+-- (Equity)/4-8 (P&L), never drawers 1-2 -- so
+-- gl_balance_history_closing_entry_exclusion_migration.sql now excludes
+-- trans_type='-3' from mv_gl_monthly_balance_sheet_snapshot entirely
+-- (matching mv_gl_monthly_account_summary's existing convention), fixing
+-- the Equity double-count with zero effect on Assets/Liabilities. A
+-- second, independent bug found the same pass: Hyrax posts depreciation
+-- monthly by debiting a P&L expense account (already counted in
+-- gl_period_depreciation_amortization) and crediting a separate
+-- "Accumulated Depreciation" contra-asset account under Fixed Asset/100 --
+-- so delta_fixed_assets already has depreciation baked in every period,
+-- and -delta_fixed_assets alone double-counted it as an Investing inflow
+-- on top of Operating's D&A add-back. Fixed by subtracting
+-- gl_period_depreciation_amortization from investingCashFlow below too.
+-- What legitimately remains after both fixes: confirmed live,
+-- fiscal-year-end FX revaluation adjustments on foreign-currency cash
+-- accounts and USD-denominated loan facilities (real, material, non-cash
+-- re-measurements) -- a standard IAS 7 "Effect of exchange rate changes on
+-- cash" line, not a bug. See the reconciliation fields' own comments below
+-- for how this is now framed.
+--
+-- Requires an explicit date range -- returns null cleanly (same convention
+-- as prevPeriod*/yoy* fields elsewhere in this function) when either bound
+-- is missing, rather than guessing a default period. A cash flow statement
+-- needs a defined period to mean anything; unlike the point-in-time
+-- aging/balance figures elsewhere in this RPC, there's no sensible
+-- "unfiltered" reading of it.
+
+gl_balance_history as (
+    select
+        s.month,
+        s.account_code,
+        s.cumulative_balance_myr,
+        anc.level2_ancestor,
+        anc.level3_ancestor
+    from private.mv_gl_monthly_balance_sheet_snapshot s
+    join gl_account_ancestry anc on anc.leaf_code = s.account_code
+    where anc.level2_ancestor in ('100', '200', '300', '400')
+),
+
+-- "Balance as of the most recent month-end before the period started" --
+-- DISTINCT ON picks exactly one (the latest qualifying month) row per
+-- account, the standard Postgres idiom for "latest row per group".
+cf_start_balances as (
+    select distinct on (account_code)
+        account_code, level2_ancestor, level3_ancestor,
+        cumulative_balance_myr as balance_myr
+    from gl_balance_history
+    where p_start_date is not null
+      and month < date_trunc('month', p_start_date)
+    order by account_code, month desc
+),
+
+cf_end_balances as (
+    select distinct on (account_code)
+        account_code, level2_ancestor, level3_ancestor,
+        cumulative_balance_myr as balance_myr
+    from gl_balance_history
+    where p_end_date is not null
+      and month <= date_trunc('month', p_end_date)
+    order by account_code, month desc
+),
+
+cf_agg as (
+    select
+        -- '200' Current Asset, excluding both cash-equivalent Level-3 nodes
+        -- ('2600' Cash and Bank Balances, '2500' Fixed Deposits) -- neither
+        -- is a real working-capital item, both are pooled into delta_cash
+        -- below instead.
+        coalesce(sum(e.balance_myr) filter (where e.level2_ancestor = '200' and e.level3_ancestor not in ('2600', '2500')), 0)
+          - coalesce(sum(s.balance_myr) filter (where s.level2_ancestor = '200' and s.level3_ancestor not in ('2600', '2500')), 0)
+          as delta_current_assets_excl_cash,
+        -- '300' Current Liabilities, excluding '3200' Short Term Borrowings
+        -- -- genuine financing debt (term loans/HP/trade-financing lines),
+        -- not a trade-payable/accrual working-capital item. Only '3000'
+        -- Trade Payable/'3100' Other Payable & Accruals/'3300' Output Tax
+        -- remain here.
+        coalesce(sum(e.balance_myr) filter (where e.level2_ancestor = '300' and e.level3_ancestor is distinct from '3200'), 0)
+          - coalesce(sum(s.balance_myr) filter (where s.level2_ancestor = '300' and s.level3_ancestor is distinct from '3200'), 0)
+          as delta_current_liabilities,
+        coalesce(sum(e.balance_myr) filter (where e.level2_ancestor = '100'), 0)
+          - coalesce(sum(s.balance_myr) filter (where s.level2_ancestor = '100'), 0)
+          as delta_fixed_assets,
+        coalesce(sum(e.balance_myr) filter (where e.level2_ancestor = '400'), 0)
+          - coalesce(sum(s.balance_myr) filter (where s.level2_ancestor = '400'), 0)
+          as delta_equity,
+        -- Short Term Borrowings moved here from delta_current_liabilities --
+        -- a real financing cash flow (facility drawdowns/repayments), not
+        -- operating working capital. See this CTE block's header comment
+        -- for the live evidence (-RM42.8M balance, heavy 2026 activity).
+        coalesce(sum(e.balance_myr) filter (where e.level3_ancestor = '3200'), 0)
+          - coalesce(sum(s.balance_myr) filter (where s.level3_ancestor = '3200'), 0)
+          as delta_short_term_borrowings,
+        -- Cash AND cash equivalents ('2600' + '2500' Fixed Deposits) -- the
+        -- reconciliation baseline, never a working-capital input itself.
+        coalesce(sum(e.balance_myr) filter (where e.level3_ancestor in ('2600', '2500')), 0)
+          - coalesce(sum(s.balance_myr) filter (where s.level3_ancestor in ('2600', '2500')), 0)
+          as delta_cash
+    from cf_end_balances e
+    full outer join cf_start_balances s on s.account_code = e.account_code
+),
+
+-- Second, independent reconciliation source: sap_bank_account_movements
+-- (OBNK), confirmed live 2026-08 -- a real per-bank-account monthly
+-- movement record, not derived from the same G/L journal lines the figures
+-- above come from. due_date is month-end per account, same grain as the
+-- balance-sheet snapshot above.
+bank_movements_agg as (
+    select
+        coalesce(sum(debit_amount - credit_amount) filter (where
+            p_start_date is not null and p_end_date is not null
+            and "due_date"::date > p_start_date and "due_date"::date <= p_end_date
+        ), 0) as period_bank_movement_myr
+    from sap_bank_account_movements
+),
+
 kpi_totals as (
     select *
     from invoices_agg, payment_apps_agg, payments_agg,
          bills_agg, vendor_payment_apps_agg, vendor_payments_agg,
-         gl_agg, gl_balance_agg
+         gl_agg, gl_balance_agg, cf_agg, bank_movements_agg
 ),
 
 -- Per-rep cash collected, same period-bound rule as kpi_totals.period_collected
@@ -1158,6 +1335,137 @@ select json_build_object(
             order by amount_myr desc
             limit 10
         ) x
+    ),
+
+    -- Cash Flow Statement (Finance Expansion Phase 3, added 2026-08) --
+    -- null when no explicit date range is selected, same convention as
+    -- prevPeriod*/yoy* fields elsewhere in this function (see cf_agg's own
+    -- comment above for why). netProfit/D&A here match kpi_totals' own
+    -- gl_period_* figures exactly -- both period-bound by the same
+    -- p_start_date/p_end_date, so there's no risk of mixing a filtered
+    -- balance-sheet delta against an unfiltered P&L figure the way there
+    -- would be if this used a different default period.
+    'cashFlowStatementData', (
+        select case when p_start_date is null or p_end_date is null then null else
+            json_build_object(
+                'periodStart', p_start_date,
+                'periodEnd', p_end_date,
+                'operatingCashFlow',
+                    (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                    + gl_period_depreciation_amortization
+                    - delta_current_assets_excl_cash
+                    + delta_current_liabilities,
+                -- Investing = -ΔFixedAssets - D&A (2026-08 follow-up fix).
+                -- Hyrax posts depreciation monthly by debiting a P&L expense
+                -- account (already captured whole in
+                -- gl_period_depreciation_amortization) and CREDITING a
+                -- separate "Accumulated Depreciation" contra-asset account
+                -- (confirmed live: e.g. 1000120/1000220/etc.) that sits
+                -- under level2_ancestor='100' -- so delta_fixed_assets
+                -- already has depreciation's reduction baked in every
+                -- single period, with or without any real capex. Without
+                -- this subtraction, -delta_fixed_assets alone reports
+                -- depreciation as a positive Investing cash inflow while
+                -- Operating CF *also* adds it back -- a real double-count,
+                -- confirmed by tracing live depreciation journal entries.
+                -- Subtracting it here nets that back out, leaving only real
+                -- capex/disposal movement.
+                'investingCashFlow', -delta_fixed_assets - gl_period_depreciation_amortization,
+                -- Financing = ΔEquity + ΔShort Term Borrowings (added in the
+                -- 2026-08 drift fix -- '3200' facility drawdowns/repayments
+                -- belong here, not in the operating working-capital delta
+                -- above; see this RPC's cf_agg CTE comment for the live
+                -- evidence).
+                'financingCashFlow', delta_equity + delta_short_term_borrowings,
+                'netChangeInCash',
+                    (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                    + gl_period_depreciation_amortization
+                    - delta_current_assets_excl_cash
+                    + delta_current_liabilities
+                    - delta_fixed_assets
+                    - gl_period_depreciation_amortization
+                    + delta_equity
+                    + delta_short_term_borrowings,
+                -- Two independent reconciliation checks. After the 2026-08
+                -- follow-up fixes (closing-entry exclusion in
+                -- mv_gl_monthly_balance_sheet_snapshot, the D&A subtraction
+                -- above), whatever residual remains here is expected to be
+                -- predominantly the legitimate "Effect of Exchange Rate
+                -- Changes on Cash" -- a standard IAS 7 cash flow statement
+                -- line, not a bug -- confirmed live: Hyrax posts real
+                -- fiscal-year-end FX revaluation adjustments on its
+                -- foreign-currency cash accounts (2600150/170/175/196) and
+                -- USD-denominated EXIM Bank facilities (3200310/3200311),
+                -- e.g. RM1.08M at FY2022-2023's close. Both figures should
+                -- land close to each other (roughly the plausible FX
+                -- movement for the period) -- if they diverge meaningfully
+                -- FROM EACH OTHER, or dwarf plausible FX movement, that's
+                -- still the signal something else needs investigating, not
+                -- something to silently paper over.
+                'glCashBalanceChange', delta_cash,
+                'bankMovementCashChange', period_bank_movement_myr,
+                'reconciliationDeltaVsGl',
+                    (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                    + gl_period_depreciation_amortization
+                    - delta_current_assets_excl_cash
+                    + delta_current_liabilities
+                    - delta_fixed_assets
+                    - gl_period_depreciation_amortization
+                    + delta_equity
+                    + delta_short_term_borrowings
+                    - delta_cash,
+                'reconciliationDeltaVsBank',
+                    (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                    + gl_period_depreciation_amortization
+                    - delta_current_assets_excl_cash
+                    + delta_current_liabilities
+                    - delta_fixed_assets
+                    - gl_period_depreciation_amortization
+                    + delta_equity
+                    + delta_short_term_borrowings
+                    - period_bank_movement_myr
+            )
+        end
+        from kpi_totals
+    ),
+
+    -- Cash flow waterfall chart dataset -- finally fulfills
+    -- hyrax-data-platform/docs/sap-data-architecture-plans/
+    -- 02-department-kpi-frameworks.md's twice-logged "waterfall for cash
+    -- flow" bullet. Same null-when-unfiltered convention as
+    -- cashFlowStatementData above; costs/reductions returned as negative so
+    -- a bar chart reads left-to-right as a waterfall, same convention as
+    -- plBreakdownData.
+    'cashFlowWaterfallData', (
+        select case when p_start_date is null or p_end_date is null then null else
+            json_build_object(
+                'Net Profit', ((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax,
+                'Depreciation & Amortization', gl_period_depreciation_amortization,
+                'Change in Working Capital', delta_current_liabilities - delta_current_assets_excl_cash,
+                'Operating Cash Flow',
+                    (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                    + gl_period_depreciation_amortization
+                    - delta_current_assets_excl_cash
+                    + delta_current_liabilities,
+                -- Subtracts D&A -- see cashFlowStatementData's
+                -- investingCashFlow comment above for why (depreciation's
+                -- Accumulated-Depreciation contra-entry is already baked
+                -- into delta_fixed_assets every period, with or without any
+                -- real capex; this removes that double-count).
+                'Investing Cash Flow', -delta_fixed_assets - gl_period_depreciation_amortization,
+                'Financing Cash Flow', delta_equity + delta_short_term_borrowings,
+                'Net Change in Cash',
+                    (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                    + gl_period_depreciation_amortization
+                    - delta_current_assets_excl_cash
+                    + delta_current_liabilities
+                    - delta_fixed_assets
+                    - gl_period_depreciation_amortization
+                    + delta_equity
+                    + delta_short_term_borrowings
+            )
+        end
+        from kpi_totals
     )
 
 )
