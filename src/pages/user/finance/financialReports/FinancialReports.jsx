@@ -473,6 +473,12 @@ export default function FinancialReports() {
                           title="P&L Breakdown"
                           subtitle="Revenue through Net Profit (RM), this period — General Ledger postings"
                           style="cardGapSmall"
+                          viewAllTo={
+                            canAccessFinanceOps
+                              ? "../income-statement"
+                              : undefined
+                          }
+                          viewAllFilter={chartPeriodFilter}
                         >
                           <HorizontalBarChartRenderer
                             data={plBreakdownData}
@@ -484,6 +490,9 @@ export default function FinancialReports() {
                           title="Balance Sheet Snapshot"
                           subtitle="As of today — General Ledger postings, not affected by date filter"
                           style="cardGapSmall"
+                          viewAllTo={
+                            canAccessFinanceOps ? "../balance-sheet" : undefined
+                          }
                         >
                           <HorizontalBarChartRenderer
                             data={balanceSheetSnapshotData}

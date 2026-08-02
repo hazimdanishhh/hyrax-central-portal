@@ -23,6 +23,7 @@ import {
   TreeStructureIcon,
   ArrowsClockwiseIcon,
   ScalesIcon,
+  ChartLineUpIcon,
 } from "@phosphor-icons/react";
 
 // Config-driven "department link cards" shown on the Dashboard homepage.
@@ -194,6 +195,19 @@ export const departmentLinkCardData = [
           "Statement of financial position (Assets, Liabilities, Equity) as of today.",
         icon: ScalesIcon,
         path: "finance/balance-sheet",
+
+        departments: ["FIN"],
+      },
+
+      // Matches finance/income-statement's AccessRoute gate exactly
+      // (department-only, no role restriction). Added 2026-08, Finance
+      // Expansion Phase 6.
+      {
+        label: "Income Statement",
+        description:
+          "Statement of profit or loss (Revenue through Net Profit) for a selected period.",
+        icon: ChartLineUpIcon,
+        path: "finance/income-statement",
 
         departments: ["FIN"],
       },

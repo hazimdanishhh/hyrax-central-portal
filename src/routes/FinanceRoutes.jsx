@@ -10,6 +10,7 @@ import JournalEntries from "../pages/user/finance/journalEntries/JournalEntries"
 import ChartOfAccounts from "../pages/user/finance/chartOfAccounts/ChartOfAccounts";
 import CashFlow from "../pages/user/finance/cashFlow/CashFlow";
 import BalanceSheet from "../pages/user/finance/balanceSheet/BalanceSheet";
+import IncomeStatement from "../pages/user/finance/incomeStatement/IncomeStatement";
 
 export default (
   <Route path="finance">
@@ -108,6 +109,19 @@ export default (
       element={
         <AccessRoute departments={["FIN"]}>
           <BalanceSheet />
+        </AccessRoute>
+      }
+    />
+
+    {/* INCOME STATEMENT (Finance Expansion Phase 6, added 2026-08) -- same
+        access gate as Cash Flow/Balance Sheet (department-only, no role
+        restriction): a computed, period-bound statement, not a browsable
+        list. */}
+    <Route
+      path="income-statement"
+      element={
+        <AccessRoute departments={["FIN"]}>
+          <IncomeStatement />
         </AccessRoute>
       }
     />

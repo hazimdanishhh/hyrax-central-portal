@@ -1276,6 +1276,59 @@ select json_build_object(
         from kpi_totals
     ),
 
+    -- Income Statement (Finance Expansion Phase 6, added 2026-08) -- the
+    -- proper statement-order presentation plBreakdownData above doesn't
+    -- give you (that one's shaped for a waterfall chart, signed for
+    -- left-to-right bars, no ratios). Same figures as kpi_totals'
+    -- glPeriodRevenue/glGrossProfit/etc. kpis -- no new SQL logic, just
+    -- reshaped into Revenue -> COGS -> Gross Profit -> OpEx -> Operating
+    -- Profit -> Other Expenditure -> Tax -> Net Profit order, plus EBITDA.
+    -- Null when no explicit date range is selected, same convention as
+    -- cashFlowStatementData above -- an all-time P&L spanning every fiscal
+    -- year since go-live isn't a meaningful "statement" the way a bounded
+    -- period is, so this page asks for a period rather than defaulting to
+    -- that (unlike plBreakdownData/the kpi tiles, which intentionally do
+    -- default to all-time for an at-a-glance summary elsewhere on Finance
+    -- Reports).
+    'incomeStatementData', (
+        select case when p_start_date is null or p_end_date is null then null else
+            json_build_object(
+                'periodStart', p_start_date,
+                'periodEnd', p_end_date,
+                'revenue', gl_period_revenue,
+                'cogs', gl_period_cogs,
+                'grossProfit', gl_period_revenue - gl_period_cogs,
+                'grossProfitMarginPct', case when gl_period_revenue > 0
+                            then round(((gl_period_revenue - gl_period_cogs) / gl_period_revenue) * 100, 1)
+                            else 0 end,
+                'operatingExpenses', gl_period_opex,
+                'operatingProfit', (gl_period_revenue - gl_period_cogs) - gl_period_opex,
+                'otherExpenditure', gl_period_other_expenditure,
+                'tax', gl_period_tax,
+                'netProfit', ((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax,
+                'netProfitMarginPct', case when gl_period_revenue > 0
+                            then round(
+                                ((((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax) / gl_period_revenue) * 100
+                            , 1)
+                            else 0 end,
+                'ebitda',
+                    (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                    + gl_period_interest + gl_period_tax + gl_period_depreciation_amortization,
+                'ebitdaMarginPct', case when gl_period_revenue > 0
+                            then round(
+                                (
+                                    (
+                                        (((gl_period_revenue - gl_period_cogs) - gl_period_opex) - gl_period_other_expenditure - gl_period_tax)
+                                        + gl_period_interest + gl_period_tax + gl_period_depreciation_amortization
+                                    ) / gl_period_revenue
+                                ) * 100
+                            , 1)
+                            else 0 end
+            )
+        end
+        from kpi_totals
+    ),
+
     -- Balance sheet snapshot (Finance Expansion Phase 2, added 2026-07) --
     -- always "as of today", same convention as arAgingData/apAgingData above.
     'balanceSheetSnapshotData', (
