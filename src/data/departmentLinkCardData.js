@@ -22,6 +22,7 @@ import {
   BookOpenIcon,
   TreeStructureIcon,
   ArrowsClockwiseIcon,
+  ScalesIcon,
 } from "@phosphor-icons/react";
 
 // Config-driven "department link cards" shown on the Dashboard homepage.
@@ -181,6 +182,18 @@ export const departmentLinkCardData = [
           "Statement of cash flows (Operating/Investing/Financing) for a selected period.",
         icon: ArrowsClockwiseIcon,
         path: "finance/cash-flow",
+
+        departments: ["FIN"],
+      },
+
+      // Matches finance/balance-sheet's AccessRoute gate exactly
+      // (department-only, no role restriction). Added 2026-08.
+      {
+        label: "Balance Sheet",
+        description:
+          "Statement of financial position (Assets, Liabilities, Equity) as of today.",
+        icon: ScalesIcon,
+        path: "finance/balance-sheet",
 
         departments: ["FIN"],
       },

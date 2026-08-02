@@ -606,7 +606,42 @@ gl_balance_agg as (
 
         coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2000'), 0) as gl_inventory_balance,
 
-        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2400'), 0) as gl_prepayment_balance
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2400'), 0) as gl_prepayment_balance,
+
+        -- ─── Balance Sheet statement line items (added 2026-08) ────────────
+        -- Full Level-3 breakdown under each Level-2 bucket above -- confirmed
+        -- live during the Cash Flow Statement work (see cf_agg's own
+        -- comments for '2500'/'3200''s live-verified balances/activity).
+        -- Assets are debit-positive as stored, no negation needed (same as
+        -- current_assets/fixed_assets above); Liabilities/Equity are
+        -- credit-normal and stored negative, negated here for a
+        -- human-readable positive figure, same convention as
+        -- current_liabilities/total_liabilities/total_equity above.
+
+        -- Current Assets (200) sub-categories
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2100'), 0) as gl_trade_receivables_balance,
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2200'), 0) as gl_other_receivables_balance,
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2300'), 0) as gl_deposits_balance,
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2500'), 0) as gl_fixed_deposits_balance,
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2600'), 0) as gl_cash_balance,
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '2700'), 0) as gl_gst_input_balance,
+
+        -- Fixed Asset (100) sub-categories -- '1100' Work In Progress is
+        -- confirmed live at RM0 today, still exposed separately for when it
+        -- isn't.
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '1000'), 0) as gl_fixed_asset_balance,
+        coalesce(sum(current_balance_myr) filter (where level3_ancestor = '1100'), 0) as gl_wip_balance,
+
+        -- Current Liabilities (300) sub-categories
+        -coalesce(sum(current_balance_myr) filter (where level3_ancestor = '3000'), 0) as gl_trade_payable_balance,
+        -coalesce(sum(current_balance_myr) filter (where level3_ancestor = '3100'), 0) as gl_other_payable_accruals_balance,
+        -coalesce(sum(current_balance_myr) filter (where level3_ancestor = '3200'), 0) as gl_short_term_borrowings_balance,
+        -coalesce(sum(current_balance_myr) filter (where level3_ancestor = '3300'), 0) as gl_output_tax_balance,
+
+        -- Equity (400) sub-categories
+        -coalesce(sum(current_balance_myr) filter (where level3_ancestor = '4000'), 0) as gl_share_capital_balance,
+        -coalesce(sum(current_balance_myr) filter (where level3_ancestor = '4100'), 0) as gl_revaluation_reserve_balance,
+        -coalesce(sum(current_balance_myr) filter (where level3_ancestor = '4200'), 0) as gl_retained_earnings_balance
     from gl_balance_sheet
 ),
 
@@ -1249,6 +1284,65 @@ select json_build_object(
             'Fixed Assets', fixed_assets,
             'Current Liabilities', current_liabilities,
             'Total Equity', total_equity
+        )
+        from kpi_totals
+    ),
+
+    -- Balance Sheet (Statement of Financial Position), added 2026-08 --
+    -- the full Level-3 line-item breakdown balanceSheetSnapshotData above
+    -- doesn't expose (that one only ever had the 4 Level-2 totals). Same
+    -- "as of today" point-in-time convention -- a balance sheet has no
+    -- period to select, unlike the Cash Flow Statement, which is why this
+    -- doesn't gate on p_start_date/p_end_date the way cashFlowStatementData
+    -- does. Every sub-line here sums back to its own section total exactly
+    -- (they're SUM(...) FILTER slices of the same gl_balance_sheet rows,
+    -- not an independently-derived figure), and assetsTotal should equal
+    -- liabilitiesAndEquityTotal within the small residual Phase 2's own
+    -- sign-convention check already documented (current-year unclosed
+    -- earnings) -- balanceCheckDelta surfaces that residual explicitly
+    -- rather than silently rounding it away.
+    'balanceSheetStatementData', (
+        select json_build_object(
+            'currentAssets', json_build_object(
+                'cash', gl_cash_balance,
+                'fixedDeposits', gl_fixed_deposits_balance,
+                'tradeReceivables', gl_trade_receivables_balance,
+                'otherReceivables', gl_other_receivables_balance,
+                'deposits', gl_deposits_balance,
+                'prepayment', gl_prepayment_balance,
+                'inventory', gl_inventory_balance,
+                'gstInputTax', gl_gst_input_balance,
+                'total', current_assets
+            ),
+            'fixedAssets', json_build_object(
+                'fixedAsset', gl_fixed_asset_balance,
+                'workInProgress', gl_wip_balance,
+                'total', fixed_assets
+            ),
+            'totalAssets', current_assets + fixed_assets,
+            'currentLiabilities', json_build_object(
+                'tradePayable', gl_trade_payable_balance,
+                'otherPayableAndAccruals', gl_other_payable_accruals_balance,
+                'shortTermBorrowings', gl_short_term_borrowings_balance,
+                'outputTax', gl_output_tax_balance,
+                'total', current_liabilities
+            ),
+            'totalLiabilities', total_liabilities,
+            'equity', json_build_object(
+                'shareCapital', gl_share_capital_balance,
+                'revaluationReserve', gl_revaluation_reserve_balance,
+                'retainedEarnings', gl_retained_earnings_balance,
+                'total', total_equity
+            ),
+            'totalLiabilitiesAndEquity', total_liabilities + total_equity,
+            'balanceCheckDelta', (current_assets + fixed_assets) - (total_liabilities + total_equity),
+            'currentRatio', case when current_liabilities > 0
+                        then round(current_assets / current_liabilities, 2)
+                        else null end,
+            'quickRatio', case when current_liabilities > 0
+                        then round((current_assets - gl_inventory_balance - gl_prepayment_balance) / current_liabilities, 2)
+                        else null end,
+            'workingCapital', current_assets - current_liabilities
         )
         from kpi_totals
     ),

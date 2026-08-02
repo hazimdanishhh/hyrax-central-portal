@@ -34,6 +34,7 @@ import {
   BookOpenIcon,
   TreeStructureIcon,
   ArrowsClockwiseIcon,
+  ScalesIcon,
 } from "@phosphor-icons/react";
 
 export const sideNavLinkData = [
@@ -278,6 +279,16 @@ export const sideNavLinkData = [
         label: "Cash Flow",
         icon: ArrowsClockwiseIcon,
         path: "finance/cash-flow",
+
+        departments: ["FIN"],
+      },
+
+      // Gate matches finance/balance-sheet's AccessRoute exactly
+      // (department-only, no role restriction). Added 2026-08.
+      {
+        label: "Balance Sheet",
+        icon: ScalesIcon,
+        path: "finance/balance-sheet",
 
         departments: ["FIN"],
       },
