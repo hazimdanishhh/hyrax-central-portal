@@ -53,10 +53,14 @@
 "Operations","/app/operations/reports","manager","OPS;MGM"
 "Employee Self-Service","/app/employee",,
 "Employee Self-Service","/app/employee/onboarding",,
+"Employee Self-Service","/app/employee/attendance",,
+"Employee Self-Service","/app/employee/attendance/list",,
 "Employee Self-Service","/app/employee/leave-request",,
 "Employee Self-Service","/app/employee/claims",,
 "Employee Self-Service","/app/employee/documents",,
 "Employee Self-Service","/app/employee/policies",,
+"Employee Self-Service","/app/employee/team-attendance","manager",
+"Employee Self-Service","/app/employee/team-attendance/list","manager",
 "IT","/app/it",,
 "IT","/app/it/dashboard",,"IT"
 "IT","/app/it/assets",,"IT"

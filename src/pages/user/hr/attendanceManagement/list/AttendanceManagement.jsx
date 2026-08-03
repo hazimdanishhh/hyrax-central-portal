@@ -301,7 +301,7 @@ export default function AttendanceManagement() {
   // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
   // ==============
-  async function handleConfirmAction(reason) {
+  async function handleConfirmAction(formValues) {
     try {
       // DELETE
       if (modalType === "delete") {
@@ -343,7 +343,7 @@ export default function AttendanceManagement() {
       }
 
       if (modalType === "reject") {
-        await handleReject(selectedId, reason);
+        await handleReject(selectedId, formValues?.reason);
       }
 
       // Day mode's roster, Search mode's list, AND the sidebar's per-day
@@ -594,10 +594,21 @@ export default function AttendanceManagement() {
         loading={
           modalType === "save" || modalType === "approve" ? saving : deleting
         }
-        onConfirm={async (reason) => {
-          handleConfirmAction(reason);
+        fields={
+          modalType === "reject"
+            ? [
+                {
+                  name: "reason",
+                  label: "Rejection Reason",
+                  type: "text",
+                  required: true,
+                },
+              ]
+            : []
+        }
+        onConfirm={async (formValues) => {
+          handleConfirmAction(formValues);
         }}
-        requireInput={modalType === "reject"}
         modalType={modalType}
       />
     </>

@@ -20,6 +20,9 @@ export default function AttendanceTimelineCard({
   setModalOpen,
   setSelectedId,
   clockOutAttendanceActivity,
+  mode = "hr", // "hr" (HR Attendance Management, full access) | "self" (My
+  // Attendance -- view + self clock-out only) | "manager" (Team Attendance
+  // -- view + approve/reject direct reports only, no edit)
 }) {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState("none"); // "none" | "edit" | "clockIn" | "clockOut"
@@ -151,8 +154,9 @@ export default function AttendanceTimelineCard({
       {activity.event_source === "App" && (
         <>
           <div className="attendanceCardApprovalContainer">
-            {/* CLOCK OUT (If currently active) */}
-            {!activity.check_out_time && (
+            {/* CLOCK OUT (If currently active) -- HR or the employee
+                themselves */}
+            {(mode === "hr" || mode === "self") && !activity.check_out_time && (
               <Button
                 style="button buttonType2Clockout textBold textXXS"
                 icon={ClockUserIcon}
@@ -163,8 +167,10 @@ export default function AttendanceTimelineCard({
               />
             )}
 
-            {/* APPROVE / REJECT (If Pending) */}
-            {activity.approval_status === "Pending" &&
+            {/* APPROVE / REJECT (If Pending) -- HR or the employee's direct
+                manager, never the employee themselves */}
+            {(mode === "hr" || mode === "manager") &&
+              activity.approval_status === "Pending" &&
               activity.check_out_time && (
                 <>
                   <Button
@@ -191,7 +197,9 @@ export default function AttendanceTimelineCard({
               )}
           </div>
 
-          {isEditing === "none" && (
+          {/* EDIT / EDIT CLOCK IN / EDIT CLOCK OUT -- HR only; neither the
+              employee nor their manager can backdate/edit raw clock times */}
+          {mode === "hr" && isEditing === "none" && (
             <>
               <Button
                 onClick={() => {
@@ -221,7 +229,7 @@ export default function AttendanceTimelineCard({
         </>
       )}
 
-      {isEditing !== "none" && activity.event_source === "App" && (
+      {mode === "hr" && isEditing !== "none" && activity.event_source === "App" && (
         <DataForm
           columns={
             isEditing === "clockIn"

@@ -25,6 +25,7 @@ export default function AttendanceSidebarHR({
   setModalType,
   setModalOpen,
   clockOutAttendanceActivity,
+  mode = "hr", // "hr" | "self" | "manager" -- see AttendanceTimelineCard for what each mode shows
 }) {
   // 1. Fetch the granular timeline for THIS employee on THIS day
   const { data: timelineData, isLoading } = useQuery({
@@ -111,6 +112,7 @@ export default function AttendanceSidebarHR({
               setModalOpen={setModalOpen}
               setSelectedId={setSelectedId}
               clockOutAttendanceActivity={clockOutAttendanceActivity}
+              mode={mode}
             />
           ))}
         </div>

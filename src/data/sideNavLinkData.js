@@ -36,6 +36,7 @@ import {
   ArrowsClockwiseIcon,
   ScalesIcon,
   ChartLineUpIcon,
+  UserCheckIcon,
 } from "@phosphor-icons/react";
 
 export const sideNavLinkData = [
@@ -116,30 +117,38 @@ export const sideNavLinkData = [
   // =================================================
   // EMPLOYEE
   // =================================================
-  // {
-  //   segmentTitle: "EMPLOYEE",
-  //   segmentCode: "EMPLOYEE",
+  {
+    segmentTitle: "EMPLOYEE",
+    segmentCode: "EMPLOYEE",
 
-  //   links: [
-  //     {
-  //       label: "Attendance",
-  //       icon: ClipboardTextIcon,
-  //       path: "employee/attendance",
-  //     },
+    links: [
+      {
+        label: "My Attendance",
+        icon: ClipboardTextIcon,
+        path: "employee/attendance",
+      },
 
-  //     {
-  //       label: "Leave Request",
-  //       icon: CalendarIcon,
-  //       path: "employee/leave-request",
-  //     },
+      {
+        label: "Team Attendance",
+        icon: UserCheckIcon,
+        path: "employee/team-attendance",
 
-  //     {
-  //       label: "Claims",
-  //       icon: WalletIcon,
-  //       path: "employee/claims",
-  //     },
-  //   ],
-  // },
+        roles: ["manager"],
+      },
+
+      // {
+      //   label: "Leave Request",
+      //   icon: CalendarIcon,
+      //   path: "employee/leave-request",
+      // },
+
+      // {
+      //   label: "Claims",
+      //   icon: WalletIcon,
+      //   path: "employee/claims",
+      // },
+    ],
+  },
 
   // =================================================
   // SALES
