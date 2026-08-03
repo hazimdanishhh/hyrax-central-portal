@@ -21,7 +21,11 @@ import { compactCurrency } from "../../../../functions/formatNumber";
 // helper for why this maps getStatusVariant's level to a plain color
 // instead of its `variant` class string (that string is a compound class
 // meant for a full KPI card, not a bare inline <span>).
-const LEVEL_COLOR = { good: GREEN_COLOR, warning: YELLOW_COLOR, critical: RED_COLOR };
+const LEVEL_COLOR = {
+  good: GREEN_COLOR,
+  warning: YELLOW_COLOR,
+  critical: RED_COLOR,
+};
 const colorFor = (value, options) =>
   options ? LEVEL_COLOR[getStatusVariant(value, options).level] : undefined;
 
@@ -54,7 +58,10 @@ export default function BalanceSheet() {
     ? [
         { name: "Current Assets", value: statement.currentAssets.total },
         { name: "Fixed Assets", value: statement.fixedAssets.total },
-        { name: "Current Liabilities", value: statement.currentLiabilities.total },
+        {
+          name: "Current Liabilities",
+          value: statement.currentLiabilities.total,
+        },
         { name: "Total Equity", value: statement.equity.total },
       ]
     : [];
@@ -123,26 +130,48 @@ export default function BalanceSheet() {
                     style={{
                       display: "flex",
                       flexDirection: "column",
-                      gap: "0.5rem",
+                      gap: "0.8rem",
                     }}
                   >
-                    <p className="textXXS textLight textBold">
-                      CURRENT ASSETS
-                    </p>
-                    {lineItem("Cash and Bank Balances", statement.currentAssets.cash)}
-                    {lineItem("Fixed Deposits", statement.currentAssets.fixedDeposits)}
-                    {lineItem("Trade Receivables", statement.currentAssets.tradeReceivables)}
-                    {lineItem("Other Receivables", statement.currentAssets.otherReceivables)}
+                    <p className="textXXS textLight textBold">CURRENT ASSETS</p>
+                    {lineItem(
+                      "Cash and Bank Balances",
+                      statement.currentAssets.cash,
+                    )}
+                    {lineItem(
+                      "Fixed Deposits",
+                      statement.currentAssets.fixedDeposits,
+                    )}
+                    {lineItem(
+                      "Trade Receivables",
+                      statement.currentAssets.tradeReceivables,
+                    )}
+                    {lineItem(
+                      "Other Receivables",
+                      statement.currentAssets.otherReceivables,
+                    )}
                     {lineItem("Deposits", statement.currentAssets.deposits)}
                     {lineItem("Prepayment", statement.currentAssets.prepayment)}
                     {lineItem("Inventory", statement.currentAssets.inventory)}
-                    {lineItem("GST Input Tax", statement.currentAssets.gstInputTax)}
-                    {lineItem("Total Current Assets", statement.currentAssets.total)}
+                    {lineItem(
+                      "GST Input Tax",
+                      statement.currentAssets.gstInputTax,
+                    )}
+                    {lineItem(
+                      "Total Current Assets",
+                      statement.currentAssets.total,
+                    )}
 
                     <p className="textXXS textLight textBold">FIXED ASSETS</p>
                     {lineItem("Fixed Asset", statement.fixedAssets.fixedAsset)}
-                    {lineItem("Work In Progress", statement.fixedAssets.workInProgress)}
-                    {lineItem("Total Fixed Assets", statement.fixedAssets.total)}
+                    {lineItem(
+                      "Work In Progress",
+                      statement.fixedAssets.workInProgress,
+                    )}
+                    {lineItem(
+                      "Total Fixed Assets",
+                      statement.fixedAssets.total,
+                    )}
 
                     <hr />
                     {lineItem("TOTAL ASSETS", statement.totalAssets)}
@@ -150,7 +179,10 @@ export default function BalanceSheet() {
                     <p className="textXXS textLight textBold">
                       CURRENT LIABILITIES
                     </p>
-                    {lineItem("Trade Payable", statement.currentLiabilities.tradePayable)}
+                    {lineItem(
+                      "Trade Payable",
+                      statement.currentLiabilities.tradePayable,
+                    )}
                     {lineItem(
                       "Other Payable & Accruals",
                       statement.currentLiabilities.otherPayableAndAccruals,
@@ -159,7 +191,10 @@ export default function BalanceSheet() {
                       "Short Term Borrowings",
                       statement.currentLiabilities.shortTermBorrowings,
                     )}
-                    {lineItem("Output Tax", statement.currentLiabilities.outputTax)}
+                    {lineItem(
+                      "Output Tax",
+                      statement.currentLiabilities.outputTax,
+                    )}
                     {lineItem(
                       "Total Current Liabilities",
                       statement.currentLiabilities.total,
@@ -170,8 +205,14 @@ export default function BalanceSheet() {
 
                     <p className="textXXS textLight textBold">EQUITY</p>
                     {lineItem("Share Capital", statement.equity.shareCapital)}
-                    {lineItem("Revaluation Reserve", statement.equity.revaluationReserve)}
-                    {lineItem("Retained Earnings", statement.equity.retainedEarnings)}
+                    {lineItem(
+                      "Revaluation Reserve",
+                      statement.equity.revaluationReserve,
+                    )}
+                    {lineItem(
+                      "Retained Earnings",
+                      statement.equity.retainedEarnings,
+                    )}
                     {lineItem("TOTAL EQUITY", statement.equity.total)}
 
                     <hr />
@@ -182,78 +223,86 @@ export default function BalanceSheet() {
                   </div>
                 </ChartCard>
 
-                <ChartCard
-                  title="Balance Sheet Snapshot"
-                  subtitle="As of today (RM)"
-                  style="cardGapSmall"
-                >
-                  <HorizontalBarChartRenderer
-                    data={snapshotChartData}
-                    colorMap={GREEN_COLOR}
-                  />
-                </ChartCard>
+                <CardLayout style="cardLayout1">
+                  <ChartCard
+                    title="Balance Sheet Snapshot"
+                    subtitle="As of today (RM)"
+                    style="cardGapSmall"
+                  >
+                    <HorizontalBarChartRenderer
+                      data={snapshotChartData}
+                      colorMap={GREEN_COLOR}
+                    />
+                  </ChartCard>
 
-                <ChartCard
-                  title="Ratios & Balance Check"
-                  subtitle="Current/Quick Ratio and Working Capital, plus Assets vs. Liabilities+Equity — a small residual is expected (this fiscal year's earnings not yet formally closed into Retained Earnings), not necessarily an error"
-                  style="cardGapSmall"
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.5rem",
-                    }}
+                  <ChartCard
+                    title="Ratios & Balance Check"
+                    subtitle="Current/Quick Ratio and Working Capital, plus Assets vs. Liabilities+Equity — a small residual is expected (this fiscal year's earnings not yet formally closed into Retained Earnings), not necessarily an error"
+                    style="cardGapSmall"
                   >
                     <div
-                      style={{ display: "flex", justifyContent: "space-between" }}
-                      className="textXS"
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
+                      }}
                     >
-                      <span className="textLight">Current Ratio</span>
-                      <span
-                        className="textBold"
+                      <div
                         style={{
-                          color: colorFor(statement.currentRatio, {
-                            direction: "high-good",
-                            thresholds: { warningAt: 1, goodAt: 2 },
-                          }),
+                          display: "flex",
+                          justifyContent: "space-between",
                         }}
+                        className="textXS"
                       >
-                        {statement.currentRatio != null
-                          ? `${statement.currentRatio.toFixed(2)}x`
-                          : "—"}
-                      </span>
-                    </div>
-                    <div
-                      style={{ display: "flex", justifyContent: "space-between" }}
-                      className="textXS"
-                    >
-                      <span className="textLight">Quick Ratio</span>
-                      <span
-                        className="textBold"
+                        <span className="textLight">Current Ratio</span>
+                        <span
+                          className="textBold"
+                          style={{
+                            color: colorFor(statement.currentRatio, {
+                              direction: "high-good",
+                              thresholds: { warningAt: 1, goodAt: 2 },
+                            }),
+                          }}
+                        >
+                          {statement.currentRatio != null
+                            ? `${statement.currentRatio.toFixed(2)}x`
+                            : "—"}
+                        </span>
+                      </div>
+                      <div
                         style={{
-                          color: colorFor(statement.quickRatio, {
-                            direction: "high-good",
-                            thresholds: { warningAt: 0.7, goodAt: 1 },
-                          }),
+                          display: "flex",
+                          justifyContent: "space-between",
                         }}
+                        className="textXS"
                       >
-                        {statement.quickRatio != null
-                          ? `${statement.quickRatio.toFixed(2)}x`
-                          : "—"}
-                      </span>
+                        <span className="textLight">Quick Ratio</span>
+                        <span
+                          className="textBold"
+                          style={{
+                            color: colorFor(statement.quickRatio, {
+                              direction: "high-good",
+                              thresholds: { warningAt: 0.7, goodAt: 1 },
+                            }),
+                          }}
+                        >
+                          {statement.quickRatio != null
+                            ? `${statement.quickRatio.toFixed(2)}x`
+                            : "—"}
+                        </span>
+                      </div>
+                      {lineItem("Working Capital", statement.workingCapital, {
+                        direction: "sign-good",
+                      })}
+                      <hr />
+                      {lineItem(
+                        "Balance Check (Assets − Liabilities − Equity)",
+                        statement.balanceCheckDelta,
+                        balanceCheckBand,
+                      )}
                     </div>
-                    {lineItem("Working Capital", statement.workingCapital, {
-                      direction: "sign-good",
-                    })}
-                    <hr />
-                    {lineItem(
-                      "Balance Check (Assets − Liabilities − Equity)",
-                      statement.balanceCheckDelta,
-                      balanceCheckBand,
-                    )}
-                  </div>
-                </ChartCard>
+                  </ChartCard>
+                </CardLayout>
               </CardLayout>
             )}
           </CardWrapper>

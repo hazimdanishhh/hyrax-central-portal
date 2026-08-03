@@ -210,6 +210,38 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
+      // Gate matches finance/balance-sheet's AccessRoute exactly
+      // (department-only, no role restriction). Added 2026-08.
+      {
+        label: "Balance Sheet",
+        icon: ScalesIcon,
+        path: "finance/balance-sheet",
+
+        departments: ["FIN"],
+      },
+
+      // Gate matches finance/income-statement's AccessRoute exactly
+      // (department-only, no role restriction). Added 2026-08, Finance
+      // Expansion Phase 6.
+      {
+        label: "Income Statement",
+        icon: ChartLineUpIcon,
+        path: "finance/income-statement",
+
+        departments: ["FIN"],
+      },
+
+      // Gate matches finance/cash-flow's AccessRoute exactly (department-only,
+      // no role restriction -- same Tier-1 rationale as Journal Entries/Chart
+      // of Accounts above). Added 2026-08, Finance Expansion Phase 3.
+      {
+        label: "Cash Flow",
+        icon: ArrowsClockwiseIcon,
+        path: "finance/cash-flow",
+
+        departments: ["FIN"],
+      },
+
       {
         label: "Invoices",
         icon: FileTextIcon,
@@ -269,38 +301,6 @@ export const sideNavLinkData = [
         label: "Chart of Accounts",
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
-
-        departments: ["FIN"],
-      },
-
-      // Gate matches finance/cash-flow's AccessRoute exactly (department-only,
-      // no role restriction -- same Tier-1 rationale as Journal Entries/Chart
-      // of Accounts above). Added 2026-08, Finance Expansion Phase 3.
-      {
-        label: "Cash Flow",
-        icon: ArrowsClockwiseIcon,
-        path: "finance/cash-flow",
-
-        departments: ["FIN"],
-      },
-
-      // Gate matches finance/balance-sheet's AccessRoute exactly
-      // (department-only, no role restriction). Added 2026-08.
-      {
-        label: "Balance Sheet",
-        icon: ScalesIcon,
-        path: "finance/balance-sheet",
-
-        departments: ["FIN"],
-      },
-
-      // Gate matches finance/income-statement's AccessRoute exactly
-      // (department-only, no role restriction). Added 2026-08, Finance
-      // Expansion Phase 6.
-      {
-        label: "Income Statement",
-        icon: ChartLineUpIcon,
-        path: "finance/income-statement",
 
         departments: ["FIN"],
       },

@@ -25,7 +25,11 @@ import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/Fisc
 // helper for why this maps getStatusVariant's level to a plain color
 // instead of its `variant` class string (that string is a compound class
 // meant for a full KPI card, not a bare inline <span>).
-const LEVEL_COLOR = { good: GREEN_COLOR, warning: YELLOW_COLOR, critical: RED_COLOR };
+const LEVEL_COLOR = {
+  good: GREEN_COLOR,
+  warning: YELLOW_COLOR,
+  critical: RED_COLOR,
+};
 const colorFor = (value, options) =>
   options ? LEVEL_COLOR[getStatusVariant(value, options).level] : undefined;
 
@@ -114,7 +118,10 @@ export default function IncomeStatement() {
               isError={Boolean(error)}
             />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {hasActiveFilters && (
               <ActiveFiltersBar
@@ -148,7 +155,7 @@ export default function IncomeStatement() {
                     style={{
                       display: "flex",
                       flexDirection: "column",
-                      gap: "0.5rem",
+                      gap: "0.8rem",
                     }}
                   >
                     {lineItem("Revenue", statement.revenue, {
@@ -166,7 +173,10 @@ export default function IncomeStatement() {
                       {statement.grossProfitMarginPct}% margin
                     </p>
 
-                    {lineItem("Operating Expenses", -statement.operatingExpenses)}
+                    {lineItem(
+                      "Operating Expenses",
+                      -statement.operatingExpenses,
+                    )}
                     {lineItem("Operating Profit", statement.operatingProfit, {
                       direction: "sign-good",
                     })}

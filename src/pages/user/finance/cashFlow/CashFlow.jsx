@@ -30,7 +30,11 @@ import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/Fisc
 // card, not a bare inline <span>, so applying it here wouldn't style
 // anything. undefined (no color) falls through to the existing textBold
 // color for neutral/no-verdict values.
-const LEVEL_COLOR = { good: GREEN_COLOR, warning: YELLOW_COLOR, critical: RED_COLOR };
+const LEVEL_COLOR = {
+  good: GREEN_COLOR,
+  warning: YELLOW_COLOR,
+  critical: RED_COLOR,
+};
 const colorFor = (value, options) =>
   options ? LEVEL_COLOR[getStatusVariant(value, options).level] : undefined;
 
@@ -158,7 +162,7 @@ export default function CashFlow() {
                     style={{
                       display: "flex",
                       flexDirection: "column",
-                      gap: "0.5rem",
+                      gap: "0.8rem",
                     }}
                   >
                     <p className="textXXS textLight textBold">
@@ -205,58 +209,58 @@ export default function CashFlow() {
                     )}
 
                     <hr />
-                    {lineItem(
-                      "Net Change in Cash",
-                      statement.netChangeInCash,
-                      { direction: "sign-good" },
-                    )}
+                    {lineItem("Net Change in Cash", statement.netChangeInCash, {
+                      direction: "sign-good",
+                    })}
                   </div>
                 </ChartCard>
 
-                <ChartCard
-                  title="Cash Flow Waterfall"
-                  subtitle="Operating → Investing → Financing → Net Change in Cash (RM)"
-                  style="cardGapSmall"
-                >
-                  <HorizontalBarChartRenderer
-                    data={waterfallChartData}
-                    colorMap={BLUE_COLOR}
-                  />
-                </ChartCard>
-
-                <ChartCard
-                  title="Reconciliation Check"
-                  subtitle="Computed net change in cash vs. two independent sources — a small residual is expected (SAP's period-end FX revaluation on foreign-currency cash/loan accounts), not necessarily an error. Both figures diverging sharply from each other, or dwarfing plausible FX movement, is still a signal to revisit account classification."
-                  style="cardGapSmall"
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.5rem",
-                    }}
+                <CardLayout style="cardLayout1">
+                  <ChartCard
+                    title="Cash Flow Waterfall"
+                    subtitle="Operating → Investing → Financing → Net Change in Cash (RM)"
+                    style="cardGapSmall"
                   >
-                    {lineItem(
-                      "G/L cash-account balance change (2600xxx)",
-                      statement.glCashBalanceChange,
-                    )}
-                    {lineItem(
-                      "Bank account movements (OBNK)",
-                      statement.bankMovementCashChange,
-                    )}
-                    <hr />
-                    {lineItem(
-                      "Effect of exchange rate changes (vs. G/L cash balance)",
-                      statement.reconciliationDeltaVsGl,
-                      reconciliationBand,
-                    )}
-                    {lineItem(
-                      "Effect of exchange rate changes (vs. bank account movements)",
-                      statement.reconciliationDeltaVsBank,
-                      reconciliationBand,
-                    )}
-                  </div>
-                </ChartCard>
+                    <HorizontalBarChartRenderer
+                      data={waterfallChartData}
+                      colorMap={BLUE_COLOR}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Reconciliation Check"
+                    subtitle="Computed net change in cash vs. two independent sources — a small residual is expected (SAP's period-end FX revaluation on foreign-currency cash/loan accounts), not necessarily an error. Both figures diverging sharply from each other, or dwarfing plausible FX movement, is still a signal to revisit account classification."
+                    style="cardGapSmall"
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      {lineItem(
+                        "G/L cash-account balance change (2600xxx)",
+                        statement.glCashBalanceChange,
+                      )}
+                      {lineItem(
+                        "Bank account movements (OBNK)",
+                        statement.bankMovementCashChange,
+                      )}
+                      <hr />
+                      {lineItem(
+                        "Effect of exchange rate changes (vs. G/L cash balance)",
+                        statement.reconciliationDeltaVsGl,
+                        reconciliationBand,
+                      )}
+                      {lineItem(
+                        "Effect of exchange rate changes (vs. bank account movements)",
+                        statement.reconciliationDeltaVsBank,
+                        reconciliationBand,
+                      )}
+                    </div>
+                  </ChartCard>
+                </CardLayout>
               </CardLayout>
             )}
           </CardWrapper>

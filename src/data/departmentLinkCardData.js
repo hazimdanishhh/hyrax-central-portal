@@ -102,6 +102,43 @@ export const departmentLinkCardData = [
         roles: ["manager"],
       },
 
+      // Matches finance/balance-sheet's AccessRoute gate exactly
+      // (department-only, no role restriction). Added 2026-08.
+      {
+        label: "Balance Sheet",
+        description:
+          "Statement of financial position (Assets, Liabilities, Equity) as of today.",
+        icon: ScalesIcon,
+        path: "finance/balance-sheet",
+
+        departments: ["FIN"],
+      },
+
+      // Matches finance/income-statement's AccessRoute gate exactly
+      // (department-only, no role restriction). Added 2026-08, Finance
+      // Expansion Phase 6.
+      {
+        label: "Income Statement",
+        description:
+          "Statement of profit or loss (Revenue through Net Profit) for a selected period.",
+        icon: ChartLineUpIcon,
+        path: "finance/income-statement",
+
+        departments: ["FIN"],
+      },
+
+      // Matches finance/cash-flow's AccessRoute gate exactly (department-only,
+      // no role restriction). Added 2026-08, Finance Expansion Phase 3.
+      {
+        label: "Cash Flow",
+        description:
+          "Statement of cash flows (Operating/Investing/Financing) for a selected period.",
+        icon: ArrowsClockwiseIcon,
+        path: "finance/cash-flow",
+
+        departments: ["FIN"],
+      },
+
       {
         label: "Invoices",
         description: "View and track outstanding customer invoices.",
@@ -171,43 +208,6 @@ export const departmentLinkCardData = [
         description: "Reference list of Hyrax's chart of accounts.",
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
-
-        departments: ["FIN"],
-      },
-
-      // Matches finance/cash-flow's AccessRoute gate exactly (department-only,
-      // no role restriction). Added 2026-08, Finance Expansion Phase 3.
-      {
-        label: "Cash Flow",
-        description:
-          "Statement of cash flows (Operating/Investing/Financing) for a selected period.",
-        icon: ArrowsClockwiseIcon,
-        path: "finance/cash-flow",
-
-        departments: ["FIN"],
-      },
-
-      // Matches finance/balance-sheet's AccessRoute gate exactly
-      // (department-only, no role restriction). Added 2026-08.
-      {
-        label: "Balance Sheet",
-        description:
-          "Statement of financial position (Assets, Liabilities, Equity) as of today.",
-        icon: ScalesIcon,
-        path: "finance/balance-sheet",
-
-        departments: ["FIN"],
-      },
-
-      // Matches finance/income-statement's AccessRoute gate exactly
-      // (department-only, no role restriction). Added 2026-08, Finance
-      // Expansion Phase 6.
-      {
-        label: "Income Statement",
-        description:
-          "Statement of profit or loss (Revenue through Net Profit) for a selected period.",
-        icon: ChartLineUpIcon,
-        path: "finance/income-statement",
 
         departments: ["FIN"],
       },
