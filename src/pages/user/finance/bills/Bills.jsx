@@ -85,7 +85,10 @@ export default function Bills() {
               enableDateRange
             />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {hasActiveFilters && (
               <ActiveFiltersBar
@@ -137,7 +140,6 @@ export default function Bills() {
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             isEditing={false}
-            fullPage
           >
             <BillSidebar selectedRow={selectedRow} />
           </DataSidebar>

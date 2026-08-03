@@ -67,7 +67,7 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
         />
       </CardLayout>
 
-      <CardLayout style="generalCard cardPaddingSmall">
+      <CardLayout style="sidebarTable cardWrapperScroll generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Order Lines" />
 
         {isLoading ? (

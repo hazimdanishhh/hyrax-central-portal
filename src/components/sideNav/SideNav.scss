@@ -51,7 +51,8 @@
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding: 1rem 0;
+    height: 50px;
+    // padding: 1rem 0;
     // transition: 0.3s;
 
     &.isClosed {
@@ -120,7 +121,7 @@
 .navButtonType1 {
   border-radius: 10px;
   display: flex;
-  align-self: end;
+  // align-self: end;
   background: $dark;
   color: $light;
   padding: 0.5em;

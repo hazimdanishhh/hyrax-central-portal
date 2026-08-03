@@ -84,7 +84,10 @@ export default function Payments() {
               enableDateRange
             />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {hasActiveFilters && (
               <ActiveFiltersBar
@@ -136,7 +139,6 @@ export default function Payments() {
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             isEditing={false}
-            fullPage
           >
             <PaymentSidebar selectedRow={selectedRow} />
           </DataSidebar>

@@ -136,9 +136,12 @@ export default function Orders() {
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             isEditing={false}
-            fullPage
+            // fullPage
           >
-            <SalesOrderSidebar selectedRow={selectedRow} salesReps={salesReps} />
+            <SalesOrderSidebar
+              selectedRow={selectedRow}
+              salesReps={salesReps}
+            />
           </DataSidebar>
         )}
       </AnimatePresence>

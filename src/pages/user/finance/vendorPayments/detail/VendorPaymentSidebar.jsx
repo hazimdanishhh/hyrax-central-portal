@@ -51,7 +51,7 @@ export default function VendorPaymentSidebar({ selectedRow }) {
         />
       </CardLayout>
 
-      <CardLayout style="generalCard cardPaddingSmall">
+      <CardLayout style="sidebarTable cardWrapperScroll generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Payment Applications" />
 
         {isLoading ? (

@@ -96,7 +96,10 @@ export default function Invoices() {
               enableDateRange
             />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {hasActiveFilters && (
               <ActiveFiltersBar
@@ -148,7 +151,6 @@ export default function Invoices() {
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             isEditing={false}
-            fullPage
           >
             <InvoiceSidebar selectedRow={selectedRow} />
           </DataSidebar>

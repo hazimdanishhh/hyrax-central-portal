@@ -87,7 +87,10 @@ export default function JournalEntries() {
               enableDateRange
             />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {hasActiveFilters && (
               <ActiveFiltersBar
@@ -139,7 +142,6 @@ export default function JournalEntries() {
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             isEditing={false}
-            fullPage
           >
             <JournalEntrySidebar selectedRow={selectedRow} />
           </DataSidebar>

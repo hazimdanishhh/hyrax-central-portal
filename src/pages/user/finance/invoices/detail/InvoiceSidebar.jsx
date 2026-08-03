@@ -54,7 +54,7 @@ export default function InvoiceSidebar({ selectedRow }) {
         />
       </CardLayout>
 
-      <CardLayout style="generalCard cardPaddingSmall">
+      <CardLayout style="sidebarTable cardWrapperScroll generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Line Items" />
 
         {isLoading ? (

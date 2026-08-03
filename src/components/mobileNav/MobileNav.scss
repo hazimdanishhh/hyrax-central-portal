@@ -1,13 +1,13 @@
 // MOBILE NAV
 .mobileNav {
   position: fixed;
-  top: 70px;
+  top: 50px;
   left: 0;
   z-index: 1600;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: calc(100dvh - 70px);
+  height: calc(100dvh - 50px);
   width: 100%;
   padding: 0.5rem;
   border-right: 1px solid $dark;
@@ -123,7 +123,7 @@
 .navButtonType1 {
   border-radius: 10px;
   display: flex;
-  align-self: end;
+  // align-self: end;
   background: $dark;
   color: $light;
   padding: 0.5em;
