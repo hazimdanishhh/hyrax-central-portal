@@ -64,6 +64,10 @@
 "IT","/app/it/assets/list",,"IT"
 "IT","/app/it/software",,"IT"
 "Help","/app/help",,
+"Help","/app/help/faq",,
+"Help","/app/help/guides",,
+"Help","/app/help/glossary",,
+"Help","/app/help/contact",,
 "System","/app/system",,
 "System","/app/system/users","superadmin",
 "System","/app/admin/audit-logs",,

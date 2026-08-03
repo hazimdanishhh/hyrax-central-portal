@@ -1,0 +1,90 @@
+.helpSearchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.helpSearchResultCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: start;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: 0.2s;
+
+  &:hover,
+  &.active {
+    color: $primary;
+    border: 1px solid $primary;
+    transition: 0.2s;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.helpSearchResultType {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.helpTabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.helpDeptChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+
+  button {
+    cursor: pointer;
+  }
+}
+
+.helpGlossaryList,
+.helpContactList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.helpGlossaryTerm,
+.helpContactCard {
+  text-align: start;
+  width: 100%;
+
+  p {
+    margin: 0 0 0.3rem 0;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.helpContactBody {
+  margin-top: 0.6rem;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th,
+    td {
+      border: 1px solid $neutral400;
+      padding: 6px 10px;
+      text-align: start;
+      font-size: 0.85em;
+    }
+  }
+}

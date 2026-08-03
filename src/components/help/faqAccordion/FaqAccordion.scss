@@ -1,0 +1,55 @@
+.faqAccordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 100%;
+}
+
+.faqAccordionItem {
+  width: 100%;
+  flex-direction: row;
+}
+
+.faqAccordionQuestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: start;
+  color: inherit;
+
+  p {
+    margin: 0;
+  }
+}
+
+.faqAccordionAnswer {
+  padding-top: 0.8rem;
+  text-align: start;
+
+  p {
+    margin: 0 0 0.6rem 0;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.4rem;
+
+    th,
+    td {
+      border: 1px solid $neutral400;
+      padding: 6px 10px;
+      text-align: start;
+      font-size: 0.85em;
+    }
+  }
+}
