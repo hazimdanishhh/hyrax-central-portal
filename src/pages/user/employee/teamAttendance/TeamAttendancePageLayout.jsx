@@ -1,10 +1,9 @@
 import { useTheme } from "@/context/ThemeContext";
 import Breadcrumbs from "@/components/breadcrumbs/Breadcrumbs";
-import { ListIcon, UserCheckIcon } from "@phosphor-icons/react";
+import { ChartLineIcon, ListIcon, UserCheckIcon } from "@phosphor-icons/react";
 import CardWrapper from "@/components/cardWrapper/CardWrapper";
 import { NavLink, Outlet } from "react-router";
 
-// Single tab in v1 -- no Overview NavLink yet (that route doesn't exist).
 export default function TeamAttendancePageLayout() {
   const { darkMode } = useTheme();
 
@@ -16,6 +15,20 @@ export default function TeamAttendancePageLayout() {
 
           <CardWrapper>
             <div className="pageTabContainer">
+              <NavLink
+                to="/app/employee/team-attendance/overview"
+                className={({ isActive }) =>
+                  `button buttonTypeTab textRegular textXS ${
+                    isActive ? "active" : ""
+                  }`
+                }
+              >
+                <div className="pageTabIcon">
+                  <ChartLineIcon size={15} />
+                </div>
+                Overview
+              </NavLink>
+
               <NavLink
                 to="/app/employee/team-attendance/list"
                 className={({ isActive }) =>

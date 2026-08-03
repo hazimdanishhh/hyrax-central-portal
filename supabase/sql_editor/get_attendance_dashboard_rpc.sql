@@ -77,11 +77,28 @@
 -- per-day hardware fact (one scan that day, no in/out pair), not a
 -- lingering state that later resolves, so "today" is the right no-period
 -- default the same way it always was.
+--
+-- OVERLOAD WARNING: `create or replace function` only replaces a function
+-- whose parameter signature is identical. Adding/removing a parameter here
+-- creates a SECOND overloaded function instead of replacing this one --
+-- PostgREST then can't resolve which one a caller means (PGRST203,
+-- "Could not choose the best candidate function") the moment a call omits
+-- the new parameter, since it then matches both signatures. Confirmed live
+-- 2026-08 when p_manager_id was added. Whenever this parameter list changes,
+-- also run `DROP FUNCTION public.get_attendance_dashboard(<old signature>);`
+-- in Supabase Studio for every prior signature before/after redeploying.
 create or replace function get_attendance_dashboard(
     p_start_date    date default null,
     p_end_date      date default null,
     p_department_id bigint default null,
-    p_employee_id   uuid default null
+    p_employee_id   uuid default null,
+    -- Team Attendance Overview scope -- mirrors p_employee_id's shape
+    -- exactly, added to every CTE below. unified_daily_attendance already
+    -- carries manager_id directly; the CTEs that query attendance_activities
+    -- raw already join employees e, so e.manager_id is available there too.
+    -- Null (every existing HR/My-Attendance caller) leaves behavior
+    -- unchanged.
+    p_manager_id    uuid default null
 )
 returns json
 language plpgsql
@@ -136,6 +153,7 @@ with active_employees as (
     join employment_status es on es.id = e.employment_status_id and es.category = 'active'
     where (p_department_id is null or e.department_id = p_department_id)
     and (p_employee_id is null or e.id = p_employee_id)
+    and (p_manager_id is null or e.manager_id = p_manager_id)
 ),
 
 active_headcount_today as (
@@ -152,6 +170,7 @@ period_rows as (
     from unified_daily_attendance uda
     where (p_department_id is null or uda.department_id = p_department_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_manager_id is null or uda.manager_id = p_manager_id)
     and uda.work_date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
     and uda.work_date <= coalesce(p_end_date, current_date)
 ),
@@ -162,6 +181,7 @@ prev_period_rows as (
     where p_start_date is not null and p_end_date is not null
     and (p_department_id is null or uda.department_id = p_department_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_manager_id is null or uda.manager_id = p_manager_id)
     and uda.work_date >= v_prev_start_date
     and uda.work_date <= v_prev_end_date
 ),
@@ -172,6 +192,7 @@ today_rows as (
     where uda.work_date = current_date
     and (p_department_id is null or uda.department_id = p_department_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_manager_id is null or uda.manager_id = p_manager_id)
 ),
 
 -- Approval turnaround needs attendance_activities directly --
@@ -184,6 +205,7 @@ approved_activity_rows as (
     and aa.approved_at is not null
     and (p_department_id is null or e.department_id = p_department_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
+    and (p_manager_id is null or e.manager_id = p_manager_id)
     and aa.clocked_in_at::date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
     and aa.clocked_in_at::date <= coalesce(p_end_date, current_date)
 ),
@@ -199,6 +221,7 @@ pending_activity_rows as (
     where aa.approval_status = 'Pending'
     and (p_department_id is null or e.department_id = p_department_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
+    and (p_manager_id is null or e.manager_id = p_manager_id)
 ),
 
 -- The TRUE current Missing-Check-Out backlog -- same shape/filters as
@@ -213,6 +236,7 @@ open_session_rows as (
     and aa.approval_status <> 'Rejected'
     and (p_department_id is null or e.department_id = p_department_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
+    and (p_manager_id is null or e.manager_id = p_manager_id)
 ),
 
 kpi_totals as (

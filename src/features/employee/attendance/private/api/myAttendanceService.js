@@ -1,9 +1,11 @@
 // features/employee/attendance/private/api/myAttendanceService.js
 
+import { supabase } from "@/lib/supabaseClient";
 import {
   fetchUnifiedAttendance,
   fetchUnifiedAttendanceSearch,
 } from "@/features/hr/attendance/private/api/attendanceOverviewService";
+import { buildAttendanceDashboardParams } from "@/features/hr/attendance/private/api/fetchAttendanceDashboard";
 
 // Curried wrappers around HR's fetchers -- they already handle an "employee"
 // filter key generically, so this reuses them unmodified instead of forking
@@ -24,3 +26,17 @@ export const fetchMyAttendanceSearch = (employeeId) => (params) =>
     ...params,
     filters: { ...params.filters, employee: employeeId },
   });
+
+// My Attendance Overview -- reuses get_attendance_dashboard unchanged
+// (p_employee_id already scopes every CTE), just fixes the employee param
+// instead of taking it from a picker.
+export const fetchMyAttendanceDashboard = (employeeId) => async ({ filters }) => {
+  const { data, error } = await supabase.rpc("get_attendance_dashboard", {
+    ...buildAttendanceDashboardParams(filters),
+    p_employee_id: employeeId,
+  });
+
+  if (error) throw error;
+
+  return data;
+};

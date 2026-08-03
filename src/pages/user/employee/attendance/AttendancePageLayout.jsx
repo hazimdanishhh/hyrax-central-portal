@@ -1,12 +1,9 @@
 import { useTheme } from "@/context/ThemeContext";
 import Breadcrumbs from "@/components/breadcrumbs/Breadcrumbs";
-import { ClockUserIcon, ListIcon } from "@phosphor-icons/react";
+import { ChartLineIcon, ClockUserIcon, ListIcon } from "@phosphor-icons/react";
 import CardWrapper from "@/components/cardWrapper/CardWrapper";
 import { NavLink, Outlet } from "react-router";
 
-// Single tab in v1 -- no Overview NavLink yet (that route doesn't exist),
-// deliberately avoiding HR's own AttendancePageLayout's dead "Settings" tab
-// (a NavLink with no matching route).
 export default function AttendancePageLayout() {
   const { darkMode } = useTheme();
 
@@ -18,6 +15,20 @@ export default function AttendancePageLayout() {
 
           <CardWrapper>
             <div className="pageTabContainer">
+              <NavLink
+                to="/app/employee/attendance/overview"
+                className={({ isActive }) =>
+                  `button buttonTypeTab textRegular textXS ${
+                    isActive ? "active" : ""
+                  }`
+                }
+              >
+                <div className="pageTabIcon">
+                  <ChartLineIcon size={15} />
+                </div>
+                Overview
+              </NavLink>
+
               <NavLink
                 to="/app/employee/attendance/list"
                 className={({ isActive }) =>

@@ -6,7 +6,10 @@ import { supabase } from "../../../../../lib/supabaseClient";
  * Attendance Overview dashboard data
  * Source: get_attendance_dashboard()
  */
-export async function fetchAttendanceDashboard({ filters }) {
+// Shared filters -> RPC-param mapping, reused by the My/Team Attendance
+// Overview fetchers (features/employee/attendance/private/api/) so the
+// startDate/endDate/department/employee switch isn't duplicated per caller.
+export function buildAttendanceDashboardParams(filters) {
   const rpcParams = {
     p_start_date: null,
     p_end_date: null,
@@ -38,6 +41,12 @@ export async function fetchAttendanceDashboard({ filters }) {
         break;
     }
   });
+
+  return rpcParams;
+}
+
+export async function fetchAttendanceDashboard({ filters }) {
+  const rpcParams = buildAttendanceDashboardParams(filters);
 
   const { data, error } = await supabase.rpc(
     "get_attendance_dashboard",
