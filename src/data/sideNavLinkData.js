@@ -226,7 +226,8 @@ export const sideNavLinkData = [
         icon: ScalesIcon,
         path: "finance/balance-sheet",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
+        roles: ["manager"],
       },
 
       // Gate matches finance/income-statement's AccessRoute exactly
@@ -237,7 +238,8 @@ export const sideNavLinkData = [
         icon: ChartLineUpIcon,
         path: "finance/income-statement",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
+        roles: ["manager"],
       },
 
       // Gate matches finance/cash-flow's AccessRoute exactly (department-only,
@@ -248,7 +250,8 @@ export const sideNavLinkData = [
         icon: ArrowsClockwiseIcon,
         path: "finance/cash-flow",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
+        roles: ["manager"],
       },
 
       {

@@ -94,7 +94,7 @@ export default (
     <Route
       path="cash-flow"
       element={
-        <AccessRoute departments={["FIN"]}>
+        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
           <CashFlow />
         </AccessRoute>
       }
@@ -107,7 +107,7 @@ export default (
     <Route
       path="balance-sheet"
       element={
-        <AccessRoute departments={["FIN"]}>
+        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
           <BalanceSheet />
         </AccessRoute>
       }
@@ -120,7 +120,7 @@ export default (
     <Route
       path="income-statement"
       element={
-        <AccessRoute departments={["FIN"]}>
+        <AccessRoute departments={["FIN", "MGM"]} roles={["manager"]}>
           <IncomeStatement />
         </AccessRoute>
       }

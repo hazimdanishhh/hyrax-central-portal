@@ -111,7 +111,8 @@ export const departmentLinkCardData = [
         icon: ScalesIcon,
         path: "finance/balance-sheet",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
+        roles: ["manager"],
       },
 
       // Matches finance/income-statement's AccessRoute gate exactly
@@ -124,7 +125,8 @@ export const departmentLinkCardData = [
         icon: ChartLineUpIcon,
         path: "finance/income-statement",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
+        roles: ["manager"],
       },
 
       // Matches finance/cash-flow's AccessRoute gate exactly (department-only,
@@ -136,7 +138,8 @@ export const departmentLinkCardData = [
         icon: ArrowsClockwiseIcon,
         path: "finance/cash-flow",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
+        roles: ["manager"],
       },
 
       {
