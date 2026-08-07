@@ -39,7 +39,7 @@ export default function LoginPage() {
 
   return (
     <>
-      <section className="sectionDark">
+      <section className="sectionDark loginBackground">
         <motion.div
           className="sectionWrapper loginCardWrapper"
           initial="hidden"

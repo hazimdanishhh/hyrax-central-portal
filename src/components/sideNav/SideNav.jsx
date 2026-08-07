@@ -76,7 +76,10 @@ export default function SideNav() {
         </div>
 
         <div className="sideNavButtons">
-          <LogoutButton navIsOpen={navIsOpen} style="button buttonType2" />
+          <LogoutButton
+            navIsOpen={navIsOpen}
+            style="button buttonType4 rejection"
+          />
         </div>
       </motion.div>
     </>

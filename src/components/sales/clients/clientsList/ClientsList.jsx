@@ -20,7 +20,7 @@ export default function ClientsList({
       <div className="clientsListContainer">
         <div className="clientsListHeader">
           {client.sap_bp_id && (
-            <StatusBox status={`SAP-BP-ID-${client.sap_bp_id}`} type="green" />
+            <StatusBox status={client.sap_bp_id} type="green" />
           )}
           <p className="textRegular textXS">{client.name}</p>
         </div>

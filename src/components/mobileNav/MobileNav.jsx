@@ -72,7 +72,10 @@ export default function MobileNav({ onClick, mobileNavIsOpen }) {
 
       <div className="mobileNavButtons">
         <ThemeButton name style="button buttonType2" />
-        <LogoutButton navIsOpen={navIsOpen} style="button buttonType2" />
+        <LogoutButton
+          navIsOpen={navIsOpen}
+          style="button buttonType4 rejection"
+        />
       </div>
     </motion.div>
   );
