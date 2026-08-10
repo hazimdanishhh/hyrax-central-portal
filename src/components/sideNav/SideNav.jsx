@@ -28,9 +28,7 @@ export default function SideNav() {
   return (
     <>
       <motion.div
-        className={`sideNav ${darkMode ? "sectionDark" : "sectionLight"} ${
-          !navIsOpen ? "close" : ""
-        }`}
+        className={`sideNav ${!navIsOpen ? "close" : ""}`}
         variants={navModalVariant}
         ref={navModalRef}
       >
