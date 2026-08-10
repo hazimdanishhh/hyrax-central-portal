@@ -66,6 +66,16 @@
       align-items: center;
       gap: 0.3rem;
     }
+
+    .attendanceDetails {
+      display: flex;
+      gap: 0.3rem;
+      flex-wrap: wrap;
+
+      @media screen and (max-width: 425px) {
+        justify-content: center;
+      }
+    }
   }
 }
 

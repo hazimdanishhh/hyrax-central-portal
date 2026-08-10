@@ -156,7 +156,7 @@ export default function CashFlow() {
                 <ChartCard
                   title="Cash Flow Statement"
                   subtitle={`${statement.periodStart} to ${statement.periodEnd} — General Ledger postings, indirect method`}
-                  style="cardGapSmall"
+                  style="cardGapSmall cardLayoutAlignStart"
                 >
                   <div
                     style={{

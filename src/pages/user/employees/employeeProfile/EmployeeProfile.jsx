@@ -23,23 +23,11 @@ export default function EmployeeProfile() {
   const { employeeId } = useParams();
   const { data: employee, isLoading, error } = useEmployeePublic(employeeId);
   const { employee: currentEmployee } = useEmployee();
-
-  function mapManager(employee) {
-    return {
-      id: employee.manager_id,
-      full_name: employee.manager_name,
-      employee_id: employee.manager_employee_id,
-      profile_id: employee.manager_profile_id,
-      preferred_name: employee.manager_preferred_name,
-      position: employee.manager_position,
-      phone_work: employee.manager_phone,
-      email_work: employee.manager_email,
-      address_work: employee.manager_address_work,
-      avatar_url: employee.manager_avatar_url,
-      department_name: employee.manager_department_name,
-      employment_status_name: employee.manager_employment_status_name,
-    };
-  }
+  const {
+    data: manager,
+    isLoading: managerLoading,
+    error: managerError,
+  } = useEmployeePublic(employee?.manager_id);
 
   return (
     <>
@@ -78,6 +66,10 @@ export default function EmployeeProfile() {
                         </div>
 
                         <div className="profileOverviewDetails">
+                          <StatusBadge
+                            status={employee.employment_status_name}
+                          />
+
                           <p className="textBold textM">
                             {employee.full_name || "No Name"}
                             <span className="textRegular textXS">
@@ -90,24 +82,24 @@ export default function EmployeeProfile() {
                           <p className="textLight textXXS">
                             {employee.position || "No Position Set"}
                           </p>
-                          <StatusBadge
-                            status={employee.employment_status_name}
-                          />
-                          <AttendanceType
-                            attendanceType={employee.current_status}
-                          />
-                          {employee.first_arrival_time && (
-                            <AttendanceClock
-                              time={employee.first_arrival_time}
-                              type="clockin"
+
+                          <div className="attendanceDetails">
+                            <AttendanceType
+                              attendanceType={employee.current_status}
                             />
-                          )}
-                          {employee.last_status_time && (
-                            <AttendanceClock
-                              time={employee.last_status_time}
-                              type="clockout"
-                            />
-                          )}
+                            {employee.first_arrival_time && (
+                              <AttendanceClock
+                                time={employee.first_arrival_time}
+                                type="clockin"
+                              />
+                            )}
+                            {employee.last_status_time && (
+                              <AttendanceClock
+                                time={employee.last_status_time}
+                                type="clockout"
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardSection>
@@ -181,7 +173,7 @@ export default function EmployeeProfile() {
                       </CardLayout>
                     </CardSection>
 
-                    {employee.manager_name && (
+                    {manager && (
                       <CardSection>
                         <SectionHeader
                           title={`${employee.preferred_name}'s Reporting Manager`}
@@ -192,7 +184,9 @@ export default function EmployeeProfile() {
                           onClick={() =>
                             navigate(`/app/employees/${employee.manager_id}`)
                           }
-                          employee={mapManager(employee)}
+                          employee={
+                            managerLoading || managerError ? null : manager
+                          }
                           isMyManager={
                             currentEmployee?.manager_id === employee?.manager_id
                           }
