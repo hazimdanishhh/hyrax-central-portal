@@ -1024,7 +1024,45 @@ select json_build_object(
             'quickRatio', case when current_liabilities > 0
                         then round((current_assets - gl_inventory_balance - gl_prepayment_balance) / current_liabilities, 2)
                         else null end,
-            'workingCapital', current_assets - current_liabilities
+            'workingCapital', current_assets - current_liabilities,
+            -- DIO (Finance Expansion Phase 4, added 2026-08) -- GL-derived,
+            -- not OITW-derived. OITW (SAP's per-warehouse item stock table)
+            -- is a quantity table only; its own cost fields (AvgPrice/
+            -- StockValue) only populate when Hyrax's SAP has "manage item
+            -- cost per warehouse" enabled, which is unconfirmed (would need a
+            -- live spike -- see ingestion/sap_erp/src/test/get_columns/
+            -- get_oitw_columns.py). gl_inventory_balance (GL account "2000
+            -- Inventories", already used above to exclude inventory from
+            -- quickRatio) gives a real, already-live monetary inventory
+            -- figure instead -- no new SAP extraction needed for this KPI.
+            -- Deliberately a POINT-IN-TIME simplification (today's Ending
+            -- Inventory balance, not a true period average, unlike dso/dpo's
+            -- average-balance identity above) -- there's no reliable "period
+            -- inventory additions" figure yet to derive a Beginning
+            -- Inventory the same way period_invoiced/period_collected derive
+            -- Beginning AR. Revisit if this proves materially wrong against
+            -- a real inventory review.
+            'dio', case when gl_period_cogs > 0
+                        then round(gl_inventory_balance / gl_period_cogs * v_days, 1)
+                        else 0 end,
+            -- Cash Conversion Cycle = DSO + DIO - DPO. Recomputes the dso/dpo
+            -- expressions inline rather than referencing the 'dso'/'dpo' keys
+            -- built earlier in this same json_build_object chain -- each
+            -- `::jsonb || json_build_object(...)` block above is an
+            -- independent call with no visibility into another block's
+            -- already-built JSON output, only into kpi_totals' raw columns
+            -- (which are in scope everywhere in this chain).
+            'cashConversionCycle', round(
+                (case when gl_period_cogs > 0
+                    then gl_inventory_balance / gl_period_cogs * v_days
+                    else 0 end)
+                + (case when period_invoiced > 0
+                    then ((greatest(outstanding_ar - period_invoiced + period_collected, 0) + outstanding_ar) / 2.0) / period_invoiced * v_days
+                    else 0 end)
+                - (case when period_billed > 0
+                    then ((greatest(outstanding_ap - period_billed + period_paid, 0) + outstanding_ap) / 2.0) / period_billed * v_days
+                    else 0 end)
+            , 1)
         )::jsonb)::json
         from kpi_totals
     ),

@@ -48,7 +48,11 @@ import { formatDateTime } from "../../../../functions/formatDate";
 // getStatusVariant's level to a plain color instead of its `variant`
 // class string (that string is a compound class meant for a full KPI
 // card, not a bare inline <span>).
-const LEVEL_COLOR = { good: GREEN_COLOR, warning: YELLOW_COLOR, critical: RED_COLOR };
+const LEVEL_COLOR = {
+  good: GREEN_COLOR,
+  warning: YELLOW_COLOR,
+  critical: RED_COLOR,
+};
 const colorFor = (value, options) =>
   options ? LEVEL_COLOR[getStatusVariant(value, options).level] : undefined;
 
@@ -445,8 +449,11 @@ export default function FinancialReports() {
                   <div className="pdfOverviewSection">
                     <div
                       style={{
+                        display: "flex",
+                        flexDirection: "column",
                         justifyContent: "start",
                         textAlign: "start",
+                        gap: "0.8rem",
                       }}
                     >
                       <div style={{ marginBottom: "1rem" }}>
@@ -501,7 +508,7 @@ export default function FinancialReports() {
                         </ChartCard>
 
                         <ChartCard
-                          title="P&L Trend"
+                          title="P&L Trend (By Period)"
                           subtitle="Revenue, COGS, OpEx & Net Profit by month (RM) — General Ledger postings"
                           style="cardGapSmall"
                         >
@@ -535,41 +542,11 @@ export default function FinancialReports() {
                             colorMap={RED_COLOR}
                           />
                         </ChartCard>
+                      </CardLayout>
 
+                      <CardLayout style="cardLayout1">
                         <ChartCard
-                          title="P&L YoY Trend"
-                          subtitle="Revenue, COGS, OpEx & Net Profit by fiscal year (RM) — General Ledger postings, not affected by date filter"
-                          style="cardGapSmall"
-                        >
-                          <VerticalMultiBarRenderer
-                            data={plYoyTrendData}
-                            bars={[
-                              {
-                                dataKey: "Revenue (GL, RM)",
-                                name: "Revenue (GL, RM)",
-                                color: BLUE_COLOR,
-                              },
-                              {
-                                dataKey: "COGS (GL, RM)",
-                                name: "COGS (GL, RM)",
-                                color: RED_COLOR,
-                              },
-                              {
-                                dataKey: "OpEx (GL, RM)",
-                                name: "OpEx (GL, RM)",
-                                color: YELLOW_COLOR,
-                              },
-                              {
-                                dataKey: "Net Profit (GL, RM)",
-                                name: "Net Profit (GL, RM)",
-                                color: GREEN_COLOR,
-                              },
-                            ]}
-                          />
-                        </ChartCard>
-
-                        <ChartCard
-                          title="P&L YoY Trend Line"
+                          title="P&L Trend (YoY)"
                           subtitle="Revenue, COGS, OpEx & Net Profit by month (RM) — General Ledger postings"
                           style="cardGapSmall"
                         >
@@ -640,8 +617,8 @@ export default function FinancialReports() {
                             />
                           ) : (
                             <p className="textXS textLight textCenter">
-                              Select a date range to see the cash flow
-                              statement for that period.
+                              Select a date range to see the cash flow statement
+                              for that period.
                             </p>
                           )}
                         </ChartCard>
@@ -680,8 +657,8 @@ export default function FinancialReports() {
                               </div>
                               <div className="textXS">
                                 <span className="textLight">
-                                  Effect of exchange rate changes (vs. G/L
-                                  cash balance):{" "}
+                                  Effect of exchange rate changes (vs. G/L cash
+                                  balance):{" "}
                                 </span>
                                 <span
                                   className="textBold"
@@ -720,15 +697,15 @@ export default function FinancialReports() {
                                 Hyrax holds foreign-currency cash and loan
                                 accounts (USD/LKR) that SAP revalues at
                                 period-end — a real, non-cash effect on the
-                                reported balance, the same "Effect of
-                                exchange rate changes on cash" line a
-                                standard cash flow statement carries. These
-                                two figures should be close to each other and
-                                roughly the size of plausible FX movement for
-                                the period — if they diverge sharply from
-                                each other, or dwarf that, that's still the
-                                signal to revisit account classification —
-                                see get_finance_dashboard_rpc.sql's Cash Flow
+                                reported balance, the same "Effect of exchange
+                                rate changes on cash" line a standard cash flow
+                                statement carries. These two figures should be
+                                close to each other and roughly the size of
+                                plausible FX movement for the period — if they
+                                diverge sharply from each other, or dwarf that,
+                                that's still the signal to revisit account
+                                classification — see
+                                get_finance_dashboard_rpc.sql's Cash Flow
                                 Statement comments.
                               </p>
                             </div>

@@ -161,9 +161,15 @@ export function getFinanceOverviewConfig(
     direction: "low-good",
     thresholds: { warningAt: 10, criticalAt: 25 },
   });
-  // DSO only -- DPO's polarity is genuinely ambiguous (slower payment helps
-  // cash, hurts vendor relations), stays a plain uncolored sub-metric.
-  const cashCycleStatus = getStatusVariant(kpis.dso, {
+  // Full Cash Conversion Cycle (Finance Expansion Phase 4, added 2026-08) --
+  // DIO/DPO's polarity is genuinely ambiguous on their own (more inventory
+  // or slower payment can help cash but hurt fulfillment/vendor relations),
+  // so only the combined CCC gets colored; DIO/DPO stay plain uncolored
+  // sub-metrics. Thresholds below are carried over unchanged from the old
+  // DSO-only tile (46/61 days) -- a best-effort placeholder, not
+  // re-calibrated for the wider CCC figure, which typically runs longer
+  // once DIO is added. Flagged for a finance gut-check, not blocking.
+  const cashCycleStatus = getStatusVariant(kpis.cashConversionCycle, {
     direction: "low-good",
     thresholds: { warningAt: 46, criticalAt: 61 },
   });
@@ -409,14 +415,19 @@ export function getFinanceOverviewConfig(
       title: `Open invoices past their due date, as of today — ${formatRM(kpis.overdueValue)}`,
     },
 
-    // TILE 7: Cash Cycle (Is cash locked up in AR/AP?) -- new, synthesized
-    // from the dso/dpo fields, previously buried as sub-metrics on two
-    // different (now-demoted) tiles.
+    // TILE 7: Cash Cycle (Is cash locked up in AR/inventory/AP?) -- full
+    // Cash Conversion Cycle (Finance Expansion Phase 4, added 2026-08):
+    // DSO + DIO − DPO. DIO is GL-derived (gl_inventory_balance /
+    // gl_period_cogs in the RPC), not from SAP's OITW table -- OITW is a
+    // per-warehouse quantity table only, its own cost fields don't reliably
+    // populate, and the GL already has a real monetary inventory figure
+    // that's already live since Phase 2. See get_finance_dashboard_rpc.sql's
+    // 'dio'/'cashConversionCycle' comments for the full derivation.
     {
       icon: ArrowsClockwiseIcon,
       label: "Cash Cycle",
-      sublabel: "Avg. Days to Collect vs. Pay (Not based on period)",
-      value: `${kpis.dso || 0} Days`,
+      sublabel: "Cash Conversion Cycle: DSO + DIO − DPO (Not based on period)",
+      value: `${kpis.cashConversionCycle || 0} Days`,
       variant: cashCycleStatus.variant,
       status: {
         icon: cashCycleStatus.statusIcon,
@@ -426,12 +437,17 @@ export function getFinanceOverviewConfig(
       filter: null,
       metrics: [
         {
+          label: "DIO",
+          value: `${kpis.dio || 0} Days`,
+          icon: ClockIcon,
+        },
+        {
           label: "DPO",
           value: `${kpis.dpo || 0} Days`,
           icon: ClockIcon,
         },
       ],
-      title: `Days Sales Outstanding (DSO, from the AR/Invoice subledger balance) and Days Payable Outstanding (DPO, from the AP/Bill subledger balance) — the two legs of the Cash Conversion Cycle that are built. Full Cash Conversion Cycle (DSO + DIO − DPO) isn't available yet: Days Inventory Outstanding needs per-warehouse inventory valuation (Finance Expansion Phase 3, not started).${dsoCaveat} DSO: ${kpis.dso || 0} days, DPO: ${kpis.dpo || 0} days`,
+      title: `Cash Conversion Cycle = Days Sales Outstanding (DSO, from the AR/Invoice subledger balance) + Days Inventory Outstanding (DIO, from the General Ledger's "2000 Inventories" balance) − Days Payable Outstanding (DPO, from the AP/Bill subledger balance).${dsoCaveat} DIO is also a point-in-time balance, same caveat. DSO: ${kpis.dso || 0} days, DIO: ${kpis.dio || 0} days, DPO: ${kpis.dpo || 0} days, CCC: ${kpis.cashConversionCycle || 0} days`,
     },
 
     // TILE 8: Working Capital (Can we cover what we owe soon?) -- absorbs
