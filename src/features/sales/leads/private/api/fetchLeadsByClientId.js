@@ -13,7 +13,6 @@ export async function fetchLeadsByClientId(clientId) {
       `
       *,
       client:client_id(*),
-      client_contact:client_contact_id(*),
       lead_owner:employees_public!lead_owner_id(*),
       lead_source_type:lead_source_type_id(*)
     `,

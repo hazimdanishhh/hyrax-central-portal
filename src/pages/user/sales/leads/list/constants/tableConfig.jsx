@@ -1,8 +1,4 @@
 import { searchClients } from "../../../../../../features/sales/clients/private/api/clientSearch";
-import {
-  getContactById,
-  searchContacts,
-} from "../../../../../../features/sales/contacts/private/api/contactSearch";
 
 // key = actual database field name
 // label = UI name
@@ -15,7 +11,6 @@ export const leadsTableConfig = ({
   employee,
   owners,
   clients,
-  clientContacts,
   leadSourceTypes,
   loseReasons,
 }) => [
@@ -74,45 +69,6 @@ export const leadsTableConfig = ({
     loadOptions: searchClients,
     required: true,
     isClearable: false,
-    clears: ["client_contact_id"],
-  },
-  {
-    key: "client_contact_id",
-    label: "Contact",
-
-    getValue: (lead) =>
-      lead.client_contact
-        ? {
-            value: lead.client_contact.id,
-            label: lead.client_contact.full_name,
-          }
-        : null,
-
-    displayValue: (lead) => lead.client_contact?.full_name,
-
-    editable: true,
-
-    editor: "asyncSelect",
-
-    loadOptions: (search, formData) => {
-      const clientId =
-        typeof formData.client_id === "object"
-          ? formData.client_id?.value
-          : formData.client_id;
-
-      return searchContacts(search, clientId);
-    },
-
-    getOptionByValue: getContactById,
-
-    getDisplayValue: async (value) => {
-      const option = await getContactById(value);
-      return option?.label || value;
-    },
-
-    isClearable: false,
-    cacheOptions: false,
-    dependsOn: ["client_id"],
   },
   {
     key: "lead_owner_id",

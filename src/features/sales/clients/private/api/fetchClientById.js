@@ -12,7 +12,8 @@ export async function fetchClientById(id) {
     .select(
       `
       *,
-      industry:industry_id(*)
+      industry:industry_id(*),
+      sap_customer:sap_customers!sap_customer_code(customer_code, customer_name, city, contact_person, phone)
     `,
     )
     .eq("id", id)

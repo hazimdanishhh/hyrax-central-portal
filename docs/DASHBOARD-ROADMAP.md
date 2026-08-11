@@ -76,13 +76,23 @@ The dormant `sales_attainment_snapshots` table is the natural place to lock peri
 
 `sales_leads.po_number` (unique) maps to `sap_sales_orders.customer_ref` (SAP NumAtCard). This bridge converts a rep's manually-typed WON `actual_revenue` into SAP-validated actuals. The dormant `sales_orders` bridge table (`sap_so_id`, `sales_lead_id`, `sales_quotation_id`) exists for exactly this, currently unused.
 
-### 1.4 Sales Leads architecture — two paths (decision deferred)
+### 1.4 Sales Leads architecture — resolved 2026-08 (hybrid of Path A/B)
 
-**Path A — Evolve + bridge (lower risk, incremental, recommended to start here).** Keep Supabase `sales_leads` as pipeline system-of-record; add the bridges above. CRM stays authoritative for pipeline, SAP for realized revenue.
+Previously framed as two paths with the decision deferred — reproduced below for history, then the actual resolution.
 
-**Path B — Re-platform on SAP (cleaner long-term, larger rebuild).** Key leads off `sap_customers`/`sap_sales_persons` directly, deprecating the manual `clients` upload.
+**Path A — Evolve + bridge.** Keep Supabase `sales_leads` as pipeline system-of-record; add the bridges above. CRM stays authoritative for pipeline, SAP for realized revenue.
 
-Start on Path A; revisit Path B only if dual-identity reconciliation (`clients.sap_bp_id` ↔ `sap_customers.customer_code`) becomes a real pain. User's call.
+**Path B — Re-platform on SAP.** Key leads off `sap_customers`/`sap_sales_persons` directly, deprecating the manual `clients` upload.
+
+**Resolution: neither path alone — the dual-identity reconciliation problem this decision was gated on (`clients.sap_bp_id` ↔ `sap_customers.customer_code`) did become a real pain, confirmed with live data** — a SAP export sitting in `hyrax-data-platform` confirms `sap_customers.customer_name` is not unique (one company spans 70+ `customer_code`s, branch-driven), and `sap_bp_id` was a free-typed text field with no FK, no validation, no lookup at all. Full re-platforming (pure Path B) was rejected: requiring every lead to already have an SAP customer code would mean salespeople couldn't log a lead until it's nearly a closed deal, since SAP customer records are typically only created once a transaction is imminent — that breaks the CRM's actual purpose (tracking pipeline *before* a transaction exists) and contradicts why this CRM exists in the first place (`CLAUDE.md`: "SAP has no leads workflow, so this is the permanent system of record for that process").
+
+**What was actually built:** `clients` stays the pipeline-side entity (Path A's shape), but the bridge itself is fixed to Path B's rigor:
+- `clients.sap_bp_id` renamed to `sap_customer_code`, given a real `FOREIGN KEY REFERENCES sap_customers(customer_code)` (see `hyrax-data-platform/infrastructure/clients_sap_customer_link_migration.sql`), and can only be set via a disambiguated search-and-pick UI (`sapCustomerSearch.js` + a custom `formatOptionLabel` showing `customer_code — customer_name`, then `city · contact_person · phone`) — never free text, never a name-only guess.
+- A client with `sap_customer_code IS NULL` is an explicit, first-class **Prospect** state (not an error/blank) — a genuine lead with no SAP relationship yet. A client with it set is **Linked**.
+- **Once Linked, SAP becomes authoritative for display** — name/phone/contact/city are read live from the joined `sap_customers` row everywhere in the UI (`ClientSidebar.jsx`, `ClientsList.jsx`), not the native `clients` columns, so there's no second copy left to go stale.
+- `client_contacts` (Contacts) was retired entirely in the same pass — see §6 decision #7 below.
+
+This resolves the "dual-identity" pain at the *link* level (validated, disambiguated, never by name) without sacrificing the Prospect state the CRM needs to function.
 
 ## 2. Per-department Reports pages — what to build
 
@@ -186,10 +196,10 @@ There were actually **two** structurally distinct "salesperson revenue" disagree
 
 ## 6. Open decisions — the user's calls, not derivable from best practice
 
-1. Sales Leads architecture — Path A vs Path B (§1.4). Recommended: start on A, revisit B only if pain emerges.
+1. ~~Sales Leads architecture — Path A vs Path B (§1.4).~~ **Resolved 2026-08** — hybrid: `clients` stays the pipeline-side entity (Path A), the SAP bridge is fixed to Path B's rigor (validated FK + disambiguated search, SAP-authoritative once linked). See §1.4 for the full writeup.
 2. Canonical revenue definition for the invoice-budget scorecard and for compensation — order-booked vs. invoiced vs. collected; CRM self-reported vs. SAP-recognized. Finance/business-policy call.
 3. Production: pursue SAP OWOR extraction vs. wait for the Plant IoT pipeline (§2.4) — answer via the scoping spike on Hyrax's live SAP data.
 4. HR dashboarding timing — held until the HR2000-integration direction is decided (§2.6).
 5. Whether Recruitment/Performance/Claims/Software Management data models are worth building at all right now, vs. deferring indefinitely.
 6. Whether existing license-visibility tools (ManageEngine, vendor portals) already cover what a bespoke Software Management schema would provide.
-7. Whether Contacts warrants a standalone cross-client directory vs. staying embedded-per-client only.
+7. ~~Whether Contacts warrants a standalone cross-client directory vs. staying embedded-per-client only.~~ **Resolved 2026-08** — retired entirely. SAP's own contacts table (OCPR) was confirmed never extracted and won't be; the CRM's `client_contacts` solved a different problem (who to call) than customer identity, and the user chose to drop the scope (Leads' pipeline should stay simple) rather than maintain it. `client_contacts` table, `sales_leads.client_contact_id`, the Contacts tab/page/route, and all related services were removed in the same pass as decision #1.

@@ -13,6 +13,12 @@ const AsyncSelectEditor = forwardRef(
       cacheOptions = true,
       name,
       onBlur,
+      // Optional (col.formatOptionLabel) -- react-select's own prop,
+      // threaded straight through by DataForm. Lets a picker show more than
+      // a plain label per option (e.g. code + city + contact, for
+      // disambiguating same-named SAP customers) without needing a
+      // different editor entirely.
+      formatOptionLabel,
     },
     ref, // <-- ref is passed as the second argument inside the forwardRef callback
   ) => {
@@ -32,6 +38,7 @@ const AsyncSelectEditor = forwardRef(
         value={value}
         onChange={onChange}
         isDisabled={readOnly}
+        formatOptionLabel={formatOptionLabel}
       />
     );
   },

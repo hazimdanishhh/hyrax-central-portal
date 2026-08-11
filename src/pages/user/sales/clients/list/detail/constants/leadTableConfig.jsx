@@ -5,12 +5,7 @@
 // options = for option input
 // editable = boolean
 
-export const leadTableConfig = ({
-  employee,
-  owners,
-  contacts,
-  leadSourceTypes,
-}) => [
+export const leadTableConfig = ({ employee, owners, leadSourceTypes }) => [
   {
     key: "id",
     label: "ID",
@@ -33,20 +28,6 @@ export const leadTableConfig = ({
     getValue: "description",
     editable: true,
     editor: "textarea",
-  },
-  {
-    key: "client_contact_id",
-    label: "Contact",
-    getValue: (lead) => lead.contact?.id,
-    displayValue: (lead) => lead.contact?.full_name,
-    editable: true,
-    editor: "select",
-    options: (contacts || []).map((s) => ({
-      label: s.full_name,
-      value: s.id,
-    })),
-    required: true,
-    isClearable: false,
   },
   {
     key: "lead_owner_id",

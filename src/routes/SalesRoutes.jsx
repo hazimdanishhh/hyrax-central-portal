@@ -8,7 +8,6 @@ import LeadsOverview from "../pages/user/sales/leads/overview/LeadsOverview";
 import ClientsPageLayout from "../pages/user/sales/clients/ClientsPageLayout";
 import ClientsOverview from "../pages/user/sales/clients/overview/ClientsOverview";
 import ClientsManagement from "../pages/user/sales/clients/list/ClientsManagement";
-import ContactsManagement from "../pages/user/sales/clients/contacts/ContactsManagement";
 import Orders from "../pages/user/sales/orders/Orders";
 import OrdersPageLayout from "../pages/user/sales/orders/OrdersPageLayout";
 import SalesBudgetsManagement from "../pages/user/sales/orders/budgets/SalesBudgetsManagement";
@@ -57,17 +56,6 @@ export default (
         }
       >
         <Route path=":clientId" element={null} />
-      </Route>
-
-      <Route
-        path="contacts"
-        element={
-          <AccessRoute departments={["SAL"]}>
-            <ContactsManagement />
-          </AccessRoute>
-        }
-      >
-        <Route path=":contactId" element={null} />
       </Route>
     </Route>
 

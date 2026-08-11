@@ -176,6 +176,7 @@ function DataForm({
                         step={col.step}
                         isClearable={col.isClearable}
                         cacheOptions={col.cacheOptions}
+                        formatOptionLabel={col.formatOptionLabel}
                       />
                     )}
                   />

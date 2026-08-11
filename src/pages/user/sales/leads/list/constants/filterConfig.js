@@ -6,7 +6,6 @@ import {
 export function getFilterConfig({
   owners,
   clients,
-  clientContacts,
   leadSourceTypes,
   loseReasons,
 }) {
@@ -32,11 +31,6 @@ export function getFilterConfig({
         return option?.label || value;
       },
     },
-    // {
-    //   key: "clientContact",
-    //   label: "Client Contact",
-    //   options: clientContacts.map((s) => ({ label: s.full_name, value: s.id })),
-    // },
     {
       key: "leadSourceType",
       label: "Lead Source Type",

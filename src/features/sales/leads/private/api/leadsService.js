@@ -30,7 +30,6 @@ export async function fetchLeads({
       `
       *,
       client:client_id(*),
-      client_contact:client_contact_id(*),
       lead_owner:employees_public!lead_owner_id(*),
       lead_source_type:lead_source_type_id(*),
       lose_reason:lose_reason_id(*)
@@ -103,7 +102,6 @@ export async function fetchLeads({
 
     const map = {
       client: "client_id",
-      clientContact: "client_contact_id",
       owner: "lead_owner_id",
       stage: "stage",
       onHold: "is_on_hold",

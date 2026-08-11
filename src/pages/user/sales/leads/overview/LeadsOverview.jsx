@@ -163,7 +163,6 @@ export default function LeadsOverview() {
   const {
     owners,
     clients,
-    clientContacts,
     leadSourceTypes,
     isLoading: metadataLoading,
     isFetching: metadataFetching,
@@ -176,7 +175,6 @@ export default function LeadsOverview() {
   const filterConfig = getFilterConfig({
     owners,
     clients,
-    clientContacts,
     leadSourceTypes,
   });
 

@@ -9,6 +9,13 @@
 -- logic -- kept as a separate, additive object so the already-working RPC
 -- doesn't take on a new dependency. Mutations continue writing to the base
 -- sales_leads table directly; only List reads switch to this view.
+--
+-- Note (2026-08): this exact SQL is also inlined into
+-- hyrax-data-platform/infrastructure/clients_sap_customer_link_migration.sql,
+-- which had to DROP and recreate this view to remove sales_leads.
+-- client_contact_id (a `select sl.*` view pins a dependency on every column
+-- sl.* expanded to at CREATE time, including columns never named
+-- explicitly). If this view's query ever changes, update both copies.
 create or replace view public.sales_leads_with_closed_date as
 select
     sl.*,

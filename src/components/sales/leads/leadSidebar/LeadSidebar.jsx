@@ -22,7 +22,6 @@ import {
   PencilSimpleSlashIcon,
   PlayCircleIcon,
   TextTIcon,
-  UserCircleIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../cardLayout/CardLayout";
@@ -112,12 +111,6 @@ export default function LeadSidebar({
           <IconCard
             name={selectedRow.client?.name}
             icon={BriefcaseIcon}
-            style="textLight textXS"
-          />
-
-          <IconCard
-            name={selectedRow.client_contact?.full_name}
-            icon={UserCircleIcon}
             style="textLight textXS"
           />
 

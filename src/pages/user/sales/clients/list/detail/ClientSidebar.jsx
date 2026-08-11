@@ -5,28 +5,23 @@ import {
   PencilSimpleSlashIcon,
   PlusIcon,
   ReceiptIcon,
-  UsersIcon,
 } from "@phosphor-icons/react";
 import Button from "../../../../../../components/buttons/button/Button";
 import "./ClientSidebar.scss";
 import StatusBox from "../../../../../../components/status/statusBox/StatusBox";
-import { useContacts } from "../../../../../../features/sales/contacts/private/hooks/useContacts";
 import LoadingIcon from "../../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../../components/crud/noResult/NoResult";
 import CardLayout from "../../../../../../components/cardLayout/CardLayout";
-import ContactsList from "../../../../../../components/sales/contacts/contactsList/ContactsList";
 import { useState } from "react";
 import Breadcrumbs from "../../../../../../components/breadcrumbs/Breadcrumbs";
 import PageHeader from "../../../../../../components/crud/pageHeader/PageHeader";
 import { useNavigate } from "react-router";
 import DataForm from "../../../../../../components/crud/dataForm/DataForm";
-import useContactMutations from "../../../../../../features/sales/contacts/private/hooks/useContactMutations";
 import { useLeads } from "../../../../../../features/sales/leads/private/hooks/useLeads";
 import useLeadMutations from "../../../../../../features/sales/leads/private/hooks/useLeadMutations";
 import { useLeadsMetadata } from "../../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
 import { useEmployee } from "../../../../../../context/EmployeeContext";
 import LeadsList from "../../../../../../components/sales/leads/leadsList/LeadsList";
-import { contactTableConfig } from "./constants/contactTableConfig";
 import { leadTableConfig } from "./constants/leadTableConfig";
 import DataTable from "../../../../../../components/dataTable/DataTable";
 import { useClientSalesOrders } from "../../../../../../features/sales/orders/private/hooks/useClientSalesOrders";
@@ -40,31 +35,23 @@ export default function ClientSidebar({
   setIsEditing,
 }) {
   const navigate = useNavigate();
-  const [isAddingContact, setIsAddingContact] = useState(false);
   const [isAddingLead, setIsAddingLead] = useState(false);
   const [isEditingLead, setIsEditingLead] = useState(false);
-  const [tab, setTab] = useState("contacts");
+  const [tab, setTab] = useState("leads");
   const { employee } = useEmployee();
 
-  // ==============
-  // CONTACTS
-  // ==============
-  const {
-    data: contacts,
-    isLoading: contactsLoading,
-    error: contactsError,
-  } = useContacts(selectedRow?.id); // Fetch
-  const { createContact, creating: creatingContact } = useContactMutations(); // Mutations
-  const contactColumns = contactTableConfig(); // Table Config
-  // Add Contact Handler
-  const handleAddContact = async (formData) => {
-    await createContact({
-      ...formData,
-      client_id: selectedRow.id,
-    });
-
-    setIsAddingContact(false);
-  };
+  // Client identity (2026-08): once linked to a real SAP customer, SAP's
+  // data is authoritative for display -- name/phone/contact/city read from
+  // the joined sap_customer relation (see clientsService.js/fetchClientById.js),
+  // never the native clients.name/address, so there's no second copy left
+  // to go stale. A client with no sap_customer_code is a genuine Prospect
+  // (no SAP relationship yet), not an error state -- see
+  // hyrax-central-portal/docs/DASHBOARD-ROADMAP.md §1.4 for the full
+  // decision this implements.
+  const isLinked = Boolean(selectedRow.sap_customer_code);
+  const displayName = isLinked
+    ? selectedRow.sap_customer?.customer_name
+    : selectedRow.name;
 
   // ==============
   // LEADS
@@ -76,8 +63,6 @@ export default function ClientSidebar({
   } = useLeads(selectedRow?.id);
   const {
     owners,
-    clients,
-    clientContacts,
     leadSourceTypes,
     isLoading: leadsMetadataLoading,
     isFetching: leadsMetadataFetching,
@@ -87,7 +72,6 @@ export default function ClientSidebar({
   const leadColumns = leadTableConfig({
     employee,
     owners,
-    contacts,
     leadSourceTypes,
   }); // Table Config
   // Add Handler
@@ -107,7 +91,7 @@ export default function ClientSidebar({
     data: ordersResult,
     isLoading: ordersLoading,
     error: ordersError,
-  } = useClientSalesOrders(selectedRow?.sap_bp_id);
+  } = useClientSalesOrders(selectedRow?.sap_customer_code);
   const orders = ordersResult?.data ?? [];
   const orderColumns = salesOrdersTableConfig();
 
@@ -132,34 +116,47 @@ export default function ClientSidebar({
             size={16}
           />
         )}
-        <p className="textBold">{selectedRow.name}</p>
+        <p className="textBold">{displayName}</p>
 
         <div className="clientSidebarDetailsContainer">
-          {selectedRow.sap_bp_id && (
+          {isLinked ? (
             <StatusBox
-              status={`SAP-BP-ID-${selectedRow.sap_bp_id}`}
+              status={`Linked — SAP ${selectedRow.sap_customer_code}`}
               type="green"
             />
+          ) : (
+            <StatusBox status="Prospect — not yet an SAP customer" type="grey" />
           )}
           {selectedRow.industry_id && (
             <StatusBox status={selectedRow.industry?.name} type="blue" />
           )}
         </div>
         <div className="generalCard cardPaddingSmall">
-          <span className="textBold textXS">Address: </span>
-          <p className="textRegular textXS">{selectedRow.address}</p>
+          {isLinked ? (
+            <>
+              <span className="textBold textXS">Contact: </span>
+              <p className="textRegular textXS">
+                {[
+                  selectedRow.sap_customer?.contact_person,
+                  selectedRow.sap_customer?.phone,
+                  selectedRow.sap_customer?.city,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "—"}
+              </p>
+            </>
+          ) : (
+            <>
+              <span className="textBold textXS">Address: </span>
+              <p className="textRegular textXS">{selectedRow.address}</p>
+            </>
+          )}
         </div>
       </CardLayout>
 
       <CardLayout>
         {/* TABS */}
         <div className="pageTabContainer">
-          <Button
-            icon2={UsersIcon}
-            onClick={() => setTab("contacts")}
-            name="Contacts"
-            style={`button buttonTypeTab ${tab === "contacts" && "active"}`}
-          />
           <Button
             icon2={HandshakeIcon}
             onClick={() => setTab("leads")}
@@ -172,57 +169,6 @@ export default function ClientSidebar({
             style={`button buttonTypeTab ${tab === "orders" && "active"}`}
           />
         </div>
-
-        {/* CONTACTS TAB */}
-        {tab === "contacts" && (
-          <CardLayout style="generalCard cardPaddingSmall">
-            <PageHeader>
-              <Breadcrumbs icon={UsersIcon} current="Contacts" />
-              {/* ADD BUTTON */}
-              <Button
-                icon={PlusIcon}
-                name="Add Contact"
-                style="button buttonType5 approval textXS"
-                size={16}
-                onClick={() => setIsAddingContact(true)}
-                disabled={isAddingContact}
-              />
-            </PageHeader>
-
-            {/* INLINE ADD FORM */}
-            {isAddingContact && (
-              <DataForm
-                columns={contactColumns}
-                rowData={{}}
-                onSave={handleAddContact}
-                onCancel={() => setIsAddingContact(false)}
-                saving={creatingContact}
-                creating
-                inlineForm
-                title="Add Contact"
-              />
-            )}
-
-            <CardLayout style="cardWrapperScroll generalCard">
-              {contactsLoading ? (
-                <CardLayout style="cardLayoutFlexFull">
-                  <LoadingIcon />
-                </CardLayout>
-              ) : contactsError ? (
-                <NoResult title="Error loading results" />
-              ) : contacts?.length === 0 ? (
-                <NoResult />
-              ) : (
-                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
-                  {/* CONTACTS LIST */}
-                  {contacts?.map((contact) => (
-                    <ContactsList contact={contact} key={contact.id} />
-                  ))}
-                </CardLayout>
-              )}
-            </CardLayout>
-          </CardLayout>
-        )}
 
         {/* LEADS TAB */}
         {tab === "leads" && (
@@ -276,7 +222,6 @@ export default function ClientSidebar({
                 <NoResult />
               ) : (
                 <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
-                  {/* CONTACTS LIST */}
                   {leads?.map((lead) => (
                     <LeadsList
                       key={lead.id}
@@ -293,10 +238,11 @@ export default function ClientSidebar({
           </CardLayout>
         )}
 
-        {/* ORDERS TAB -- fixed 2026-08 (previously rendered LeadsManagement,
-            a copy-paste leftover). Read-only sap_sales_orders, filtered by
-            this client's sap_bp_id -> sap_sales_orders.customer_code, same
-            bridge Orders.jsx's own Customer filter uses. */}
+        {/* ORDERS TAB -- read-only sap_sales_orders, filtered by this
+            client's sap_customer_code -> sap_sales_orders.customer_code,
+            same bridge Orders.jsx's own Customer filter uses. Only ever
+            populated for Linked clients -- a Prospect has no SAP customer
+            code, so there's nothing to filter by yet. */}
         {tab === "orders" && (
           <CardLayout style="generalCard cardPaddingSmall">
             <PageHeader>
@@ -309,16 +255,16 @@ export default function ClientSidebar({
                 size={16}
                 onClick={() =>
                   navigate(
-                    `/app/sales/orders/all?customerCode=${selectedRow.sap_bp_id}`,
+                    `/app/sales/orders/all?customerCode=${selectedRow.sap_customer_code}`,
                   )
                 }
-                disabled={!selectedRow.sap_bp_id}
+                disabled={!isLinked}
               />
             </PageHeader>
 
             <CardLayout style="cardWrapperScroll generalCard">
-              {!selectedRow.sap_bp_id ? (
-                <NoResult title="No SAP Business Partner ID linked to this client yet" />
+              {!isLinked ? (
+                <NoResult title="Prospect — not yet linked to an SAP customer" />
               ) : ordersLoading ? (
                 <CardLayout style="cardLayoutFlexFull">
                   <LoadingIcon />

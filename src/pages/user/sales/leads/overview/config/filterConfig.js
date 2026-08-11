@@ -3,12 +3,7 @@ import {
   searchClients,
 } from "../../../../../../features/sales/clients/private/api/clientSearch";
 
-export function getFilterConfig({
-  owners,
-  clients,
-  clientContacts,
-  leadSourceTypes,
-}) {
+export function getFilterConfig({ owners, clients, leadSourceTypes }) {
   return [
     {
       key: "owner",

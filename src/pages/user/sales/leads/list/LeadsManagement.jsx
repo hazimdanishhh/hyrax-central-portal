@@ -133,7 +133,6 @@ export default function LeadsManagement() {
   const {
     owners,
     clients,
-    clientContacts,
     leadSourceTypes,
     loseReasons,
     isLoading: metadataLoading,
@@ -176,7 +175,6 @@ export default function LeadsManagement() {
     employee,
     owners,
     clients,
-    clientContacts,
     leadSourceTypes,
     loseReasons,
   });
@@ -187,7 +185,6 @@ export default function LeadsManagement() {
   const filterConfig = getFilterConfig({
     owners,
     clients,
-    clientContacts,
     leadSourceTypes,
     loseReasons,
   });
