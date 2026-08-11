@@ -12,6 +12,7 @@ export async function fetchLeadsDashboard({ filters }) {
   const rpcParams = {
     p_owner_id: null,
     p_client_id: null,
+    p_sap_customer_code: null,
     p_source_id: null,
     p_stage: null,
     p_start_date: null,
@@ -31,6 +32,10 @@ export async function fetchLeadsDashboard({ filters }) {
 
       case "client":
         rpcParams.p_client_id = value === FILTER_NULL ? null : value;
+        break;
+
+      case "sapCustomer":
+        rpcParams.p_sap_customer_code = value === FILTER_NULL ? null : value;
         break;
 
       case "leadSourceType":

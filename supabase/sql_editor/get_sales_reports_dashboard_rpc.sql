@@ -39,9 +39,18 @@ with closing_dates as (
 base_leads as (
     select
         sl.*,
-        coalesce(cd.closed_date, case when sl.stage in ('WON', 'LOST') or sl.is_cancelled then sl.updated_at else null end) as closed_date
+        coalesce(cd.closed_date, case when sl.stage in ('WON', 'LOST') or sl.is_cancelled then sl.updated_at else null end) as closed_date,
+        -- Account identity (2026-08): a lead references exactly one of a
+        -- real SAP customer (sap_customer_code) or a native Prospect
+        -- (client_id), never both -- see
+        -- sales_leads_sap_customer_link_migration.sql. Computed once here so
+        -- topClientsData below can treat both cases uniformly.
+        coalesce(sl.client_id::text, sl.sap_customer_code) as account_key,
+        coalesce(c.name, sc.customer_name) as account_name
     from sales_leads sl
     left join closing_dates cd on cd.lead_id = sl.id
+    left join clients c on c.id = sl.client_id
+    left join sap_customers sc on sc.customer_code = sl.sap_customer_code
     where (p_owner_id is null or sl.lead_owner_id = p_owner_id)
       and (p_product_type is null or sl.product_type = p_product_type)
 ),
@@ -739,19 +748,22 @@ select json_build_object(
     ),
 
     'topClientsData', (
+        -- Blends both account kinds via base_leads.account_name/account_key
+        -- (see the CTE above) -- previously an inner `join clients` silently
+        -- dropped every SAP-referenced lead (client_id is null) from this
+        -- chart entirely once that became possible (2026-08).
         select coalesce(json_agg(x), '[]'::json)
         from (
             select
-                c.name,
+                fl.account_name as name,
                 coalesce(sum(fl.actual_revenue) filter (
                     where fl.stage = 'WON'
                     and (p_start_date is null or fl.closed_date >= p_start_date)
                     and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
                 ), 0) as won_revenue
             from base_leads fl
-            join clients c on c.id = fl.client_id
             where not fl.is_cancelled
-            group by c.name
+            group by fl.account_key, fl.account_name
             order by won_revenue desc
             limit 10
         ) x

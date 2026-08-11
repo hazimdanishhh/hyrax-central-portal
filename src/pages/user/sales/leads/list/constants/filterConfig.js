@@ -2,6 +2,10 @@ import {
   getClientById,
   searchClients,
 } from "../../../../../../features/sales/clients/private/api/clientSearch";
+import {
+  getSapCustomerByCode,
+  searchSapCustomersForLinking,
+} from "../../../../../../features/sales/clients/private/api/sapCustomerSearch";
 
 export function getFilterConfig({
   owners,
@@ -22,12 +26,23 @@ export function getFilterConfig({
     // },
     {
       key: "client",
-      label: "Client",
+      label: "Client (Prospect)",
       editor: "asyncSelect",
       loadOptions: searchClients,
       getOptionByValue: getClientById,
       getDisplayValue: async (value) => {
         const option = await getClientById(value);
+        return option?.label || value;
+      },
+    },
+    {
+      key: "sapCustomer",
+      label: "SAP Customer",
+      editor: "asyncSelect",
+      loadOptions: searchSapCustomersForLinking,
+      getOptionByValue: getSapCustomerByCode,
+      getDisplayValue: async (value) => {
+        const option = await getSapCustomerByCode(value);
         return option?.label || value;
       },
     },

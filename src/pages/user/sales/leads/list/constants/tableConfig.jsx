@@ -1,4 +1,5 @@
-import { searchClients } from "../../../../../../features/sales/clients/private/api/clientSearch";
+import { searchLeadAccounts } from "../../../../../../features/sales/leads/private/api/leadAccountSearch";
+import { formatLeadAccountOption } from "./leadAccountOptionLabel";
 
 // key = actual database field name
 // label = UI name
@@ -10,7 +11,6 @@ import { searchClients } from "../../../../../../features/sales/clients/private/
 export const leadsTableConfig = ({
   employee,
   owners,
-  clients,
   leadSourceTypes,
   loseReasons,
 }) => [
@@ -37,36 +37,33 @@ export const leadsTableConfig = ({
     editable: true,
     editor: "textarea",
   },
-  // {
-  //   key: "client_id",
-  //   label: "Client",
-  //   getValue: (lead) => lead.client?.id,
-  //   displayValue: (lead) => lead.client?.name,
-  //   editable: true,
-  //   editor: "select",
-  //   options: clients.map((s) => ({
-  //     label: s.name,
-  //     value: s.id,
-  //   })),
-  //   required: true,
-  //   half: true,
-  //   isClearable: false,
-  // },
-
+  // Unified account picker (2026-08): a lead references exactly one of a
+  // real SAP customer (sap_customer_code) or a native Prospect (client_id),
+  // never a local clients row mirroring an SAP customer -- see
+  // hyrax-central-portal/docs/DASHBOARD-ROADMAP.md §1.4. This is a synthetic
+  // column (not a real sales_leads column) -- leadsMutationsService.js
+  // splits it into client_id/sap_customer_code before writing.
   {
-    key: "client_id",
-    label: "Client",
+    key: "account",
+    label: "Account",
     getValue: (lead) =>
       lead.client
-        ? {
-            value: lead.client.id,
-            label: lead.client.name,
-          }
-        : null,
-    displayValue: (lead) => lead.client?.name,
+        ? { __type: "prospect", value: lead.client.id, label: lead.client.name }
+        : lead.sap_customer
+          ? {
+              __type: "sap",
+              value: lead.sap_customer.customer_code,
+              label: lead.sap_customer.customer_name,
+              city: lead.sap_customer.city,
+              contactPerson: lead.sap_customer.contact_person,
+              phone: lead.sap_customer.phone,
+            }
+          : null,
+    displayValue: (lead) => lead.client?.name || lead.sap_customer?.customer_name,
     editable: true,
-    editor: "asyncSelect",
-    loadOptions: searchClients,
+    editor: "leadAccountSelect",
+    loadOptions: searchLeadAccounts,
+    formatOptionLabel: formatLeadAccountOption,
     required: true,
     isClearable: false,
   },

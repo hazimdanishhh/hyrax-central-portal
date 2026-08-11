@@ -422,14 +422,6 @@ export default function LeadsManagement() {
               },
               style: "button buttonType5 approval textXXS",
             },
-            {
-              icon: PlusCircleIcon,
-              name: "Add Client",
-              onClick: () => {
-                navigate(`../../clients/list/new`);
-              },
-              style: "button buttonType5 approval textXXS",
-            },
           ]}
         />
 

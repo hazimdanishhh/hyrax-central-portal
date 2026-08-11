@@ -18,6 +18,11 @@ export async function fetchLeadsOverview() {
         name
       ),
 
+      sap_customer:sap_customers!sap_customer_code (
+        customer_code,
+        customer_name
+      ),
+
       lead_owner:lead_owner_id (
         id,
         full_name,

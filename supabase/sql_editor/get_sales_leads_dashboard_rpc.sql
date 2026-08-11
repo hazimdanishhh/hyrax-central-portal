@@ -1,6 +1,7 @@
 create or replace function get_sales_leads_dashboard(
     p_owner_id uuid default null,
     p_client_id uuid default null,
+    p_sap_customer_code text default null,
     p_source_id bigint default null,
     p_stage sales_leads_stage default null,
     p_start_date date default null,
@@ -39,14 +40,25 @@ with closing_dates as (
 
 -- 2. Base filter without dates
 base_leads as (
-    select 
+    select
         sl.*,
-        coalesce(cd.closed_date, case when sl.stage in ('WON', 'LOST') or sl.is_cancelled then sl.updated_at else null end) as closed_date
+        coalesce(cd.closed_date, case when sl.stage in ('WON', 'LOST') or sl.is_cancelled then sl.updated_at else null end) as closed_date,
+        -- Account identity (2026-08): a lead references exactly one of a
+        -- real SAP customer (sap_customer_code) or a native Prospect
+        -- (client_id), never both -- see clients_sap_customer_link_migration
+        -- .sql / sales_leads_sap_customer_link_migration.sql. Computed once
+        -- here so every downstream chart (e.g. topClientsData below) can
+        -- treat both cases uniformly instead of re-joining per chart.
+        coalesce(sl.client_id::text, sl.sap_customer_code) as account_key,
+        coalesce(c.name, sc.customer_name) as account_name
     from sales_leads sl
     left join closing_dates cd on cd.lead_id = sl.id
+    left join clients c on c.id = sl.client_id
+    left join sap_customers sc on sc.customer_code = sl.sap_customer_code
     where
         (p_owner_id is null or sl.lead_owner_id = p_owner_id)
         and (p_client_id is null or sl.client_id = p_client_id)
+        and (p_sap_customer_code is null or sl.sap_customer_code = p_sap_customer_code)
         and (p_source_id is null or sl.lead_source_type_id = p_source_id)
         and (p_stage is null or sl.stage = p_stage)
         and (p_is_on_hold is null or sl.is_on_hold = p_is_on_hold)
@@ -460,10 +472,14 @@ select json_build_object(
     ),
 
     'topClientsData', (
+        -- Blends both account kinds via base_leads.account_name/account_key
+        -- (see the CTE above) -- previously an inner `join clients` silently
+        -- dropped every SAP-referenced lead (client_id is null) from this
+        -- chart entirely once that became possible (2026-08).
         select coalesce(json_agg(x), '[]'::json)
         from (
             select
-                c.name,
+                fl.account_name as name,
                 coalesce(sum(fl.expected_revenue), 0) as active_in_period,
                 coalesce(sum(fl.expected_revenue) filter (
                     where (p_start_date is null or fl.created_at >= p_start_date)
@@ -485,14 +501,13 @@ select json_build_object(
                     and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
                 ), 0) as lost_revenue
             from base_leads fl
-            join clients c on c.id = fl.client_id
             where not fl.is_cancelled
             and (
                 (p_start_date is null or fl.closed_date is null or fl.closed_date >= p_start_date)
                 and
                 (p_end_date is null or fl.created_at < p_end_date + interval '1 day')
             )
-            group by c.name
+            group by fl.account_key, fl.account_name
             order by won_actual desc, active_in_period desc
             limit 5
         ) x

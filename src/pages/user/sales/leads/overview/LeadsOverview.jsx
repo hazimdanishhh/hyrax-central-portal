@@ -194,6 +194,7 @@ export default function LeadsOverview() {
   const chartBaseFilter = {
     ...(filters.owner && { owner: filters.owner }),
     ...(filters.client && { client: filters.client }),
+    ...(filters.sapCustomer && { sapCustomer: filters.sapCustomer }),
     ...(filters.leadSourceType && { leadSourceType: filters.leadSourceType }),
     ...(filters.stage && { stage: filters.stage }),
     ...(filters.onHold && { onHold: filters.onHold }),
@@ -582,7 +583,7 @@ export default function LeadsOverview() {
                 )}
 
                 {/* TOP CLIENTS */}
-                {!filters?.client && (
+                {!filters?.client && !filters?.sapCustomer && (
                   <ChartCard
                     title="Top Clients"
                     subtitle={chartConfig.subtitle}

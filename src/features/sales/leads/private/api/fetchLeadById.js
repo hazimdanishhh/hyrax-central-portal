@@ -13,6 +13,7 @@ export async function fetchLeadById(id) {
       `
       *,
       client:client_id(*),
+      sap_customer:sap_customers!sap_customer_code(customer_code, customer_name, city, contact_person, phone),
       lead_owner:employees_public!lead_owner_id(*),
       lead_source_type:lead_source_type_id(*)
     `,

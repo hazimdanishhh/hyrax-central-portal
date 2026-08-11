@@ -19,16 +19,7 @@ export default function ClientsList({
     >
       <div className="clientsListContainer">
         <div className="clientsListHeader">
-          {client.sap_customer_code ? (
-            <StatusBox status={`Linked — ${client.sap_customer_code}`} type="green" />
-          ) : (
-            <StatusBox status="Prospect" type="grey" />
-          )}
-          <p className="textRegular textXS">
-            {client.sap_customer_code
-              ? client.sap_customer?.customer_name
-              : client.name}
-          </p>
+          <p className="textRegular textXS">{client.name}</p>
         </div>
 
         <div className="clientsListStatusContainer">

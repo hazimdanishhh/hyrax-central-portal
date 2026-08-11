@@ -21,6 +21,7 @@ import {
   PencilSimpleLineIcon,
   PencilSimpleSlashIcon,
   PlayCircleIcon,
+  ReceiptIcon,
   TextTIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
@@ -29,6 +30,11 @@ import IconCard from "../../../iconCard/IconCard";
 import RouterButton from "../../../buttons/routerButton/RouterButton";
 import StatusIcon from "../../../status/statusIcon/StatusIcon";
 import { useAccessControl } from "../../../../context/AccessControlContext";
+import { useSalesOrdersByCustomerCode } from "../../../../features/sales/orders/private/hooks/useSalesOrdersByCustomerCode";
+import { salesOrdersTableConfig } from "../../../../pages/user/sales/orders/tableConfig";
+import DataTable from "../../../dataTable/DataTable";
+import NoResult from "../../../crud/noResult/NoResult";
+import LoadingIcon from "../../../loadingIcon/LoadingIcon";
 
 export default function LeadSidebar({
   selectedRow,
@@ -39,6 +45,21 @@ export default function LeadSidebar({
 }) {
   const [showName, setShowName] = useState(false);
   const { canAccess, isManager, isSuperAdmin } = useAccessControl();
+
+  // Account identity (2026-08): a lead references exactly one of a real SAP
+  // customer or a native Prospect client, never both -- see
+  // hyrax-central-portal/docs/DASHBOARD-ROADMAP.md §1.4. Related SAP orders
+  // (moved here from the old Clients-page Orders tab) only ever apply to the
+  // SAP-customer case -- a Prospect has no SAP relationship yet.
+  const isSapLinked = Boolean(selectedRow.sap_customer_code);
+  const accountName = selectedRow.client?.name || selectedRow.sap_customer?.customer_name;
+  const {
+    data: ordersResult,
+    isLoading: ordersLoading,
+    error: ordersError,
+  } = useSalesOrdersByCustomerCode(selectedRow.sap_customer_code);
+  const orders = ordersResult?.data ?? [];
+  const orderColumns = salesOrdersTableConfig();
 
   //   BOOLEANS
   const isWon = selectedRow.stage === "WON";
@@ -108,11 +129,17 @@ export default function LeadSidebar({
 
           <p className="textRegular textXS">{selectedRow.description}</p>
 
-          <IconCard
-            name={selectedRow.client?.name}
-            icon={BriefcaseIcon}
-            style="textLight textXS"
-          />
+          <div className="leadSidebarOnHoldContainer">
+            <IconCard
+              name={accountName}
+              icon={BriefcaseIcon}
+              style="textLight textXS"
+            />
+            <StatusBox
+              status={isSapLinked ? `SAP Customer — ${selectedRow.sap_customer_code}` : "Prospect"}
+              type={isSapLinked ? "green" : "grey"}
+            />
+          </div>
 
           <CardLayout style="cardLayout2 cardGapSmall">
             <p className="textLight textXXXS cardStyle">
@@ -204,6 +231,34 @@ export default function LeadSidebar({
         <CardLayout style="generalCard redCard">
           <p className="textBold textXS">Lose Reason:</p>
           <p className="textRegular textXXS">{selectedRow.lose_reason?.name}</p>
+        </CardLayout>
+      )}
+
+      {/* RELATED SAP ORDERS -- read-only sap_sales_orders, filtered by this
+          lead's sap_customer_code -> sap_sales_orders.customer_code, same
+          bridge Orders.jsx's own Customer filter uses. Only ever shown for
+          the SAP-customer case -- a Prospect has no SAP relationship yet. */}
+      {isSapLinked && (
+        <CardLayout style="generalCard cardPaddingSmall">
+          <IconCard
+            name="Recent Orders"
+            icon={ReceiptIcon}
+            style="textBold textXS"
+          />
+
+          <CardLayout style="cardWrapperScroll generalCard">
+            {ordersLoading ? (
+              <CardLayout style="cardLayoutFlexFull">
+                <LoadingIcon />
+              </CardLayout>
+            ) : ordersError ? (
+              <NoResult title="Error loading results" />
+            ) : orders.length === 0 ? (
+              <NoResult />
+            ) : (
+              <DataTable data={orders} columns={orderColumns} rowKey="doc_entry" />
+            )}
+          </CardLayout>
         </CardLayout>
       )}
 

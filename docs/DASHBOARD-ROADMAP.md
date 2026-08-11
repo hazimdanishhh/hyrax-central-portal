@@ -94,6 +94,8 @@ Previously framed as two paths with the decision deferred — reproduced below f
 
 This resolves the "dual-identity" pain at the *link* level (validated, disambiguated, never by name) without sacrificing the Prospect state the CRM needs to function.
 
+**Superseded 2026-08 — the SAP link moved off `clients` onto `sales_leads` directly.** The Linked-client model above created its own redundancy in practice: `clients.sap_customer_code` had no dedup (creating a new client and linking it to an SAP customer never checked for an existing row already linked to that code), and once linked a `clients` row carried no authoritative data of its own — it existed purely as a proxy so `sales_leads.client_id` (the only FK anywhere in the two-repo estate referencing `clients.id`) had something to point at. Resolved by moving the link one level down: `sales_leads` gained its own nullable `sap_customer_code` (FK to `sap_customers.customer_code`), `client_id` became nullable, and a `CHECK (num_nonnulls(client_id, sap_customer_code) = 1)` constraint enforces that a lead references **exactly one** of a real SAP customer or a native Prospect — never a `clients` row mirroring an SAP customer. `clients` is now prospect-only (its `sap_customer_code` column/FK were dropped); every previously-Linked client row was repointed and deleted by `hyrax-data-platform/infrastructure/sales_leads_sap_customer_link_migration.sql`. The Lead form's picker (`leadAccountSearch.js`/`LeadAccountEditor.jsx`) now searches SAP customers and Prospects together, with an inline "+ Create new prospect" affordance — so "Add Lead" and "Add Client" collapsed into one entry point (the Leads List page's separate "Add Client" button was removed).
+
 ## 2. Per-department Reports pages — what to build
 
 ### 2.1 Sales Reports _(Tier 3 — already built, redesigned 2026-07; previously a Looker iframe)_
@@ -196,7 +198,7 @@ There were actually **two** structurally distinct "salesperson revenue" disagree
 
 ## 6. Open decisions — the user's calls, not derivable from best practice
 
-1. ~~Sales Leads architecture — Path A vs Path B (§1.4).~~ **Resolved 2026-08** — hybrid: `clients` stays the pipeline-side entity (Path A), the SAP bridge is fixed to Path B's rigor (validated FK + disambiguated search, SAP-authoritative once linked). See §1.4 for the full writeup.
+1. ~~Sales Leads architecture — Path A vs Path B (§1.4).~~ **Resolved 2026-08, then superseded 2026-08 same month** — the hybrid Linked-client model (validated FK + disambiguated search, SAP-authoritative once linked) worked but left a redundant `clients` proxy row per linked SAP customer with no dedup; the SAP link was moved off `clients` onto `sales_leads.sap_customer_code` directly instead, with `clients` now prospect-only. See §1.4 for the full writeup of both passes.
 2. Canonical revenue definition for the invoice-budget scorecard and for compensation — order-booked vs. invoiced vs. collected; CRM self-reported vs. SAP-recognized. Finance/business-policy call.
 3. Production: pursue SAP OWOR extraction vs. wait for the Plant IoT pipeline (§2.4) — answer via the scoping spike on Hyrax's live SAP data.
 4. HR dashboarding timing — held until the HR2000-integration direction is decided (§2.6).

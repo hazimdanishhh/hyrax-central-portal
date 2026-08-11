@@ -96,7 +96,7 @@ export default function LeadsList({
             )}
 
             <IconCard
-              name={lead.client?.name}
+              name={lead.client?.name || lead.sap_customer?.customer_name}
               icon={BriefcaseIcon}
               style="textLight textXXS"
             />

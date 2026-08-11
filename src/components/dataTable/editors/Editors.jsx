@@ -9,6 +9,7 @@ import DateTimeEditor from "./DateTimeEditor";
 import ImageUploadEditor from "./ImageUploadEditor";
 import AsyncSelectEditor from "./AsyncSelectEditor";
 import GoogleDriveEditor from "./GoogleDriveEditor";
+import LeadAccountEditor from "./LeadAccountEditor";
 
 export const editors = {
   text: TextEditor,
@@ -21,4 +22,5 @@ export const editors = {
   image: ImageUploadEditor,
   asyncSelect: AsyncSelectEditor,
   drivePicker: GoogleDriveEditor,
+  leadAccountSelect: LeadAccountEditor,
 };
