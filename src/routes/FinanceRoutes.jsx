@@ -87,10 +87,15 @@ export default (
       }
     />
 
-    {/* CASH FLOW (Finance Expansion Phase 3, added 2026-08) -- same access
-        gate as Journal Entries/Chart of Accounts (department-only, no role
-        restriction): a computed statement, not a browsable list, but reuses
-        that same read-only Finance reference-page pattern. */}
+    {/* CASH FLOW (Finance Expansion Phase 3, added 2026-08) -- KNOWN OPEN
+        DISCREPANCY (found 2026-08 audit, left as-is pending a decision):
+        this gate is actually departments={["FIN","MGM"]} roles={["manager"]},
+        the same as Reports -- NOT the department-only, no-role-restriction
+        gate Journal Entries/Chart of Accounts use, despite earlier drafts of
+        this comment claiming parity with them. Effect: a non-manager FIN
+        staff member can open Bills/Invoices/Journal Entries but is blocked
+        here. Flagging rather than changing until someone confirms which
+        behavior is actually intended. */}
     <Route
       path="cash-flow"
       element={
@@ -101,9 +106,8 @@ export default (
     />
 
     {/* BALANCE SHEET (Statement of Financial Position, added 2026-08) --
-        same access gate as Cash Flow/Journal Entries/Chart of Accounts
-        (department-only, no role restriction): a computed, point-in-time
-        statement, not a browsable list. */}
+        same known open gate discrepancy as Cash Flow above (manager-only,
+        not department-only) -- see that comment. */}
     <Route
       path="balance-sheet"
       element={
@@ -114,9 +118,8 @@ export default (
     />
 
     {/* INCOME STATEMENT (Finance Expansion Phase 6, added 2026-08) -- same
-        access gate as Cash Flow/Balance Sheet (department-only, no role
-        restriction): a computed, period-bound statement, not a browsable
-        list. */}
+        known open gate discrepancy as Cash Flow above (manager-only, not
+        department-only) -- see that comment. */}
     <Route
       path="income-statement"
       element={
@@ -126,7 +129,11 @@ export default (
       }
     />
 
-    {/* CLAIMS MANAGEMENT */}
+    {/* CLAIMS MANAGEMENT -- intentional placeholder: page exists and this
+        route is live, but neither sideNavLinkData.js nor
+        departmentLinkCardData.js has an active nav entry for it yet (both
+        have one commented out, ready to enable). Not an oversight -- leave
+        commented until the page itself has real content. */}
     <Route
       path="claims-management"
       element={

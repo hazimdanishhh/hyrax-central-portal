@@ -4,6 +4,7 @@ import {
   PencilSimpleLineIcon,
   PencilSimpleSlashIcon,
   PlusIcon,
+  ReceiptIcon,
   UsersIcon,
 } from "@phosphor-icons/react";
 import Button from "../../../../../../components/buttons/button/Button";
@@ -27,8 +28,9 @@ import { useEmployee } from "../../../../../../context/EmployeeContext";
 import LeadsList from "../../../../../../components/sales/leads/leadsList/LeadsList";
 import { contactTableConfig } from "./constants/contactTableConfig";
 import { leadTableConfig } from "./constants/leadTableConfig";
-import LeadsManagement from "../../../leads/list/LeadsManagement";
-import CardWrapper from "../../../../../../components/cardWrapper/CardWrapper";
+import DataTable from "../../../../../../components/dataTable/DataTable";
+import { useClientSalesOrders } from "../../../../../../features/sales/orders/private/hooks/useClientSalesOrders";
+import { salesOrdersTableConfig } from "../../../orders/tableConfig";
 
 export default function ClientSidebar({
   selectedRow,
@@ -98,6 +100,17 @@ export default function ClientSidebar({
     setIsAddingLead(false);
   };
 
+  // ==============
+  // ORDERS (SAP, read-only)
+  // ==============
+  const {
+    data: ordersResult,
+    isLoading: ordersLoading,
+    error: ordersError,
+  } = useClientSalesOrders(selectedRow?.sap_bp_id);
+  const orders = ordersResult?.data ?? [];
+  const orderColumns = salesOrdersTableConfig();
+
   return (
     <div className="clientSidebarContainer">
       {/* --- CLIENT DETAILS SECTION --- */}
@@ -154,12 +167,7 @@ export default function ClientSidebar({
             style={`button buttonTypeTab ${tab === "leads" && "active"}`}
           />
           <Button
-            onClick={() => {
-              navigate(
-                `/app/sales/clients/list/${selectedRow.id}?client=${selectedRow.id}`,
-              );
-              setTab("orders");
-            }}
+            onClick={() => setTab("orders")}
             name="Orders"
             style={`button buttonTypeTab ${tab === "orders" && "active"}`}
           />
@@ -285,10 +293,45 @@ export default function ClientSidebar({
           </CardLayout>
         )}
 
+        {/* ORDERS TAB -- fixed 2026-08 (previously rendered LeadsManagement,
+            a copy-paste leftover). Read-only sap_sales_orders, filtered by
+            this client's sap_bp_id -> sap_sales_orders.customer_code, same
+            bridge Orders.jsx's own Customer filter uses. */}
         {tab === "orders" && (
-          <CardWrapper>
-            <LeadsManagement />
-          </CardWrapper>
+          <CardLayout style="generalCard cardPaddingSmall">
+            <PageHeader>
+              <Breadcrumbs icon={ReceiptIcon} current="Recent Orders" />
+              {/* VIEW ALL BUTTON */}
+              <Button
+                icon={CaretCircleRightIcon}
+                name="View All"
+                style="button buttonType5 textXS"
+                size={16}
+                onClick={() =>
+                  navigate(
+                    `/app/sales/orders/all?customerCode=${selectedRow.sap_bp_id}`,
+                  )
+                }
+                disabled={!selectedRow.sap_bp_id}
+              />
+            </PageHeader>
+
+            <CardLayout style="cardWrapperScroll generalCard">
+              {!selectedRow.sap_bp_id ? (
+                <NoResult title="No SAP Business Partner ID linked to this client yet" />
+              ) : ordersLoading ? (
+                <CardLayout style="cardLayoutFlexFull">
+                  <LoadingIcon />
+                </CardLayout>
+              ) : ordersError ? (
+                <NoResult title="Error loading results" />
+              ) : orders.length === 0 ? (
+                <NoResult />
+              ) : (
+                <DataTable data={orders} columns={orderColumns} rowKey="doc_entry" />
+              )}
+            </CardLayout>
+          </CardLayout>
         )}
       </CardLayout>
     </div>

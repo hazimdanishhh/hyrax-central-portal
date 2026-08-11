@@ -192,6 +192,10 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
+      // Quotations: intentional placeholder, not an orphan (confirmed
+      // 2026-08) -- reserved for a future in-app quotation-generation
+      // feature (SAP's own OQUT/QUT1 module is unused by Hyrax). Left
+      // commented out until the page has real content, not an oversight.
       // {
       //   label: "Quotations",
       //   icon: FileTextIcon,
@@ -219,8 +223,12 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
-      // Gate matches finance/balance-sheet's AccessRoute exactly
-      // (department-only, no role restriction). Added 2026-08.
+      // Gate matches finance/balance-sheet's AccessRoute exactly: manager-only
+      // (departments: ["FIN","MGM"], roles: ["manager"]), same as Reports --
+      // NOT department-only like Journal Entries/Chart of Accounts. Known
+      // open discrepancy (found 2026-08 audit) vs. an earlier draft of this
+      // comment that claimed department-only parity; left as-is pending a
+      // decision on which behavior is actually intended. Added 2026-08.
       {
         label: "Balance Sheet",
         icon: ScalesIcon,
@@ -230,9 +238,9 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
-      // Gate matches finance/income-statement's AccessRoute exactly
-      // (department-only, no role restriction). Added 2026-08, Finance
-      // Expansion Phase 6.
+      // Gate matches finance/income-statement's AccessRoute exactly:
+      // manager-only, same known open discrepancy as Balance Sheet above.
+      // Added 2026-08, Finance Expansion Phase 6.
       {
         label: "Income Statement",
         icon: ChartLineUpIcon,
@@ -242,9 +250,12 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
-      // Gate matches finance/cash-flow's AccessRoute exactly (department-only,
-      // no role restriction -- same Tier-1 rationale as Journal Entries/Chart
-      // of Accounts above). Added 2026-08, Finance Expansion Phase 3.
+      // Gate matches finance/cash-flow's AccessRoute exactly: manager-only,
+      // same known open discrepancy as Balance Sheet/Income Statement above
+      // (an earlier draft of this comment claimed department-only parity
+      // with Journal Entries/Chart of Accounts; the code has always been
+      // manager-only, left as-is pending a decision). Added 2026-08, Finance
+      // Expansion Phase 3.
       {
         label: "Cash Flow",
         icon: ArrowsClockwiseIcon,

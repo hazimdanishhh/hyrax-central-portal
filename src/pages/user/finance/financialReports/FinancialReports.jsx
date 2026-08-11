@@ -969,7 +969,10 @@ export default function FinancialReports() {
                         </div>
                         <p className="textXS textLight">
                           Invoiced revenue, gross profit, and cash collected by
-                          rep, and where our revenue is concentrated.
+                          rep, and where our revenue is concentrated --
+                          SAP-recognized (sap_invoices), distinct from the
+                          CRM's self-reported "Pipeline Attainment" scorecard
+                          on the Sales Leads Overview page for the same reps.
                         </p>
                       </div>
 

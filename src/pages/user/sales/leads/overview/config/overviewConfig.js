@@ -211,10 +211,16 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
     // ==========================================
     {
       icon: TargetIcon, // CHANGED: From Handshake to Target to emphasize goals
-      label: "Revenue Attainment", // CHANGED: More executive-focused than just "Won"
+      // Relabeled 2026-08 (Duality B disclosure, per DASHBOARD-ROADMAP.md
+      // §5): this is the CRM's own self-reported pipeline number
+      // (sales_leads.actual_revenue vs. sales_targets), not SAP-recognized
+      // revenue -- Sales Reports'/Finance's per-rep figures are sourced from
+      // sap_invoices instead and won't generally match this one. Not a bug
+      // to reconcile; both are legitimate, deliberately unblended.
+      label: "Pipeline Attainment (CRM)",
       sublabel:
         targetRevenue > 0
-          ? `Target Quota: RM ${targetRevenue.toLocaleString()}`
+          ? `Self-Reported vs. Target Quota: RM ${targetRevenue.toLocaleString()}`
           : "No Target Set for Period",
       value: `RM ${wonRevenue.toLocaleString()}`, // Keep the massive number as the actual cash
       variant: revenueAttainmentStatus.variant,
@@ -224,6 +230,8 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       },
       to: "../list",
       filter: { ...baseFilter, stage: "WON", ...closedPeriodFilter },
+      title:
+        "CRM pipeline attainment -- self-reported (sales_leads.actual_revenue, manually typed by the rep) vs. quota (sales_targets). Distinct from Sales Reports'/Finance's SAP-recognized invoiced-revenue per-rep figures, which are audited and backward-looking; this figure is forward-looking and not independently verified. Both are legitimate, deliberately not blended into one number.",
       metrics: [
         {
           label: "Prev. Period (Delta)", // Updated label to reflect the new data

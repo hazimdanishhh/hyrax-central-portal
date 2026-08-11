@@ -3,13 +3,18 @@ import { supabase } from "../../../../../lib/supabaseClient";
 // Pipelines that feed get_finance_dashboard -- the oldest of these last_run_at
 // values is the true "how stale can this dashboard be" bottleneck.
 // sap_vendor_bills/sap_vendor_payments added 2026-07 (Finance Expansion
-// Phase 1); sap_oact/sap_gl_journal_entries added 2026-07 (Phase 2) --
+// Phase 1); sap_oact/sap_gl_journal_entries added 2026-07 (Phase 2);
+// sap_odsc/sap_dsc1/sap_obnk added 2026-08 (Phase 3, Cash Flow Statement) --
 // Operations Reports' freshness banner has a documented gap where it doesn't
 // watch every table its KPIs depend on; keep this list in sync with every
 // base CTE in get_finance_dashboard_rpc.sql instead of repeating that
-// mistake here. sap_oact is dimensions.py's per-table watermark name (folded
-// into the "dimensions" full-refresh loop alongside sap_oitm/sap_ocrd/
-// sap_oslp); sap_gl_journal_entries is gl_journal.py's own PIPELINE_NAME.
+// mistake here. sap_oact/sap_odsc/sap_dsc1/sap_obnk are dimensions.py's
+// per-table watermark names (folded into the "dimensions" full-refresh loop
+// alongside sap_oitm/sap_ocrd/sap_oslp -- each written as f"sap_{name}", not
+// the human-readable Supabase table name); sap_gl_journal_entries is
+// gl_journal.py's own PIPELINE_NAME. sap_item_warehouse_stock (OITW, Phase 4)
+// deliberately NOT added -- Finance's dio/cashConversionCycle are GL-derived
+// and don't consume that table at all.
 const FINANCE_PIPELINE_NAMES = [
   "sap_invoices",
   "sap_sales_orders",
@@ -19,6 +24,9 @@ const FINANCE_PIPELINE_NAMES = [
   "sap_vendor_payments",
   "sap_oact",
   "sap_gl_journal_entries",
+  "sap_odsc",
+  "sap_dsc1",
+  "sap_obnk",
 ];
 
 export async function fetchFinanceMetadata() {

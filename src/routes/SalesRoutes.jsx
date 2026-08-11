@@ -142,7 +142,12 @@ export default (
       />
     </Route>
 
-    {/* QUOTATIONS */}
+    {/* QUOTATIONS -- intentional placeholder, not an orphan route (confirmed
+        2026-08). This is reserved for a future in-app quotation-generation
+        feature; Hyrax doesn't use SAP's own quotation module (OQUT/QUT1),
+        same "feature exists in SAP, never turned on" pattern as OCFW/OCFT/
+        OPRC/OFAA elsewhere. Nav entry stays commented out in
+        sideNavLinkData.js until the page has real content. */}
     <Route
       path="quotations"
       element={

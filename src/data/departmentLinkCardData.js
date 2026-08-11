@@ -102,8 +102,12 @@ export const departmentLinkCardData = [
         roles: ["manager"],
       },
 
-      // Matches finance/balance-sheet's AccessRoute gate exactly
-      // (department-only, no role restriction). Added 2026-08.
+      // Matches finance/balance-sheet's AccessRoute gate exactly:
+      // manager-only (departments: ["FIN","MGM"], roles: ["manager"]), same
+      // as Reports -- NOT department-only like Journal Entries/Chart of
+      // Accounts. Known open discrepancy (found 2026-08 audit) vs. an
+      // earlier draft of this comment; left as-is pending a decision on
+      // which behavior is actually intended. Added 2026-08.
       {
         label: "Balance Sheet",
         description:
@@ -115,9 +119,9 @@ export const departmentLinkCardData = [
         roles: ["manager"],
       },
 
-      // Matches finance/income-statement's AccessRoute gate exactly
-      // (department-only, no role restriction). Added 2026-08, Finance
-      // Expansion Phase 6.
+      // Matches finance/income-statement's AccessRoute gate exactly:
+      // manager-only, same known open discrepancy as Balance Sheet above.
+      // Added 2026-08, Finance Expansion Phase 6.
       {
         label: "Income Statement",
         description:
@@ -129,8 +133,9 @@ export const departmentLinkCardData = [
         roles: ["manager"],
       },
 
-      // Matches finance/cash-flow's AccessRoute gate exactly (department-only,
-      // no role restriction). Added 2026-08, Finance Expansion Phase 3.
+      // Matches finance/cash-flow's AccessRoute gate exactly: manager-only,
+      // same known open discrepancy as Balance Sheet/Income Statement above.
+      // Added 2026-08, Finance Expansion Phase 3.
       {
         label: "Cash Flow",
         description:
