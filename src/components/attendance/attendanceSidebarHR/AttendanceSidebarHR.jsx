@@ -42,8 +42,6 @@ export default function AttendanceSidebarHR({
     enabled: !!selectedRow?.employee_uuid && !!selectedRow?.work_date,
   });
 
-  console.log("Timeline Data", timelineData);
-
   const workDayData = [
     {
       name: "Worked",

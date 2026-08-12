@@ -34,6 +34,7 @@ import { getSortConfig } from "./constants/sortConfig";
 import { stageTabsConfig } from "./constants/tabConfig";
 import { leadsTableConfig } from "./constants/tableConfig";
 import "./LeadsManagement.scss";
+import PageTitle from "../../../../../components/pageTitle/PageTitle";
 
 /**
  * SALES Leads Management Page
@@ -49,6 +50,7 @@ export default function LeadsManagement() {
   const [layout, setLayout] = useState(0); // 0: List, 1: Table
   const [pendingAction, setPendingAction] = useState(null);
   const [searchParams] = useSearchParams();
+  const activePipelineOnly = searchParams.get("activePipelineOnly") === "true";
   const currentStage = searchParams.get("stage");
   const isCancelled = searchParams.get("cancelled") === "true";
   const isOnHold = searchParams.get("onHold") === "true";
@@ -384,6 +386,11 @@ export default function LeadsManagement() {
 
   return (
     <>
+      <PageTitle
+        title="Leads"
+        subtitle="Manage your sales leads and opportunities"
+      />
+
       {/* SEARCH AND FILTER BAR */}
       <SearchFilterBar
         search={search}
@@ -446,7 +453,12 @@ export default function LeadsManagement() {
       />
 
       <div className="stageTab scrollbar">
-        {stageTabsConfig(currentStage, isCancelled, isOnHold).map((tab) => (
+        {stageTabsConfig(
+          activePipelineOnly,
+          currentStage,
+          isCancelled,
+          isOnHold,
+        ).map((tab) => (
           <LeadStageTab
             key={tab.label}
             to={tab.to}

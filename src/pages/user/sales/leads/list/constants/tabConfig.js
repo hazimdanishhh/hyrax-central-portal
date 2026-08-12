@@ -1,9 +1,20 @@
-export const stageTabsConfig = (currentStage, isCancelled, isOnHold) => [
+export const stageTabsConfig = (
+  activePipelineOnly,
+  currentStage,
+  isCancelled,
+  isOnHold,
+) => [
   {
     label: "ALL",
     to: "#",
     themeType: "",
-    isActive: !currentStage && !isCancelled && !isOnHold,
+    isActive: !currentStage && !isCancelled && !isOnHold && !activePipelineOnly,
+  },
+  {
+    label: "ACTIVE",
+    to: "?activePipelineOnly=true",
+    themeType: "blue",
+    isActive: activePipelineOnly,
   },
   {
     label: "DISCOVERY",

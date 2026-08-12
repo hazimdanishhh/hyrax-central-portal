@@ -16,6 +16,7 @@ import { useSalesOrdersMetadata } from "../../../../features/sales/orders/privat
 import { getSalesOrdersFilterConfig } from "./filterConfig";
 import { salesOrdersTableConfig } from "./tableConfig";
 import SalesOrderSidebar from "./detail/SalesOrderSidebar";
+import PageTitle from "../../../../components/pageTitle/PageTitle";
 
 /**
  * Read-only sales orders list -- SAP is the system of record, so there's no
@@ -77,6 +78,11 @@ export default function Orders() {
 
   return (
     <>
+      <PageTitle
+        title="Sales Orders"
+        subtitle="View and manage your sales orders, details and status"
+      />
+
       <SearchFilterBar
         search={search}
         onSearchChange={setSearch}

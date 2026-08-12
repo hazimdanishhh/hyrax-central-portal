@@ -19,6 +19,7 @@ import { fetchSalesTargets } from "../../../../../features/sales/salesTargets/pr
 import useSalesTargetsMutations from "../../../../../features/sales/salesTargets/private/hooks/useSalesTargetsMutations";
 import { salesTargetsTableConfig } from "./tableConfig";
 import { getSalesTargetsFilterConfig } from "./filterConfig";
+import PageTitle from "../../../../../components/pageTitle/PageTitle";
 
 /**
  * Sales Targets management (Forecast 1 -- CRM pipeline quota per rep).
@@ -114,6 +115,11 @@ export default function SalesTargetsManagement() {
 
   return (
     <>
+      <PageTitle
+        title="Pipeline Targets"
+        subtitle="Set and manage pipeline targets to track progress and performance against goals"
+      />
+
       <SearchFilterBar
         filters={filters}
         onFilterChange={setFilters}

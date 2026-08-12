@@ -48,7 +48,7 @@ export default (
       />
 
       <Route
-        path="list"
+        path="prospects"
         element={
           <AccessRoute departments={["SAL"]}>
             <ClientsManagement />

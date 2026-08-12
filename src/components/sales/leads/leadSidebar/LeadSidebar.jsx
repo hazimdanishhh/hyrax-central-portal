@@ -52,7 +52,8 @@ export default function LeadSidebar({
   // (moved here from the old Clients-page Orders tab) only ever apply to the
   // SAP-customer case -- a Prospect has no SAP relationship yet.
   const isSapLinked = Boolean(selectedRow.sap_customer_code);
-  const accountName = selectedRow.client?.name || selectedRow.sap_customer?.customer_name;
+  const accountName =
+    selectedRow.client?.name || selectedRow.sap_customer?.customer_name;
   const {
     data: ordersResult,
     isLoading: ordersLoading,
@@ -136,7 +137,11 @@ export default function LeadSidebar({
               style="textLight textXS"
             />
             <StatusBox
-              status={isSapLinked ? `SAP Customer — ${selectedRow.sap_customer_code}` : "Prospect"}
+              status={
+                isSapLinked
+                  ? `SAP Customer — ${selectedRow.sap_customer_code}`
+                  : "Prospect"
+              }
               type={isSapLinked ? "green" : "grey"}
             />
           </div>
@@ -238,7 +243,7 @@ export default function LeadSidebar({
           lead's sap_customer_code -> sap_sales_orders.customer_code, same
           bridge Orders.jsx's own Customer filter uses. Only ever shown for
           the SAP-customer case -- a Prospect has no SAP relationship yet. */}
-      {isSapLinked && (
+      {/* {isSapLinked && (
         <CardLayout style="generalCard cardPaddingSmall">
           <IconCard
             name="Recent Orders"
@@ -260,7 +265,7 @@ export default function LeadSidebar({
             )}
           </CardLayout>
         </CardLayout>
-      )}
+      )} */}
 
       {/* ACTIONS */}
 

@@ -206,7 +206,6 @@ export default function AttendanceActivityClockin() {
                   size={70}
                   onClick={async () => {
                     if (!currentActivity?.id) return;
-                    console.log("Current:", currentActivity);
                     await clockOutAttendanceActivity(currentActivity.id);
                     await refetchCurrent();
                   }}

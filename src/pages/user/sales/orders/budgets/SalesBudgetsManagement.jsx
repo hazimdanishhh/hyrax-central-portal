@@ -20,6 +20,7 @@ import { useSalesBudgetsMetadata } from "../../../../../features/sales/salesBudg
 import useSalesBudgetsMutations from "../../../../../features/sales/salesBudgets/private/hooks/useSalesBudgetsMutations";
 import { salesBudgetsTableConfig } from "./tableConfig";
 import { getSalesBudgetsFilterConfig } from "./filterConfig";
+import PageTitle from "../../../../../components/pageTitle/PageTitle";
 
 /**
  * Sales Budgets management (Forecast 2 -- SAP invoice quota per rep).
@@ -125,6 +126,11 @@ export default function SalesBudgetsManagement() {
 
   return (
     <>
+      <PageTitle
+        title="Sales Budgets"
+        subtitle="Set and manage sales budgets to track progress and performance against goals"
+      />
+
       <SearchFilterBar
         filters={filters}
         onFilterChange={setFilters}

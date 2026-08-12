@@ -83,7 +83,6 @@ export default function ClockinMini({ navIsOpen }) {
           name={navIsOpen ? "Clock Out" : null}
           onClick={async () => {
             if (!currentActivity?.id) return;
-            console.log("Current:", currentActivity);
             await clockOutAttendanceActivity(currentActivity.id);
             await refetchCurrent();
           }}

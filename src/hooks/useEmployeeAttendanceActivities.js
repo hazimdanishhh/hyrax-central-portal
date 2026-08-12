@@ -90,8 +90,6 @@ export default function useEmployeeAttendanceActivities() {
           : null,
       }));
 
-      console.log(normalizedData);
-
       setAttendanceActivities(normalizedData || []);
       showMessage("Attendance loaded", "success");
     } catch (err) {

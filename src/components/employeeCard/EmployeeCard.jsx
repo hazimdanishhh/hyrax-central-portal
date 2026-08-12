@@ -12,7 +12,6 @@ import StatusBadge from "../status/statusBadge/StatusBadge";
 import AttendanceType from "../attendance/attendanceType/AttendanceType";
 
 function EmployeeCard({ className, onClick, employee, isMyManager }) {
-  console.log(employee);
   return (
     <motion.div
       className={className}

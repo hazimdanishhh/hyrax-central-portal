@@ -32,6 +32,8 @@ import useClientMutations from "../../../../../features/sales/clients/private/ho
 import { fetchClients } from "../../../../../features/sales/clients/private/api/clientsService";
 import ClientsList from "../../../../../components/sales/clients/clientsList/ClientsList";
 import ClientSidebar from "./detail/ClientSidebar";
+import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
+import PageTitle from "../../../../../components/pageTitle/PageTitle";
 
 /**
  * SALES Clients Management Page
@@ -184,7 +186,7 @@ export default function ClientsManagement() {
 
   function handleCloseSidebar() {
     setIsEditing(false);
-    navigate(`/app/sales/clients/list?${searchParams.toString()}`);
+    navigate(`/app/sales/clients/prospects?${searchParams.toString()}`);
   }
 
   // ==============
@@ -234,6 +236,11 @@ export default function ClientsManagement() {
 
   return (
     <>
+      <PageTitle
+        title="Prospects"
+        subtitle="Manage your prospects and clients"
+      />
+
       {/* SEARCH AND FILTER BAR */}
       <SearchFilterBar
         search={search}
@@ -241,7 +248,7 @@ export default function ClientsManagement() {
         filters={filters}
         onFilterChange={setFilters}
         filterConfig={filterConfig}
-        placeholder="Search companies..."
+        placeholder="Search prospects..."
       />
 
       {/* ACTIVE FILTERS */}
@@ -264,8 +271,9 @@ export default function ClientsManagement() {
           options={layoutOptions}
           actionButtons={[
             {
-              name: "Add Client",
+              name: "Add Prospect",
               icon: PlusCircleIcon,
+              style: "button buttonType5 approval",
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
               },

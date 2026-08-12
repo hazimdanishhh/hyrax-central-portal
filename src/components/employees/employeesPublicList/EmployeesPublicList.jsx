@@ -12,12 +12,6 @@ export default function EmployeesPublicList({
   employee,
   isMyManager,
 }) {
-  console.log(
-    "name:",
-    employee.full_name,
-    "current_status",
-    employee.current_status,
-  );
   return (
     <motion.div
       className={className}

@@ -11,8 +11,6 @@ function EmployeeImage({
   employeeId,
   displayName,
 }) {
-  console.log(employee);
-
   return (
     <Link
       className="employeeLinkWrapper"

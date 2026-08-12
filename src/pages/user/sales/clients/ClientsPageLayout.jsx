@@ -18,7 +18,7 @@ export default function ClientsPageLayout() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={UsersIcon} current="Clients Management" />
+            <Breadcrumbs icon={UsersIcon} current="Clients" />
 
             <CardWrapper>
               <div className="pageTabContainer">
@@ -39,7 +39,7 @@ export default function ClientsPageLayout() {
 
                 {/* ALL LEADS */}
                 <NavLink
-                  to="/app/sales/clients/list"
+                  to="/app/sales/clients/prospects"
                   className={({ isActive }) =>
                     `button buttonTypeTab textRegular textXS ${
                       isActive ? "active" : ""
@@ -49,12 +49,12 @@ export default function ClientsPageLayout() {
                   <div className="pageTabIcon">
                     <ListIcon size={15} />
                   </div>
-                  All Clients
+                  Prospects
                 </NavLink>
 
                 {/* MY LEADS */}
                 <NavLink
-                  to="/app/sales/clients/contacts"
+                  to="/app/sales/clients/sap"
                   className={({ isActive }) =>
                     `button buttonTypeTab textRegular textXS ${
                       isActive ? "active" : ""
@@ -64,7 +64,7 @@ export default function ClientsPageLayout() {
                   <div className="pageTabIcon">
                     <ListIcon size={15} />
                   </div>
-                  All Contacts
+                  SAP Clients
                 </NavLink>
               </div>
               <Outlet />
