@@ -6,8 +6,8 @@ import LeadsManagement from "../pages/user/sales/leads/list/LeadsManagement";
 import LeadsPageLayout from "../pages/user/sales/leads/LeadsPageLayout";
 import LeadsOverview from "../pages/user/sales/leads/overview/LeadsOverview";
 import ClientsPageLayout from "../pages/user/sales/clients/ClientsPageLayout";
-import ClientsOverview from "../pages/user/sales/clients/overview/ClientsOverview";
 import ClientsManagement from "../pages/user/sales/clients/list/ClientsManagement";
+import SapClients from "../pages/user/sales/clients/sap/SapClients";
 import Orders from "../pages/user/sales/orders/Orders";
 import OrdersPageLayout from "../pages/user/sales/orders/OrdersPageLayout";
 import SalesBudgetsManagement from "../pages/user/sales/orders/budgets/SalesBudgetsManagement";
@@ -37,15 +37,7 @@ export default (
         </AccessRoute>
       }
     >
-      <Route index element={<Navigate to="overview" replace />} />
-      <Route
-        path="overview"
-        element={
-          <AccessRoute departments={["SAL"]}>
-            <ClientsOverview />
-          </AccessRoute>
-        }
-      />
+      <Route index element={<Navigate to="prospects" replace />} />
 
       <Route
         path="prospects"
@@ -56,6 +48,17 @@ export default (
         }
       >
         <Route path=":clientId" element={null} />
+      </Route>
+
+      <Route
+        path="sap"
+        element={
+          <AccessRoute departments={["SAL"]}>
+            <SapClients />
+          </AccessRoute>
+        }
+      >
+        <Route path=":customerCode" element={null} />
       </Route>
     </Route>
 

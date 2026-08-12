@@ -2,7 +2,7 @@ import React from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import {
-  ChartLineIcon,
+  DatabaseIcon,
   HandshakeIcon,
   ListIcon,
   UsersIcon,
@@ -22,22 +22,7 @@ export default function ClientsPageLayout() {
 
             <CardWrapper>
               <div className="pageTabContainer">
-                {/* OVERVIEW */}
-                <NavLink
-                  to="/app/sales/clients/overview"
-                  className={({ isActive }) =>
-                    `button buttonTypeTab textRegular textXS ${
-                      isActive ? "active" : ""
-                    }`
-                  }
-                >
-                  <div className="pageTabIcon">
-                    <ChartLineIcon size={15} />
-                  </div>
-                  Overview
-                </NavLink>
-
-                {/* ALL LEADS */}
+                {/* PROSPECTS */}
                 <NavLink
                   to="/app/sales/clients/prospects"
                   className={({ isActive }) =>
@@ -52,7 +37,7 @@ export default function ClientsPageLayout() {
                   Prospects
                 </NavLink>
 
-                {/* MY LEADS */}
+                {/* SAP CLIENTS */}
                 <NavLink
                   to="/app/sales/clients/sap"
                   className={({ isActive }) =>
@@ -62,7 +47,7 @@ export default function ClientsPageLayout() {
                   }
                 >
                   <div className="pageTabIcon">
-                    <ListIcon size={15} />
+                    <DatabaseIcon size={15} />
                   </div>
                   SAP Clients
                 </NavLink>

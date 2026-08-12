@@ -1,0 +1,23 @@
+.sapClientsListContainer {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  cursor: pointer;
+
+  .sapClientsListHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    text-align: start;
+    flex-wrap: wrap;
+  }
+
+  .sapClientsListStatusContainer {
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    gap: 0.8rem;
+  }
+}

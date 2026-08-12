@@ -1,4 +1,4 @@
-.clientSidebarContainer {
+.sapClientSidebarContainer {
   display: flex;
   flex-direction: column;
   padding: 0.8rem;
@@ -9,20 +9,12 @@
   gap: 0.8rem;
   text-align: start;
 
-  @media screen and (max-width: 768px) {
-    flex-direction: column;
-  }
-
-  .clientSidebarLeft {
+  .sapClientSidebarLeft {
     width: 100%;
     height: fit-content;
-
-    @media screen and (max-width: 768px) {
-      width: 100%;
-    }
   }
 
-  .clientSidebarDetailsContainer {
+  .sapClientSidebarStatusContainer {
     display: flex;
     width: 100%;
     gap: 0.4rem;
@@ -30,11 +22,10 @@
     flex-wrap: wrap;
   }
 
-  .clientSidebarTabContainer {
+  .sapClientSidebarDetails {
     display: flex;
-    justify-content: start;
-    align-items: center;
-    width: 100%;
+    flex-direction: column;
     gap: 0.4rem;
+    width: 100%;
   }
 }
