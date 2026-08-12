@@ -41,22 +41,27 @@ export const usersTableConfig = ({ roles, departments }) => [
     key: "full_name",
     label: "Full Name",
     getValue: (profile) => profile.full_name,
-    editable: false,
+    editable: true,
     editor: "text",
+    required: true,
   },
   {
     key: "email",
     label: "Email",
     getValue: (profile) => profile.email,
-    editable: false,
+    editable: true,
     editor: "text",
+    required: true,
   },
   {
     key: "avatar_url",
-    label: "Attendance Photo",
+    label: "Profile Picture",
     getValue: (profile) => profile.avatar_url,
     editable: true,
     editor: "image",
+    // Unlike attendance photos (immutable once captured), a profile
+    // picture should always be replaceable.
+    allowReplace: true,
   },
   {
     key: "created_at",

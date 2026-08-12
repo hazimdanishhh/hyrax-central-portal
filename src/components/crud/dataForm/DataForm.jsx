@@ -177,6 +177,7 @@ function DataForm({
                         isClearable={col.isClearable}
                         cacheOptions={col.cacheOptions}
                         formatOptionLabel={col.formatOptionLabel}
+                        allowReplace={col.allowReplace}
                       />
                     )}
                   />

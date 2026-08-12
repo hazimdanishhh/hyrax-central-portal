@@ -12,6 +12,7 @@ import Orders from "../pages/user/sales/orders/Orders";
 import OrdersPageLayout from "../pages/user/sales/orders/OrdersPageLayout";
 import SalesBudgetsManagement from "../pages/user/sales/orders/budgets/SalesBudgetsManagement";
 import SalesTargetsManagement from "../pages/user/sales/leads/targets/SalesTargetsManagement";
+import SalesRepMapping from "../pages/user/sales/salesRepMapping/SalesRepMapping";
 
 export default (
   <Route path="sales">
@@ -132,6 +133,17 @@ export default (
         }
       />
     </Route>
+
+    {/* SALES REP MAPPING -- links a SAP sales rep (sap_sales_persons) to a
+        real employee. See DASHBOARD-ROADMAP.md §1.1/Group B. */}
+    <Route
+      path="rep-mapping"
+      element={
+        <AccessRoute departments={["SAL"]} roles={["manager"]}>
+          <SalesRepMapping />
+        </AccessRoute>
+      }
+    />
 
     {/* QUOTATIONS -- intentional placeholder, not an orphan route (confirmed
         2026-08). This is reserved for a future in-app quotation-generation

@@ -1,4 +1,9 @@
-import { DesktopIcon, PencilSimpleIcon } from "@phosphor-icons/react";
+import { useRef } from "react";
+import {
+  CameraIcon,
+  DesktopIcon,
+  PencilSimpleIcon,
+} from "@phosphor-icons/react";
 import { profileData } from "../../data/profileData";
 import CardLayout from "../cardLayout/CardLayout";
 import CardSection from "../cardSection/CardSection";
@@ -9,19 +14,29 @@ import SectionHeader from "../sectionHeader/SectionHeader";
 import { Link } from "react-router";
 import RouterButton from "../buttons/routerButton/RouterButton";
 import AttendanceType from "../attendance/attendanceType/AttendanceType";
+import { useProfile } from "../../context/ProfileContext";
+import { useAccessControl } from "../../context/AccessControlContext";
+import { useUpdateOwnAvatar } from "../../features/profile/hooks/useUpdateOwnAvatar";
 
 export default function ProfileCard({
   profile,
   employee,
   employeePublic,
   assets,
-  role,
 }) {
   const sources = {
     profile,
     employee,
     employeePublic,
   };
+
+  const { refetchProfile } = useProfile();
+  const { canAccess } = useAccessControl();
+  const avatarInputRef = useRef();
+  const { updateAvatar, updating: updatingAvatar } = useUpdateOwnAvatar(
+    profile?.id,
+    refetchProfile,
+  );
 
   return (
     <div className="profileCard">
@@ -31,6 +46,25 @@ export default function ProfileCard({
             <img
               src={profile?.avatar_url || `/profilePhoto/default.webp`}
               alt={profile?.full_name}
+            />
+
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) updateAvatar(file);
+                e.target.value = "";
+              }}
+            />
+
+            <Button
+              icon={CameraIcon}
+              style="profilePhotoChangeButton"
+              disabled={updatingAvatar}
+              onClick={() => avatarInputRef.current.click()}
             />
           </div>
           <div className="profileOverviewDetails">
@@ -51,17 +85,17 @@ export default function ProfileCard({
               <div className="profileSectionHeader">
                 <SectionHeader title={section.title} icon={section.icon} />
 
-                {/* CAN EDIT ONLY IF SUPERADMIN OR HR MANAGER */}
-                {(section.source === "employee" && role === "superadmin") ||
-                  (section.source === "employee" &&
-                    profile.department.sub === "HR" &&
-                    profile.role_id > 1 && (
-                      <RouterButton
-                        to={`/app/hr/employees/list/?employeeId=${employee.id}`}
-                        style="button buttonType5 textXXS"
-                        icon={PencilSimpleIcon}
-                      />
-                    ))}
+                {/* Edit shortcut: only where the destination
+                    (/app/hr/employees/list) is actually reachable to this
+                    user -- same gate as that route's own AccessRoute. */}
+                {section.source === "employee" &&
+                  canAccess({ departments: ["HR"] }) && (
+                    <RouterButton
+                      to={`/app/hr/employees/list/?employeeId=${employee?.id}`}
+                      style="button buttonType5 textXXS"
+                      icon={PencilSimpleIcon}
+                    />
+                  )}
               </div>
               <CardLayout
                 style={

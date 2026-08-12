@@ -80,6 +80,7 @@
 }
 
 .profilePhoto {
+  position: relative;
   width: 150px;
   height: 150px;
   background-color: $dark;
@@ -102,5 +103,29 @@
     object-fit: cover; // fills the circle nicely without stretching
     object-position: center; // centers the subject
     display: block; // removes default inline spacing
+  }
+
+  // Full-cover overlay so it's clipped by the same circular mask as the
+  // photo -- a corner badge would get cut off oddly by border-radius: 50%.
+  .profilePhotoChangeButton {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.35);
+    color: white;
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  &:hover .profilePhotoChangeButton,
+  .profilePhotoChangeButton:focus-visible {
+    opacity: 1;
   }
 }

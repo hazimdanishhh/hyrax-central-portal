@@ -3,7 +3,13 @@ import Button from "../../buttons/button/Button";
 import { CameraIcon } from "@phosphor-icons/react";
 import CardLayout from "../../cardLayout/CardLayout";
 
-export default function ImageUploadEditor({ value, onChange, readOnly, show }) {
+export default function ImageUploadEditor({
+  value,
+  onChange,
+  readOnly,
+  show,
+  allowReplace,
+}) {
   const inputRef = useRef();
 
   const preview = value instanceof File ? URL.createObjectURL(value) : value;
@@ -24,7 +30,11 @@ export default function ImageUploadEditor({ value, onChange, readOnly, show }) {
         />
       )}
 
-      {!readOnly && !preview && (
+      {/* Default: once a photo exists, it can't be replaced (attendance
+          photos are meant to stay as originally captured). allowReplace
+          opts a column out of that -- e.g. a profile picture, which should
+          always be changeable. */}
+      {!readOnly && (!preview || allowReplace) && (
         <>
           <input
             ref={inputRef}
@@ -39,7 +49,7 @@ export default function ImageUploadEditor({ value, onChange, readOnly, show }) {
           />
 
           <Button
-            name="Take Photo"
+            name={preview ? "Change Photo" : "Take Photo"}
             icon2={CameraIcon}
             style="button buttonType2"
             type="button"

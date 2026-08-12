@@ -21,7 +21,6 @@ export default function Profile() {
     profile,
     loading: profileLoading,
     error: profileError,
-    role,
     isSuperAdmin,
     isManager,
     isStaff,
@@ -66,7 +65,6 @@ export default function Profile() {
                   employee={employee}
                   employeePublic={employeePublic}
                   assets={assets}
-                  role={role}
                 />
               ) : (
                 <NoResult title="No Profile Data Found" />

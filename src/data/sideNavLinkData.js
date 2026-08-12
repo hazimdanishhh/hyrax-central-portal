@@ -37,6 +37,7 @@ import {
   ScalesIcon,
   ChartLineUpIcon,
   UserCheckIcon,
+  LinkIcon,
 } from "@phosphor-icons/react";
 
 export const sideNavLinkData = [
@@ -187,6 +188,15 @@ export const sideNavLinkData = [
         label: "Sales Orders",
         icon: ReceiptIcon,
         path: "sales/orders",
+
+        departments: ["SAL"],
+        roles: ["manager"],
+      },
+
+      {
+        label: "Sales Rep Mapping",
+        icon: LinkIcon,
+        path: "sales/rep-mapping",
 
         departments: ["SAL"],
         roles: ["manager"],

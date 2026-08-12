@@ -28,10 +28,11 @@ export async function updateProfile(updatedData) {
 /**
  * DELETE
  *
- * Removes the profiles row only. This does NOT remove the corresponding
- * Supabase Auth account (that requires the service-role admin API, which
- * must not run client-side) — the deleted user's auth account remains valid
- * until a proper offboarding flow (e.g. an Edge Function) exists.
+ * Removes the profiles row only, by design (confirmed 2026-08) — Auth
+ * account lifecycle (create/disable/delete) is explicitly out of scope for
+ * this app; user provisioning/deprovisioning is handled entirely through
+ * Google Admin. This page's CRUD surface is Read/Update/Delete on
+ * `profiles` only.
  */
 export async function deleteProfile(id) {
   const { error } = await supabase.from("profiles").delete().eq("id", id);

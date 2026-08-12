@@ -46,6 +46,14 @@ export function getFriendlyError(
     case "42501":
       return `Permission denied. You aren't authorized to modify ${entity}s.`;
 
+    // PostgREST's "no rows returned" -- what `.update().select().single()`
+    // throws when a write succeeds against zero rows because an RLS
+    // policy's USING clause silently filtered the target row out, not
+    // because the record doesn't exist. Same underlying cause as 42501,
+    // just surfaced differently by PostgREST's single-row shorthand.
+    case "PGRST116":
+      return `This ${entity} couldn't be found, or you aren't authorized to modify it.`;
+
     default:
       return err?.message || "Something went wrong.";
   }

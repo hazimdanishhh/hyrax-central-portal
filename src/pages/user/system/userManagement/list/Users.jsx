@@ -26,6 +26,7 @@ import { AnimatePresence } from "framer-motion";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import UserList from "../../../../../components/users/userList/UserList";
+import { uploadAvatarPhoto } from "../../../../../services/storage/uploadAvatarPhoto";
 
 export default function Users() {
   const { darkMode } = useTheme();
@@ -135,7 +136,18 @@ export default function Users() {
       }
 
       if (modalType === "save") {
-        await updateProfile(pendingSaveRow);
+        const data = { ...pendingSaveRow };
+
+        // Upload only if a new photo was picked -- a File object means a
+        // new capture/selection, a string means the existing URL was left
+        // untouched. Mirrors AttendanceManagement.jsx's photo_url pattern.
+        if (data.avatar_url instanceof File) {
+          const uploaded = await uploadAvatarPhoto(data.avatar_url, data.id);
+
+          data.avatar_url = uploaded.url;
+        }
+
+        await updateProfile(data);
       }
 
       handleCloseSidebar();
