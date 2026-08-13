@@ -60,7 +60,7 @@ Don't migrate a page to the RPC-driven pattern below just to "match the others" 
 
 **Freshness banner:**
 
-- A metadata service reads `sap_pipeline_state` (`last_run_at`, `last_run_status` per pipeline), takes the **oldest** `last_run_at` as "asOf", and flags `hasFailedPipeline` if any watched pipeline's last run errored.
+- A metadata service reads `sap_pipeline_state` (`last_run_at`, `last_run_status` per pipeline), takes the **most recent** `last_run_at` as "asOf", and flags `hasFailedPipeline` if any watched pipeline's last run errored. (Changed 2026-08 — was previously the _oldest_/weakest-link across all watched pipelines, a deliberate conservative design with its own past-incident precedent; the user explicitly chose the optimistic "most recent" display instead, accepting that the banner can now look fresher than the true worst-case staleness among watched pipelines. See `DASHBOARD-ROADMAP.md` §6 decision #10.)
 - Template: `src/features/finance/reports/private/api/financeMetadataService.js`.
 - Each new dashboard declares its own `*_PIPELINE_NAMES` list — make sure it actually lists every table the RPC depends on (a past miss: Operations' watched-pipeline list excluded `sap_invoices` despite two of its own KPIs depending on it).
 

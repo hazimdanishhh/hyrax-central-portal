@@ -1,7 +1,9 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
-// Pipelines that feed get_operations_dashboard -- the oldest of these
-// last_run_at values is the true "how stale can this dashboard be" bottleneck.
+// Pipelines that feed get_operations_dashboard -- shows the MOST RECENT of
+// these last_run_at values as "Last Updated" (changed 2026-08, was
+// previously the oldest/weakest-link across all watched pipelines --
+// deliberate reversal, see DASHBOARD-ROADMAP.md §6 decision #10).
 const OPERATIONS_PIPELINE_NAMES = [
   "sap_sales_orders",
   "sap_deliveries",
@@ -16,13 +18,13 @@ export async function fetchOperationsMetadata() {
 
   const rows = pipelineRows || [];
 
-  const asOf = rows.reduce((oldest, row) => {
-    if (!row.last_run_at) return oldest;
-    if (!oldest || new Date(row.last_run_at) < new Date(oldest)) {
+  const asOf = rows.reduce((newest, row) => {
+    if (!row.last_run_at) return newest;
+    if (!newest || new Date(row.last_run_at) > new Date(newest)) {
       return row.last_run_at;
     }
 
-    return oldest;
+    return newest;
   }, null);
 
   const hasFailedPipeline = rows.some(

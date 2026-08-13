@@ -1,7 +1,9 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
-// Pipelines that feed get_sales_reports_dashboard -- the oldest of these
-// last_run_at values is the true "how stale can this dashboard be" bottleneck.
+// Pipelines that feed get_sales_reports_dashboard -- shows the MOST RECENT
+// of these last_run_at values as "Last Updated" (changed 2026-08, was
+// previously the oldest/weakest-link across all watched pipelines --
+// deliberate reversal, see DASHBOARD-ROADMAP.md §6 decision #10).
 // sap_payments/sap_payment_applications added 2026-07 (invoice/budget/
 // collected rebalance -- the new Cash Collected figures depend on both).
 // Keep this list in sync with every base CTE in
@@ -26,13 +28,13 @@ export async function fetchSalesReportsMetadata() {
 
   const pipelineRows = pipelineState.data || [];
 
-  const asOf = pipelineRows.reduce((oldest, row) => {
-    if (!row.last_run_at) return oldest;
-    if (!oldest || new Date(row.last_run_at) < new Date(oldest)) {
+  const asOf = pipelineRows.reduce((newest, row) => {
+    if (!row.last_run_at) return newest;
+    if (!newest || new Date(row.last_run_at) > new Date(newest)) {
       return row.last_run_at;
     }
 
-    return oldest;
+    return newest;
   }, null);
 
   const hasFailedPipeline = pipelineRows.some(

@@ -23,13 +23,13 @@ export async function fetchSalesOrdersMetadata() {
 
   const pipelineRows = pipelineState.data || [];
 
-  const asOf = pipelineRows.reduce((oldest, row) => {
-    if (!row.last_run_at) return oldest;
-    if (!oldest || new Date(row.last_run_at) < new Date(oldest)) {
+  const asOf = pipelineRows.reduce((newest, row) => {
+    if (!row.last_run_at) return newest;
+    if (!newest || new Date(row.last_run_at) > new Date(newest)) {
       return row.last_run_at;
     }
 
-    return oldest;
+    return newest;
   }, null);
 
   const hasFailedPipeline = pipelineRows.some(

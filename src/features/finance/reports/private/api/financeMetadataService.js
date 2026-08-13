@@ -1,7 +1,9 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
-// Pipelines that feed get_finance_dashboard -- the oldest of these last_run_at
-// values is the true "how stale can this dashboard be" bottleneck.
+// Pipelines that feed get_finance_dashboard -- shows the MOST RECENT of
+// these last_run_at values as "Last Updated" (changed 2026-08, was
+// previously the oldest/weakest-link across all watched pipelines --
+// deliberate reversal, see DASHBOARD-ROADMAP.md §6 decision #10).
 // sap_vendor_bills/sap_vendor_payments added 2026-07 (Finance Expansion
 // Phase 1); sap_oact/sap_gl_journal_entries added 2026-07 (Phase 2);
 // sap_odsc/sap_dsc1/sap_obnk added 2026-08 (Phase 3, Cash Flow Statement) --
@@ -44,13 +46,13 @@ export async function fetchFinanceMetadata() {
 
   const pipelineRows = pipelineState.data || [];
 
-  const asOf = pipelineRows.reduce((oldest, row) => {
-    if (!row.last_run_at) return oldest;
-    if (!oldest || new Date(row.last_run_at) < new Date(oldest)) {
+  const asOf = pipelineRows.reduce((newest, row) => {
+    if (!row.last_run_at) return newest;
+    if (!newest || new Date(row.last_run_at) > new Date(newest)) {
       return row.last_run_at;
     }
 
-    return oldest;
+    return newest;
   }, null);
 
   const hasFailedPipeline = pipelineRows.some(
