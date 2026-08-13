@@ -11,9 +11,16 @@
     gap: 0.5rem;
     width: 100%;
 
+    &.employeePublicListHeaderContainer {
+      @media screen and (max-width: 1024px) {
+        flex-direction: column;
+        align-items: start;
+      }
+    }
+
     @media screen and (max-width: 1024px) {
-      flex-direction: column;
-      align-items: start;
+      // flex-direction: column;
+      // align-items: start;
     }
 
     .employeeListHeader {

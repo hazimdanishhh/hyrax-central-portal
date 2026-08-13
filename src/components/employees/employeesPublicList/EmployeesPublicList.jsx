@@ -19,7 +19,7 @@ export default function EmployeesPublicList({
       initial={{ y: 0 }}
       whileHover={{ y: -3 }}
     >
-      <div className="employeeListHeaderContainer">
+      <div className="employeeListHeaderContainer employeePublicListHeaderContainer">
         <div className="employeeListHeader">
           <div className="employeeCardPhoto">
             <img
