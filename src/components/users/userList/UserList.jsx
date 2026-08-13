@@ -1,6 +1,7 @@
 import { CaretCircleRightIcon, NotePencilIcon } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import CardLayout from "../../cardLayout/CardLayout";
+import StatusBox from "../../status/statusBox/StatusBox";
 
 export default function UserList({ user, onClick, saving, deleting }) {
   return (
@@ -20,8 +21,17 @@ export default function UserList({ user, onClick, saving, deleting }) {
 
         <div className="employeeCardHeaderDetails">
           <p className="textBold textXXS">{user.full_name}</p>
-          <p className="textRegular textXXXS">{user.department?.name}</p>
-          <p className="textLight textXXXS">{user.role?.name}</p>
+          <StatusBox status={user.department?.sub} type="dark" />
+          <StatusBox
+            status={user.role?.name}
+            type={
+              user.role?.name === "staff"
+                ? "green"
+                : user.role?.name === "manager"
+                  ? "blue"
+                  : "yellow"
+            }
+          />
         </div>
         <div className="employeeCardStatusContainer">
           <button className="listArrow iconButton2">
