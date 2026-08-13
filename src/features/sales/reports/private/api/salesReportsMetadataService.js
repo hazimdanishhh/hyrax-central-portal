@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { hasRecentPipelineFailures } from "@/features/_shared/checkRecentPipelineFailures";
 
 // Pipelines that feed get_sales_reports_dashboard -- shows the MOST RECENT
 // of these last_run_at values as "Last Updated" (changed 2026-08, was
@@ -18,12 +19,13 @@ const SALES_REPORTS_PIPELINE_NAMES = [
 ];
 
 export async function fetchSalesReportsMetadata() {
-  const [owners, pipelineState] = await Promise.all([
+  const [owners, pipelineState, hasFailedPipeline] = await Promise.all([
     supabase.from("employees_public").select("*").order("full_name"),
     supabase
       .from("sap_pipeline_state")
-      .select("pipeline_name, last_run_at, last_run_status")
+      .select("pipeline_name, last_run_at")
       .in("pipeline_name", SALES_REPORTS_PIPELINE_NAMES),
+    hasRecentPipelineFailures(SALES_REPORTS_PIPELINE_NAMES),
   ]);
 
   const pipelineRows = pipelineState.data || [];
@@ -36,10 +38,6 @@ export async function fetchSalesReportsMetadata() {
 
     return newest;
   }, null);
-
-  const hasFailedPipeline = pipelineRows.some(
-    (row) => row.last_run_status === "error",
-  );
 
   return {
     owners: owners.data || [],

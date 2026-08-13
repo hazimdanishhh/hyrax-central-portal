@@ -30,3 +30,23 @@ export function formatTime(value) {
     timeStyle: "short",
   });
 }
+
+/**
+ * "2h ago" / "3d ago" style relative time -- for staleness displays (e.g.
+ * pipeline last-synced) where the exact timestamp matters less than how
+ * long ago it was.
+ */
+export function formatRelativeTime(value) {
+  if (!value) return null;
+
+  const diffMinutes = Math.round((Date.now() - new Date(value).getTime()) / 60000);
+
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.round(diffHours / 24);
+  return `${diffDays}d ago`;
+}

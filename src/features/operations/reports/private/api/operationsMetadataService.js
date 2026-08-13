@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { hasRecentPipelineFailures } from "@/features/_shared/checkRecentPipelineFailures";
 
 // Pipelines that feed get_operations_dashboard -- shows the MOST RECENT of
 // these last_run_at values as "Last Updated" (changed 2026-08, was
@@ -11,10 +12,13 @@ const OPERATIONS_PIPELINE_NAMES = [
 ];
 
 export async function fetchOperationsMetadata() {
-  const { data: pipelineRows } = await supabase
-    .from("sap_pipeline_state")
-    .select("pipeline_name, last_run_at, last_run_status")
-    .in("pipeline_name", OPERATIONS_PIPELINE_NAMES);
+  const [{ data: pipelineRows }, hasFailedPipeline] = await Promise.all([
+    supabase
+      .from("sap_pipeline_state")
+      .select("pipeline_name, last_run_at")
+      .in("pipeline_name", OPERATIONS_PIPELINE_NAMES),
+    hasRecentPipelineFailures(OPERATIONS_PIPELINE_NAMES),
+  ]);
 
   const rows = pipelineRows || [];
 
@@ -26,10 +30,6 @@ export async function fetchOperationsMetadata() {
 
     return newest;
   }, null);
-
-  const hasFailedPipeline = rows.some(
-    (row) => row.last_run_status === "error",
-  );
 
   return {
     dataFreshness: { asOf, hasFailedPipeline },

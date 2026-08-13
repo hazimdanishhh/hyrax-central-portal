@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { hasRecentPipelineFailures } from "@/features/_shared/checkRecentPipelineFailures";
 
 // Pipelines that feed get_finance_dashboard -- shows the MOST RECENT of
 // these last_run_at values as "Last Updated" (changed 2026-08, was
@@ -32,7 +33,7 @@ const FINANCE_PIPELINE_NAMES = [
 ];
 
 export async function fetchFinanceMetadata() {
-  const [salesReps, pipelineState] = await Promise.all([
+  const [salesReps, pipelineState, hasFailedPipeline] = await Promise.all([
     supabase
       .from("sap_sales_persons")
       .select("sales_rep_code, sales_rep_name")
@@ -40,8 +41,9 @@ export async function fetchFinanceMetadata() {
       .order("sales_rep_name"),
     supabase
       .from("sap_pipeline_state")
-      .select("pipeline_name, last_run_at, last_run_status")
+      .select("pipeline_name, last_run_at")
       .in("pipeline_name", FINANCE_PIPELINE_NAMES),
+    hasRecentPipelineFailures(FINANCE_PIPELINE_NAMES),
   ]);
 
   const pipelineRows = pipelineState.data || [];
@@ -54,10 +56,6 @@ export async function fetchFinanceMetadata() {
 
     return newest;
   }, null);
-
-  const hasFailedPipeline = pipelineRows.some(
-    (row) => row.last_run_status === "error",
-  );
 
   return {
     salesReps: salesReps.data || [],

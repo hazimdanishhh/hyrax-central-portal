@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { hasRecentPipelineFailures } from "@/features/_shared/checkRecentPipelineFailures";
 
 // Deliberately a small, self-contained duplicate of the same two queries in
 // financeMetadataService.js rather than a cross-domain import -- Sales
@@ -9,7 +10,7 @@ import { supabase } from "../../../../../lib/supabaseClient";
 const SALES_ORDERS_PIPELINE_NAMES = ["sap_sales_orders"];
 
 export async function fetchSalesOrdersMetadata() {
-  const [salesReps, pipelineState] = await Promise.all([
+  const [salesReps, pipelineState, hasFailedPipeline] = await Promise.all([
     supabase
       .from("sap_sales_persons")
       .select("sales_rep_code, sales_rep_name")
@@ -17,8 +18,9 @@ export async function fetchSalesOrdersMetadata() {
       .order("sales_rep_name"),
     supabase
       .from("sap_pipeline_state")
-      .select("pipeline_name, last_run_at, last_run_status")
+      .select("pipeline_name, last_run_at")
       .in("pipeline_name", SALES_ORDERS_PIPELINE_NAMES),
+    hasRecentPipelineFailures(SALES_ORDERS_PIPELINE_NAMES),
   ]);
 
   const pipelineRows = pipelineState.data || [];
@@ -31,10 +33,6 @@ export async function fetchSalesOrdersMetadata() {
 
     return newest;
   }, null);
-
-  const hasFailedPipeline = pipelineRows.some(
-    (row) => row.last_run_status === "error",
-  );
 
   return {
     salesReps: salesReps.data || [],

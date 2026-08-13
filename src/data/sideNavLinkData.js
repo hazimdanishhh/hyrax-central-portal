@@ -507,6 +507,14 @@ export const sideNavLinkData = [
         roles: ["superadmin"],
       },
 
+      {
+        label: "Pipeline Status",
+        icon: ChartLineUpIcon,
+        path: "system/pipeline-status",
+
+        roles: ["superadmin"],
+      },
+
       // {
       //   label: "Audit Logs",
       //   icon: FileTextIcon,
