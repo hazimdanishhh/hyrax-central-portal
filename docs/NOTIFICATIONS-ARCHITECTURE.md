@@ -1,6 +1,6 @@
 # Notifications Architecture
 
-**Status:** Phase 1 built (2026-08) — in-app notifications real, email plumbing built but unsent pending provider credentials.
+**Status:** Phase 1 built (2026-08) — in-app notifications real, email plumbing built but unsent pending provider credentials. Phase 2 (2026-08) added the scheduled-scan event source and per-event recipient targeting (`target_payload_keys`) — see worked example 2.
 
 This is the "somewhere to plan this out properly" doc for notifications, logging, and email across the whole system — started because the concrete ask was narrow (notify people when a sales lead's stage changes) but the actual need is general: **any table, any functionality** should be able to notify the right people, through the right channel, without inventing new plumbing each time.
 
@@ -15,7 +15,7 @@ Industry practice for "any table, any functionality" is an **event-driven, gener
 | Table                 | Purpose                                                                                                                                                                                                                                                                                                          |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `notification_events` | Generic, append-only. Any trigger on any table writes here via `emit_notification_event()`. This _is_ the extensibility point — a new use case is a new trigger call + a new rule row, never new dispatch code.                                                                                                  |
-| `notification_rules`  | Who cares about which `event_type`, and how. `condition` (jsonb) matches against the event payload; recipients via `target_roles`/`target_departments` (same model as `canAccess({roles,departments})`) and/or an explicit `target_employee_ids` list (stores `profiles.id`); `channels` picks `in_app`/`email`. |
+| `notification_rules`  | Who cares about which `event_type`, and how. `condition` (jsonb) matches against the event payload; recipients via `target_roles`/`target_departments` (same model as `canAccess({roles,departments})`), an explicit `target_employee_ids` list (stores `profiles.id`), and/or `target_payload_keys` — payload keys whose value is a recipient's `profiles.id`, for notifying whoever a specific event is _about_ (e.g. an employee's own manager) rather than a static role/department; `channels` picks `in_app`/`email`. |
 | `notifications`       | Real backing for the bell/Notifications page. Shaped to match `NotificationCard`'s existing props almost exactly. RLS: a user reads/marks-read only their own rows; no client INSERT policy at all — only `fan_out_notification_event()` (`SECURITY DEFINER`) writes here.                                       |
 | `email_queue`         | Pending sends, processed independently by `send-queued-emails` so a slow/failed email never blocks or corrupts the in-app notification, which already succeeded.                                                                                                                                                 |
 | `email_log`           | Terminal record of every send attempt, success or exhausted-retry failure — the durable audit trail Discord alerts never had.                                                                                                                                                                                    |
@@ -44,7 +44,7 @@ send-queued-emails (Edge Function, pg_cron every few minutes)
 
 **Reliability, by design, not by luck**: every layer that could fail is wrapped so it can never take down the layer above it. A malformed `notification_rules.condition` only skips that one rule (caught inside the per-rule loop in `fan_out_notification_event`) — it doesn't stop other rules from firing. A `fan_out_notification_event` failure doesn't roll back the `notification_events` row already written. A failure in _that whole chain_ doesn't roll back the actual business transaction (the lead's stage update) — the trigger wraps its call to `emit_notification_event` in its own exception handler. This mirrors `hyrax-data-platform`'s own explicit design principle ("fail loudly, recover automatically") and its Discord alerting's "never let alerting break the pipeline" convention — same philosophy, applied here.
 
-## Worked example: sales lead stage changes
+## Worked example 1: sales lead stage changes (change-triggered)
 
 `log_sales_leads_stage_change.sql`'s existing `sales_leads_stage_history` insert is untouched. On a real stage change (not a brand-new lead), it now also calls:
 
@@ -65,7 +65,33 @@ perform public.emit_notification_event(
 
 The seed rule (`supabase/sql_editor/seed_lead_stage_notification_rule.sql`) fires only on `new_stage IN ('NEGOTIATION', 'WON')`, targeting `role='manager', department='SAL'` as a **placeholder** — "sales admin" isn't a real role today (only `staff`/`manager`/`superadmin` exist), and wasn't decided at design time. This is a data row, not code — point it at the real people (via `target_employee_ids`, role/department, or both) whenever that's known, no trigger/function changes required.
 
-**Extending this to any other table**: copy the pattern — call `emit_notification_event()` from that table's own trigger (or add one if it doesn't have one yet), with whatever `event_type`/payload makes sense, then insert a `notification_rules` row. Nothing else needs to change.
+**Extending this to any other change-triggered event**: copy the pattern — call `emit_notification_event()` from that table's own trigger (or add one if it doesn't have one yet), with whatever `event_type`/payload makes sense, then insert a `notification_rules` row. Nothing else needs to change.
+
+## Worked example 2: employee confirmation due soon (scheduled scan)
+
+Not every notification has a row-change to hook into. `employees.confirmation_date` is set once, months before the deadline it's tracking, and nothing writes to that row as the deadline gets closer — the only thing that changes is _today's date_. There's no `UPDATE` for a trigger to react to, so this needed a second event **source** shape: a periodic scan instead of a trigger. Everything downstream of "an event gets emitted" — `emit_notification_event`, `fan_out_notification_event`, `notifications`, `email_queue`, `send-queued-emails` — is identical to worked example 1; only how the event gets emitted differs.
+
+`supabase/functions/check_employee_confirmations_due_soon.sql` is a `pg_cron`-scheduled function (`supabase/sql_editor/schedule_check_employee_confirmations_cron.sql`, once daily, calling straight into Postgres — no `pg_net`/Edge Function needed, since the job never leaves Postgres) that scans for employees whose confirmation is due within 30 days and haven't already been notified, then calls `emit_notification_event()` for each:
+
+```sql
+perform public.emit_notification_event(
+    'employee.confirmation_due_soon', 'employees', v_row.id::text,
+    jsonb_build_object(
+        'employee_id', v_row.id, 'employee_name', v_row.full_name,
+        'confirmation_due_date', v_row.confirmation_due_date,
+        'manager_profile_id', v_row.manager_profile_id,
+        'title', 'Confirmation Review Due Soon',
+        'message', format('%s''s probation confirmation is due on %s.', v_row.full_name, v_row.confirmation_due_date),
+        'link_to', '/app/hr/employees/list/' || v_row.id
+    )
+);
+```
+
+"Due soon" reuses the exact same rule as `get_hr_employees_dashboard_rpc.sql`'s `confirmations_due_soon_count` KPI (Probation status, `confirmation_date is null`, `confirmation_due_date = join_date + 6 months` falling within the next 30 days) — deliberately, so this notification and that dashboard tile can never disagree about what "due soon" means. `employees.confirmation_reminder_sent_at` is the dedup guard that keeps the daily scan from re-notifying the same employee for all 30 days of the window.
+
+**This is also where `notification_rules.target_payload_keys` comes from.** The recipients that make sense here are the specific employee's own manager — not just "any HR manager" — but `fan_out_notification_event()`'s targeting was, until this pass, strictly static (`target_roles`/`target_departments`/`target_employee_ids`, all decided when the rule row is written, never from the event itself). `target_payload_keys` is the generic fix: a rule can list payload keys whose value is a recipient's `profiles.id`, resolved fresh per event. Here, the scan resolves `manager_profile_id` (via `employees.manager_id` → that manager's own `profile_id`) and puts it in the payload; the seed rule (`supabase/sql_editor/seed_employee_confirmation_notification_rule.sql`) lists `target_payload_keys = ['manager_profile_id']` **and** `target_roles/target_departments` for HR broadly, so both the direct owner and an oversight team are covered. Any future event that needs to notify "whoever this event is about" (not just a role/department) can reuse the same mechanism — no more engine changes needed for that pattern.
+
+**Extending this to any other scheduled/time-based condition**: copy the pattern — write a scan function that finds newly-matching rows via a `where` clause plus a dedup column, call `emit_notification_event()` per match inside its own exception-wrapped block, schedule it with `pg_cron`. Full deployment steps: [`docs/setup/EMPLOYEE-CONFIRMATION-REMINDER-DEPLOYMENT-GUIDE.md`](./setup/EMPLOYEE-CONFIRMATION-REMINDER-DEPLOYMENT-GUIDE.md).
 
 ## Email: both providers, fully built, gated by which secret exists
 
@@ -92,15 +118,17 @@ True $0 cost, mail comes from a real `@hyraxoil.com` address. The tradeoff is en
 
 ## Setup guides
 
-- [`docs/setup/NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/NOTIFICATIONS-DEPLOYMENT-GUIDE.md) — the exact ordered list of SQL/migrations/functions to run and Dashboard actions to take to deploy everything described in this doc, checkbox-by-checkbox.
+- [`docs/setup/NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/NOTIFICATIONS-DEPLOYMENT-GUIDE.md) — the exact ordered list of SQL/migrations/functions to run and Dashboard actions to take to deploy the core system (worked example 1), checkbox-by-checkbox.
 - [`docs/setup/GMAIL-API-DOMAIN-WIDE-DELEGATION-GUIDE.md`](./setup/GMAIL-API-DOMAIN-WIDE-DELEGATION-GUIDE.md) — detailed walkthrough for Option B above.
+- [`docs/setup/EMPLOYEE-CONFIRMATION-REMINDER-DEPLOYMENT-GUIDE.md`](./setup/EMPLOYEE-CONFIRMATION-REMINDER-DEPLOYMENT-GUIDE.md) — deployment steps for worked example 2 (the scheduled-scan pattern + `target_payload_keys`), on top of the core system above.
 
 Both are real, tested-for-syntax code today — nothing else needs to change to switch between them, or to run neither (queue safely accumulates, dispatcher logs instead of sending, until a secret is set).
 
 ## Roadmap — what's next, deliberately not built this pass
 
 - **Monthly Sales/Finance report emails.** Different delivery pattern than event-triggered — same `email_queue`/sender plumbing, but a new `pg_cron` job that assembles the digest content (likely from the existing `get_sales_reports_dashboard`/`get_finance_dashboard` RPCs) and queues one email per recipient, rather than a trigger reacting to a single row change.
-- **Extending to other tables.** Finance (e.g. an invoice overdue, a large payment received), Operations, HR — each is "add a trigger call + a rule row," per the worked example above.
+- **Extending to other tables/conditions.** Finance (e.g. an invoice overdue, a large payment received), Operations — each change-triggered case is "add a trigger call + a rule row," per worked example 1; each scheduled/time-based case follows worked example 2's scan-function pattern instead.
+- **Already-overdue confirmations.** `get_hr_employees_dashboard_rpc.sql`'s `late_confirmations_count` (past the 6-month mark, still unconfirmed) is a structurally identical follow-on to worked example 2 — same scan shape, different (and more urgent) condition — not built this pass.
 - **A rules-admin UI.** Right now, editing `notification_rules` means SQL. A page under the System module (same pattern as the Pipeline Status page) would let a superadmin manage rules/recipients without touching SQL — worth building once there are enough real rules to justify a UI over direct table edits.
 - **Per-user notification preferences.** Let a user mute a notification type or choose in-app-only vs. email — not needed yet with one seeded rule, but the schema doesn't preclude adding a `notification_preferences` table later.
 - **A real "admin" role**, if "sales admin" (or similar per-department admin concepts) turns out to need one beyond `staff`/`manager`/`superadmin`. Deliberately not decided or built this pass — `notification_rules.target_employee_ids` covers the gap until/unless a role is actually warranted.

@@ -4,16 +4,15 @@ import { Link, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useUnreadNotificationCount } from "../../../features/notifications/private/hooks/useUnreadNotificationCount";
 
 export default function SideNavLink({ segment, navIsOpen, onClick }) {
-  if (!segment) return null;
-
-  const { segmentTitle, segmentCode, links } = segment;
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const linkRefs = useRef([]);
   const basePath = "/app";
   const location = useLocation();
+  const { unreadCount } = useUnreadNotificationCount();
 
   useEffect(() => {
     if (hoveredIndex !== null && linkRefs.current[hoveredIndex]) {
@@ -24,6 +23,10 @@ export default function SideNavLink({ segment, navIsOpen, onClick }) {
       });
     }
   }, [hoveredIndex]);
+
+  if (!segment) return null;
+
+  const { segmentTitle, segmentCode, links } = segment;
 
   return (
     <div className="sideNavLinkSegment">
@@ -56,7 +59,16 @@ export default function SideNavLink({ segment, navIsOpen, onClick }) {
               }`}
               ref={(el) => (linkRefs.current[index] = el)}
             >
-              <Icon size="20" weight={isActive ? "fill" : "regular"} />
+              {link.path === "notifications" && unreadCount > 0 ? (
+                <span className="sideNavIconWrapper">
+                  <Icon size="20" weight={isActive ? "fill" : "regular"} />
+                  <span className="sideNavUnreadBadge textXXXS">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                </span>
+              ) : (
+                <Icon size="20" weight={isActive ? "fill" : "regular"} />
+              )}
               {navIsOpen ? link.label : null}
             </Link>
 

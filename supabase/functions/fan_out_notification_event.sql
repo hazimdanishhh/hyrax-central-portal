@@ -62,12 +62,19 @@ begin
             -- UNION an explicit list of profile ids ("target_employee_ids"
             -- for how admins will think about it, but it stores
             -- profiles.id -- the same uuid as auth.uid() and
-            -- employees.profile_id). email_work is the deliverable
-            -- address, per this team's existing convention -- profiles.
-            -- email is the Auth login address, not curated as an org-facing
-            -- one. Falls back to profiles.email only if no employees row
-            -- (or no email_work) exists, so email still has a shot rather
-            -- than silently having nowhere to go.
+            -- employees.profile_id) UNION whoever a payload key points at
+            -- (target_payload_keys -- for events that need to notify a
+            -- specific person the event is ABOUT, e.g. an employee's own
+            -- manager, not just a static role/department). The payload
+            -- value is validated as a uuid via regex before casting, rather
+            -- than relying on the per-rule exception block above to catch a
+            -- bad cast -- that block guards the whole rule, not just one
+            -- malformed recipient. email_work is the deliverable address,
+            -- per this team's existing convention -- profiles.email is the
+            -- Auth login address, not curated as an org-facing one. Falls
+            -- back to profiles.email only if no employees row (or no
+            -- email_work) exists, so email still has a shot rather than
+            -- silently having nowhere to go.
             for v_recipient in
                 select distinct p.id as profile_id,
                        coalesce(e.email_work, p.email) as email
@@ -85,6 +92,11 @@ begin
                         )
                     )
                     or p.id = any (v_rule.target_employee_ids)
+                    or p.id = any (
+                        select (v_event.payload ->> key)::uuid
+                        from unnest(v_rule.target_payload_keys) as key
+                        where v_event.payload ->> key ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                    )
             loop
                 if 'in_app' = any (v_rule.channels) then
                     insert into public.notifications (user_id, type, title, message, link_to, created_by)

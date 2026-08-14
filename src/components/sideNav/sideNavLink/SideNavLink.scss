@@ -38,6 +38,27 @@
   }
 }
 
+.sideNavIconWrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.sideNavUnreadBadge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 50%;
+  background-color: $primary;
+  color: $light;
+  line-height: 1;
+}
+
 .sideNavTooltip {
   position: absolute;
   background-color: $neutral800;
