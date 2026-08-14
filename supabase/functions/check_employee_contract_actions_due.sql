@@ -1,15 +1,17 @@
 -- arguments: none
 -- returns: void
 --
--- Scheduled-scan for contract-type employment approaching its end_date.
--- Condition copied verbatim from get_hr_employees_dashboard_rpc.sql's
--- contract_actions_due_count KPI, INCLUDING that RPC's own disclosed
--- caveat: `employment_type.name ilike '%contract%'` is an ASSUMPTION, not a
--- verified match against real employment_type rows (the actual lookup
--- values aren't hardcoded anywhere in the app to confirm against) -- carried
--- forward here rather than silently trusted. Confirm this matches your live
--- employment_type rows (e.g. "Contract", "Fixed-Term Contract") before
--- relying on this in production.
+-- Scheduled-scan for non-permanent employment approaching its end_date.
+-- get_hr_employees_dashboard_rpc.sql's own contract_actions_due_count KPI
+-- matched `employment_type.name ilike '%contract%'`, disclosed there as an
+-- unverified assumption -- confirmed against live data to be too narrow
+-- (misses contractor/freelancer/part-time/intern/temporary etc.). Redesigned
+-- as an EXCLUDE filter instead: everything except the one confirmed
+-- permanent type ("Full-time") is in scope, so any non-permanent type added
+-- later is automatically covered without hand-maintaining an include-list.
+-- An employee with no employment_type_id set at all doesn't match either
+-- way (`null not ilike 'full-time'` is unknown, not true) -- unset stays
+-- excluded rather than assumed non-permanent.
 --
 -- One-shot, same shape as check_employee_confirmations_due_soon.sql -- a
 -- contract-due window resolves the same way (renewed, ended, or the date
@@ -37,7 +39,7 @@ begin
         left join public.employment_status es on es.id = e.employment_status_id
         left join public.employment_type et on et.id = e.employment_type_id
         where es.category = 'active'
-          and et.name ilike '%contract%'
+          and et.name not ilike 'full-time'
           and e.end_date is not null
           and e.end_date between current_date and current_date + interval '30 days'
           and e.contract_action_reminder_sent_at is null
@@ -52,7 +54,7 @@ begin
                     'manager_profile_id', v_row.manager_profile_id,
                     'title', 'Contract Action Due Soon',
                     'message', format(
-                        '%s''s contract-type employment ends on %s -- a renewal or offboarding decision is needed soon.',
+                        '%s''s employment (non-full-time) ends on %s -- a renewal or offboarding decision is needed soon.',
                         v_row.full_name, v_row.end_date
                     ),
                     'link_to', '/app/employees/' || v_row.id

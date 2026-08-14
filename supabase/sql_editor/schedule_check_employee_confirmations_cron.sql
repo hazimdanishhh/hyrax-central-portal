@@ -1,21 +1,33 @@
 -- Run this once in the Supabase SQL editor, AFTER
 -- check_employee_confirmations_due_soon.sql, check_employee_confirmations_overdue.sql,
--- check_employee_confirmation_status_mismatches.sql, and
--- check_employee_contract_actions_due.sql have all been created.
+-- and check_employee_contract_actions_due.sql have all been created.
 --
--- UPGRADING FROM THE ORIGINAL VERSION OF THIS FILE: this job used to only
--- call check_employee_confirmations_due_soon() under the name
--- 'check-employee-confirmations-due-soon-daily'. Re-running cron.schedule()
--- with a DIFFERENT job name does not touch that old job -- if it's already
--- live, unschedule it first:
--- select cron.unschedule('check-employee-confirmations-due-soon-daily');
+-- check_employee_confirmation_status_mismatches() is deliberately NOT
+-- called here -- it's paused (see pause_confirmation_status_mismatch_rule.sql)
+-- because most migrated active employees have no confirmation_date at all,
+-- which would flood this one-shot check with false positives and
+-- permanently burn each employee's single notification opportunity on
+-- migration noise. Re-add a `select public.check_employee_confirmation_status_mismatches();`
+-- line here once the historical data gap is actually fixed.
+--
+-- UPGRADING FROM AN EARLIER VERSION OF THIS FILE:
+-- - If you're still on the very first version, this job used to only call
+--   check_employee_confirmations_due_soon() under the name
+--   'check-employee-confirmations-due-soon-daily' -- unschedule that name
+--   first: select cron.unschedule('check-employee-confirmations-due-soon-daily');
+-- - If you're already on 'check-employee-lifecycle-daily' (the version that
+--   called all 4 functions including the now-paused status-mismatch check),
+--   the job NAME hasn't changed here, but its body has (one function
+--   removed) -- cron.schedule() with the same name does NOT update an
+--   existing job, so unschedule it first either way:
+--   select cron.unschedule('check-employee-lifecycle-daily');
 --
 -- Unlike schedule_send_queued_emails_cron.sql, this never leaves Postgres --
 -- no pg_net/HTTP call, no Edge Function, no secret to store in Vault. It's
--- a straight pg_cron call into four plpgsql functions, since the whole job
+-- a straight pg_cron call into plpgsql functions, since the whole job
 -- (scanning employees, emitting events, updating dedup/cooldown columns)
--- is pure SQL. All four scan the same table on the same daily cadence, so
--- they share one cron job rather than four separate ones.
+-- is pure SQL. All three scan the same table on the same daily cadence, so
+-- they share one cron job rather than three separate ones.
 create extension if not exists pg_cron;
 
 select cron.schedule(
@@ -24,7 +36,6 @@ select cron.schedule(
     $$
     select public.check_employee_confirmations_due_soon();
     select public.check_employee_confirmations_overdue();
-    select public.check_employee_confirmation_status_mismatches();
     select public.check_employee_contract_actions_due();
     $$
 );
