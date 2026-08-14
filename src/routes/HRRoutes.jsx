@@ -42,7 +42,9 @@ export default (
             <EmployeeManagement />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":employeeId" element={null} />
+      </Route>
     </Route>
 
     {/* ATTENDANCE MANAGEMENT */}

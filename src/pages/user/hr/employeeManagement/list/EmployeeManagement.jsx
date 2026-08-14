@@ -11,7 +11,7 @@ import {
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import { useTheme } from "../../../../../context/ThemeContext";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
@@ -23,7 +23,7 @@ import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/Ac
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import { employeesTableConfig } from "./tableConfig";
 import { getEmployeesFilterConfig } from "./filterConfig";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
@@ -47,6 +47,7 @@ import {
 import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 import { fetchEmployees } from "../../../../../features/hr/employees/private/api/employeesService";
 import { useEmployeesMetadata } from "../../../../../features/hr/employees/private/hooks/useEmployeesMetadata";
+import { useEmployeeById } from "../../../../../features/hr/employees/private/hooks/useEmployeeById";
 import useEmployeeMutations from "../../../../../features/hr/employees/private/hooks/useEmployeeMutations";
 import EmployeeSidebar from "./item/EmployeeSidebar";
 import PageActions from "../../../../../components/crud/pageActions/PageActions";
@@ -57,10 +58,12 @@ import PageActions from "../../../../../components/crud/pageActions/PageActions"
  * Server-side filtering and pagination
  */
 export default function EmployeeManagement() {
+  const navigate = useNavigate();
+  const { employeeId } = useParams();
+  const [searchParams] = useSearchParams();
+
   const { darkMode } = useTheme();
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState(null);
   const [pendingDeleteRow, setPendingDeleteRow] = useState(null);
@@ -182,17 +185,41 @@ export default function EmployeeManagement() {
   }
 
   // ==============
-  // SIDEBAR OPEN & CLOSE
+  // SIDEBAR OPEN & CLOSE -- URL-driven (:employeeId), same pattern as
+  // LeadsManagement.jsx/SapClients.jsx: the URL is the source of truth, not
+  // local state, so a link straight to /app/hr/employees/list/<id> (e.g.
+  // from a notification) opens that employee's sidebar directly.
   // ==============
+  const isCreating = employeeId === "new";
+
+  const { data: fetchedEmployee } = useEmployeeById(employeeId);
+
+  // Selected row: check the already-loaded page first (instant UI), else
+  // fall back to the direct by-id fetch (for a deep link to a row not on
+  // the current page).
+  const selectedRow = useMemo(() => {
+    if (employeeId === "new") return {};
+    if (!employeeId) return null;
+
+    const employeeInList = employees?.find((e) => e.id === employeeId);
+    if (employeeInList) return employeeInList;
+
+    return fetchedEmployee || null;
+  }, [employeeId, employees, fetchedEmployee]);
+
+  const sidebarOpen = !!selectedRow;
+
+  useEffect(() => {
+    setIsEditing(isCreating);
+  }, [isCreating]);
+
   function handleOpenSidebar(data) {
-    setSelectedRow(data);
-    setSidebarOpen(true);
+    navigate(`${data.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
     setIsEditing(false);
+    navigate(`/app/hr/employees/list?${searchParams.toString()}`);
   }
 
   // ==============
@@ -246,8 +273,7 @@ export default function EmployeeManagement() {
       }
 
       setModalOpen(false);
-      setSidebarOpen(false);
-      setSelectedRow(null);
+      handleCloseSidebar();
       setPendingSaveRow(null);
       setModalType(null);
     } catch (err) {
@@ -283,9 +309,7 @@ export default function EmployeeManagement() {
               name: "Add Employee",
               style: "button buttonType5 approval textXXS",
               onClick: () => {
-                setSelectedRow({});
-                setSidebarOpen(true);
-                setIsEditing(true);
+                navigate(`new?${searchParams.toString()}`);
               },
             },
             {
