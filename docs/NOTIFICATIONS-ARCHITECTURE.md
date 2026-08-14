@@ -33,7 +33,9 @@ trigger on any table (e.g. sales_leads AFTER UPDATE)
               → does `condition` match the event payload?  (empty condition = always)
               → resolve recipients: role/department match UNION explicit profile ids
               → channel 'in_app'  → INSERT notifications
-              → channel 'email'  → INSERT email_queue
+              → channel 'email'  → INSERT email_queue         [body_html includes a "View in Hyrax Central
+                                                                 Portal" link to https://portal.hyraxoil.com + link_to,
+                                                                 whenever the payload sets one]
 
 send-queued-emails (Edge Function, pg_cron every few minutes)
   → SELECT pending FROM email_queue
@@ -82,7 +84,7 @@ perform public.emit_notification_event(
         'manager_profile_id', v_row.manager_profile_id,
         'title', 'Confirmation Review Due Soon',
         'message', format('%s''s probation confirmation is due on %s.', v_row.full_name, v_row.confirmation_due_date),
-        'link_to', '/app/hr/employees/list/' || v_row.id
+        'link_to', '/app/employees/' || v_row.id
     )
 );
 ```

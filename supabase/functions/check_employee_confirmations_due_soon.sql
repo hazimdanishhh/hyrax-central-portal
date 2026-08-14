@@ -70,7 +70,7 @@ begin
                         '%s''s probation confirmation is due on %s.',
                         v_row.full_name, v_row.confirmation_due_date
                     ),
-                    'link_to', '/app/hr/employees/list/' || v_row.id
+                    'link_to', '/app/employees/' || v_row.id
                 )
             );
 

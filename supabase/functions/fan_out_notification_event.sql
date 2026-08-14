@@ -23,6 +23,11 @@ declare
     v_recipient record;
     v_condition_key text;
     v_condition_matches boolean;
+    -- Plain constant, not a secret/env var -- matches this codebase's
+    -- existing precedent of hardcoding the Supabase project URL directly in
+    -- schedule_send_queued_emails_cron.sql. Only revisit if this app is ever
+    -- deployed under more than one domain.
+    v_app_base_url constant text := 'https://portal.hyraxoil.com';
 begin
     select * into v_event from public.notification_events where id = p_event_id;
     if v_event is null then
@@ -110,12 +115,25 @@ begin
                     );
                 end if;
 
+                -- Every email gets a clickable link back to the same place
+                -- the in-app notification points at (link_to), whenever the
+                -- payload sets one -- so anyone notified by email only, or
+                -- who reads the email before the app, can jump straight
+                -- there instead of hunting for it themselves.
                 if 'email' = any (v_rule.channels) and v_recipient.email is not null then
                     insert into public.email_queue (to_email, subject, body_html, related_event_id)
                     values (
                         v_recipient.email,
                         coalesce(v_event.payload ->> 'title', v_event.event_type),
-                        coalesce(v_event.payload ->> 'message', v_event.payload::text),
+                        coalesce(v_event.payload ->> 'message', v_event.payload::text)
+                            || case
+                                 when v_event.payload ->> 'link_to' is not null
+                                 then format(
+                                     '<p><a href="%s%s">View in Hyrax Central Portal</a></p>',
+                                     v_app_base_url, v_event.payload ->> 'link_to'
+                                 )
+                                 else ''
+                               end,
                         v_event.id
                     );
                 end if;
