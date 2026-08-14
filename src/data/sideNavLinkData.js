@@ -61,11 +61,11 @@ export const sideNavLinkData = [
       //   path: "announcements",
       // },
 
-      // {
-      //   label: "Notifications",
-      //   icon: BellIcon,
-      //   path: "notifications",
-      // },
+      {
+        label: "Notifications",
+        icon: BellIcon,
+        path: "notifications",
+      },
 
       {
         label: "Profile",

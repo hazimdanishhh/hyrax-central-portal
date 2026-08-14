@@ -13,31 +13,34 @@ import { AnimatePresence, motion } from "framer-motion";
 import useClickOutside from "../../hooks/useClickOutside";
 import { useTheme } from "../../context/ThemeContext";
 import NotificationCard from "../notifications/notificationCard/NotificationCard";
-import { notificationData } from "../../data/notificationData";
 import MobileNav from "../mobileNav/MobileNav";
 import useMediaQuery from "../../functions/mediaQuery";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../buttons/button/Button";
 import { useProfile } from "../../context/ProfileContext";
+import { formatRelativeTime } from "../../functions/formatDate";
+import { useRecentNotifications } from "../../features/notifications/private/hooks/useRecentNotifications";
+import { useUnreadNotificationCount } from "../../features/notifications/private/hooks/useUnreadNotificationCount";
+import useNotificationMutations from "../../features/notifications/private/hooks/useNotificationMutations";
 
 function Navbar() {
   const [mobileNavIsOpen, setMobileNavIsOpen] = useState(false);
   const { darkMode } = useTheme();
   const navModalRef = useRef(null);
-  const [message, setMessage] = useState({ text: "", type: "" });
   const [notificationIsOpen, setNotificationIsOpen] = useState(false);
   const notificationRef = useRef();
   useClickOutside(notificationRef, () => setNotificationIsOpen(false));
   const isDesktop = useMediaQuery("(min-width: 1025px)");
-  const notifications = [...notificationData].reverse();
+  const { notifications } = useRecentNotifications(4);
+  const { unreadCount } = useUnreadNotificationCount();
+  const { markRead } = useNotificationMutations();
 
   // Fetch User Session
   const { session } = useAuth();
   const last_sign_in_at = session?.user?.last_sign_in_at;
 
   // Fetch User Profile
-  const { profile, loading, role, isSuperAdmin, isManager, isStaff } =
-    useProfile();
+  const { profile } = useProfile();
 
   // Close navbar when clicked outside
   useClickOutside(navModalRef, () => setMobileNavIsOpen(false));
@@ -84,6 +87,11 @@ function Navbar() {
                 className="navButton"
               >
                 <BellIcon size="24" />
+                {unreadCount > 0 && (
+                  <span className="notificationUnreadBadge textXXXS">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
               </button>
               <AnimatePresence mode="wait">
                 {notificationIsOpen && (
@@ -105,20 +113,25 @@ function Navbar() {
                         <XIcon size="24" />
                       </div>
                     </div>
-                    {notifications.slice(0, 4).map((notification, index) => (
-                      <NotificationCard
-                        key={index}
-                        to={notification.to}
-                        type={notification.type}
-                        title={notification.title}
-                        message={notification.message}
-                        created_at={notification.created_at}
-                        onClick={() =>
-                          setNotificationIsOpen(!notificationIsOpen)
-                        }
-                        truncate
-                      />
-                    ))}
+                    {notifications.length === 0 ? (
+                      <p className="textLight textXXS">No notifications</p>
+                    ) : (
+                      notifications.map((notification) => (
+                        <NotificationCard
+                          key={notification.id}
+                          to={notification.link_to || "/app/notifications"}
+                          type={notification.type}
+                          title={notification.title}
+                          message={notification.message}
+                          created_at={formatRelativeTime(notification.created_at)}
+                          onClick={() => {
+                            markRead(notification.id);
+                            setNotificationIsOpen(!notificationIsOpen);
+                          }}
+                          truncate
+                        />
+                      ))
+                    )}
 
                     <Link
                       to="/app/notifications"
