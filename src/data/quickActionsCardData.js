@@ -165,7 +165,7 @@ export const quickActionsIT = [
   },
   {
     name: "Synology QuickConnect",
-    path: "https://quickconnect.to",
+    path: "https://hyraxoil.quickconnect.to/",
     target: "_blank",
     rel: "noopener noreferrer",
     image: synology,
