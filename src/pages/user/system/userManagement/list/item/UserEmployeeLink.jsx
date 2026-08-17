@@ -28,8 +28,12 @@ export default function UserEmployeeLink({ selectedRow }) {
   async function handleLink() {
     if (!selectedEmployeeId) return;
     await linkProfileToEmployee({
+      // employees.id is uuid, not numeric -- Number() on a uuid string
+      // evaluates to NaN, which then serializes to JSON `null`, so this
+      // previously sent p_employee_id: null on every "Link" click
+      // regardless of which employee was selected.
       profileId,
-      employeeId: Number(selectedEmployeeId),
+      employeeId: selectedEmployeeId,
     });
     setSelectedEmployeeId("");
   }

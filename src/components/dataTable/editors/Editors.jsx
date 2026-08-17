@@ -10,6 +10,8 @@ import ImageUploadEditor from "./ImageUploadEditor";
 import AsyncSelectEditor from "./AsyncSelectEditor";
 import GoogleDriveEditor from "./GoogleDriveEditor";
 import LeadAccountEditor from "./LeadAccountEditor";
+import MultiSelectEditor from "./MultiSelectEditor";
+import ProjectCategoryEditor from "./ProjectCategoryEditor";
 
 export const editors = {
   text: TextEditor,
@@ -23,4 +25,6 @@ export const editors = {
   asyncSelect: AsyncSelectEditor,
   drivePicker: GoogleDriveEditor,
   leadAccountSelect: LeadAccountEditor,
+  multiSelect: MultiSelectEditor,
+  projectCategorySelect: ProjectCategoryEditor,
 };

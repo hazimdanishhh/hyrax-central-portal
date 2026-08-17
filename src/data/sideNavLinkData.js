@@ -90,30 +90,35 @@ export const sideNavLinkData = [
   // =================================================
   // WORKSPACE
   // =================================================
-  // {
-  //   segmentTitle: "WORKSPACE",
-  //   segmentCode: "SPACE",
+  // Projects & Tasks module built out 2026-08 -- general access, no
+  // departments/roles restriction, matching
+  // supabase/access-control/README.md's own existing R2 classification for
+  // Workspace ("no single department owns the data... unrestricted").
+  // Documents remains an untouched stub -- out of scope for this module.
+  {
+    segmentTitle: "WORKSPACE",
+    segmentCode: "SPACE",
 
-  //   links: [
-  //     {
-  //       label: "Projects",
-  //       icon: SquaresFourIcon,
-  //       path: "workspace/projects",
-  //     },
+    links: [
+      {
+        label: "Projects",
+        icon: SquaresFourIcon,
+        path: "workspace/projects",
+      },
 
-  //     {
-  //       label: "Tasks",
-  //       icon: ListDashesIcon,
-  //       path: "workspace/tasks",
-  //     },
+      {
+        label: "Tasks",
+        icon: ListDashesIcon,
+        path: "workspace/tasks",
+      },
 
-  //     {
-  //       label: "Documents",
-  //       icon: FoldersIcon,
-  //       path: "workspace/documents",
-  //     },
-  //   ],
-  // },
+      {
+        label: "Documents",
+        icon: FoldersIcon,
+        path: "workspace/documents",
+      },
+    ],
+  },
 
   // =================================================
   // EMPLOYEE

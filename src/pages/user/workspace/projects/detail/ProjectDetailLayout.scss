@@ -1,0 +1,70 @@
+.projectDetailHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  .projectDetailHeaderTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    text-align: start;
+  }
+
+  .projectDetailHeaderTitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .projectDetailHeaderDates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .projectDetailHeaderActions {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+
+    @media screen and (max-width: 768px) {
+      .button {
+        width: 100%;
+      }
+    }
+  }
+
+  .projectDetailCompleteNudge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background-color: $success100;
+  }
+}
+
+// Transfer Ownership now renders inside a DataSidebar (its own children),
+// not nested under .projectDetailHeader anymore -- kept as a top-level
+// rule so it still applies wherever it's rendered.
+.projectDetailTransferPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+
+  .selectContainer {
+    width: 100%;
+    min-width: 220px;
+  }
+}

@@ -1,0 +1,60 @@
+.taskCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: start;
+  cursor: pointer;
+
+  .taskCardMainRow {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    width: 100%;
+  }
+
+  .taskCardTitleGroup {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 160px;
+    min-width: 0;
+
+    .taskCardProjectLink {
+      text-decoration: underline;
+      width: fit-content;
+    }
+  }
+
+  .taskCardDescription {
+    padding-left: 4px;
+  }
+
+  .taskCardAssignees {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .taskCardActions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .taskCardExpandToggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    flex-shrink: 0;
+  }
+
+  p {
+    text-align: start;
+  }
+}

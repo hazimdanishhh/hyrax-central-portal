@@ -3,4 +3,20 @@
   justify-content: start;
   align-items: center;
   gap: 0.4rem;
+
+  &.blue {
+    color: $info600;
+    background-color: rgba($info600, 0.2);
+    border: 1px solid $info600;
+    border-radius: 4px;
+    padding: 0.2rem;
+  }
+
+  &.yellow {
+    color: $warning600;
+    background-color: rgba($warning600, 0.2);
+    border: 1px solid $warning600;
+    border-radius: 4px;
+    padding: 0.2rem;
+  }
 }
