@@ -27,12 +27,12 @@ export default function GeneralAccessBanner() {
   }
 
   return (
-    <CardLayout style="yellowCard generalAccessBanner">
+    <CardLayout style="generalAccessBanner">
       <WarningIcon size={20} weight="fill" />
       <p className="textXS">
-        Your access is currently limited to the <strong>General</strong>{" "}
-        department (bare-minimum). A system admin has been notified and will
-        assign your real department and role shortly.
+        Your access is currently limited to the <strong>General Module </strong>
+        (bare-minimum access). A system admin has been notified and will assign
+        your designated department module and role shortly.
       </p>
       <button
         type="button"

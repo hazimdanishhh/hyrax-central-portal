@@ -2,7 +2,6 @@ import { Outlet } from "react-router-dom";
 import Navbar from "../components/navbar/Navbar";
 import SideNav from "../components/sideNav/SideNav";
 import MessageUI from "../components/messageUI/MessageUI";
-import GeneralAccessBanner from "../components/generalAccessBanner/GeneralAccessBanner";
 
 export default function AppLayout() {
   return (
@@ -12,7 +11,6 @@ export default function AppLayout() {
       <main>
         <MessageUI />
         <Navbar />
-        <GeneralAccessBanner />
         <Outlet />
       </main>
     </div>

@@ -129,6 +129,7 @@ function Navbar() {
                             setNotificationIsOpen(!notificationIsOpen);
                           }}
                           truncate
+                          read={notification.read_status}
                         />
                       ))
                     )}

@@ -15,6 +15,7 @@ import { useMessage } from "../../../context/MessageContext";
 import { useTheme } from "../../../context/ThemeContext";
 import { departmentLinkCardData } from "../../../data/departmentLinkCardData";
 import { quickActionsHome } from "../../../data/quickActionsCardData";
+import GeneralAccessBanner from "../../../components/generalAccessBanner/GeneralAccessBanner";
 
 function Dashboard() {
   const { darkMode } = useTheme();
@@ -53,6 +54,8 @@ function Dashboard() {
             <Breadcrumbs icon={HouseIcon} current="Dashboard" />
 
             <CardWrapper>
+              <GeneralAccessBanner />
+
               <QuickActions
                 quickActionsList={quickActionsHome}
                 title="Web Services"

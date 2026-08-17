@@ -13,6 +13,7 @@ export async function fetchNotifications({
   page,
   pageSize,
   search,
+  filters = {},
   sortBy,
   sortOrder,
 }) {
@@ -27,6 +28,10 @@ export async function fetchNotifications({
 
   if (search) {
     query = query.or(`title.ilike.%${search}%,message.ilike.%${search}%`);
+  }
+
+  if (filters.read_status !== undefined && filters.read_status !== "") {
+    query = query.eq("read_status", filters.read_status === "true");
   }
 
   query = query.range(from, to);

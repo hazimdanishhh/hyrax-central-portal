@@ -3,10 +3,14 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  margin: 0 1rem 0.5rem;
   flex-direction: row;
+  background-color: rgba($error600, 1);
+  border: 1px solid $error600;
+  border-radius: 8px;
+  color: $neutral100;
 
   p {
+    text-align: justify;
     flex: 1;
     margin: 0;
   }

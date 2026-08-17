@@ -17,6 +17,7 @@ function NotificationCard({
   created_at,
   onClick,
   truncate,
+  read,
 }) {
   const truncatedMessage =
     message.length > 60 ? message.slice(0, 60) + "..." : message;
@@ -28,7 +29,10 @@ function NotificationCard({
       title={message}
       onClick={onClick}
     >
-      <Link to={to} className="notificationCard">
+      <Link
+        to={to}
+        className={`notificationCard ${read ? "read" : "unread"}`}
+      >
         <div
           className={
             type === "info"
@@ -52,6 +56,7 @@ function NotificationCard({
             <CheckIcon size="20" />
           ) : null}
           <div className="textRegular textXS">{title}</div>
+          {!read && <span className="unreadDot" aria-label="Unread" />}
         </div>
         <div className="textLight textXXS">
           {truncate ? truncatedMessage : message}

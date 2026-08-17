@@ -80,6 +80,18 @@ begin
             -- back to profiles.email only if no employees row (or no
             -- email_work) exists, so email still has a shot rather than
             -- silently having nowhere to go.
+            --
+            -- Role and department are independent optional filters, ANDed
+            -- together only when each is actually set -- NOT "department
+            -- narrows a role match", which was a real bug: array_length()
+            -- on an empty array returns NULL in Postgres, not 0, so a rule
+            -- with target_departments set but target_roles left at its
+            -- default '{}' (department-only targeting, no role
+            -- restriction -- e.g. "everyone in HR") silently matched ZERO
+            -- recipients, since the old clause required target_roles to be
+            -- non-empty before department was even considered. Fixed
+            -- 2026-08 after profile.created.needs_employee_link (HR,
+            -- department-only) fired the trigger but notified nobody.
             for v_recipient in
                 select distinct p.id as profile_id,
                        coalesce(e.email_work, p.email) as email
@@ -89,8 +101,14 @@ begin
                 left join public.departments d on d.id = p.department_id
                 where
                     (
-                        array_length(v_rule.target_roles, 1) is not null
-                        and r.name = any (v_rule.target_roles)
+                        (
+                            array_length(v_rule.target_roles, 1) is not null
+                            or array_length(v_rule.target_departments, 1) is not null
+                        )
+                        and (
+                            array_length(v_rule.target_roles, 1) is null
+                            or r.name = any (v_rule.target_roles)
+                        )
                         and (
                             array_length(v_rule.target_departments, 1) is null
                             or d.sub = any (v_rule.target_departments)

@@ -13,6 +13,14 @@
     color: inherit;
   }
 
+  // Unread keeps the card's existing default look (full-strength border/
+  // text, already the more prominent appearance) plus a small dot next to
+  // the title. Read fades the whole card so unread visually stands out
+  // against a list of mostly-read items, without needing a second color.
+  &.read {
+    opacity: 0.6;
+  }
+
   .notificationTitle {
     display: flex;
     justify-content: start;
@@ -33,6 +41,15 @@
 
     &.success {
       color: $success600;
+    }
+
+    .unreadDot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: $primary;
+      margin-left: auto;
+      flex-shrink: 0;
     }
   }
 
