@@ -48,7 +48,7 @@ export async function createProject({
  * see projectMembersMutations.js's syncProjectMembers.
  */
 export async function updateProject(updatedData) {
-  const { id, project_members: _members, category: _category, ...rawFields } = updatedData;
+  const { id, project_members: _members, category: _category, progress_percentage: _progress, ...rawFields } = updatedData;
 
   const fields = normalizeFields(rawFields);
 

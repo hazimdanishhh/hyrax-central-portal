@@ -1,0 +1,64 @@
+.documentCard {
+  width: 100%;
+
+  .documentCardMainRow {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    width: 100%;
+  }
+
+  .documentCardTitleGroup {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .documentCardIcon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .documentCardTitleText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+
+    a {
+      text-align: start;
+      text-decoration: underline;
+    }
+  }
+
+  .documentCardMeta {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .documentCardLink {
+    text-decoration: underline;
+  }
+
+  .documentCardTaskBadges {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.3rem;
+  }
+
+  .documentCardTaskBadge {
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(127, 127, 127, 0.15);
+  }
+}

@@ -1,5 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
-import { attachEmployeeAvatars } from "../../../_shared/attachEmployeeAvatars";
+import { fetchEmployeesPublicByIds } from "../../../_shared/fetchEmployeesPublicByIds";
 
 /**
  * Single-task fetch, independent of fetchMyTasks' pagination -- backs a
@@ -17,8 +17,11 @@ export async function fetchTaskById(taskId) {
       *,
       project:projects (id, name),
       task_assignees (
-        employee_id,
-        employee:employees!task_assignees_employee_id_fkey (id, full_name, profile_id)
+        employee_id
+      ),
+      task_documents (
+        document_id,
+        document:documents (id, drive_file_id, name, url, mime_type, icon_url)
       )
     `,
     )
@@ -28,10 +31,16 @@ export async function fetchTaskById(taskId) {
   if (error) throw error;
   if (!data) return null;
 
-  const employeesWithAvatars = await attachEmployeeAvatars((data.task_assignees ?? []).map((a) => a.employee));
+  // See fetchEmployeesPublicByIds.js's header comment for why this is a
+  // plain query against employees_public, not a nested
+  // `employees!task_assignees_employee_id_fkey(...)` embed.
+  const employeesById = await fetchEmployeesPublicByIds((data.task_assignees ?? []).map((a) => a.employee_id));
 
   return {
     ...data,
-    task_assignees: (data.task_assignees ?? []).map((a, i) => ({ ...a, employee: employeesWithAvatars[i] })),
+    task_assignees: (data.task_assignees ?? []).map((a) => ({
+      ...a,
+      employee: employeesById.get(a.employee_id) ?? null,
+    })),
   };
 }

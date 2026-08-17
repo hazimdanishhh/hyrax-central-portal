@@ -1,0 +1,13 @@
+// Co-located with StatusTab so the wrapper row style loads wherever the
+// component is used, not only when the Leads page bundle happens to load
+// first (moved here from LeadsManagement.scss's .stageTab rule).
+.statusTabsRow {
+  display: flex;
+  width: 100%;
+  justify-content: start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+}

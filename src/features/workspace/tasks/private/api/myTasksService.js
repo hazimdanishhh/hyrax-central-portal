@@ -1,5 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
-import { attachEmployeeAvatars } from "../../../_shared/attachEmployeeAvatars";
+import { fetchEmployeesPublicByIds } from "../../../_shared/fetchEmployeesPublicByIds";
 
 /**
  * Cross-project, real pagination -- unlike tasksByProjectService.js (scoped
@@ -18,8 +18,14 @@ import { attachEmployeeAvatars } from "../../../_shared/attachEmployeeAvatars";
  * full roster and overwrites task_assignees on each row before returning
  * -- same "restrict with one query, display with a second" split already
  * used in fetchProjects for its member-avatar stack.
+ *
+ * Order is hardcoded to due_date ascending -- My Tasks' sort control was
+ * removed (it should always read "what's due soonest"), and that has to be
+ * enforced here, not just by omitting the UI, or a stale/bookmarked URL
+ * with a leftover ?sortBy=... would still reach this function via
+ * usePaginatedQuery's URL-param passthrough and silently change the order.
  */
-export async function fetchMyTasks({ employeeId, page, pageSize, search, filters, sortBy, sortOrder }) {
+export async function fetchMyTasks({ employeeId, page, pageSize, search, filters }) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -29,12 +35,16 @@ export async function fetchMyTasks({ employeeId, page, pageSize, search, filters
       `
       *,
       project:projects (id, name),
-      task_assignees!inner (employee_id)
+      task_assignees!inner (employee_id),
+      task_documents (
+        document_id,
+        document:documents (id, drive_file_id, name, url, mime_type, icon_url)
+      )
     `,
       { count: "exact" },
     )
     .eq("task_assignees.employee_id", employeeId)
-    .order(sortBy, { ascending: sortOrder === "ascending" });
+    .order("due_date", { ascending: true });
 
   if (search) {
     query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
@@ -65,13 +75,7 @@ export async function fetchMyTasks({ employeeId, page, pageSize, search, filters
 
   const { data: allAssignees, error: assigneesError } = await supabase
     .from("task_assignees")
-    .select(
-      `
-      task_id,
-      employee_id,
-      employee:employees!task_assignees_employee_id_fkey (id, full_name, profile_id)
-    `,
-    )
+    .select("task_id, employee_id")
     .in(
       "task_id",
       tasks.map((t) => t.id),
@@ -79,13 +83,15 @@ export async function fetchMyTasks({ employeeId, page, pageSize, search, filters
 
   if (assigneesError) throw assigneesError;
 
-  const employeesWithAvatars = await attachEmployeeAvatars((allAssignees || []).map((a) => a.employee));
-  const assigneesWithAvatars = (allAssignees || []).map((a, i) => ({ ...a, employee: employeesWithAvatars[i] }));
+  // See fetchEmployeesPublicByIds.js's header comment for why this is a
+  // plain query against employees_public, not a nested
+  // `employees!task_assignees_employee_id_fkey(...)` embed.
+  const employeesById = await fetchEmployeesPublicByIds((allAssignees || []).map((a) => a.employee_id));
 
   const assigneesByTask = new Map();
-  assigneesWithAvatars.forEach((a) => {
+  (allAssignees || []).forEach((a) => {
     if (!assigneesByTask.has(a.task_id)) assigneesByTask.set(a.task_id, []);
-    assigneesByTask.get(a.task_id).push(a);
+    assigneesByTask.get(a.task_id).push({ ...a, employee: employeesById.get(a.employee_id) ?? null });
   });
 
   return {

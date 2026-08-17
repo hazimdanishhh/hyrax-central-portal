@@ -21,7 +21,14 @@ export default function ActionModal({
   const { darkMode } = useTheme();
   const [formValues, setFormValues] = useState({});
 
-  // Reset and initialize dynamic fields when modal opens
+  // Reset and initialize dynamic fields when modal opens -- deliberately
+  // depends on `open` only, not `fields`: callers that omit `fields`
+  // rely on its `= []` default, a fresh array reference every render,
+  // which previously re-triggered this effect (and its setState) on
+  // every render while the modal was open, an infinite loop ("Maximum
+  // update depth exceeded"). Reading `fields` from the closure still
+  // uses its current value at the moment `open` flips true, which is
+  // all "initialize on open" actually needs.
   useEffect(() => {
     if (open) {
       const initialValues = {};
@@ -30,7 +37,8 @@ export default function ActionModal({
       });
       setFormValues(initialValues);
     }
-  }, [open, fields]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!open) return null;
 

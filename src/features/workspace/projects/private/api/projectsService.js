@@ -1,5 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
-import { attachEmployeeAvatars } from "../../../_shared/attachEmployeeAvatars";
+import { fetchEmployeesPublicByIds } from "../../../_shared/fetchEmployeesPublicByIds";
 
 /**
  * Server-side search/filter/sort/paginate over the projects_with_progress
@@ -19,10 +19,13 @@ import { attachEmployeeAvatars } from "../../../_shared/attachEmployeeAvatars";
  *
  * `project_members` (for ProjectCard's avatar stack) IS fetched here, but
  * as a second, separate batched query against the real table -- one query
- * for the whole page's rosters, not one per card -- since that table (unlike
- * the view above) carries a real FK PostgREST could embed through, but
- * batching across many project ids in one .in() call is simpler and just
- * as safe either way.
+ * for the whole page's rosters, not one per card. Member identity
+ * (name/avatar/department) is then resolved via employees_public, NOT a
+ * nested `employees!project_members_employee_id_fkey(...)` embed -- see
+ * fetchEmployeesPublicByIds.js's header comment for why (the raw
+ * `employees` table's own RLS is HR-scoped, so embedding it directly for
+ * an arbitrary fellow project member silently nulls out the embedded
+ * object for anyone the viewer isn't HR-privileged to see).
  */
 export async function fetchProjects({ page, pageSize, search, filters, sortBy, sortOrder }) {
   const from = (page - 1) * pageSize;
@@ -62,14 +65,7 @@ export async function fetchProjects({ page, pageSize, search, filters, sortBy, s
 
   const { data: allMembers, error: membersError } = await supabase
     .from("project_members")
-    .select(
-      `
-      project_id,
-      employee_id,
-      role,
-      employee:employees!project_members_employee_id_fkey (id, full_name, profile_id, department_id, department:departments(id, name, sub))
-    `,
-    )
+    .select("project_id, employee_id, role")
     .in(
       "project_id",
       projects.map((p) => p.id),
@@ -77,8 +73,11 @@ export async function fetchProjects({ page, pageSize, search, filters, sortBy, s
 
   if (membersError) throw membersError;
 
-  const employeesWithAvatars = await attachEmployeeAvatars((allMembers || []).map((m) => m.employee));
-  const membersWithAvatars = (allMembers || []).map((m, i) => ({ ...m, employee: employeesWithAvatars[i] }));
+  const employeesById = await fetchEmployeesPublicByIds((allMembers || []).map((m) => m.employee_id));
+  const membersWithAvatars = (allMembers || []).map((m) => ({
+    ...m,
+    employee: employeesById.get(m.employee_id) ?? null,
+  }));
 
   const membersByProject = new Map();
   membersWithAvatars.forEach((m) => {
@@ -97,38 +96,47 @@ export async function fetchProjects({ page, pageSize, search, filters, sortBy, s
  * fetched in parallel, merged here rather than one embedded .select()
  * against the view -- for the same view-has-no-FK-to-detect reason as
  * fetchProjects above. project_members is queried directly against the
- * real table (which DOES have a real FK to employees for PostgREST to
- * embed through), giving the detail layout its member roster immediately
+ * real table, giving the detail layout its member roster immediately
  * (needed for role-gated actions and the Tasks tab's assignee picker
- * options). A third pass, attachEmployeeAvatars, fills in each member's
- * avatar_url from profiles (see that file's own header comment for why
- * that's a separate plain query, not a nested embed).
+ * options). Member identity is resolved via employees_public, NOT a
+ * nested `employees!project_members_employee_id_fkey(...)` embed -- see
+ * fetchEmployeesPublicByIds.js's header comment for why.
  */
 export async function fetchProjectById(id) {
   const [{ data: project, error: projectError }, { data: members, error: membersError }] =
     await Promise.all([
       supabase.from("projects_with_progress").select("*").eq("id", id).maybeSingle(),
-      supabase
-        .from("project_members")
-        .select(
-          `
-          employee_id,
-          role,
-          added_at,
-          employee:employees!project_members_employee_id_fkey (id, full_name, profile_id, department_id, department:departments(id, name, sub))
-        `,
-        )
-        .eq("project_id", id),
+      supabase.from("project_members").select("employee_id, role, added_at").eq("project_id", id),
     ]);
 
   if (projectError) throw projectError;
   if (!project) return null;
   if (membersError) throw membersError;
 
-  const employeesWithAvatars = await attachEmployeeAvatars((members || []).map((m) => m.employee));
-  const membersWithAvatars = (members || []).map((m, i) => ({ ...m, employee: employeesWithAvatars[i] }));
+  const employeesById = await fetchEmployeesPublicByIds((members || []).map((m) => m.employee_id));
+  const membersWithAvatars = (members || []).map((m) => ({
+    ...m,
+    employee: employeesById.get(m.employee_id) ?? null,
+  }));
 
   return { ...project, project_members: membersWithAvatars };
+}
+
+/**
+ * Lightweight, unpaginated {id, name} list of every project the caller is a
+ * member of (RLS-scoped, same as fetchProjects) -- used purely to populate
+ * a "Project" filter dropdown (e.g. the Workspace Documents page), not for
+ * display of project details.
+ */
+export async function fetchAllProjectsLite() {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, name")
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+
+  return data || [];
 }
 
 /**

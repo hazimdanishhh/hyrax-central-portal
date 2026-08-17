@@ -13,8 +13,26 @@ import { TASK_STATUSES, TASK_STATUS_TYPE } from "../../../../../../features/work
  * `workingMembers` (owner/lead/member roles only, never cc) scopes the
  * assignee picker's options to req #5's actual constraint in the UI, on
  * top of the DB trigger that enforces it regardless.
+ *
+ * `canAttachDocuments` is deliberately separate from `canEdit`: attaching a
+ * document is allowed for any WORKING project member (task_documents_crud.sql),
+ * a looser tier than "is this task's own assignee" (tasks_crud.sql's UPDATE
+ * policy) -- so a working member who isn't assigned to this task can still
+ * have the documents field editable while every other field stays read-only.
+ * Defaults to `canEdit` so callers that don't care about the distinction
+ * (e.g. the Add Task form, where everyone able to open it is already a
+ * working member) don't need to pass it explicitly.
+ *
+ * `projectDocuments` (the project's existing document library, from
+ * useProjectDocuments) is offered by the documents editor as "link an
+ * existing document" options, separate from attaching a brand-new file.
  */
-export const taskTableConfig = ({ workingMembers = [], canEdit = true }) => {
+export const taskTableConfig = ({
+  workingMembers = [],
+  canEdit = true,
+  canAttachDocuments = canEdit,
+  projectDocuments = [],
+}) => {
   const assigneeOptions = workingMembers.map((m) => ({
     label: m.employee?.full_name,
     value: m.employee_id,
@@ -83,6 +101,23 @@ export const taskTableConfig = ({ workingMembers = [], canEdit = true }) => {
       editable: canEdit,
       editor: "textarea",
       section: "Details",
+    },
+    {
+      key: "documents",
+      label: "Attached Documents",
+      getValue: (task) =>
+        (task.task_documents ?? []).map((td) => ({
+          document_id: td.document_id,
+          drive_file_id: td.document?.drive_file_id,
+          name: td.document?.name,
+          url: td.document?.url,
+          mime_type: td.document?.mime_type,
+          icon_url: td.document?.icon_url,
+        })),
+      editable: canAttachDocuments,
+      editor: "taskDocuments",
+      options: projectDocuments,
+      section: "Documents",
     },
   ];
 };

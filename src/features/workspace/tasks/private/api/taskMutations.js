@@ -13,6 +13,10 @@ export async function createTask(newData) {
   return data;
 }
 
+// NOTE: like updateProject, this destructure-then-spread pattern forwards any
+// extra key straight to Postgres. If tasks ever gains a computed/view-only
+// display column, mark it `computed: true` in its tableConfig (DataForm.jsx
+// then never seeds/submits it) AND strip it explicitly here for defense in depth.
 export async function updateTask(updatedData) {
   const { id, task_assignees: _assignees, project: _project, ...rawFields } = updatedData;
 

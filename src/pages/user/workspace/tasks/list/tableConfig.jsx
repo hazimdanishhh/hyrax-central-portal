@@ -15,8 +15,11 @@ import {
  * editable here -- every row shown is, by definition, one the viewer is
  * assigned to (myTasksService.js's !inner filter guarantees this), so no
  * per-row gating logic is needed on this page at all.
+ *
+ * `projectDocuments` (the selected task's project's document library) is
+ * offered by the documents editor as "link an existing document" options.
  */
-export const myTasksTableConfig = () => [
+export const myTasksTableConfig = ({ projectDocuments = [] } = {}) => [
   {
     key: "id",
     label: "ID",
@@ -78,5 +81,22 @@ export const myTasksTableConfig = () => [
     editable: true,
     editor: "textarea",
     section: "Details",
+  },
+  {
+    key: "documents",
+    label: "Attached Documents",
+    getValue: (task) =>
+      (task.task_documents ?? []).map((td) => ({
+        document_id: td.document_id,
+        drive_file_id: td.document?.drive_file_id,
+        name: td.document?.name,
+        url: td.document?.url,
+        mime_type: td.document?.mime_type,
+        icon_url: td.document?.icon_url,
+      })),
+    editable: true,
+    editor: "taskDocuments",
+    options: projectDocuments,
+    section: "Documents",
   },
 ];

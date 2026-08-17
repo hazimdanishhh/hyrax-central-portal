@@ -4,6 +4,7 @@ import ProjectsManagement from "../pages/user/workspace/projects/list/ProjectsMa
 import ProjectDetailLayout from "../pages/user/workspace/projects/detail/ProjectDetailLayout";
 import ProjectTasksTab from "../pages/user/workspace/projects/detail/tasks/ProjectTasksTab";
 import ProjectMembersTab from "../pages/user/workspace/projects/detail/members/ProjectMembersTab";
+import ProjectDocumentsTab from "../pages/user/workspace/projects/detail/documents/ProjectDocumentsTab";
 import MyTasks from "../pages/user/workspace/tasks/list/MyTasks";
 
 // Overview tab cut per the product owner's decision (2026-08) -- project
@@ -24,6 +25,7 @@ export default (
         <Route index element={<Navigate to="tasks" replace />} />
         <Route path="tasks" element={<ProjectTasksTab />} />
         <Route path="members" element={<ProjectMembersTab />} />
+        <Route path="documents" element={<ProjectDocumentsTab />} />
       </Route>
     </Route>
 

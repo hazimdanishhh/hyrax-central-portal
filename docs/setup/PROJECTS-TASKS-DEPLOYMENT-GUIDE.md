@@ -124,6 +124,31 @@ No RLS policy changes — this is an integrity trigger, the same layer as the tw
 
 ---
 
+## 12. Post-launch addition — Documents (project library + task links)
+
+**If you've already run steps 0–11 above, this is the only new SQL to run.** Adds a project-scoped Google Drive document library (`documents`) plus a many-to-many link table (`task_documents`) so a document can be attached at the project level, linked to any number of that project's tasks, or both. Run strictly in this order — later steps depend on earlier ones (the tables must exist before the trigger/policies/view that reference them):
+
+- [ ] `supabase/functions/get_or_create_document.sql` — race-safe get-or-create backing the "attach a Drive file" flow (deliberately not a plain insert or `.upsert()` — see the file's own header comment).
+- [ ] `supabase/functions/enforce_task_document_same_project.sql` — the trigger function enforcing that a `task_documents` row can never link a document to a task in a different project.
+- [ ] Run **`supabase/sql_editor/documents_schema_migration.sql`** — creates `documents` and `task_documents`, all indexes, enables RLS on both (zero policies until step below — expected and safe).
+- [ ] `supabase/triggers/trg_enforce_task_document_same_project.sql` — fires on `INSERT OR UPDATE OF task_id, document_id` (not insert-only — `task_documents`' blanket "Superadmin CRUD" policy has no `for` clause and therefore also grants UPDATE).
+- [ ] `supabase/policies/documents_crud.sql`
+- [ ] `supabase/policies/task_documents_crud.sql`
+- [ ] Run **`supabase/sql_editor/documents_views.sql`** — creates `documents_with_context`, explicitly `WITH (security_invoker = true)` (same non-optional clause as every other view in this module — see the architecture doc's pitfall #1 if you ever edit it).
+
+No new notification trigger is seeded in this step — `document.attached`/`document.removed` are `Proposed`, not yet implemented (see `docs/NOTIFICATION-RULES-TRACKER.csv`).
+
+**Verify** as a real (non-superadmin) test user who's a working member of an existing project:
+
+- [ ] Open a task's edit sidebar, attach a new Drive file. Confirm it appears both on the task and in the project's **Documents** tab.
+- [ ] From a _second_ task in the same project, link that same already-attached document (via the "link an existing document" picker, not the Drive picker). Confirm no duplicate row appears in the project's Documents tab — it should show as one document, linked to both tasks.
+- [ ] On the project's Documents tab, use "Attach Document" to attach a file with no task at all. Confirm it appears in the library with no linked-task badge.
+- [ ] Remove a document that's linked to two tasks. Confirm the confirmation prompt names the linked-task count, and that after confirming, it disappears from both tasks' document lists as well as the library.
+- [ ] As a project member who is _not_ a working member (a `cc`), confirm there's no "Attach Document" button and the documents field isn't editable from any task.
+- [ ] As a working member who did _not_ upload a given document and is not owner/lead, confirm they can view it but have no remove button; as the project owner, confirm they can remove any document regardless of who attached it.
+
+---
+
 ## Frontend
 
 Nothing to deploy specially — `src/routes/WorkspaceRoutes.jsx` and `src/data/sideNavLinkData.js` are already updated and shipped with the rest of the app's normal build/deploy. Confirm after your next deploy (or `npm run dev` locally) that **Projects** and **Tasks** appear as a new **WORKSPACE** section in the sidebar.

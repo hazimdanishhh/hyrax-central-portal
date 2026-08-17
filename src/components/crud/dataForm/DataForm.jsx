@@ -41,6 +41,7 @@ function DataForm({
   const getDefaultValues = () => {
     const initial = {};
     columns.forEach((col) => {
+      if (col.computed) return; // server-computed/view-only field -- never seed into RHF state so it can never leak into submitted form data (see progress_percentage)
       const rawValue =
         typeof col.getValue === "function"
           ? col.getValue(rowData)

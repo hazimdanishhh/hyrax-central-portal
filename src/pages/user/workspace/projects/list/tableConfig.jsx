@@ -69,6 +69,7 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       getValue: (project) => project.progress_percentage,
       editable: false,
       show: false, // hides from the create/edit form (see DataForm.jsx's col.show check) -- purely computed, still shown in the table via `render`
+      computed: true, // server-computed (projects_with_progress view) -- projects has NO such column; DataForm must never seed/submit this (see PGRST204 bug)
       render: (_displayValue, project) => (
         <ProgressBar value={project.progress_percentage} label={`${project.name} progress`} />
       ),

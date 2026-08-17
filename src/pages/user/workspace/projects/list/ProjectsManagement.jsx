@@ -5,7 +5,7 @@ import {
   SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import DataTable from "../../../../../components/dataTable/DataTable";
@@ -31,6 +31,9 @@ import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
 import ProjectCard from "../../../../../components/workspace/projectCard/ProjectCard";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
+import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
+import { buildStatusTabs } from "../../../../../functions/statusTabs";
+import { PROJECT_STATUSES, PROJECT_STATUS_TYPE } from "../../../../../features/workspace/projects/private/projectStatusMeta";
 import { useTheme } from "../../../../../context/ThemeContext";
 
 /**
@@ -44,6 +47,7 @@ import { useTheme } from "../../../../../context/ThemeContext";
 export default function ProjectsManagement() {
   const { darkMode } = useTheme();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { employee } = useEmployee();
   const [creatingOpen, setCreatingOpen] = useState(false);
 
@@ -91,6 +95,11 @@ export default function ProjectsManagement() {
   });
   const filterConfig = getProjectsFilterConfig({ categories });
   const sortOptions = getProjectsSortConfig();
+  const statusTabs = buildStatusTabs({
+    searchParams,
+    statuses: PROJECT_STATUSES,
+    statusTypeMap: PROJECT_STATUS_TYPE,
+  });
 
   function handleOpenCreate() {
     setCreatingOpen(true);
@@ -195,6 +204,18 @@ export default function ProjectsManagement() {
               totalPages={totalPages}
               error={error}
             />
+
+            <div className="statusTabsRow scrollbar">
+              {statusTabs.map((tab) => (
+                <StatusTab
+                  key={tab.label}
+                  to={tab.to}
+                  label={tab.label}
+                  themeType={tab.themeType}
+                  isActive={tab.isActive}
+                />
+              ))}
+            </div>
 
             <CardLayout style="cardWrapperScroll generalCard cardPaddingSmall">
               {isLoading || isFetching ? (

@@ -7,22 +7,25 @@ import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
-import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
+import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
+import { buildStatusTabs } from "../../../../../functions/statusTabs";
+import { TASK_STATUSES, TASK_STATUS_TYPE } from "../../../../../features/workspace/tasks/private/taskStatusMeta";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
 import TaskCard from "../../../../../components/workspace/taskCard/TaskCard";
 import { useMyTasks } from "../../../../../features/workspace/tasks/private/hooks/useMyTasks";
 import { useTaskById } from "../../../../../features/workspace/tasks/private/hooks/useTaskById";
+import { useProjectDocuments } from "../../../../../features/workspace/tasks/private/hooks/useProjectDocuments";
+import { useAllProjectsLite } from "../../../../../features/workspace/projects/private/hooks/useAllProjectsLite";
 import useTaskMutations from "../../../../../features/workspace/tasks/private/hooks/useTaskMutations";
+import useTaskDocumentMutations from "../../../../../features/workspace/tasks/private/hooks/useTaskDocumentMutations";
 import { useTaskStatusAction } from "../../../../../features/workspace/tasks/private/hooks/useTaskStatusAction";
 import { myTasksTableConfig } from "./tableConfig";
 import { getMyTasksFilterConfig } from "./filterConfig";
-import { getMyTasksSortConfig } from "./sortConfig";
 import { useTheme } from "../../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
 
@@ -47,15 +50,11 @@ export default function MyTasks() {
     totalPages,
     search,
     filters,
-    sortBy,
-    sortOrder,
     activeFilters,
     hasActiveFilters,
     setPage,
     setSearch,
     setFilters,
-    setSortBy,
-    setSortOrder,
     resetParams,
     isLoading,
     isFetching,
@@ -63,6 +62,7 @@ export default function MyTasks() {
   } = useMyTasks();
 
   const { data: fetchedTask } = useTaskById(taskId);
+  const { projects } = useAllProjectsLite();
 
   // Check the already-loaded paginated page first (instant UI for a normal
   // in-app click), fall back to the dedicated single-fetch result for a
@@ -77,6 +77,8 @@ export default function MyTasks() {
   const sidebarOpen = !!selectedTask;
 
   const { updateTask, updating } = useTaskMutations(selectedTask?.project_id);
+  const { syncDocumentLinks } = useTaskDocumentMutations(selectedTask?.project_id);
+  const { documents: projectDocuments } = useProjectDocuments(selectedTask?.project_id);
   const {
     pendingAction,
     modalOpen,
@@ -85,9 +87,13 @@ export default function MyTasks() {
     confirmAction,
   } = useTaskStatusAction(updateTask);
 
-  const columns = myTasksTableConfig();
-  const filterConfig = getMyTasksFilterConfig();
-  const sortOptions = getMyTasksSortConfig();
+  const columns = myTasksTableConfig({ projectDocuments });
+  const filterConfig = getMyTasksFilterConfig({ projects });
+  const statusTabs = buildStatusTabs({
+    searchParams,
+    statuses: TASK_STATUSES,
+    statusTypeMap: TASK_STATUS_TYPE,
+  });
 
   function handleOpenSidebar(task) {
     navigate(`${task.id}?${searchParams.toString()}`);
@@ -98,7 +104,15 @@ export default function MyTasks() {
   }
 
   async function handleSave(formData) {
-    await updateTask({ id: selectedTask.id, ...formData });
+    const { documents, ...taskFields } = formData;
+
+    await updateTask({ id: selectedTask.id, ...taskFields });
+    await syncDocumentLinks({
+      taskId: selectedTask.id,
+      projectId: selectedTask.project_id,
+      documents: documents || [],
+    });
+
     handleCloseSidebar();
   }
 
@@ -144,16 +158,6 @@ export default function MyTasks() {
               />
             )}
 
-            <PageHeader>
-              <SortBar
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortOptions={sortOptions}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-              />
-            </PageHeader>
-
             <PageResult
               data={tasks}
               totalCount={totalCount}
@@ -162,6 +166,18 @@ export default function MyTasks() {
               totalPages={totalPages}
               error={error}
             />
+
+            <div className="statusTabsRow scrollbar">
+              {statusTabs.map((tab) => (
+                <StatusTab
+                  key={tab.label}
+                  to={tab.to}
+                  label={tab.label}
+                  themeType={tab.themeType}
+                  isActive={tab.isActive}
+                />
+              ))}
+            </div>
 
             <CardLayout style="cardWrapperScroll generalCard cardPaddingSmall">
               {isLoading || isFetching ? (

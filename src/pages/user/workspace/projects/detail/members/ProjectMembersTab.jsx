@@ -112,7 +112,7 @@ export default function ProjectMembersTab() {
               setShowName={(show) => setHoveredEmployeeId(show ? m.employee_id : null)}
             />
 
-            {m.employee?.department && <StatusBox status={m.employee.department.name} type="grey" />}
+            {m.employee?.department_name && <StatusBox status={m.employee.department_name} type="grey" />}
 
             <StatusBox status={m.role === "owner" ? "Owner" : PROJECT_ROLE_LABEL[m.role]} type={m.role === "owner" ? "blue" : "grey"} />
           </div>
@@ -170,7 +170,7 @@ export default function ProjectMembersTab() {
             <div className="projectMemberDetailPanel">
               <EmployeeImage employee={selectedMember.employee} displayName showName setShowName={() => {}} />
 
-              {selectedMember.employee?.department && <StatusBox status={selectedMember.employee.department.name} type="grey" />}
+              {selectedMember.employee?.department_name && <StatusBox status={selectedMember.employee.department_name} type="grey" />}
 
               {selectedMember.role === "owner" ? (
                 <StatusBox status="Owner" type="blue" />

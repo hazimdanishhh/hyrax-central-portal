@@ -4,6 +4,7 @@ import {
   SquaresFourIcon,
   ListChecksIcon,
   UsersIcon,
+  FolderIcon,
   PencilSimpleLineIcon,
   ArrowsLeftRightIcon,
   TrashIcon,
@@ -209,6 +210,16 @@ export default function ProjectDetailLayout() {
                     <UsersIcon size={15} />
                   </div>
                   Members
+                </NavLink>
+
+                <NavLink
+                  to={`/app/workspace/projects/${projectId}/documents`}
+                  className={({ isActive }) => `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`}
+                >
+                  <div className="pageTabIcon">
+                    <FolderIcon size={15} />
+                  </div>
+                  Documents
                 </NavLink>
               </div>
 

@@ -11,6 +11,7 @@ const GOOGLE_APP_ID = import.meta.env.VITE_GOOGLE_APP_ID;
 export default function GoogleDrivePicker({
   onSelect,
   label = "Select from Drive",
+  multiple = false,
 }) {
   const { session } = useAuth();
   const [openPicker] = useDrivePicker();
@@ -39,18 +40,30 @@ export default function GoogleDrivePicker({
       customScopes: ["https://www.googleapis.com/auth/drive.readonly"],
       showUploadView: true,
       showUploadFolders: true,
-      multiselect: false,
+      multiselect: multiple,
       callbackFunction: (data) => {
         if (data.action === "cancel") {
           console.log("User canceled the picker");
         }
         if (data.action === "picked") {
-          const file = data.docs[0];
-          onSelect({
-            name: file.name,
-            url: file.url,
-            id: file.id,
-          });
+          if (multiple) {
+            onSelect(
+              data.docs.map((file) => ({
+                name: file.name,
+                url: file.url,
+                id: file.id,
+                mimeType: file.mimeType,
+                iconUrl: file.iconUrl,
+              })),
+            );
+          } else {
+            const file = data.docs[0];
+            onSelect({
+              name: file.name,
+              url: file.url,
+              id: file.id,
+            });
+          }
         }
       },
     });

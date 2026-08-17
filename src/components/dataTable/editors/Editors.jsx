@@ -12,6 +12,7 @@ import GoogleDriveEditor from "./GoogleDriveEditor";
 import LeadAccountEditor from "./LeadAccountEditor";
 import MultiSelectEditor from "./MultiSelectEditor";
 import ProjectCategoryEditor from "./ProjectCategoryEditor";
+import TaskDocumentsEditor from "./TaskDocumentsEditor";
 
 export const editors = {
   text: TextEditor,
@@ -27,4 +28,5 @@ export const editors = {
   leadAccountSelect: LeadAccountEditor,
   multiSelect: MultiSelectEditor,
   projectCategorySelect: ProjectCategoryEditor,
+  taskDocuments: TaskDocumentsEditor,
 };

@@ -1,5 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
-import { attachEmployeeAvatars } from "../../../_shared/attachEmployeeAvatars";
+import { fetchEmployeesPublicByIds } from "../../../_shared/fetchEmployeesPublicByIds";
 
 /**
  * Deliberately UNPAGINATED -- mirrors useBillLines/BillSidebar's
@@ -15,8 +15,11 @@ export async function fetchTasksByProject(projectId) {
       `
       *,
       task_assignees (
-        employee_id,
-        employee:employees!task_assignees_employee_id_fkey (id, full_name, profile_id)
+        employee_id
+      ),
+      task_documents (
+        document_id,
+        document:documents (id, drive_file_id, name, url, mime_type, icon_url)
       )
     `,
     )
@@ -27,18 +30,19 @@ export async function fetchTasksByProject(projectId) {
 
   const tasks = data || [];
 
-  // Flatten every assignee across every task into one batch so avatars are
-  // fetched in a single query, not one per task -- then re-zip by index
-  // (attachEmployeeAvatars preserves order/length 1:1).
-  const allAssigneeEmployees = tasks.flatMap((t) => (t.task_assignees ?? []).map((a) => a.employee));
-  const employeesWithAvatars = await attachEmployeeAvatars(allAssigneeEmployees);
+  // Batch-resolve every assignee across every task in one query, then
+  // re-zip by id -- see fetchEmployeesPublicByIds.js's header comment for
+  // why this is a plain query against employees_public, not a nested
+  // `employees!task_assignees_employee_id_fkey(...)` embed.
+  const employeesById = await fetchEmployeesPublicByIds(
+    tasks.flatMap((t) => (t.task_assignees ?? []).map((a) => a.employee_id)),
+  );
 
-  let cursor = 0;
   return tasks.map((t) => ({
     ...t,
     task_assignees: (t.task_assignees ?? []).map((a) => ({
       ...a,
-      employee: employeesWithAvatars[cursor++],
+      employee: employeesById.get(a.employee_id) ?? null,
     })),
   }));
 }

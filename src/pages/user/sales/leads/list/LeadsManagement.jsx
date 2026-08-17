@@ -17,7 +17,7 @@ import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
 import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
-import LeadStageTab from "../../../../../components/sales/leads/leadStageTab/LeadStageTab";
+import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import { useEmployee } from "../../../../../context/EmployeeContext";
 import { useTheme } from "../../../../../context/ThemeContext";
@@ -452,14 +452,14 @@ export default function LeadsManagement() {
         error={error}
       />
 
-      <div className="stageTab scrollbar">
+      <div className="statusTabsRow scrollbar">
         {stageTabsConfig(
           activePipelineOnly,
           currentStage,
           isCancelled,
           isOnHold,
         ).map((tab) => (
-          <LeadStageTab
+          <StatusTab
             key={tab.label}
             to={tab.to}
             label={tab.label}

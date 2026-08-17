@@ -11,6 +11,13 @@ function EmployeeImage({
   employeeId,
   displayName,
 }) {
+  // `employee` can legitimately be null -- e.g. a task assignee/project
+  // member the viewer can't resolve identity for -- rather than crashing
+  // the whole tree, fall back to a placeholder. See
+  // fetchEmployeesPublicByIds.js's header comment for why this can happen
+  // at all.
+  employee = employee || {};
+
   return (
     <Link
       className="employeeLinkWrapper"

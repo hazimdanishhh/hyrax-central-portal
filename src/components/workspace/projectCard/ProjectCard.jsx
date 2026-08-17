@@ -73,7 +73,7 @@ export default function ProjectCard({ project, category, onClick }) {
                     showName={hoveredEmployeeId === m.employee_id}
                     setShowName={(show) => setHoveredEmployeeId(show ? m.employee_id : null)}
                   />
-                  {m.employee?.department && <StatusBox status={m.employee.department.name} type="grey" />}
+                  {m.employee?.department_name && <StatusBox status={m.employee.department_name} type="grey" />}
                   <StatusBox status={m.role === "owner" ? "Owner" : PROJECT_ROLE_LABEL[m.role]} type={m.role === "owner" ? "blue" : "grey"} />
                 </div>
               ))}
