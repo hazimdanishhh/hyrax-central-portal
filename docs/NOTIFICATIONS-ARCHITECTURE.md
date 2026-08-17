@@ -126,6 +126,7 @@ True $0 cost, mail comes from a real `@hyraxoil.com` address. The tradeoff is en
 - [`docs/setup/GMAIL-API-DOMAIN-WIDE-DELEGATION-GUIDE.md`](./setup/GMAIL-API-DOMAIN-WIDE-DELEGATION-GUIDE.md) — detailed walkthrough for Option B above.
 - [`docs/setup/EMPLOYEE-CONFIRMATION-REMINDER-DEPLOYMENT-GUIDE.md`](./setup/EMPLOYEE-CONFIRMATION-REMINDER-DEPLOYMENT-GUIDE.md) — deployment steps for worked example 2 (the scheduled-scan pattern + `target_payload_keys`), on top of the core system above.
 - [`docs/setup/HR-ATTENDANCE-LIFECYCLE-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/HR-ATTENDANCE-LIFECYCLE-NOTIFICATIONS-DEPLOYMENT-GUIDE.md) — deployment steps for the four recurring-cooldown notifications (`employee.confirmation_overdue`, `employee.confirmation_status_mismatch`, `employee.contract_action_due`, `attendance.approval_pending`), including the required cron-job rename.
+- [`docs/setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md) — deployment steps for the three profile-created notifications (see [`ONBOARDING-WORKFLOW-ARCHITECTURE.md`](./ONBOARDING-WORKFLOW-ARCHITECTURE.md) Section A) and the manual employee-linking RPC.
 
 ## Tracking what's built vs. what's still an idea
 

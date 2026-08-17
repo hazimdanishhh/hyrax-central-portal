@@ -1,6 +1,6 @@
 # Onboarding Workflow Architecture
 
-**Status:** Design only (2026-08) — nothing in this doc has been implemented. This is the detailed design to build from in a later pass, tracked as `Proposed` rows in [`docs/NOTIFICATION-RULES-TRACKER.csv`](./NOTIFICATION-RULES-TRACKER.csv).
+**Status:** Section A built (2026-08) — the three profile-created notifications, the global "bare-minimum access" banner, manual employee-linking on the Users page, and a Users Overview tab are all live. Section B (IT asset assignment) is still design-only, tracked as `Proposed` rows in [`docs/NOTIFICATION-RULES-TRACKER.csv`](./NOTIFICATION-RULES-TRACKER.csv). Setup steps: [`docs/setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md).
 
 Two related gaps, both about getting a new hire from "exists in Google Workspace" to "fully set up in this portal" without anyone having to remember to check:
 
@@ -75,18 +75,30 @@ perform public.emit_notification_event(
     jsonb_build_object(
         'new_profile_id', new.id,
         'title', 'Welcome to Hyrax Central Portal',
-        'message', 'Welcome aboard! Your account is set up — HR and IT have been notified to finish setting up your access.',
-        'link_to', '/app/employee/onboarding'
+        'message', 'Welcome aboard! Your account has been created. Right now you have bare-minimum access (staff role, General department) -- our system admin has been notified and will assign you to your real department and role shortly. Check back here once that happens to see your full access.',
+        'link_to', '/app/profile'
     )
 );
 ```
-Recipient rule: `target_payload_keys: ['new_profile_id']`, no role/department targeting at all. `link_to` points at `/app/employee/onboarding` — confirmed live today as the actual index-redirect target of the self-service employee route tree (`src/routes/EmployeeRoutes.jsx`), reachable with no `AccessRoute` gate. It's currently a 7-line stub (`Onboarding.jsx`) — building real content there is a natural next step but is its own separate project, not part of this notification design.
+Recipient rule: `target_payload_keys: ['new_profile_id']`, no role/department targeting at all. `link_to` points at `/app/profile` (changed from an earlier `/app/employee/onboarding` sketch — that route is still just a content-less stub, while `/app/profile` is real today and concretely shows the person's current role/department, reinforcing the message).
 
-### New files this would need (not created this pass)
+### Deliberately no automated department sync
 
+An earlier draft of this design also had linking a profile to an employee auto-copy `employees.department_id` onto `profiles.department_id`, so HR's normal linking work would fix access for free. **Explicitly rejected**: `employees.department_id` isn't reliably accurate for every employee yet (a migration-era data gap, same class of problem as `employee.confirmation_status_mismatch`'s false positives) — auto-syncing it now would silently propagate wrong departments. Department/role assignment for `profiles` stays a fully manual superadmin decision, done through the existing Users page fields, for as long as that data quality gap exists.
+
+### What else shipped alongside the trigger
+
+- **Manual employee-linking on the Users page.** Superadmin already has broad access to `employees`; `supabase/functions/link_profile_to_employee.sql` (a `SECURITY DEFINER` RPC with its own explicit `role_id = 3` check, mirroring `approve_attendance.sql`'s authorization pattern) lets them link/re-link a profile to an employee record directly from a new sidebar section on `Users.jsx` (`UserEmployeeLink.jsx`), rather than only via Employee Management. Atomic (clears any previous link first) and has **no department side effects** — purely sets `employees.profile_id`.
+- **Global "bare-minimum access" banner** (`src/components/generalAccessBanner/GeneralAccessBanner.jsx`), rendered in `AppLayout.jsx` for anyone whose `profile.department_id === 1` — the same signal the notification and the Overview tile below both use. Dismissible per-session (`sessionStorage`), reappears next login since the access gap is still genuinely unresolved.
+- **Users page KPI cards.** `system/users` stays a single flat page (a tabbed Overview/List split was tried and then deliberately reverted — simpler to keep it one page) — a small row of client-side-computed KPI cards (same convention as `useITAssetsOverview.js`: `useProfilesOverview.js`, no RPC, small dataset) now renders at the top of `Users.jsx` itself, above the existing search/filter/list: Total Users, Unassigned (General Dept, clicking it reloads this same page pre-filtered), Not Linked to Employee (informational), and Recently Created (informational).
+
+### Files (all created/modified this pass)
+
+- `supabase/functions/notify_profile_created.sql` — the trigger function body, three `emit_notification_event()` calls, each independently exception-wrapped.
 - `supabase/triggers/trg_notify_profile_created.sql` — the `AFTER INSERT ON public.profiles FOR EACH ROW` statement.
-- `supabase/functions/notify_profile_created.sql` — the trigger function body containing the three `emit_notification_event()` calls above, wrapped the same way `log_sales_leads_stage_change.sql` wraps its own call (nested `exception when others` so a notification failure can never block profile creation itself).
-- `supabase/sql_editor/seed_profile_created_notification_rules.sql` — three `insert into notification_rules` rows, one per event type above.
+- `supabase/sql_editor/seed_profile_created_needs_department_assignment_rule.sql`, `seed_profile_created_needs_employee_link_rule.sql`, `seed_profile_created_welcome_rule.sql`.
+- `supabase/functions/link_profile_to_employee.sql` — the manual-linking RPC.
+- Frontend: `src/components/generalAccessBanner/`, `src/pages/user/system/userManagement/list/overviewConfig.js` + `item/UserEmployeeLink.jsx` (both new, alongside the existing `Users.jsx`, which now also renders the KPI cards and the employee-link sidebar section directly), `src/features/superadmin/users/private/api/profilesOverview.js`/`employeeLink.js` + matching hooks, `src/layouts/AppLayout.jsx` (banner wired in). `src/routes/SuperadminRoutes.jsx` is unchanged from before this pass — `system/users` stays a single flat route.
 
 ## Section B — IT asset assignment workflow
 
@@ -133,7 +145,7 @@ and not exists (select 1 from it_assets where asset_user_id = employees.id)
 
 ## Section C — Open questions to resolve before implementation
 
-- **Does `Users.jsx` support a per-profile URL-synced sidebar yet?** Not confirmed. If not, `profile.created.needs_department_assignment`'s `link_to` stays a bare list link until/unless `Users.jsx` gets the same URL-sync treatment `EmployeeManagement.jsx` already received (`docs/` has no tracked precedent confirming this one way or the other — verify before building).
+- **`Users.jsx` still doesn't support a per-profile deep link.** `profile.created.needs_department_assignment`'s `link_to` stays the bare `/app/system/users` page until/unless `Users.jsx` gets the same URL-sync-sidebar treatment `EmployeeManagement.jsx` already received.
 - **Follow-up reminder if IT doesn't act.** The initial `employee.it_asset_requested` notification is one-shot (Shape A). If a request could plausibly sit unactioned for days, a second, Shape-B rule (scheduled scan over `needs_it_asset = true` rows with no matching `it_assets.asset_user_id`, past N days) would layer cleanly on top — not needed for the initial notification, and not designed in detail here since there's no evidence yet that IT actually misses these.
 - **Dollar thresholds for every "large X" event** across Sales/Finance (see `NOTIFICATION-RULES-TRACKER.csv`) are explicitly left as `TBD` — a business decision, not something to guess.
 

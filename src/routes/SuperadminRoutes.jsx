@@ -8,7 +8,8 @@ export default (
     {/* INDEX */}
     <Route index element={<Navigate to="users" replace />} />
 
-    {/* DASHBOARD */}
+    {/* USER MANAGEMENT -- single page: KPI overview cards at the top,
+        list/search/sidebar below (no separate Overview/List tabs). */}
     <Route
       path="users"
       element={
