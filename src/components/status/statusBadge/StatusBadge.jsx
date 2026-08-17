@@ -1,6 +1,6 @@
 import "./StatusBadge.scss";
 
-export default function StatusBadge({ status }) {
+export default function StatusBadge({ status, type }) {
   const statusMap = {
     // IT Assets
     active: "active",
@@ -32,8 +32,10 @@ export default function StatusBadge({ status }) {
   const dynamicClass = statusMap[normalizedStatus];
 
   return (
-    <div className={`textLight textXXXS statusBadge ${dynamicClass}`}>
-      <div className={`textLight textXXXS statusLight ${dynamicClass}`} />
+    <div className={`textLight textXXXS statusBadge ${dynamicClass} ${type}`}>
+      <div
+        className={`textLight textXXXS statusLight ${dynamicClass} ${type}`}
+      />
       <p className="textLight textXXXS statusName">{status || "No Status"}</p>
     </div>
   );

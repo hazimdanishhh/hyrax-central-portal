@@ -138,7 +138,7 @@ export default function ProjectTasksTab() {
         ) : !hasData || error ? (
           <NoResult title={error ? "Error loading tasks" : "No tasks yet"} />
         ) : (
-          <CardLayout style="cardLayout1">
+          <CardLayout style="cardLayout1 cardGapSmall">
             {tasks.map((task) => (
               <TaskCard
                 key={task.id}

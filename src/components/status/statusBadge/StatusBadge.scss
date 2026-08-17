@@ -10,6 +10,30 @@
   padding: 0.2rem 0.5rem;
   border-radius: 20px;
 
+  &.grey {
+    border: 1px solid $neutral500;
+    color: $neutral500;
+    background-color: rgb($neutral500, 0.2);
+  }
+
+  &.blue {
+    border: 1px solid $info600;
+    color: $info600;
+    background-color: rgb($info600, 0.2);
+  }
+
+  &.green {
+    border: 1px solid $success600;
+    color: $success600;
+    background-color: rgb($success600, 0.2);
+  }
+
+  &.red {
+    border: 1px solid $error600;
+    color: $error600;
+    background-color: rgb($error600, 0.2);
+  }
+
   &.active {
     border: 1px solid $success600;
     color: $success600;
@@ -53,6 +77,26 @@
     flex-shrink: 0;
     border: 1px solid $neutral400;
     background-color: $neutral400;
+
+    &.grey {
+      border: 1px solid $neutral500;
+      background-color: $neutral500;
+    }
+
+    &.blue {
+      border: 1px solid $info600;
+      background-color: $info600;
+    }
+
+    &.green {
+      border: 1px solid $success600;
+      background-color: $success600;
+    }
+
+    &.red {
+      border: 1px solid $error600;
+      background-color: $error600;
+    }
 
     &.active {
       border: 1px solid $success600;

@@ -27,6 +27,27 @@
     }
   }
 
+  .taskCardStatusGroup {
+    display: flex;
+    flex-direction: row;
+    gap: 0.2rem;
+    align-items: flex-start;
+  }
+
+  .taskCardRightGroup {
+    display: flex;
+    flex-direction: row;
+    gap: 0.6rem;
+    align-items: center;
+    justify-content: flex-end;
+
+    @media screen and (max-width: 768px) {
+      width: 100%;
+      justify-content: end;
+      flex-wrap: wrap;
+    }
+  }
+
   .taskCardDescription {
     padding-left: 4px;
   }
@@ -40,7 +61,6 @@
   .taskCardActions {
     display: flex;
     gap: 0.6rem;
-    flex-wrap: wrap;
   }
 
   .taskCardExpandToggle {

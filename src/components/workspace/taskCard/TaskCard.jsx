@@ -11,6 +11,7 @@ import {
   TASK_STATUS_ACTIONS,
 } from "../../../features/workspace/tasks/private/taskStatusMeta";
 import "./TaskCard.scss";
+import StatusBadge from "../../status/statusBadge/StatusBadge";
 
 /**
  * Shared between the Project Tasks tab and My Tasks -- a single row (title,
@@ -68,70 +69,78 @@ export default function TaskCard({
           )}
         </div>
 
-        <StatusBox
-          status={statusLabel}
-          type={TASK_STATUS_TYPE[task.status] || "grey"}
-        />
-
-        {task.due_date && (
-          <IconCard
-            icon={ClockIcon}
-            weight="fill"
-            name={`Due: ${task.due_date}`}
-            style="yellow textXXS"
+        <div className="taskCardStatusGroup">
+          <StatusBadge
+            status={statusLabel}
+            type={TASK_STATUS_TYPE[task.status] || "grey"}
           />
-        )}
 
-        {assignees.length > 0 && (
-          <div className="taskCardAssignees">
-            {assignees.map((a) => (
-              <EmployeeImage
-                key={a.employee_id}
-                employee={a.employee}
-                employeeId={a.employee_id}
-                showName={hoveredAssigneeId === a.employee_id}
-                setShowName={(show) =>
-                  setHoveredAssigneeId(show ? a.employee_id : null)
-                }
-              />
-            ))}
-          </div>
-        )}
+          {task.due_date && (
+            <IconCard
+              icon={ClockIcon}
+              weight="fill"
+              name={`Due: ${task.due_date}`}
+              style="yellow textXXS"
+            />
+          )}
+        </div>
 
-        {actions.length > 0 && (
-          <div className="taskCardActions">
-            {actions.map((action) => (
-              <Button
-                key={action.label}
-                name={action.label}
-                style={`button buttonType5 ${action.style} textXXS`}
-                size={14}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRequestStatusChange?.(
-                    task,
-                    action.nextStatus,
-                    action.label,
-                  );
-                }}
-              />
-            ))}
-          </div>
-        )}
+        <div className="taskCardRightGroup">
+          {assignees.length > 0 && (
+            <div className="taskCardAssignees">
+              {assignees.map((a) => (
+                <EmployeeImage
+                  key={a.employee_id}
+                  employee={a.employee}
+                  employeeId={a.employee_id}
+                  showName={hoveredAssigneeId === a.employee_id}
+                  setShowName={(show) =>
+                    setHoveredAssigneeId(show ? a.employee_id : null)
+                  }
+                />
+              ))}
+            </div>
+          )}
 
-        {task.description && (
-          <button
-            type="button"
-            className="taskCardExpandToggle"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((v) => !v);
-            }}
-            title={expanded ? "Hide description" : "Show description"}
-          >
-            {expanded ? <CaretUpIcon size={16} /> : <CaretDownIcon size={16} />}
-          </button>
-        )}
+          {actions.length > 0 && (
+            <div className="taskCardActions">
+              {actions.map((action) => (
+                <Button
+                  key={action.label}
+                  name={action.label}
+                  style={`button buttonType5 ${action.style} textXXS`}
+                  size={14}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRequestStatusChange?.(
+                      task,
+                      action.nextStatus,
+                      action.label,
+                    );
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {task.description && (
+            <button
+              type="button"
+              className="taskCardExpandToggle"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded((v) => !v);
+              }}
+              title={expanded ? "Hide description" : "Show description"}
+            >
+              {expanded ? (
+                <CaretUpIcon size={16} />
+              ) : (
+                <CaretDownIcon size={16} />
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {expanded && task.description && (

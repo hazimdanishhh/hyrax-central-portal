@@ -8,7 +8,7 @@ import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import "./LeadsScoreCard.scss";
 
 export default function ScorecardList({ data = [] }) {
-  const [showName, setShowName] = useState(false);
+  const [hoveredUser, setHoveredUser] = useState(null);
   if (!data || data.length === 0) return null;
 
   const formatRM = (val) => `RM ${Math.round(val).toLocaleString()}`;
@@ -60,8 +60,10 @@ export default function ScorecardList({ data = [] }) {
                 avatar_url: row.avatar_url,
               }}
               displayName={true}
-              showName={showName}
-              setShowName={setShowName}
+              showName={hoveredUser === row.lead_owner_id}
+              setShowName={(show) =>
+                setHoveredUser(show ? row.lead_owner_id : null)
+              }
             />
 
             {/* 2. QUOTA PROGRESS BAR */}
@@ -104,7 +106,8 @@ export default function ScorecardList({ data = [] }) {
                 <span
                   className="textXXXS"
                   style={{
-                    color: po_vs_budget_variance_myr >= 0 ? GREEN_COLOR : RED_COLOR,
+                    color:
+                      po_vs_budget_variance_myr >= 0 ? GREEN_COLOR : RED_COLOR,
                   }}
                 >
                   PO vs Budget: {po_vs_budget_variance_myr >= 0 ? "+" : ""}
@@ -113,7 +116,8 @@ export default function ScorecardList({ data = [] }) {
                 <span
                   className="textXXXS"
                   style={{
-                    color: po_vs_invoice_variance_myr >= 0 ? BLUE_COLOR : RED_COLOR,
+                    color:
+                      po_vs_invoice_variance_myr >= 0 ? BLUE_COLOR : RED_COLOR,
                   }}
                 >
                   PO vs Invoiced: {po_vs_invoice_variance_myr >= 0 ? "+" : ""}
