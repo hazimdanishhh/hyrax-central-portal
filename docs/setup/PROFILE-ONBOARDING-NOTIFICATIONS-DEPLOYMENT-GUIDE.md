@@ -1,6 +1,6 @@
 # Profile Onboarding Notifications — Deployment Guide
 
-Exact, ordered steps to deploy what's described in [`docs/ONBOARDING-WORKFLOW-ARCHITECTURE.md`](../ONBOARDING-WORKFLOW-ARCHITECTURE.md) Section A: three notifications fired when a brand-new `profiles` row is created, plus a manual employee-linking action on the Users page. The frontend pieces (banner, the Users page's KPI cards, `UserEmployeeLink.jsx`) are already in this repo's code — only the SQL side needs deploying.
+Exact, ordered steps to deploy what's described in [`docs/ONBOARDING-WORKFLOW-ARCHITECTURE.md`](../ONBOARDING-WORKFLOW-ARCHITECTURE.md) Section A: three notifications fired when a brand-new `profiles` row is created, two more that close the loop once an admin actually acts on them, plus a manual employee-linking action on the Users page. The frontend pieces (banner, the Users page's KPI cards, `UserEmployeeLink.jsx`) are already in this repo's code — only the SQL side needs deploying.
 
 ## 0. Prerequisite
 
@@ -25,6 +25,17 @@ Exact, ordered steps to deploy what's described in [`docs/ONBOARDING-WORKFLOW-AR
 
 No seed/rule needed for this one — it's a plain RPC the frontend calls directly (`src/features/superadmin/users/private/api/employeeLink.js`), not a notification event.
 
+## 4. Close the loop: notify the user once an admin actually acts
+
+- [ ] Run **`supabase/functions/notify_profile_updated.sql`**.
+- [ ] Run **`supabase/triggers/trg_notify_profile_updated.sql`**.
+- [ ] Run **`supabase/functions/notify_employee_profile_linked.sql`**.
+- [ ] Run **`supabase/triggers/trg_notify_employee_profile_linked.sql`**.
+- [ ] Run **`supabase/sql_editor/seed_profile_department_role_assigned_rule.sql`** — targets the profile itself.
+- [ ] Run **`supabase/sql_editor/seed_employee_profile_linked_rule.sql`** — targets the newly-linked profile itself.
+
+**Checkpoint: the loop is now fully closed.** Once a superadmin actually changes someone's department/role, or an employee record gets linked to a profile, that person (and only that person — not superadmin or HR) gets notified.
+
 ## Verifying it all worked
 
 - [ ] Insert a test row directly (or use a real first-time login) with `department_id = 1`:
@@ -37,4 +48,6 @@ No seed/rule needed for this one — it's a plain RPC the frontend calls directl
 - [ ] In the app, open **System → Users** — confirm 4 KPI cards (Total Users / Unassigned / Not Linked to Employee / Recently Created) now render at the top of the page, above the existing search/filter/list (single page, no separate tabs).
 - [ ] Open a profile in the sidebar — confirm the new **Linked Employee** section appears, shows "Select an employee" if unlinked, and successfully links/unlinks via the picker (confirm `employees.profile_id` actually updates, and that the profile's `department_id` is untouched either way).
 - [ ] Log in as (or otherwise view the app as) a `department_id = 1` profile — confirm the yellow "bare-minimum access" banner shows under the navbar on every page; dismiss it; confirm it stays dismissed for the rest of that session and reappears after a fresh login.
+- [ ] On that same test profile, change its `department_id`/`role_id` via the Users page (or a direct `update`) — confirm `profile.department_role_assigned` fires and **only** that profile gets a `notifications`/`email_queue` row (not superadmin, not HR). Re-save with no actual value change — confirm it does NOT fire again.
+- [ ] Link a test employee to that same test profile (via Employee Management's Profile field, or the Users page's Linked Employee action) — confirm `employee.profile_linked` fires and only the linked profile gets notified. Re-link it to a different employee — confirm it fires again for the newly-linked one.
 - [ ] If an email fails, check `email_queue.last_error` (retries automatically while `attempts < 3`) or `email_log` (once attempts are exhausted) — same as every other notification in this system.

@@ -1,6 +1,6 @@
 # Onboarding Workflow Architecture
 
-**Status:** Section A built (2026-08) — the three profile-created notifications, the global "bare-minimum access" banner, manual employee-linking on the Users page, and a Users Overview tab are all live. Section B (IT asset assignment) is still design-only, tracked as `Proposed` rows in [`docs/NOTIFICATION-RULES-TRACKER.csv`](./NOTIFICATION-RULES-TRACKER.csv). Setup steps: [`docs/setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md).
+**Status:** Section A built (2026-08) — the three profile-created notifications, the two closing-the-loop notifications (`profile.department_role_assigned`, `employee.profile_linked`), the global "bare-minimum access" banner, manual employee-linking on the Users page, and a Users Overview tab are all live. Section B (IT asset assignment) is still design-only, tracked as `Proposed` rows in [`docs/NOTIFICATION-RULES-TRACKER.csv`](./NOTIFICATION-RULES-TRACKER.csv). Setup steps: [`docs/setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md).
 
 Two related gaps, both about getting a new hire from "exists in Google Workspace" to "fully set up in this portal" without anyone having to remember to check:
 
@@ -92,12 +92,24 @@ An earlier draft of this design also had linking a profile to an employee auto-c
 - **Global "bare-minimum access" banner** (`src/components/generalAccessBanner/GeneralAccessBanner.jsx`), rendered in `AppLayout.jsx` for anyone whose `profile.department_id === 1` — the same signal the notification and the Overview tile below both use. Dismissible per-session (`sessionStorage`), reappears next login since the access gap is still genuinely unresolved.
 - **Users page KPI cards.** `system/users` stays a single flat page (a tabbed Overview/List split was tried and then deliberately reverted — simpler to keep it one page) — a small row of client-side-computed KPI cards (same convention as `useITAssetsOverview.js`: `useProfilesOverview.js`, no RPC, small dataset) now renders at the top of `Users.jsx` itself, above the existing search/filter/list: Total Users, Unassigned (General Dept, clicking it reloads this same page pre-filtered), Not Linked to Employee (informational), and Recently Created (informational).
 
-### Files (all created/modified this pass)
+### Closing the loop: telling the user once the work is actually done
+
+The three events above tell admins there's work to do, and welcome the new user once — but nobody ever told the user once an admin actually *did* that work. Two more events, both firing on the relevant `UPDATE`/`INSERT` rather than the original profile-creation `INSERT`, both targeting the user themself via `target_payload_keys` (never superadmin or HR — they already know, since they're the ones acting):
+
+- **`profile.department_role_assigned`** (`supabase/functions/notify_profile_updated.sql`, `AFTER UPDATE ON public.profiles`) — fires whenever `department_id` and/or `role_id` actually changes (`IS DISTINCT FROM`), not just the first out-of-`General` transition, so a later legitimate transfer or promotion notifies the person too. Resolves the department/role **names** (not raw ids) for a readable message. Confirmed this can't be spuriously triggered by routine logins: `syncProfile()`'s upsert never includes these two columns in its payload at all, on either the insert or conflict/update path.
+- **`employee.profile_linked`** (`supabase/functions/notify_employee_profile_linked.sql`, `AFTER INSERT OR UPDATE ON public.employees`) — fires when `profile_id` is newly set or changed to a different employee (via either Employee Management's field or the Users page's `link_profile_to_employee` RPC), not on unlinking. `TG_OP = 'INSERT'` handles an employee row created with `profile_id` already populated, where there's no `old` row to diff against.
+
+Same conventions throughout: plain trigger functions (no `SECURITY DEFINER` on the outer function, only the inner `emit_notification_event()` call needs it), each wrapped in its own exception block, no dedup/cooldown column needed since both are one-shot discrete-transition triggers, not scheduled scans.
+
+### Files (all created/modified across both passes)
 
 - `supabase/functions/notify_profile_created.sql` — the trigger function body, three `emit_notification_event()` calls, each independently exception-wrapped.
 - `supabase/triggers/trg_notify_profile_created.sql` — the `AFTER INSERT ON public.profiles FOR EACH ROW` statement.
 - `supabase/sql_editor/seed_profile_created_needs_department_assignment_rule.sql`, `seed_profile_created_needs_employee_link_rule.sql`, `seed_profile_created_welcome_rule.sql`.
 - `supabase/functions/link_profile_to_employee.sql` — the manual-linking RPC.
+- `supabase/functions/notify_profile_updated.sql` + `supabase/triggers/trg_notify_profile_updated.sql` — the `profile.department_role_assigned` closing-loop event.
+- `supabase/functions/notify_employee_profile_linked.sql` + `supabase/triggers/trg_notify_employee_profile_linked.sql` — the `employee.profile_linked` closing-loop event.
+- `supabase/sql_editor/seed_profile_department_role_assigned_rule.sql`, `seed_employee_profile_linked_rule.sql`.
 - Frontend: `src/components/generalAccessBanner/`, `src/pages/user/system/userManagement/list/overviewConfig.js` + `item/UserEmployeeLink.jsx` (both new, alongside the existing `Users.jsx`, which now also renders the KPI cards and the employee-link sidebar section directly), `src/features/superadmin/users/private/api/profilesOverview.js`/`employeeLink.js` + matching hooks, `src/layouts/AppLayout.jsx` (banner wired in). `src/routes/SuperadminRoutes.jsx` is unchanged from before this pass — `system/users` stays a single flat route.
 
 ## Section B — IT asset assignment workflow
