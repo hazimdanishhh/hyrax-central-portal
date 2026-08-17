@@ -5,7 +5,11 @@ import IconCard from "../../iconCard/IconCard";
 import Button from "../../buttons/button/Button";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import { ClockIcon, CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
-import { TASK_STATUSES, TASK_STATUS_TYPE, TASK_STATUS_ACTIONS } from "../../../features/workspace/tasks/private/taskStatusMeta";
+import {
+  TASK_STATUSES,
+  TASK_STATUS_TYPE,
+  TASK_STATUS_ACTIONS,
+} from "../../../features/workspace/tasks/private/taskStatusMeta";
 import "./TaskCard.scss";
 
 /**
@@ -31,16 +35,23 @@ import "./TaskCard.scss";
  * My Tasks (cross-project), off for the Project Tasks tab (redundant
  * there).
  */
-export default function TaskCard({ task, canEdit = true, showProject = false, onClick, onRequestStatusChange }) {
+export default function TaskCard({
+  task,
+  canEdit = true,
+  showProject = false,
+  onClick,
+  onRequestStatusChange,
+}) {
   const [expanded, setExpanded] = useState(false);
   const [hoveredAssigneeId, setHoveredAssigneeId] = useState(null);
 
-  const statusLabel = TASK_STATUSES.find((s) => s.value === task.status)?.label || task.status;
+  const statusLabel =
+    TASK_STATUSES.find((s) => s.value === task.status)?.label || task.status;
   const actions = canEdit ? TASK_STATUS_ACTIONS[task.status] || [] : [];
   const assignees = task.task_assignees ?? [];
 
   return (
-    <div className="generalCard taskCard" onClick={onClick}>
+    <div className="generalCard taskCard cardPaddingSmall" onClick={onClick}>
       <div className="taskCardMainRow">
         <div className="taskCardTitleGroup">
           <p className="textBold textXS truncate" title={task.title}>
@@ -57,9 +68,19 @@ export default function TaskCard({ task, canEdit = true, showProject = false, on
           )}
         </div>
 
-        <StatusBox status={statusLabel} type={TASK_STATUS_TYPE[task.status] || "grey"} />
+        <StatusBox
+          status={statusLabel}
+          type={TASK_STATUS_TYPE[task.status] || "grey"}
+        />
 
-        {task.due_date && <IconCard icon={ClockIcon} weight="fill" name={`Due: ${task.due_date}`} style="yellow textXXS" />}
+        {task.due_date && (
+          <IconCard
+            icon={ClockIcon}
+            weight="fill"
+            name={`Due: ${task.due_date}`}
+            style="yellow textXXS"
+          />
+        )}
 
         {assignees.length > 0 && (
           <div className="taskCardAssignees">
@@ -69,7 +90,9 @@ export default function TaskCard({ task, canEdit = true, showProject = false, on
                 employee={a.employee}
                 employeeId={a.employee_id}
                 showName={hoveredAssigneeId === a.employee_id}
-                setShowName={(show) => setHoveredAssigneeId(show ? a.employee_id : null)}
+                setShowName={(show) =>
+                  setHoveredAssigneeId(show ? a.employee_id : null)
+                }
               />
             ))}
           </div>
@@ -85,7 +108,11 @@ export default function TaskCard({ task, canEdit = true, showProject = false, on
                 size={14}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRequestStatusChange?.(task, action.nextStatus, action.label);
+                  onRequestStatusChange?.(
+                    task,
+                    action.nextStatus,
+                    action.label,
+                  );
                 }}
               />
             ))}
@@ -107,7 +134,11 @@ export default function TaskCard({ task, canEdit = true, showProject = false, on
         )}
       </div>
 
-      {expanded && task.description && <p className="textLight textXXS taskCardDescription">{task.description}</p>}
+      {expanded && task.description && (
+        <p className="textLight textXXS taskCardDescription">
+          {task.description}
+        </p>
+      )}
     </div>
   );
 }
