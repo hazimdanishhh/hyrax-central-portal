@@ -106,6 +106,7 @@ export const taskTableConfig = ({
       editable: canEdit,
       editor: "employeeMultiSelect",
       options: assigneeOptions,
+      required: true,
     },
     {
       key: "description",

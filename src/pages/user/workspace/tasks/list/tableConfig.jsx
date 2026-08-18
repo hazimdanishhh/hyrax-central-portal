@@ -51,28 +51,34 @@ export const myTasksTableConfig = ({ projectDocuments = [] } = {}) => [
     editor: "text",
     required: true,
   },
-  // {
-  //   key: "status",
-  //   label: "Status",
-  //   getValue: "status",
-  //   displayValue: (task) => TASK_STATUSES.find((s) => s.value === task.status)?.label,
-  //   editable: true,
-  //   editor: "select",
-  //   options: TASK_STATUSES,
-  //   isSearchable: false,
-  //   render: (_displayValue, task) => (
-  //     <StatusBox
-  //       status={TASK_STATUSES.find((s) => s.value === task.status)?.label || task.status}
-  //       type={TASK_STATUS_TYPE[task.status] || "grey"}
-  //     />
-  //   ),
-  // },
+  {
+    key: "status",
+    label: "Status",
+    getValue: "status",
+    displayValue: (task) =>
+      TASK_STATUSES.find((s) => s.value === task.status)?.label,
+    editable: true,
+    editor: "select",
+    options: TASK_STATUSES,
+    isSearchable: false,
+    render: (_displayValue, task) => (
+      <StatusBox
+        status={
+          TASK_STATUSES.find((s) => s.value === task.status)?.label ||
+          task.status
+        }
+        type={TASK_STATUS_TYPE[task.status] || "grey"}
+      />
+    ),
+    half: true,
+  },
   {
     key: "due_date",
     label: "Due Date",
     getValue: "due_date",
     editable: true,
     editor: "date",
+    half: true,
   },
   {
     key: "description",
