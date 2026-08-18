@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
@@ -24,9 +25,11 @@ import useAllEmployeesPublic from "../../../../../features/hr/employees/public/h
 import { useProjectCategories } from "../../../../../features/workspace/projects/private/hooks/useProjectCategories";
 import useProjectMutations from "../../../../../features/workspace/projects/private/hooks/useProjectMutations";
 import { fetchProjects } from "../../../../../features/workspace/projects/private/api/projectsService";
+import { useProjectsOverview } from "../../../../../features/workspace/projects/private/hooks/useProjectsOverview";
 import { projectsTableConfig } from "./tableConfig";
 import { getProjectsFilterConfig } from "./filterConfig";
 import { getProjectsSortConfig } from "./sortConfig";
+import { getProjectsOverviewConfig } from "./overviewConfig";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
 import ProjectCard from "../../../../../components/workspace/projectCard/ProjectCard";
@@ -82,6 +85,13 @@ export default function ProjectsManagement() {
   const { data: allEmployees = [], isLoading: employeesLoading } =
     useAllEmployeesPublic();
   const { createProject, creating } = useProjectMutations();
+
+  const {
+    kpis,
+    isLoading: overviewLoading,
+    error: overviewError,
+  } = useProjectsOverview();
+  const overviewItems = getProjectsOverviewConfig(kpis);
 
   const isLoading = projectsLoading || categoriesLoading || employeesLoading;
   const error = projectsError;
@@ -154,6 +164,14 @@ export default function ProjectsManagement() {
               title="Projects"
               subtitle="Manage your projects and details."
             />
+
+            {overviewLoading ? (
+              <CardLayout style="cardLayoutFlexFull">
+                <LoadingIcon />
+              </CardLayout>
+            ) : overviewError ? null : (
+              <OverviewCards items={overviewItems} />
+            )}
 
             <SearchFilterBar
               search={search}

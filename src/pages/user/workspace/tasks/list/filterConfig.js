@@ -12,5 +12,16 @@ export function getMyTasksFilterConfig({ projects = [] } = {}) {
       label: "Project",
       options: projects.map((p) => ({ label: p.name, value: p.id })),
     },
+    {
+      // Computed due_date condition, not a raw column -- see fetchMyTasks's
+      // dueStatus handling in myTasksService.js. Drives both the OverviewCards
+      // Overdue/Due Soon KPI cards and this dropdown/ActiveFiltersBar chip.
+      key: "dueStatus",
+      label: "Due",
+      options: [
+        { label: "Overdue", value: "overdue" },
+        { label: "Due Soon", value: "due_soon" },
+      ],
+    },
   ];
 }

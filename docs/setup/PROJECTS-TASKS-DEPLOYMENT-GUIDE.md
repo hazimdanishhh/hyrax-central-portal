@@ -162,6 +162,19 @@ No RLS/policy changes — this is an integrity/automation trigger, the same laye
 
 ---
 
+## 14. Post-launch addition — overview KPI RPCs
+
+**If you've already run steps 0–13 above, this is the only new SQL to run.** Adds glanceable KPI cards (`OverviewCards`) to the top of the Projects list and My Tasks pages — Total/Active/Planning/On Hold for Projects, Total/Overdue/Due Soon/Completed for Tasks. Both counts come from a dedicated RPC each, matching the same `count(*) filter (where ...)` pattern every report dashboard RPC already uses (`get_sales_leads_dashboard`, etc.), rather than several client-orchestrated count queries — one round trip per page instead of several.
+
+- [ ] `supabase/sql_editor/get_projects_overview_rpc.sql`
+- [ ] `supabase/sql_editor/get_my_tasks_overview_rpc.sql`
+
+Neither is `security definer` — both run with the caller's own row-security context, so `projects`/`tasks`' existing RLS keeps every count scoped to what the caller can actually see, with no extra scoping logic in the function body. No policy changes, no `grant` statement needed (same as every other function in this file set).
+
+**Verify**: open the Projects list and My Tasks pages, confirm the 4 KPI cards on each match what you'd get by manually filtering the list per status/due-date bucket. Click a card — confirm it filters the underlying list (e.g. "Overdue" on My Tasks shows only past-due, non-terminal-status tasks) and that "On Hold"/"Overdue"/"Due Soon" render red/yellow when their count is > 0, green when 0.
+
+---
+
 ## Frontend
 
 Nothing to deploy specially — `src/routes/WorkspaceRoutes.jsx` and `src/data/sideNavLinkData.js` are already updated and shipped with the rest of the app's normal build/deploy. Confirm after your next deploy (or `npm run dev` locally) that **Projects** and **Tasks** appear as a new **WORKSPACE** section in the sidebar.

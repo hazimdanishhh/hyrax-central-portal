@@ -9,6 +9,7 @@ import {
 import { AnimatePresence } from "framer-motion";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
@@ -31,8 +32,10 @@ import { useAllProjectsLite } from "../../../../../features/workspace/projects/p
 import useTaskMutations from "../../../../../features/workspace/tasks/private/hooks/useTaskMutations";
 import useTaskDocumentMutations from "../../../../../features/workspace/tasks/private/hooks/useTaskDocumentMutations";
 import { useTaskStatusAction } from "../../../../../features/workspace/tasks/private/hooks/useTaskStatusAction";
+import { useMyTasksOverview } from "../../../../../features/workspace/tasks/private/hooks/useMyTasksOverview";
 import { myTasksTableConfig } from "./tableConfig";
 import { getMyTasksFilterConfig } from "./filterConfig";
+import { getMyTasksOverviewConfig } from "./overviewConfig";
 import { useTheme } from "../../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
@@ -101,6 +104,13 @@ export default function MyTasks() {
     confirmAction,
   } = useTaskStatusAction(updateTask);
 
+  const {
+    kpis,
+    isLoading: overviewLoading,
+    error: overviewError,
+  } = useMyTasksOverview();
+  const overviewItems = getMyTasksOverviewConfig(kpis);
+
   const columns = myTasksTableConfig({ projectDocuments });
   const filterConfig = getMyTasksFilterConfig({ projects });
   const statusTabs = buildStatusTabs({
@@ -151,6 +161,14 @@ export default function MyTasks() {
               title="My Tasks"
               subtitle="View and manage your assigned tasks across all projects."
             />
+
+            {overviewLoading ? (
+              <CardLayout style="cardLayoutFlexFull">
+                <LoadingIcon />
+              </CardLayout>
+            ) : overviewError ? null : (
+              <OverviewCards items={overviewItems} />
+            )}
 
             <SearchFilterBar
               search={search}

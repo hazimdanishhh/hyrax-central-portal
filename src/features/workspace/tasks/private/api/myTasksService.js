@@ -67,6 +67,22 @@ export async function fetchMyTasks({ employeeId, page, pageSize, search, filters
     if (map[key]) query = query.eq(map[key], value);
   });
 
+  // dueStatus is a computed condition, not a raw column, so it can't go
+  // through the plain .eq() map above -- same shape as HR's
+  // confirmationStatus filter in employeesService.js (due_soon/overdue
+  // translated into real date-range clauses). Drives the OverviewCards
+  // Overdue/Due Soon KPI cards on this same page.
+  if (filters.dueStatus) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (filters.dueStatus === "overdue") {
+      query = query.lt("due_date", today).not("status", "in", "(COMPLETED,CANCELLED)");
+    } else if (filters.dueStatus === "due_soon") {
+      const cutoff = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      query = query.gte("due_date", today).lte("due_date", cutoff).not("status", "in", "(COMPLETED,CANCELLED)");
+    }
+  }
+
   query = query.range(from, to);
 
   const { data, count, error } = await query;
@@ -159,4 +175,17 @@ export async function fetchRecentTasks(employeeId, limit = 5) {
   });
 
   return tasks.map((t) => ({ ...t, task_assignees: assigneesByTask.get(t.id) || [] }));
+}
+
+/**
+ * KPI counts for the My Tasks list page's OverviewCards -- a single RPC
+ * round trip (get_my_tasks_overview_rpc.sql), resolving the caller's own
+ * identity server-side rather than trusting a client-supplied employeeId.
+ */
+export async function fetchMyTasksOverview() {
+  const { data, error } = await supabase.rpc("get_my_tasks_overview");
+
+  if (error) throw error;
+
+  return data;
 }

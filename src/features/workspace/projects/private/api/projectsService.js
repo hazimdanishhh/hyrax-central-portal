@@ -140,6 +140,21 @@ export async function fetchAllProjectsLite() {
 }
 
 /**
+ * KPI counts for the Projects list page's OverviewCards -- a single RPC
+ * round trip (get_projects_overview_rpc.sql) rather than several
+ * client-orchestrated count queries, matching every report dashboard's
+ * existing pattern (get_sales_leads_dashboard, etc.). RLS on `projects`
+ * already scopes every count to the caller's own projects.
+ */
+export async function fetchProjectsOverview() {
+  const { data, error } = await supabase.rpc("get_projects_overview");
+
+  if (error) throw error;
+
+  return data;
+}
+
+/**
  * Departments a project touches, derived live from its members' own
  * employees.department_id (req #2 -- explicitly NOT profiles.department_id,
  * which can drift from an employee's actual current department).
