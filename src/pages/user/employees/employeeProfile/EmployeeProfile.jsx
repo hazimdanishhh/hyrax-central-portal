@@ -1,6 +1,11 @@
 import { useNavigate, useParams } from "react-router-dom";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
-import { UserIcon, UsersFourIcon, UsersThreeIcon } from "@phosphor-icons/react";
+import {
+  PencilSimpleIcon,
+  UserIcon,
+  UsersFourIcon,
+  UsersThreeIcon,
+} from "@phosphor-icons/react";
 import CardSection from "../../../../components/cardSection/CardSection";
 import { useState } from "react";
 import { useTheme } from "../../../../context/ThemeContext";
@@ -16,8 +21,10 @@ import NoResult from "../../../../components/crud/noResult/NoResult";
 import { useEmployee } from "../../../../context/EmployeeContext";
 import useEmployeePublic from "../../../../features/hr/employees/public/hooks/useEmployeePublic";
 import AttendanceClock from "../../../../components/attendance/attendanceClock/AttendanceClock";
+import { useAccessControl } from "../../../../context/AccessControlContext";
 
 export default function EmployeeProfile() {
+  const { canAccess } = useAccessControl();
   const navigate = useNavigate();
   const { darkMode } = useTheme();
   const { employeeId } = useParams();
@@ -97,6 +104,13 @@ export default function EmployeeProfile() {
                               <AttendanceClock
                                 time={employee.last_status_time}
                                 type="clockout"
+                              />
+                            )}
+                            {canAccess({ departments: ["HR"] }) && (
+                              <RouterButton
+                                to={`/app/hr/employees/list/${employee?.id}`}
+                                style="button buttonType5 textXXS"
+                                icon={PencilSimpleIcon}
                               />
                             )}
                           </div>

@@ -3,6 +3,17 @@
   flex-direction: column;
   gap: 0.6rem;
   width: 100%;
+  // .taskCard is itself a grid item of .cardLayout1 (display: grid;
+  // grid-template-columns: 1fr), and a grid item's default min-width is
+  // `auto` (its content's intrinsic minimum), NOT 0 -- unlike a flex
+  // item's min-width:0 fix further down in this file, that one only
+  // constrains .taskCardTitleGroup's OWN row, not the grid track itself.
+  // Without this, the 1fr column refuses to shrink narrower than
+  // whatever unbreakable content run inside the card is widest (badges +
+  // buttons + icons), which is what was pinning the whole card -- and
+  // therefore .cardWrapperScroll, its parent -- to ~430px+ regardless of
+  // viewport width.
+  min-width: 0;
   text-align: start;
   cursor: pointer;
 
@@ -13,6 +24,11 @@
     flex-wrap: wrap;
     gap: 0.8rem;
     width: 100%;
+
+    @media screen and (max-width: 768px) {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 
   .taskCardTitleGroup {
@@ -20,6 +36,12 @@
     flex-direction: column;
     flex: 1 1 160px;
     min-width: 0;
+
+    @media screen and (max-width: 768px) {
+      flex: auto;
+      width: 100%;
+      min-width: 0;
+    }
 
     .taskCardProjectLink {
       text-decoration: underline;

@@ -91,7 +91,7 @@ export default function ProfileCard({
                 {section.source === "employee" &&
                   canAccess({ departments: ["HR"] }) && (
                     <RouterButton
-                      to={`/app/hr/employees/list/?employeeId=${employee?.id}`}
+                      to={`/app/hr/employees/list/${employee?.id}`}
                       style="button buttonType5 textXXS"
                       icon={PencilSimpleIcon}
                     />
