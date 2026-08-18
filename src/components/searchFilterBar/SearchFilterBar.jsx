@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import "./SearchFilterBar.scss";
 import {
   CaretDownIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
   CaretUpIcon,
   DownloadSimpleIcon,
   FunnelIcon,
@@ -19,6 +21,76 @@ import AsyncSelectEditor from "../dataTable/editors/AsyncSelectEditor";
 import ExportData from "../exportActions/ExportData";
 import ExportFullReport from "../exportActions/ExportFullReport";
 import { DATE_RANGE_PRESETS } from "../../functions/dateRangePresets";
+
+// Plain calendar-day arithmetic, same convention as
+// useAttendanceDailyList.js's shiftDate -- no date library in this repo.
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+
+function toDateString(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function parseDateString(dateString) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function isFirstOfMonth(d) {
+  return d.getDate() === 1;
+}
+
+// Rolling forward one day lands in the next month iff d was that month's
+// last day -- avoids hardcoding month lengths/leap years.
+function isLastOfMonth(d) {
+  const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+  return next.getDate() === 1;
+}
+
+function monthsBetweenInclusive(start, end) {
+  return (
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    (end.getMonth() - start.getMonth()) +
+    1
+  );
+}
+
+// Shifts the WHOLE range by its own length, like the Attendance
+// day-navigator but for a range instead of a single day. A whole-calendar-
+// month range (1st of a month through the last day of a month, possibly
+// spanning several consecutive months) shifts by MONTHS via setMonth, so
+// e.g. May shifted back lands on the whole of April (Apr 1-30), not "31
+// days earlier" (which would drift into March because April is shorter
+// than May). Any other range (partial months, weeks, arbitrary custom
+// ranges) shifts by a fixed day count, which is already correct for those.
+function shiftDateRange(startDate, endDate, direction) {
+  const start = parseDateString(startDate);
+  const end = parseDateString(endDate);
+
+  if (isFirstOfMonth(start) && isLastOfMonth(end)) {
+    const monthSpan = monthsBetweenInclusive(start, end);
+    const newStart = new Date(
+      start.getFullYear(),
+      start.getMonth() + direction * monthSpan,
+      1,
+    );
+    const newEnd = new Date(
+      newStart.getFullYear(),
+      newStart.getMonth() + monthSpan,
+      0, // day 0 = last day of the previous month
+    );
+
+    return { startDate: toDateString(newStart), endDate: toDateString(newEnd) };
+  }
+
+  const spanDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+  start.setDate(start.getDate() + direction * spanDays);
+  end.setDate(end.getDate() + direction * spanDays);
+
+  return { startDate: toDateString(start), endDate: toDateString(end) };
+}
 
 export default function SearchFilterBar({
   search,
@@ -63,6 +135,17 @@ export default function SearchFilterBar({
 
     loadAsyncValues();
   }, [filters, filterConfig]);
+
+  const canShiftRange = Boolean(filters.startDate && filters.endDate);
+
+  function handleShiftRange(direction) {
+    if (!canShiftRange) return;
+
+    onFilterChange({
+      ...filters,
+      ...shiftDateRange(filters.startDate, filters.endDate, direction),
+    });
+  }
 
   return (
     <>
@@ -172,6 +255,15 @@ export default function SearchFilterBar({
           <p className="textBold textXXS">Date Range</p>
 
           <div className="dateRangeInputContainer">
+            <Button
+              size={16}
+              icon={CaretLeftIcon}
+              style="iconButton2 textXXS"
+              title="Previous Period"
+              disabled={!canShiftRange}
+              onClick={() => handleShiftRange(-1)}
+            />
+
             <input
               type="date"
               value={filters.startDate || ""}
@@ -194,6 +286,15 @@ export default function SearchFilterBar({
                   endDate: e.target.value,
                 })
               }
+            />
+
+            <Button
+              size={16}
+              icon={CaretRightIcon}
+              style="iconButton2 textXXS"
+              title="Next Period"
+              disabled={!canShiftRange}
+              onClick={() => handleShiftRange(1)}
             />
           </div>
         </div>
