@@ -1,0 +1,38 @@
+.salesOrderCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 100%;
+  cursor: pointer;
+  text-align: start;
+
+  .salesOrderCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 0.8rem;
+    width: 100%;
+
+    @media screen and (max-width: 425px) {
+      flex-direction: column-reverse;
+      align-items: start;
+    }
+
+    .salesOrderCardHeaderCode {
+      display: flex;
+      flex-direction: column;
+      align-items: end;
+      text-align: end;
+      width: 100%;
+
+      @media screen and (max-width: 425px) {
+        align-items: start;
+        text-align: start;
+      }
+    }
+  }
+
+  p {
+    text-align: start;
+  }
+}

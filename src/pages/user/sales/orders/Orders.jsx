@@ -6,7 +6,6 @@ import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilter
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
-import DataTable from "../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
@@ -14,7 +13,7 @@ import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchSalesOrders } from "../../../../features/sales/orders/private/api/salesOrdersService";
 import { useSalesOrdersMetadata } from "../../../../features/sales/orders/private/hooks/useSalesOrdersMetadata";
 import { getSalesOrdersFilterConfig } from "./filterConfig";
-import { salesOrdersTableConfig } from "./tableConfig";
+import SalesOrderCard from "../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
 import SalesOrderSidebar from "./detail/SalesOrderSidebar";
 import PageTitle from "../../../../components/pageTitle/PageTitle";
 
@@ -60,7 +59,6 @@ export default function Orders() {
   } = useSalesOrdersMetadata();
 
   const filterConfig = getSalesOrdersFilterConfig({ salesReps });
-  const columns = salesOrdersTableConfig();
 
   const isLoading = ordersLoading || metadataLoading;
   const isFetching = ordersFetching || metadataFetching;
@@ -125,12 +123,15 @@ export default function Orders() {
         ) : error ? (
           <NoResult title="Error loading results" />
         ) : (
-          <DataTable
-            data={salesOrders}
-            columns={columns}
-            rowKey="doc_entry"
-            onRowClick={handleOpenSidebar}
-          />
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+            {salesOrders.map((order) => (
+              <SalesOrderCard
+                key={order.doc_entry}
+                order={order}
+                onClick={() => handleOpenSidebar(order)}
+              />
+            ))}
+          </CardLayout>
         )}
       </div>
 

@@ -31,10 +31,13 @@ import RouterButton from "../../../buttons/routerButton/RouterButton";
 import StatusIcon from "../../../status/statusIcon/StatusIcon";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import { useSalesOrdersByCustomerCode } from "../../../../features/sales/orders/private/hooks/useSalesOrdersByCustomerCode";
+import { useSalesOrderByPoNumber } from "../../../../features/sales/orders/private/hooks/useSalesOrderByPoNumber";
 import { salesOrdersTableConfig } from "../../../../pages/user/sales/orders/tableConfig";
 import DataTable from "../../../dataTable/DataTable";
 import NoResult from "../../../crud/noResult/NoResult";
 import LoadingIcon from "../../../loadingIcon/LoadingIcon";
+import DetailFieldGrid from "../../../dataSidebar/DetailFieldGrid";
+import { formatDate } from "../../../../functions/formatDate";
 
 export default function LeadSidebar({
   selectedRow,
@@ -61,6 +64,17 @@ export default function LeadSidebar({
   } = useSalesOrdersByCustomerCode(selectedRow.sap_customer_code);
   const orders = ordersResult?.data ?? [];
   const orderColumns = salesOrdersTableConfig();
+
+  // PO-number match (independent of the sap_customer_code lookup above) --
+  // sales_leads.po_number (rep-typed at WON) against
+  // sap_sales_orders.customer_ref (SAP NumAtCard). See
+  // useSalesOrderByPoNumber.js for why this can resolve to 0, 1, or many rows.
+  const {
+    data: poMatchResult,
+    isLoading: poMatchLoading,
+    error: poMatchError,
+  } = useSalesOrderByPoNumber(selectedRow.po_number);
+  const matchedOrders = poMatchResult?.data ?? [];
 
   //   BOOLEANS
   const isWon = selectedRow.stage === "WON";
@@ -266,6 +280,78 @@ export default function LeadSidebar({
           </CardLayout>
         </CardLayout>
       )} */}
+
+      {/* MATCHED SAP SALES ORDER -- live lookup only, sales_leads.po_number
+          (rep-typed at WON) matched against sap_sales_orders.customer_ref
+          (SAP NumAtCard). No persisted bridge -- see
+          docs/DASHBOARD-ROADMAP.md §1.3 for the larger, not-yet-built
+          persisted version of this idea. The "View in Sales Orders" link is
+          only shown to users who'd actually pass that route's own access
+          check (SalesRoutes.jsx: departments=["SAL"], roles=["manager"]) --
+          everyone else still sees the inline match summary. */}
+      {selectedRow.po_number && (
+        <CardLayout style="generalCard cardPaddingSmall">
+          <IconCard
+            name={`Matched Sales Order — PO ${selectedRow.po_number}`}
+            icon={ReceiptIcon}
+            style="textBold textXS"
+          />
+
+          {poMatchLoading ? (
+            <LoadingIcon />
+          ) : poMatchError ? (
+            <NoResult title="Error checking for a matching order" />
+          ) : matchedOrders.length === 0 ? (
+            <NoResult title="No SAP sales order found yet for this PO" />
+          ) : (
+            <>
+              {matchedOrders.length > 1 && (
+                <p className="textRegular textXXS">
+                  {matchedOrders.length} sales orders share this PO number —
+                  verify manually.
+                </p>
+              )}
+
+              <DetailFieldGrid
+                fields={[
+                  {
+                    label: "SO #",
+                    value: matchedOrders[0].so_number,
+                    half: true,
+                  },
+                  {
+                    label: "Status",
+                    value:
+                      matchedOrders[0].status_code === "O" ? "Open" : "Closed",
+                    half: true,
+                  },
+                  {
+                    label: "Order Date",
+                    value: formatDate(matchedOrders[0].order_date),
+                    half: true,
+                  },
+                  {
+                    label: "Total (RM)",
+                    value: `RM ${Math.round(
+                      matchedOrders[0].total_amount_myr || 0,
+                    ).toLocaleString()}`,
+                    half: true,
+                  },
+                ]}
+              />
+
+              {canAccess({ roles: ["manager"], departments: ["SAL"] }) && (
+                <RouterButton
+                  to={`/app/sales/orders/all?search=${encodeURIComponent(selectedRow.po_number)}`}
+                  name="View in Sales Orders"
+                  icon={ReceiptIcon}
+                  style="button buttonType4 textXXS"
+                />
+              )}
+            </>
+          )}
+        </CardLayout>
+      )}
 
       {/* ACTIONS */}
 

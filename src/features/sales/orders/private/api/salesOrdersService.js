@@ -38,6 +38,10 @@ export async function fetchSalesOrders({
         if (value !== FILTER_NULL) query = query.eq("customer_code", value);
         break;
 
+      case "customerRef":
+        if (value !== FILTER_NULL) query = query.eq("customer_ref", value);
+        break;
+
       case "salesRepCode":
         if (value !== FILTER_NULL) query = query.eq("sales_rep_code", value);
         break;
