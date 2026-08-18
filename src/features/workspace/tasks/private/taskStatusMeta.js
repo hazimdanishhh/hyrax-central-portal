@@ -1,5 +1,8 @@
 // Single source of truth for the 4-value task_status enum (req #7) --
 // one field, not a separate is_cancelled boolean (cancelled is mutually
+
+import { CheckIcon, PlayIcon, XIcon } from "@phosphor-icons/react";
+
 // exclusive with the other three).
 export const TASK_STATUSES = [
   { label: "To Do", value: "TO_DO" },
@@ -22,12 +25,32 @@ export const TASK_STATUS_TYPE = {
 // drift between ProjectTasksTab and MyTasks, which both render TaskCard.
 export const TASK_STATUS_ACTIONS = {
   TO_DO: [
-    { label: "Start", nextStatus: "IN_PROGRESS", style: "approval" },
-    { label: "Cancel", nextStatus: "CANCELLED", style: "rejection" },
+    {
+      label: "Start",
+      nextStatus: "IN_PROGRESS",
+      style: "approval",
+      icon: PlayIcon,
+    },
+    {
+      label: "Cancel",
+      nextStatus: "CANCELLED",
+      style: "rejection",
+      icon: XIcon,
+    },
   ],
   IN_PROGRESS: [
-    { label: "Complete", nextStatus: "COMPLETED", style: "approval" },
-    { label: "Cancel", nextStatus: "CANCELLED", style: "rejection" },
+    {
+      label: "Complete",
+      nextStatus: "COMPLETED",
+      style: "approval",
+      icon: CheckIcon,
+    },
+    {
+      label: "Cancel",
+      nextStatus: "CANCELLED",
+      style: "rejection",
+      icon: XIcon,
+    },
   ],
   COMPLETED: [],
   CANCELLED: [],

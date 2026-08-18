@@ -114,9 +114,11 @@ export default function TaskCard({
               {actions.map((action) => (
                 <Button
                   key={action.label}
-                  name={action.label}
-                  style={`button buttonType5 ${action.style} textXXS`}
+                  name={action.label === "Cancel" ? null : action.label}
+                  style={`button buttonType5 ${action.label === "Start" ? "blue" : action.style} textXXS`}
+                  icon={action.icon}
                   size={14}
+                  weight="bold"
                   onClick={(e) => {
                     e.stopPropagation();
                     onRequestStatusChange?.(
