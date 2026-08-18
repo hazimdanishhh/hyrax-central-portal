@@ -1,0 +1,42 @@
+.aboutTabContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.aboutHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: start;
+
+  p {
+    margin: 0;
+  }
+
+  .aboutLogoRow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+}
+
+.aboutVersionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.3rem;
+}
+
+.aboutChangelog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  text-align: start;
+
+  p {
+    margin: 0;
+  }
+}

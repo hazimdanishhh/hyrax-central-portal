@@ -1,4 +1,5 @@
 import { Route } from "react-router";
+import About from "../pages/user/about/About";
 import Announcements from "../pages/user/announcements/Announcements";
 import Dashboard from "../pages/user/dashboard/Dashboard";
 import Department from "../pages/user/department/Department";
@@ -16,5 +17,6 @@ export default (
     <Route path="department" element={<Department />} />
     <Route path="employees" element={<EmployeesPublicPage />} />
     <Route path="employees/:employeeId" element={<EmployeeProfile />} />
+    <Route path="about" element={<About />} />
   </>
 );

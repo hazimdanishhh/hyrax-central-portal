@@ -28,6 +28,9 @@
 }
 
 .faqAccordionAnswer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
   padding-top: 0.8rem;
   text-align: start;
 
@@ -37,6 +40,11 @@
     &:last-child {
       margin-bottom: 0;
     }
+  }
+
+  li {
+    list-style-type: disc;
+    margin-left: 1.2rem;
   }
 
   table {

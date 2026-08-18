@@ -19,6 +19,7 @@ import {
   GaugeIcon,
   MegaphoneIcon,
   QuestionIcon,
+  InfoIcon,
   AddressBookIcon,
   WalletIcon,
   FilesIcon,
@@ -554,6 +555,12 @@ export const sideNavLinkData = [
         label: "Help & Support",
         icon: QuestionIcon,
         path: "help",
+      },
+
+      {
+        label: "About",
+        icon: InfoIcon,
+        path: "about",
       },
     ],
   },

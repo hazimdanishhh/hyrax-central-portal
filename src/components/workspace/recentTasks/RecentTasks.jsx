@@ -9,6 +9,7 @@ import RouterButton from "../../buttons/routerButton/RouterButton";
 import CardLayout from "../../cardLayout/CardLayout";
 import PageHeader from "../../crud/pageHeader/PageHeader";
 import SectionHeader from "../../sectionHeader/SectionHeader";
+import "./RecentTasks.scss";
 
 /**
  * Home dashboard widget -- newest-created tasks assigned to the current
@@ -21,7 +22,7 @@ export default function RecentTasks() {
   const { tasks, isLoading } = useRecentTasks(5);
 
   return (
-    <CardLayout style="cardLayout1 generalCard">
+    <CardLayout style="generalCard recentWorkspaceSection">
       <PageHeader>
         <SectionHeader icon={ListChecksIcon} title="Recent Tasks" />
 

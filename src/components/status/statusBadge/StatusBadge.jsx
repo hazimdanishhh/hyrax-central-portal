@@ -26,6 +26,10 @@ export default function StatusBadge({ status, type }) {
     rejected: "rejected",
 
     onHold: "ON HOLD",
+
+    // App release phase (About page)
+    uat: "pending",
+    stable: "active",
   };
 
   const normalizedStatus = status?.toLowerCase();

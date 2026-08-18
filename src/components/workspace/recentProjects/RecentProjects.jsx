@@ -22,7 +22,7 @@ export default function RecentProjects() {
   const { categories } = useProjectCategories();
 
   return (
-    <CardLayout style="cardLayout1 generalCard">
+    <CardLayout style="generalCard recentWorkspaceSection">
       <PageHeader>
         <SectionHeader icon={FolderIcon} title="Recent Projects" />
 
