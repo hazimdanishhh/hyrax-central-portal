@@ -44,6 +44,12 @@ export async function fetchMyTasks({ employeeId, page, pageSize, search, filters
       { count: "exact" },
     )
     .eq("task_assignees.employee_id", employeeId)
+    // status primary (task_status enum was declared TO_DO, IN_PROGRESS,
+    // COMPLETED, CANCELLED -- Postgres enums sort by that declaration
+    // order by default, already matching the desired to-do-first,
+    // cancelled-last grouping with no CASE expression needed), due_date
+    // as the tie-breaker within each status group.
+    .order("status", { ascending: true })
     .order("due_date", { ascending: true });
 
   if (search) {

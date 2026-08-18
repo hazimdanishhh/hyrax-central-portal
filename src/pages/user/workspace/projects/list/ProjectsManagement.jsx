@@ -2,7 +2,7 @@
 import {
   PencilSimpleLineIcon,
   PlusCircleIcon,
-  SquaresFourIcon,
+  FolderIcon,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -147,7 +147,7 @@ export default function ProjectsManagement() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <Breadcrumbs icon={SquaresFourIcon} current="Projects" />
+          <Breadcrumbs icon={FolderIcon} current="Projects" />
 
           <CardWrapper>
             <PageTitle

@@ -1,0 +1,19 @@
+.projectDocumentsIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: none;
+  border: 1px solid $neutral500;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.projectDocumentsIndicatorPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}

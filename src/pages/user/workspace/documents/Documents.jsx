@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FoldersIcon } from "@phosphor-icons/react";
+import { FileIcon } from "@phosphor-icons/react";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
@@ -77,7 +77,7 @@ export default function Documents() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <Breadcrumbs icon={FoldersIcon} current="Documents" />
+          <Breadcrumbs icon={FileIcon} current="Documents" />
 
           <CardWrapper>
             <PageTitle

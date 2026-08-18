@@ -1,8 +1,8 @@
 import {
   CalendarIcon,
-  FoldersIcon,
-  ListDashesIcon,
-  SquaresFourIcon,
+  FileIcon,
+  ListChecksIcon,
+  FolderIcon,
   WalletIcon,
 } from "@phosphor-icons/react";
 import cloudflare from "/src/assets/icons/cloudflare.svg";
@@ -72,17 +72,17 @@ export const quickActionsHome = [
 // TEST
 export const quickActionsTest = [
   {
-    icon: SquaresFourIcon,
+    icon: FolderIcon,
     name: "Create Project",
     path: "/app/workspace/projects",
   },
   {
-    icon: ListDashesIcon,
+    icon: ListChecksIcon,
     name: "Create Task",
     path: "/app/workspace/tasks",
   },
   {
-    icon: FoldersIcon,
+    icon: FileIcon,
     name: "Add Document",
     path: "/app/workspace/documents",
   },

@@ -4,8 +4,9 @@ import {
   HouseIcon,
   UserCircleIcon,
   SquaresFourIcon,
-  ListDashesIcon,
-  FoldersIcon,
+  FolderIcon,
+  ListChecksIcon,
+  FileIcon,
   UsersIcon,
   ChartBarIcon,
   HandshakeIcon,
@@ -94,7 +95,10 @@ export const sideNavLinkData = [
   // departments/roles restriction, matching
   // supabase/access-control/README.md's own existing R2 classification for
   // Workspace ("no single department owns the data... unrestricted").
-  // Documents remains an untouched stub -- out of scope for this module.
+  // Documents is a real, fully-built module (project-scoped Google Drive
+  // library), not a stub -- see docs/PROJECTS-TASKS-ARCHITECTURE.md.
+  // Icon convention across the whole module: folder = project,
+  // check-list = task, file = document.
   {
     segmentTitle: "WORKSPACE",
     segmentCode: "SPACE",
@@ -102,19 +106,19 @@ export const sideNavLinkData = [
     links: [
       {
         label: "Projects",
-        icon: SquaresFourIcon,
+        icon: FolderIcon,
         path: "workspace/projects",
       },
 
       {
         label: "Tasks",
-        icon: ListDashesIcon,
+        icon: ListChecksIcon,
         path: "workspace/tasks",
       },
 
       {
         label: "Documents",
-        icon: FoldersIcon,
+        icon: FileIcon,
         path: "workspace/documents",
       },
     ],

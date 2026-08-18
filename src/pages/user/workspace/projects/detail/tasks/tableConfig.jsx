@@ -1,6 +1,9 @@
 // pages/user/workspace/projects/detail/tasks/tableConfig.jsx
 import StatusBox from "../../../../../../components/status/statusBox/StatusBox";
-import { TASK_STATUSES, TASK_STATUS_TYPE } from "../../../../../../features/workspace/tasks/private/taskStatusMeta";
+import {
+  TASK_STATUSES,
+  TASK_STATUS_TYPE,
+} from "../../../../../../features/workspace/tasks/private/taskStatusMeta";
 
 /**
  * Factory function. `canEdit` (from taskPermissions.isTaskAssignee, per
@@ -36,6 +39,7 @@ export const taskTableConfig = ({
   const assigneeOptions = workingMembers.map((m) => ({
     label: m.employee?.full_name,
     value: m.employee_id,
+    avatarUrl: m.employee?.avatar_url,
   }));
 
   return [
@@ -65,17 +69,22 @@ export const taskTableConfig = ({
       key: "status",
       label: "Status",
       getValue: "status",
-      displayValue: (task) => TASK_STATUSES.find((s) => s.value === task.status)?.label,
+      displayValue: (task) =>
+        TASK_STATUSES.find((s) => s.value === task.status)?.label,
       editable: canEdit,
       editor: "select",
       options: TASK_STATUSES,
       isSearchable: false,
       render: (_displayValue, task) => (
         <StatusBox
-          status={TASK_STATUSES.find((s) => s.value === task.status)?.label || task.status}
+          status={
+            TASK_STATUSES.find((s) => s.value === task.status)?.label ||
+            task.status
+          }
           type={TASK_STATUS_TYPE[task.status] || "grey"}
         />
       ),
+      half: true,
     },
     {
       key: "due_date",
@@ -83,15 +92,19 @@ export const taskTableConfig = ({
       getValue: "due_date",
       editable: canEdit,
       editor: "date",
+      half: true,
     },
     {
       key: "assignee_ids",
       label: "Assignees",
       getValue: (task) => (task.task_assignees ?? []).map((a) => a.employee_id),
       displayValue: (task) =>
-        (task.task_assignees ?? []).map((a) => a.employee?.full_name).filter(Boolean).join(", "),
+        (task.task_assignees ?? [])
+          .map((a) => a.employee?.full_name)
+          .filter(Boolean)
+          .join(", "),
       editable: canEdit,
-      editor: "multiSelect",
+      editor: "employeeMultiSelect",
       options: assigneeOptions,
     },
     {

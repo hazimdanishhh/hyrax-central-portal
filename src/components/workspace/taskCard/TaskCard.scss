@@ -44,6 +44,9 @@
     }
 
     .taskCardProjectLink {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
       text-decoration: underline;
       width: fit-content;
     }

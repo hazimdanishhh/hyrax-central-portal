@@ -1,0 +1,46 @@
+.employeeMultiSelectEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+
+  .employeeMultiSelectEditorList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .employeeMultiSelectEditorItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .employeeMultiSelectEditorAvatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .employeeMultiSelectEditorName {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .employeeMultiSelectEditorRemove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    flex-shrink: 0;
+  }
+}

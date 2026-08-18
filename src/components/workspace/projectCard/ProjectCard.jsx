@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ClockIcon, UsersIcon } from "@phosphor-icons/react";
+import { ClockIcon, UsersIcon, FolderIcon } from "@phosphor-icons/react";
 import CardLayout from "../../cardLayout/CardLayout";
 import StatusBox from "../../status/statusBox/StatusBox";
 import ProgressBar from "../../progressBar/ProgressBar";
@@ -8,6 +8,7 @@ import IconCard from "../../iconCard/IconCard";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import DataSidebar from "../../dataSidebar/DataSidebar";
 import ProjectMemberAvatarStack from "../projectMemberAvatarStack/ProjectMemberAvatarStack";
+import ProjectDocumentsIndicator from "../projectDocumentsIndicator/ProjectDocumentsIndicator";
 import { PROJECT_STATUSES, PROJECT_STATUS_TYPE } from "../../../features/workspace/projects/private/projectStatusMeta";
 import { PROJECT_ROLE_LABEL } from "../../../features/workspace/projects/private/projectRoleMeta";
 import "./ProjectCard.scss";
@@ -33,9 +34,12 @@ export default function ProjectCard({ project, category, onClick }) {
     <>
       <div className="generalCard projectCard" onClick={onClick}>
         <div className="projectCardHeader">
-          <p className="textBold textXS truncate" title={project.name}>
-            {project.name}
-          </p>
+          <div className="projectCardTitle">
+            <FolderIcon size={16} />
+            <p className="textBold textXS truncate" title={project.name}>
+              {project.name}
+            </p>
+          </div>
           <StatusBox status={statusLabel} type={PROJECT_STATUS_TYPE[project.status] || "grey"} />
           {category?.name && <StatusBox status={category?.name} type="blue" />}
         </div>
@@ -48,7 +52,10 @@ export default function ProjectCard({ project, category, onClick }) {
             <IconCard icon={ClockIcon} weight="fill" name={`End: ${project.target_end_date}`} style="yellow textXXS" />
           </div>
 
-          <ProjectMemberAvatarStack members={members} onClick={() => setRosterOpen(true)} />
+          <div className="projectCardMetaActions">
+            <ProjectMemberAvatarStack members={members} onClick={() => setRosterOpen(true)} />
+            <ProjectDocumentsIndicator projectId={project.id} projectName={project.name} />
+          </div>
         </div>
 
         <ProgressBar value={project.progress_percentage} label={`${project.name} progress`} />

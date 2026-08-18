@@ -24,7 +24,13 @@ export async function fetchTasksByProject(projectId) {
     `,
     )
     .eq("project_id", projectId)
-    .order("created_at", { ascending: true });
+    // Same status-primary, due_date-secondary ordering as myTasksService.js
+    // -- was created_at here before, a less useful key than due date for a
+    // task list; task_status's enum declaration order (TO_DO, IN_PROGRESS,
+    // COMPLETED, CANCELLED) already sorts to-do-first, cancelled-last with
+    // no CASE expression needed.
+    .order("status", { ascending: true })
+    .order("due_date", { ascending: true });
 
   if (error) throw error;
 

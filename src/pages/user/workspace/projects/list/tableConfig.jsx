@@ -1,7 +1,10 @@
 // pages/user/workspace/projects/list/tableConfig.jsx
 import StatusBox from "../../../../../components/status/statusBox/StatusBox";
 import ProgressBar from "../../../../../components/progressBar/ProgressBar";
-import { PROJECT_STATUSES, PROJECT_STATUS_TYPE } from "../../../../../features/workspace/projects/private/projectStatusMeta";
+import {
+  PROJECT_STATUSES,
+  PROJECT_STATUS_TYPE,
+} from "../../../../../features/workspace/projects/private/projectStatusMeta";
 
 /**
  * Factory function, re-invoked fresh per render (same convention as
@@ -15,8 +18,15 @@ import { PROJECT_STATUSES, PROJECT_STATUS_TYPE } from "../../../../../features/w
  * projectsService.js's comment on why embedding through a view doesn't
  * work here).
  */
-export const projectsTableConfig = ({ categories = [], allEmployees = [], creating = false }) => {
-  const employeeOptions = allEmployees.map((e) => ({ label: e.full_name, value: e.id }));
+export const projectsTableConfig = ({
+  categories = [],
+  allEmployees = [],
+  creating = false,
+}) => {
+  const employeeOptions = allEmployees.map((e) => ({
+    label: e.full_name,
+    value: e.id,
+  }));
 
   const columns = [
     {
@@ -39,7 +49,8 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       key: "status",
       label: "Status",
       getValue: "status",
-      displayValue: (project) => PROJECT_STATUSES.find((s) => s.value === project.status)?.label,
+      displayValue: (project) =>
+        PROJECT_STATUSES.find((s) => s.value === project.status)?.label,
       editable: true,
       editor: "select",
       options: PROJECT_STATUSES,
@@ -50,7 +61,10 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       show: !creating,
       render: (_displayValue, project) => (
         <StatusBox
-          status={PROJECT_STATUSES.find((s) => s.value === project.status)?.label || project.status}
+          status={
+            PROJECT_STATUSES.find((s) => s.value === project.status)?.label ||
+            project.status
+          }
           type={PROJECT_STATUS_TYPE[project.status] || "grey"}
         />
       ),
@@ -59,7 +73,8 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       key: "category_id",
       label: "Category",
       getValue: (project) => project.category_id,
-      displayValue: (project) => categories.find((c) => c.id === project.category_id)?.name || "—",
+      displayValue: (project) =>
+        categories.find((c) => c.id === project.category_id)?.name || "—",
       editable: true,
       editor: "projectCategorySelect",
     },
@@ -71,7 +86,10 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       show: false, // hides from the create/edit form (see DataForm.jsx's col.show check) -- purely computed, still shown in the table via `render`
       computed: true, // server-computed (projects_with_progress view) -- projects has NO such column; DataForm must never seed/submit this (see PGRST204 bug)
       render: (_displayValue, project) => (
-        <ProgressBar value={project.progress_percentage} label={`${project.name} progress`} />
+        <ProgressBar
+          value={project.progress_percentage}
+          label={`${project.name} progress`}
+        />
       ),
     },
     {
@@ -81,6 +99,7 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       editable: true,
       editor: "date",
       section: "Dates",
+      half: true,
     },
     {
       key: "target_end_date",
@@ -89,6 +108,7 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       editable: true,
       editor: "date",
       section: "Dates",
+      half: true,
     },
     {
       key: "description",
@@ -104,7 +124,7 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
     columns.push(
       {
         key: "lead_employee_ids",
-        label: "Leads (optional)",
+        label: "Project Leads",
         getValue: () => [],
         editable: true,
         editor: "multiSelect",
@@ -113,7 +133,7 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       },
       {
         key: "member_employee_ids",
-        label: "Members (optional)",
+        label: "Members",
         getValue: () => [],
         editable: true,
         editor: "multiSelect",
@@ -122,7 +142,7 @@ export const projectsTableConfig = ({ categories = [], allEmployees = [], creati
       },
       {
         key: "cc_employee_ids",
-        label: "CC (optional)",
+        label: "Supervisors (CC)",
         getValue: () => [],
         editable: true,
         editor: "multiSelect",

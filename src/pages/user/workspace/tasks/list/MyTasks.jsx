@@ -1,7 +1,7 @@
 // pages/user/workspace/tasks/list/MyTasks.jsx
 import { useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ListBulletsIcon, PencilSimpleLineIcon } from "@phosphor-icons/react";
+import { ListChecksIcon, PencilSimpleLineIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
@@ -130,7 +130,7 @@ export default function MyTasks() {
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
         <div className="sectionContent">
-          <Breadcrumbs icon={ListBulletsIcon} current="My Tasks" />
+          <Breadcrumbs icon={ListChecksIcon} current="My Tasks" />
 
           <CardWrapper>
             <PageTitle

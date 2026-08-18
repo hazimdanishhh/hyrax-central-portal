@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useParams, NavLink, Outlet } from "react-router";
 import {
-  SquaresFourIcon,
+  FolderIcon,
   ListChecksIcon,
   UsersIcon,
-  FolderIcon,
+  FileIcon,
   PencilSimpleLineIcon,
   ArrowsLeftRightIcon,
   TrashIcon,
@@ -121,7 +121,7 @@ export default function ProjectDetailLayout() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={SquaresFourIcon} current={project.name} to1="/app/workspace/projects" name1="Projects" icon1={SquaresFourIcon} />
+            <Breadcrumbs icon={FolderIcon} current={project.name} to1="/app/workspace/projects" name1="Projects" icon1={FolderIcon} />
 
             <CardWrapper>
               <div className="projectDetailHeader generalCard">
@@ -217,7 +217,7 @@ export default function ProjectDetailLayout() {
                   className={({ isActive }) => `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`}
                 >
                   <div className="pageTabIcon">
-                    <FolderIcon size={15} />
+                    <FileIcon size={15} />
                   </div>
                   Documents
                 </NavLink>

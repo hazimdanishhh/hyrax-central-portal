@@ -163,6 +163,26 @@
   }
 }
 
+.dataSidebar textarea {
+  width: 100%;
+  border: 1px solid $neutral300;
+  border-radius: 4px;
+  font-size: 13px;
+
+  @media screen and (max-width: 1024px) {
+    font-size: 16px;
+  }
+
+  &:disabled {
+    color: $neutral500;
+    cursor: default;
+  }
+
+  &:focus {
+    outline: none;
+  }
+}
+
 /* INPUTS (READ-ONLY LOOK) */
 .dataSidebar select {
   width: 100%;

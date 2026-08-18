@@ -12,6 +12,7 @@ import EmployeeImage from "../../../../../../components/employees/employeeImage/
 import DataSidebar from "../../../../../../components/dataSidebar/DataSidebar";
 import ActionModal from "../../../../../../components/modals/actionModal/ActionModal";
 import Select from "react-select";
+import EmployeeMultiSelectEditor from "../../../../../../components/dataTable/editors/EmployeeMultiSelectEditor";
 import { useProject } from "../../../../../../features/workspace/projects/private/hooks/useProject";
 import { useProjectPermissions } from "../../../../../../features/workspace/projects/private/hooks/useProjectPermissions";
 import useProjectMemberMutations from "../../../../../../features/workspace/projects/private/hooks/useProjectMemberMutations";
@@ -52,7 +53,9 @@ export default function ProjectMembersTab() {
   const [hoveredEmployeeId, setHoveredEmployeeId] = useState(null);
 
   const currentMemberIds = new Set(members.map((m) => m.employee_id));
-  const addableEmployeeOptions = allEmployees.filter((e) => !currentMemberIds.has(e.id)).map((e) => ({ label: e.full_name, value: e.id }));
+  const addableEmployeeOptions = allEmployees
+    .filter((e) => !currentMemberIds.has(e.id))
+    .map((e) => ({ label: e.full_name, value: e.id, avatarUrl: e.avatar_url }));
 
   async function handleAddMembers() {
     if (!selectedNewMembers.length) return;
@@ -60,7 +63,7 @@ export default function ProjectMembersTab() {
     // syncMembers replaces the FULL non-owner roster, so existing
     // non-owner members must be included unchanged alongside the new ones.
     const existingAssignments = members.filter((m) => m.role !== "owner").map((m) => ({ employeeId: m.employee_id, role: m.role }));
-    const newAssignments = selectedNewMembers.map((opt) => ({ employeeId: opt.value, role: selectedNewRole.value }));
+    const newAssignments = selectedNewMembers.map((employeeId) => ({ employeeId, role: selectedNewRole.value }));
 
     await syncMembers([...existingAssignments, ...newAssignments]);
     handleCloseAdd();
@@ -124,11 +127,7 @@ export default function ProjectMembersTab() {
         {addingOpen && (
           <DataSidebar title="Add Members" icon={PlusIcon} open={addingOpen} onClose={handleCloseAdd} isEditing={false} hideDelete>
             <div className="projectMembersAddPanel">
-              <Select
-                unstyled
-                isMulti
-                className="selectContainer"
-                classNamePrefix="reactSelect"
+              <EmployeeMultiSelectEditor
                 placeholder="Select employees to add..."
                 options={addableEmployeeOptions}
                 value={selectedNewMembers}

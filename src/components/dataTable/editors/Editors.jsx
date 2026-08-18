@@ -13,6 +13,7 @@ import LeadAccountEditor from "./LeadAccountEditor";
 import MultiSelectEditor from "./MultiSelectEditor";
 import ProjectCategoryEditor from "./ProjectCategoryEditor";
 import TaskDocumentsEditor from "./TaskDocumentsEditor";
+import EmployeeMultiSelectEditor from "./EmployeeMultiSelectEditor";
 
 export const editors = {
   text: TextEditor,
@@ -29,4 +30,5 @@ export const editors = {
   multiSelect: MultiSelectEditor,
   projectCategorySelect: ProjectCategoryEditor,
   taskDocuments: TaskDocumentsEditor,
+  employeeMultiSelect: EmployeeMultiSelectEditor,
 };
