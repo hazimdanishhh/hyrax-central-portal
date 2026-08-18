@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ClockIcon, UsersIcon, FolderIcon } from "@phosphor-icons/react";
+import {
+  ClockIcon,
+  UsersIcon,
+  FolderIcon,
+  ListChecksIcon,
+} from "@phosphor-icons/react";
 import CardLayout from "../../cardLayout/CardLayout";
 import StatusBox from "../../status/statusBox/StatusBox";
 import ProgressBar from "../../progressBar/ProgressBar";
@@ -76,6 +81,12 @@ export default function ProjectCard({ project, category, onClick }) {
               name={`End: ${project.target_end_date}`}
               style="yellow textXXXS textBold"
             />
+            <IconCard
+              icon={ListChecksIcon}
+              weight="fill"
+              name={`Tasks: ${project.completed_task_count ?? 0}/${project.active_task_count ?? 0}`}
+              style="green textXXXS textBold"
+            />
           </div>
 
           <div className="projectCardMetaActions">
@@ -107,6 +118,10 @@ export default function ProjectCard({ project, category, onClick }) {
             hideDelete
           >
             <div className="projectCardRosterPanel">
+              <p className="textBold textXS">
+                {members.length} Member{members.length !== 1 ? "s" : ""}
+              </p>
+
               {members.map((m) => (
                 <div
                   key={m.employee_id}

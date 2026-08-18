@@ -24,7 +24,10 @@ import useTaskAssigneeMutations from "../../../../../../features/workspace/tasks
 import useTaskDocumentMutations from "../../../../../../features/workspace/tasks/private/hooks/useTaskDocumentMutations";
 import { useTaskStatusAction } from "../../../../../../features/workspace/tasks/private/hooks/useTaskStatusAction";
 import { isTaskAssignee } from "../../../../../../features/workspace/tasks/private/taskPermissions";
-import { TASK_STATUSES, TASK_STATUS_TYPE } from "../../../../../../features/workspace/tasks/private/taskStatusMeta";
+import {
+  TASK_STATUSES,
+  TASK_STATUS_TYPE,
+} from "../../../../../../features/workspace/tasks/private/taskStatusMeta";
 import { taskTableConfig } from "./tableConfig";
 import { getProjectTasksFilterConfig } from "./filterConfig";
 
@@ -76,7 +79,11 @@ export default function ProjectTasksTab() {
     (m) => m.role === "owner" || m.role === "lead" || m.role === "member",
   );
 
-  const createColumns = taskTableConfig({ workingMembers, canEdit: true, projectDocuments });
+  const createColumns = taskTableConfig({
+    workingMembers,
+    canEdit: true,
+    projectDocuments,
+  });
 
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "";
@@ -110,15 +117,25 @@ export default function ProjectTasksTab() {
   const setFilters = (newFilters) => updateParams(newFilters);
   const resetParams = () => setSearchParams({});
 
-  const activeFilters = Object.entries(filters).filter(([, v]) => v !== "" && v != null);
+  const activeFilters = Object.entries(filters).filter(
+    ([, v]) => v !== "" && v != null,
+  );
   const hasActiveFilters = activeFilters.length > 0 || search.length > 0;
 
   const filteredTasks = useMemo(() => {
     const q = search.trim().toLowerCase();
     return tasks.filter((t) => {
       if (status && t.status !== status) return false;
-      if (assignee && !(t.task_assignees ?? []).some((a) => a.employee_id === assignee)) return false;
-      if (q && !`${t.title ?? ""} ${t.description ?? ""}`.toLowerCase().includes(q)) return false;
+      if (
+        assignee &&
+        !(t.task_assignees ?? []).some((a) => a.employee_id === assignee)
+      )
+        return false;
+      if (
+        q &&
+        !`${t.title ?? ""} ${t.description ?? ""}`.toLowerCase().includes(q)
+      )
+        return false;
       return true;
     });
   }, [tasks, status, assignee, search]);
@@ -257,7 +274,15 @@ export default function ProjectTasksTab() {
             <LoadingIcon />
           </CardLayout>
         ) : !hasData || error ? (
-          <NoResult title={error ? "Error loading tasks" : tasks.length === 0 ? "No tasks yet" : "No tasks match your search/filters"} />
+          <NoResult
+            title={
+              error
+                ? "Error loading tasks"
+                : tasks.length === 0
+                  ? "No tasks yet"
+                  : "No tasks match your search/filters"
+            }
+          />
         ) : (
           <CardLayout style="cardLayout1 cardGapSmall">
             {filteredTasks.map((task) => (

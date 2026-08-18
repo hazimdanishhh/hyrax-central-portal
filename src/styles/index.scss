@@ -464,3 +464,88 @@ li {
     background-color: rgba($neutral600, 0.6);
   }
 }
+
+// Shared page-tab strip (Help & Support, Leads, Clients, Orders, Employee
+// Management, Attendance, Team Attendance, IT Assets, Project Detail, etc.)
+// -- every one of those pages hand-rolls its own
+// `<div className="pageTabContainer">` + NavLink markup rather than a shared
+// component, so this class is centralized here (not co-located with any one
+// page) to style all of them consistently. Was previously only defined
+// locally in ITAssetsPageLayout.scss -- every other page's tab strip had no
+// overflow/scroll styling at all.
+//
+// scroll-snap-type + scroll-snap-align turn the natural horizontal
+// scroll/swipe (already required once tabs overflow on small screens) into a
+// swipe-and-lock-to-the-next-tab interaction, with no JS needed.
+.pageTabContainer {
+  display: flex;
+  width: 100%;
+  justify-content: start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+
+  .button {
+    text-wrap: nowrap;
+    padding-left: 0.4rem;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+
+    &.active {
+      .pageTabIcon {
+        background-color: $neutral100;
+        color: $neutral900;
+        transition: 0.3s;
+      }
+
+      &:hover {
+        .pageTabIcon {
+          background-color: $neutral100;
+          color: $neutral900;
+          transition: 0.3s;
+        }
+      }
+    }
+
+    &:hover {
+      .pageTabIcon {
+        background-color: $primary;
+        color: $neutral100;
+        transition: 0.3s;
+      }
+    }
+  }
+
+  // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
+  &::-webkit-scrollbar {
+    height: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba($neutral600, 0.9);
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgba($neutral600, 0.6);
+  }
+
+  .pageTabIcon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.2rem;
+    border-radius: 50%;
+    background-color: $neutral900;
+    color: $neutral100;
+    transition: 0.3s;
+  }
+}

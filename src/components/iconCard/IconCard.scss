@@ -19,4 +19,12 @@
     border-radius: 4px;
     padding: 0.2rem;
   }
+
+  &.green {
+    color: $success600;
+    background-color: rgba($success600, 0.2);
+    border: 1px solid $success600;
+    border-radius: 4px;
+    padding: 0.2rem;
+  }
 }

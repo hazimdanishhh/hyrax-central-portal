@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, NavLink, Outlet } from "react-router";
+import { useParams, useNavigate, NavLink, Outlet } from "react-router";
 import {
   FolderIcon,
   ListChecksIcon,
@@ -29,7 +29,10 @@ import { useProjectPermissions } from "../../../../../features/workspace/project
 import useProjectMutations from "../../../../../features/workspace/projects/private/hooks/useProjectMutations";
 import { useProjectCategories } from "../../../../../features/workspace/projects/private/hooks/useProjectCategories";
 import useAllEmployeesPublic from "../../../../../features/hr/employees/public/hooks/useAllEmployeesPublic";
-import { PROJECT_STATUSES, PROJECT_STATUS_TYPE } from "../../../../../features/workspace/projects/private/projectStatusMeta";
+import {
+  PROJECT_STATUSES,
+  PROJECT_STATUS_TYPE,
+} from "../../../../../features/workspace/projects/private/projectStatusMeta";
 import { projectsTableConfig } from "../list/tableConfig";
 import "./ProjectDetailLayout.scss";
 import IconCard from "../../../../../components/iconCard/IconCard";
@@ -45,12 +48,20 @@ import IconCard from "../../../../../components/iconCard/IconCard";
  */
 export default function ProjectDetailLayout() {
   const { darkMode } = useTheme();
+  const navigate = useNavigate();
   const { projectId } = useParams();
   const { project, members, isLoading, error } = useProject(projectId);
   const permissions = useProjectPermissions(members);
   const { categories } = useProjectCategories();
   const { data: allEmployees = [] } = useAllEmployeesPublic();
-  const { updateProject, deleteProject, transferProjectOwnership, updating, deleting, transferringOwnership } = useProjectMutations();
+  const {
+    updateProject,
+    deleteProject,
+    transferProjectOwnership,
+    updating,
+    deleting,
+    transferringOwnership,
+  } = useProjectMutations();
 
   const [editingOpen, setEditingOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -73,7 +84,11 @@ export default function ProjectDetailLayout() {
     return <NoResult title="Project not found" />;
   }
 
-  const editColumns = projectsTableConfig({ categories, allEmployees, creating: false });
+  const editColumns = projectsTableConfig({
+    categories,
+    allEmployees,
+    creating: false,
+  });
 
   async function handleEditSave(formData) {
     await updateProject({ id: project.id, ...formData });
@@ -84,6 +99,7 @@ export default function ProjectDetailLayout() {
     try {
       await deleteProject(project.id);
       setDeleteModalOpen(false);
+      navigate("/app/workspace/projects");
     } catch (err) {
       console.error(err);
     }
@@ -91,7 +107,10 @@ export default function ProjectDetailLayout() {
 
   async function handleConfirmTransfer() {
     if (!transferTargetId) return;
-    await transferProjectOwnership({ projectId: project.id, newOwnerEmployeeId: transferTargetId });
+    await transferProjectOwnership({
+      projectId: project.id,
+      newOwnerEmployeeId: transferTargetId,
+    });
     handleCloseTransfer();
   }
 
@@ -114,14 +133,22 @@ export default function ProjectDetailLayout() {
   // a nudge, not an auto-transition. active_task_count/completed_task_count
   // already come from the projects_with_progress view, no extra query.
   const allTasksComplete =
-    project.active_task_count > 0 && project.completed_task_count === project.active_task_count && project.status !== "COMPLETED";
+    project.active_task_count > 0 &&
+    project.completed_task_count === project.active_task_count &&
+    project.status !== "COMPLETED";
 
   return (
     <>
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={FolderIcon} current={project.name} to1="/app/workspace/projects" name1="Projects" icon1={FolderIcon} />
+            <Breadcrumbs
+              icon={FolderIcon}
+              current={project.name}
+              to1="/app/workspace/projects"
+              name1="Projects"
+              icon1={FolderIcon}
+            />
 
             <CardWrapper>
               <div className="projectDetailHeader generalCard">
@@ -129,19 +156,42 @@ export default function ProjectDetailLayout() {
                   <div className="projectDetailHeaderTitle">
                     <p className="textBold textM">{project.name}</p>
                     <StatusBox
-                      status={PROJECT_STATUSES.find((s) => s.value === project.status)?.label || project.status}
+                      status={
+                        PROJECT_STATUSES.find((s) => s.value === project.status)
+                          ?.label || project.status
+                      }
                       type={PROJECT_STATUS_TYPE[project.status] || "grey"}
                     />
                     {project.category_id && (
-                      <StatusBox status={categories.find((c) => c.id === project.category_id)?.name} type="blue" />
+                      <StatusBox
+                        status={
+                          categories.find((c) => c.id === project.category_id)
+                            ?.name
+                        }
+                        type="blue"
+                      />
                     )}
                   </div>
 
-                  {project.description && <p className="textLight textXXS projectCardDescription">{project.description}</p>}
+                  {project.description && (
+                    <p className="textLight textXXS projectCardDescription">
+                      {project.description}
+                    </p>
+                  )}
 
                   <div className="projectDetailHeaderDates">
-                    <IconCard icon={ClockIcon} weight="fill" name={`Start: ${project.start_date}`} style="blue textXXS" />
-                    <IconCard icon={ClockIcon} weight="fill" name={`End: ${project.target_end_date}`} style="yellow textXXS" />
+                    <IconCard
+                      icon={ClockIcon}
+                      weight="fill"
+                      name={`Start: ${project.start_date}`}
+                      style="blue textXXS"
+                    />
+                    <IconCard
+                      icon={ClockIcon}
+                      weight="fill"
+                      name={`End: ${project.target_end_date}`}
+                      style="yellow textXXS"
+                    />
                   </div>
 
                   <div className="projectDetailHeaderActions">
@@ -176,8 +226,10 @@ export default function ProjectDetailLayout() {
                 </div>
 
                 {allTasksComplete && permissions.isElevated && (
-                  <div className="projectDetailCompleteNudge generalCard cardPaddingSmall">
-                    <p className="textRegular textXS">All tasks are complete -- mark this project as Completed?</p>
+                  <div className="projectDetailCompleteNudge">
+                    <p className="textRegular textXS">
+                      All tasks are complete.
+                    </p>
                     <Button
                       name="Mark as Completed"
                       icon={CheckCircleIcon}
@@ -188,13 +240,18 @@ export default function ProjectDetailLayout() {
                   </div>
                 )}
 
-                <ProgressBar value={project.progress_percentage} label={`${project.name} progress`} />
+                <ProgressBar
+                  value={project.progress_percentage}
+                  label={`${project.name} progress`}
+                />
               </div>
 
               <div className="pageTabContainer">
                 <NavLink
                   to={`/app/workspace/projects/${projectId}/tasks`}
-                  className={({ isActive }) => `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`}
+                  className={({ isActive }) =>
+                    `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`
+                  }
                 >
                   <div className="pageTabIcon">
                     <ListChecksIcon size={15} />
@@ -204,7 +261,9 @@ export default function ProjectDetailLayout() {
 
                 <NavLink
                   to={`/app/workspace/projects/${projectId}/members`}
-                  className={({ isActive }) => `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`}
+                  className={({ isActive }) =>
+                    `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`
+                  }
                 >
                   <div className="pageTabIcon">
                     <UsersIcon size={15} />
@@ -214,7 +273,9 @@ export default function ProjectDetailLayout() {
 
                 <NavLink
                   to={`/app/workspace/projects/${projectId}/documents`}
-                  className={({ isActive }) => `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`}
+                  className={({ isActive }) =>
+                    `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`
+                  }
                 >
                   <div className="pageTabIcon">
                     <FileIcon size={15} />
@@ -264,7 +325,11 @@ export default function ProjectDetailLayout() {
                 classNamePrefix="reactSelect"
                 placeholder="Select a member..."
                 options={otherMemberOptions}
-                value={otherMemberOptions.find((o) => o.value === transferTargetId) || null}
+                value={
+                  otherMemberOptions.find(
+                    (o) => o.value === transferTargetId,
+                  ) || null
+                }
                 onChange={(opt) => setTransferTargetId(opt?.value ?? null)}
               />
               <Button

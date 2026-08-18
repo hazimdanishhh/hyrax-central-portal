@@ -62,10 +62,18 @@ function ProjectDocumentsIndicatorSidebar({ projectId, projectName, onClose }) {
       <div className="projectDocumentsIndicatorPanel">
         {isLoading ? (
           <LoadingIcon />
-        ) : documents.length === 0 ? (
-          <NoResult title="No documents yet" />
         ) : (
-          documents.map((doc) => <DocumentCard key={doc.id} document={doc} />)
+          <>
+            <p className="textBold textXS">
+              {documents.length} Document{documents.length !== 1 ? "s" : ""}
+            </p>
+
+            {documents.length === 0 ? (
+              <NoResult title="No documents yet" />
+            ) : (
+              documents.map((doc) => <DocumentCard key={doc.id} document={doc} />)
+            )}
+          </>
         )}
       </div>
     </DataSidebar>
