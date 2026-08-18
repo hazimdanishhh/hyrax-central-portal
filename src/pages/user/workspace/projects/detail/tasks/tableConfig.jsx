@@ -7,11 +7,14 @@ import {
 
 /**
  * Factory function. `canEdit` (from taskPermissions.isTaskAssignee, per
- * req #6 -- only a task's own assignees can edit it) sets every field's
- * `editable` uniformly; combined with the sidebar's own `cannotUpdate`
- * prop (hides Save entirely), this needs ZERO changes to
- * DataTable/DataForm/DataTableCell -- both mechanisms already exist,
- * just never had a caller before this module.
+ * req #6 -- only a task's own assignees can edit it) sets most fields'
+ * `editable` uniformly (status is the one exception -- always
+ * non-editable/hidden here regardless of `canEdit`, since it only ever
+ * changes via TaskCard's guarded quick-action buttons now, never this
+ * form); combined with the sidebar's own `cannotUpdate` prop (hides Save
+ * entirely), this needs ZERO changes to DataTable/DataForm/DataTableCell --
+ * both mechanisms already exist, just never had a caller before this
+ * module.
  *
  * `workingMembers` (owner/lead/member roles only, never cc) scopes the
  * assignee picker's options to req #5's actual constraint in the UI, on
@@ -71,9 +74,14 @@ export const taskTableConfig = ({
       getValue: "status",
       displayValue: (task) =>
         TASK_STATUSES.find((s) => s.value === task.status)?.label,
-      editable: canEdit,
-      editor: "select",
-      options: TASK_STATUSES,
+      // Status only ever changes via TaskCard's quick-action buttons now --
+      // computed:true (not just show:false) stops DataForm from seeding or
+      // submitting this field at all, so the Add Task form can never
+      // submit status:null (which would violate tasks.status's NOT NULL
+      // constraint) -- see progress_percentage's identical precedent.
+      computed: true,
+      show: false,
+      editable: false,
       isSearchable: false,
       render: (_displayValue, task) => (
         <StatusBox
@@ -87,9 +95,25 @@ export const taskTableConfig = ({
       half: true,
     },
     {
+      key: "start_date",
+      label: "Start Date",
+      getValue: "start_date",
+      editable: canEdit,
+      editor: "date",
+      half: true,
+    },
+    {
       key: "due_date",
       label: "Due Date",
       getValue: "due_date",
+      editable: canEdit,
+      editor: "date",
+      half: true,
+    },
+    {
+      key: "completed_date",
+      label: "Completed Date",
+      getValue: "completed_date",
       editable: canEdit,
       editor: "date",
       half: true,

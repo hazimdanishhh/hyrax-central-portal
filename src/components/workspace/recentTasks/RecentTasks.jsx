@@ -22,7 +22,7 @@ export default function RecentTasks() {
   const { tasks, isLoading } = useRecentTasks(5);
 
   return (
-    <CardLayout style="generalCard recentWorkspaceSection">
+    <CardLayout style="generalCard recentWorkspaceSection cardPaddingSmall cardGapSmall">
       <PageHeader>
         <SectionHeader icon={ListChecksIcon} title="Recent Tasks" />
 

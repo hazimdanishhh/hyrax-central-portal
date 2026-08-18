@@ -27,4 +27,12 @@
     border-radius: 4px;
     padding: 0.2rem;
   }
+
+  &.red {
+    color: $error600;
+    background-color: rgba($error600, 0.2);
+    border: 1px solid $error600;
+    border-radius: 4px;
+    padding: 0.2rem;
+  }
 }

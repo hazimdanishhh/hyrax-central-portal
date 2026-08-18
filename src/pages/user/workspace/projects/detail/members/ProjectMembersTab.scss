@@ -20,17 +20,19 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16px;
+  gap: 0.4rem;
   flex-wrap: wrap;
   cursor: pointer;
 }
 
 .projectMemberDetailPanel {
   display: flex;
-  flex-direction: column;
-  align-items: start;
+  flex-direction: row;
+  align-items: center;
+  justify-content: start;
   gap: 12px;
-  padding: 16px;
+  padding: 0 1rem;
+  width: 100%;
 
   .projectMemberRoleSelect {
     min-width: 160px;

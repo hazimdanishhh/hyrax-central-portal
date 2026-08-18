@@ -12,6 +12,8 @@ const errorConfig = {
   entity: "project",
   constraints: {
     projects_name_not_blank: "Project name cannot be blank.",
+    projects_dates_sane: "Target end date cannot be before the start date.",
+    projects_completed_after_start: "Completed date cannot be before the start date.",
   },
 };
 

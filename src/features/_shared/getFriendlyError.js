@@ -27,18 +27,23 @@ export function getFriendlyError(
   err,
   { entity = "record", constraints = {}, duplicateMessage } = {},
 ) {
+  // Checked before the switch, not nested inside case "23505" -- a
+  // constraint name can surface under any error code (e.g. a CHECK
+  // constraint like projects_name_not_blank/projects_dates_sane raises
+  // 23514, not 23505), and the caller-supplied `constraints` map is meant
+  // to catch any of them by matching the constraint's own name in the raw
+  // Postgres message, regardless of which SQLSTATE carried it.
+  const message = err?.message || "";
+
+  for (const [needle, friendly] of Object.entries(constraints)) {
+    if (message.includes(needle)) return friendly;
+  }
+
   switch (err?.code) {
-    case "23505": {
-      const message = err.message || "";
-
-      for (const [needle, friendly] of Object.entries(constraints)) {
-        if (message.includes(needle)) return friendly;
-      }
-
+    case "23505":
       return (
         duplicateMessage || `A ${entity} with this information already exists.`
       );
-    }
 
     case "23503":
       return "This record is linked to other data and cannot be changed or removed.";
@@ -55,6 +60,6 @@ export function getFriendlyError(
       return `This ${entity} couldn't be found, or you aren't authorized to modify it.`;
 
     default:
-      return err?.message || "Something went wrong.";
+      return message || "Something went wrong.";
   }
 }

@@ -6,15 +6,19 @@ import Button from "../../buttons/button/Button";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import {
   ClockIcon,
+  WarningCircleIcon,
   CaretDownIcon,
   CaretUpIcon,
   FolderIcon,
+  ListChecksIcon,
 } from "@phosphor-icons/react";
 import {
   TASK_STATUSES,
   TASK_STATUS_TYPE,
   TASK_STATUS_ACTIONS,
 } from "../../../features/workspace/tasks/private/taskStatusMeta";
+import { getDueDateStatus } from "../../../functions/dueDateStatus";
+import { formatDate } from "../../../functions/formatDate";
 import "./TaskCard.scss";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 
@@ -55,14 +59,21 @@ export default function TaskCard({
     TASK_STATUSES.find((s) => s.value === task.status)?.label || task.status;
   const actions = canEdit ? TASK_STATUS_ACTIONS[task.status] || [] : [];
   const assignees = task.task_assignees ?? [];
+  const dueDateStatus = getDueDateStatus(task.due_date, task.status);
 
   return (
     <div className="generalCard taskCard cardPaddingSmall" onClick={onClick}>
       <div className="taskCardMainRow">
-        <div className="taskCardTitleGroup">
-          <p className="textBold textXS truncate" title={task.title}>
-            {task.title}
-          </p>
+        <div
+          className={`taskCardTitleGroup ${task.status === "CANCELLED" ? "taskCancelled" : null}`}
+        >
+          <div style={{ display: "flex", gap: "0.3rem" }}>
+            <ListChecksIcon size={16} style={{ flexShrink: 0 }} />
+            <p className="textBold textXS" title={task.title}>
+              {task.title}
+            </p>
+          </div>
+
           {showProject && task.project?.name && (
             <Link
               to={`/app/workspace/projects/${task.project_id}`}
@@ -73,90 +84,76 @@ export default function TaskCard({
               {task.project.name}
             </Link>
           )}
-        </div>
-
-        <div className="taskCardStatusGroup">
-          <StatusBadge
-            status={statusLabel}
-            type={TASK_STATUS_TYPE[task.status] || "grey"}
-          />
-
-          {task.due_date && (
-            <IconCard
-              icon={ClockIcon}
-              weight="fill"
-              name={`Due: ${task.due_date}`}
-              style="yellow textXXS"
-            />
-          )}
-        </div>
-
-        <div className="taskCardRightGroup">
-          {assignees.length > 0 && (
-            <div className="taskCardAssignees">
-              {assignees.map((a) => (
-                <EmployeeImage
-                  key={a.employee_id}
-                  employee={a.employee}
-                  employeeId={a.employee_id}
-                  showName={hoveredAssigneeId === a.employee_id}
-                  setShowName={(show) =>
-                    setHoveredAssigneeId(show ? a.employee_id : null)
-                  }
-                  position="left"
-                />
-              ))}
-            </div>
-          )}
-
-          {actions.length > 0 && (
-            <div className="taskCardActions">
-              {actions.map((action) => (
-                <Button
-                  key={action.label}
-                  name={action.label === "Cancel" ? null : action.label}
-                  style={`button buttonType5 ${action.label === "Start" ? "blue" : action.style} textXXS`}
-                  icon={action.icon}
-                  size={14}
-                  weight="bold"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRequestStatusChange?.(
-                      task,
-                      action.nextStatus,
-                      action.label,
-                    );
-                  }}
-                />
-              ))}
-            </div>
-          )}
 
           {task.description && (
-            <button
-              type="button"
-              className="taskCardExpandToggle"
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded((v) => !v);
-              }}
-              title={expanded ? "Hide description" : "Show description"}
-            >
-              {expanded ? (
-                <CaretUpIcon size={16} />
-              ) : (
-                <CaretDownIcon size={16} />
+            <p className="textLight textXXS taskCardDescription">
+              {task.description}
+            </p>
+          )}
+        </div>
+
+        <div className="taskCardStatusWrapper">
+          <div className="taskCardStatusGroup">
+            <StatusBadge
+              status={statusLabel}
+              type={TASK_STATUS_TYPE[task.status] || "grey"}
+            />
+
+            {task.due_date && (
+              <IconCard
+                icon={dueDateStatus.isOverdue ? WarningCircleIcon : ClockIcon}
+                weight="fill"
+                name={`Due: ${formatDate(task.due_date)}`}
+                style={`${dueDateStatus.colorClass} textXXS`}
+              />
+            )}
+          </div>
+
+          {actions.length > 0 && (
+            <div className="taskCardRightGroup">
+              {assignees.length > 0 && (
+                <div className="taskCardAssignees">
+                  {assignees.map((a) => (
+                    <EmployeeImage
+                      key={a.employee_id}
+                      employee={a.employee}
+                      employeeId={a.employee_id}
+                      showName={hoveredAssigneeId === a.employee_id}
+                      setShowName={(show) =>
+                        setHoveredAssigneeId(show ? a.employee_id : null)
+                      }
+                      position="left"
+                    />
+                  ))}
+                </div>
               )}
-            </button>
+
+              {actions.length > 0 && (
+                <div className="taskCardActions">
+                  {actions.map((action) => (
+                    <Button
+                      key={action.label}
+                      name={action.label === "Cancel" ? null : action.label}
+                      style={`button buttonType5 ${action.style} textXXS`}
+                      icon={action.icon}
+                      size={14}
+                      weight="bold"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestStatusChange?.(
+                          task,
+                          action.nextStatus,
+                          action.label,
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
-
-      {expanded && task.description && (
-        <p className="textLight textXXS taskCardDescription">
-          {task.description}
-        </p>
-      )}
     </div>
   );
 }

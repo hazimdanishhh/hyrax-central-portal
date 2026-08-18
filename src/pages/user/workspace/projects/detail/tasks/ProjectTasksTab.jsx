@@ -216,11 +216,8 @@ export default function ProjectTasksTab() {
 
   const pendingLabel = pendingAction?.label;
   const pendingStatusName =
-    pendingLabel === "Cancel"
-      ? "Cancelled"
-      : pendingLabel === "Start"
-        ? "In Progress"
-        : "Completed";
+    TASK_STATUSES.find((s) => s.value === pendingAction?.nextStatus)?.label ||
+    "Updated";
 
   return (
     <>

@@ -9,6 +9,7 @@ import {
   ArrowsLeftRightIcon,
   TrashIcon,
   ClockIcon,
+  WarningCircleIcon,
   CheckCircleIcon,
 } from "@phosphor-icons/react";
 import { useTheme } from "../../../../../context/ThemeContext";
@@ -36,6 +37,8 @@ import {
 import { projectsTableConfig } from "../list/tableConfig";
 import "./ProjectDetailLayout.scss";
 import IconCard from "../../../../../components/iconCard/IconCard";
+import { getDueDateStatus } from "../../../../../functions/dueDateStatus";
+import { formatDate } from "../../../../../functions/formatDate";
 
 /**
  * A "smart" per-record tab shell -- unlike the existing static
@@ -137,6 +140,8 @@ export default function ProjectDetailLayout() {
     project.completed_task_count === project.active_task_count &&
     project.status !== "COMPLETED";
 
+  const endDateStatus = getDueDateStatus(project.target_end_date, project.status);
+
   return (
     <>
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -183,14 +188,14 @@ export default function ProjectDetailLayout() {
                     <IconCard
                       icon={ClockIcon}
                       weight="fill"
-                      name={`Start: ${project.start_date}`}
+                      name={`Start: ${formatDate(project.start_date)}`}
                       style="blue textXXS"
                     />
                     <IconCard
-                      icon={ClockIcon}
+                      icon={endDateStatus.isOverdue ? WarningCircleIcon : ClockIcon}
                       weight="fill"
-                      name={`End: ${project.target_end_date}`}
-                      style="yellow textXXS"
+                      name={`End: ${formatDate(project.target_end_date)}`}
+                      style={`${endDateStatus.colorClass} textXXS`}
                     />
                   </div>
 

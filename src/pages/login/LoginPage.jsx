@@ -28,7 +28,7 @@ export default function LoginPage() {
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/app`,
-        scopes: "https://www.googleapis.com/auth/drive.readonly",
+        scopes: "https://www.googleapis.com/auth/drive.file",
       },
     });
 

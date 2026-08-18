@@ -11,10 +11,13 @@ import {
  * assignees field, since reassigning who's on a task is a
  * project-membership-aware action best done from that project's own
  * Tasks tab (where the roster is already loaded), not from this
- * cross-project personal list. Status/title/due date are always
- * editable here -- every row shown is, by definition, one the viewer is
- * assigned to (myTasksService.js's !inner filter guarantees this), so no
- * per-row gating logic is needed on this page at all.
+ * cross-project personal list. Title/due date/start date/completed date
+ * are always editable here -- every row shown is, by definition, one the
+ * viewer is assigned to (myTasksService.js's !inner filter guarantees
+ * this), so no per-row gating logic is needed on this page at all. Status
+ * is NOT editable here -- it only ever changes via TaskCard's guarded
+ * Start/Complete/Cancel/Revert quick-actions (see taskStatusMeta.js), never
+ * a free-form dropdown in this form.
  *
  * `projectDocuments` (the selected task's project's document library) is
  * offered by the documents editor as "link an existing document" options.
@@ -57,9 +60,14 @@ export const myTasksTableConfig = ({ projectDocuments = [] } = {}) => [
     getValue: "status",
     displayValue: (task) =>
       TASK_STATUSES.find((s) => s.value === task.status)?.label,
-    editable: true,
-    editor: "select",
-    options: TASK_STATUSES,
+    // Status only ever changes via TaskCard's quick-action buttons now --
+    // computed:true (not just show:false) stops DataForm from seeding or
+    // submitting this field at all, so an empty Add Task form can never
+    // submit status:null (which would violate tasks.status's NOT NULL
+    // constraint) -- see progress_percentage's identical precedent.
+    computed: true,
+    show: false,
+    editable: false,
     isSearchable: false,
     render: (_displayValue, task) => (
       <StatusBox
@@ -73,9 +81,25 @@ export const myTasksTableConfig = ({ projectDocuments = [] } = {}) => [
     half: true,
   },
   {
+    key: "start_date",
+    label: "Start Date",
+    getValue: "start_date",
+    editable: true,
+    editor: "date",
+    half: true,
+  },
+  {
     key: "due_date",
     label: "Due Date",
     getValue: "due_date",
+    editable: true,
+    editor: "date",
+    half: true,
+  },
+  {
+    key: "completed_date",
+    label: "Completed Date",
+    getValue: "completed_date",
     editable: true,
     editor: "date",
     half: true,

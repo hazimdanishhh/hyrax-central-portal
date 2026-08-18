@@ -7,6 +7,7 @@ const errorConfig = {
   entity: "task",
   constraints: {
     tasks_title_not_blank: "Task title cannot be blank.",
+    tasks_dates_sane: "Completed date cannot be before the start date.",
   },
 };
 

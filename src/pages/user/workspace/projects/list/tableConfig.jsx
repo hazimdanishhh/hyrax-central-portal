@@ -111,6 +111,15 @@ export const projectsTableConfig = ({
       half: true,
     },
     {
+      key: "completed_date",
+      label: "Completed Date",
+      getValue: "completed_date",
+      editable: true,
+      editor: "date",
+      section: "Dates",
+      half: true,
+    },
+    {
       key: "description",
       label: "Description",
       getValue: "description",

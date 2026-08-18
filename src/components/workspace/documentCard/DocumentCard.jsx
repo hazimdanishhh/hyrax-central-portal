@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { FileIcon, TrashSimpleIcon } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
+import { formatDate } from "../../../functions/formatDate";
 import "./DocumentCard.scss";
 
 /**
@@ -44,7 +45,7 @@ export default function DocumentCard({ document, showProject = false, canRemove 
                 </Link>
               )}
               <span>
-                Attached by {document.attached_by_name || "Unknown"} on {document.attached_at?.slice(0, 10)}
+                Attached by {document.attached_by_name || "Unknown"} on {formatDate(document.attached_at)}
               </span>
             </div>
 

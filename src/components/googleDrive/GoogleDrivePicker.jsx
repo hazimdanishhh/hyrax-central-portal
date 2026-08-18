@@ -1,8 +1,9 @@
 import React from "react";
 import useDrivePicker from "react-google-drive-picker";
-import { GoogleLogoIcon } from "@phosphor-icons/react";
+import { GoogleLogoIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import "./GoogleDrivePicker.scss";
 import { useAuth } from "../../context/AuthContext";
+import googleLogo from "/src/assets/icons/googledrive.svg";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
@@ -37,7 +38,7 @@ export default function GoogleDrivePicker({
       setIncludeFolders: true,
       supportDrives: true,
 
-      customScopes: ["https://www.googleapis.com/auth/drive.readonly"],
+      customScopes: ["https://www.googleapis.com/auth/drive.file"],
       showUploadView: true,
       showUploadFolders: true,
       multiselect: multiple,
@@ -73,10 +74,11 @@ export default function GoogleDrivePicker({
     <button
       type="button"
       onClick={handleOpenPicker}
-      className="button buttonType5 textXS"
+      className="button buttonType5 approval textXS"
     >
-      <GoogleLogoIcon size={16} />
+      <img src={googleLogo} alt="Google" style={{ width: "16px" }} />
       {label}
+      <PlusCircleIcon size={20} />
     </button>
   );
 }

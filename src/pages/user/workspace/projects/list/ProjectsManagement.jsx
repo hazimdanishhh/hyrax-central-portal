@@ -36,7 +36,10 @@ import ProjectCard from "../../../../../components/workspace/projectCard/Project
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
 import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
 import { buildStatusTabs } from "../../../../../functions/statusTabs";
-import { PROJECT_STATUSES, PROJECT_STATUS_TYPE } from "../../../../../features/workspace/projects/private/projectStatusMeta";
+import {
+  PROJECT_STATUSES,
+  PROJECT_STATUS_TYPE,
+} from "../../../../../features/workspace/projects/private/projectStatusMeta";
 import { useTheme } from "../../../../../context/ThemeContext";
 
 /**
@@ -244,7 +247,7 @@ export default function ProjectsManagement() {
                 <NoResult />
               ) : (
                 // CARD LAYOUT
-                <CardLayout style="cardLayout2">
+                <CardLayout style="cardLayout2 cardGapSmall">
                   {projects.map((project) => (
                     <ProjectCard
                       key={project.id}

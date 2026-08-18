@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   ClockIcon,
+  WarningCircleIcon,
   UsersIcon,
   FolderIcon,
   ListChecksIcon,
@@ -19,7 +20,10 @@ import {
   PROJECT_STATUS_TYPE,
 } from "../../../features/workspace/projects/private/projectStatusMeta";
 import { PROJECT_ROLE_LABEL } from "../../../features/workspace/projects/private/projectRoleMeta";
+import { getDueDateStatus } from "../../../functions/dueDateStatus";
+import { formatDate } from "../../../functions/formatDate";
 import "./ProjectCard.scss";
+import StatusBadge from "../../status/statusBadge/StatusBadge";
 
 /**
  * Simple Card-view counterpart to the Projects list -- a plain <div>
@@ -39,6 +43,10 @@ export default function ProjectCard({ project, category, onClick }) {
     PROJECT_STATUSES.find((s) => s.value === project.status)?.label ||
     project.status;
   const members = project.project_members ?? [];
+  const endDateStatus = getDueDateStatus(
+    project.target_end_date,
+    project.status,
+  );
 
   return (
     <>
@@ -51,7 +59,7 @@ export default function ProjectCard({ project, category, onClick }) {
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <StatusBox
+            <StatusBadge
               status={statusLabel}
               type={PROJECT_STATUS_TYPE[project.status] || "grey"}
             />
@@ -72,14 +80,14 @@ export default function ProjectCard({ project, category, onClick }) {
             <IconCard
               icon={ClockIcon}
               weight="fill"
-              name={`Start: ${project.start_date}`}
-              style="blue textXXXS textBold"
+              name={`Start: ${formatDate(project.start_date)}`}
+              style="blue textXXXS"
             />
             <IconCard
-              icon={ClockIcon}
+              icon={endDateStatus.isOverdue ? WarningCircleIcon : ClockIcon}
               weight="fill"
-              name={`End: ${project.target_end_date}`}
-              style="yellow textXXXS textBold"
+              name={`End: ${formatDate(project.target_end_date)}`}
+              style={`${endDateStatus.colorClass} textXXXS`}
             />
             <IconCard
               icon={ListChecksIcon}
@@ -145,7 +153,13 @@ export default function ProjectCard({ project, category, onClick }) {
                     status={
                       m.role === "owner" ? "Owner" : PROJECT_ROLE_LABEL[m.role]
                     }
-                    type={m.role === "owner" ? "blue" : "grey"}
+                    type={
+                      m.role === "owner"
+                        ? "blue"
+                        : m.role === "member"
+                          ? "yellow"
+                          : "green"
+                    }
                   />
                 </div>
               ))}

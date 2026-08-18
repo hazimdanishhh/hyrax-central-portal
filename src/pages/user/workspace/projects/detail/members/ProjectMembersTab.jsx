@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useParams } from "react-router";
-import { PlusIcon, TrashSimpleIcon, UserCircleIcon } from "@phosphor-icons/react";
+import {
+  PencilSimpleIcon,
+  PlusIcon,
+  TrashSimpleIcon,
+  UserCircleIcon,
+} from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 import CardLayout from "../../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../../components/loadingIcon/LoadingIcon";
@@ -17,7 +22,10 @@ import { useProject } from "../../../../../../features/workspace/projects/privat
 import { useProjectPermissions } from "../../../../../../features/workspace/projects/private/hooks/useProjectPermissions";
 import useProjectMemberMutations from "../../../../../../features/workspace/projects/private/hooks/useProjectMemberMutations";
 import useAllEmployeesPublic from "../../../../../../features/hr/employees/public/hooks/useAllEmployeesPublic";
-import { ASSIGNABLE_PROJECT_ROLES, PROJECT_ROLE_LABEL } from "../../../../../../features/workspace/projects/private/projectRoleMeta";
+import {
+  ASSIGNABLE_PROJECT_ROLES,
+  PROJECT_ROLE_LABEL,
+} from "../../../../../../features/workspace/projects/private/projectRoleMeta";
 import "./ProjectMembersTab.scss";
 
 /**
@@ -35,12 +43,21 @@ export default function ProjectMembersTab() {
   const { projectId } = useParams();
   const { members, isLoading, error } = useProject(projectId);
   const permissions = useProjectPermissions(members);
-  const { syncMembers, removeMember, updateMemberRole, syncing, removing, updatingRole } = useProjectMemberMutations(projectId);
+  const {
+    syncMembers,
+    removeMember,
+    updateMemberRole,
+    syncing,
+    removing,
+    updatingRole,
+  } = useProjectMemberMutations(projectId);
   const { data: allEmployees = [] } = useAllEmployeesPublic();
 
   const [addingOpen, setAddingOpen] = useState(false);
   const [selectedNewMembers, setSelectedNewMembers] = useState([]);
-  const [selectedNewRole, setSelectedNewRole] = useState(ASSIGNABLE_PROJECT_ROLES[1]); // default: member
+  const [selectedNewRole, setSelectedNewRole] = useState(
+    ASSIGNABLE_PROJECT_ROLES[1],
+  ); // default: member
 
   function handleCloseAdd() {
     setAddingOpen(false);
@@ -62,8 +79,13 @@ export default function ProjectMembersTab() {
 
     // syncMembers replaces the FULL non-owner roster, so existing
     // non-owner members must be included unchanged alongside the new ones.
-    const existingAssignments = members.filter((m) => m.role !== "owner").map((m) => ({ employeeId: m.employee_id, role: m.role }));
-    const newAssignments = selectedNewMembers.map((employeeId) => ({ employeeId, role: selectedNewRole.value }));
+    const existingAssignments = members
+      .filter((m) => m.role !== "owner")
+      .map((m) => ({ employeeId: m.employee_id, role: m.role }));
+    const newAssignments = selectedNewMembers.map((employeeId) => ({
+      employeeId,
+      role: selectedNewRole.value,
+    }));
 
     await syncMembers([...existingAssignments, ...newAssignments]);
     handleCloseAdd();
@@ -71,7 +93,11 @@ export default function ProjectMembersTab() {
 
   async function handleRoleChange(m, newRole) {
     await updateMemberRole({ employeeId: m.employee_id, role: newRole });
-    setSelectedMember((prev) => (prev && prev.employee_id === m.employee_id ? { ...prev, role: newRole } : prev));
+    setSelectedMember((prev) =>
+      prev && prev.employee_id === m.employee_id
+        ? { ...prev, role: newRole }
+        : prev,
+    );
   }
 
   function handleRequestRemove(m) {
@@ -101,23 +127,56 @@ export default function ProjectMembersTab() {
     <>
       {permissions.isElevated && (
         <PageHeader>
-          <Button name="Add Members" icon={PlusIcon} style="button buttonType5 approval textXS" size={16} onClick={() => setAddingOpen(true)} />
+          <Button
+            name="Add Members"
+            icon={PlusIcon}
+            style="button buttonType5 approval textXS"
+            size={16}
+            onClick={() => setAddingOpen(true)}
+          />
         </PageHeader>
       )}
 
       <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
         {members.map((m) => (
-          <div key={m.employee_id} className="generalCard cardPaddingSmall projectMemberRow" onClick={() => setSelectedMember(m)}>
+          <div
+            key={m.employee_id}
+            className="generalCard cardPaddingSmall projectMemberRow"
+            onClick={() => setSelectedMember(m)}
+          >
             <EmployeeImage
               employee={m.employee}
               displayName
-              showName={hoveredEmployeeId === m.employee_id}
-              setShowName={(show) => setHoveredEmployeeId(show ? m.employee_id : null)}
+              showName={false}
+              setShowName={() => {}}
             />
 
-            {m.employee?.department_name && <StatusBox status={m.employee.department_name} type="grey" />}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                flexWrap: "wrap",
+              }}
+            >
+              {m.employee?.department_name && (
+                <StatusBox status={m.employee.department_name} type="grey" />
+              )}
 
-            <StatusBox status={m.role === "owner" ? "Owner" : PROJECT_ROLE_LABEL[m.role]} type={m.role === "owner" ? "blue" : "grey"} />
+              <StatusBox
+                status={
+                  m.role === "owner" ? "Owner" : PROJECT_ROLE_LABEL[m.role]
+                }
+                type={
+                  m.role === "owner"
+                    ? "blue"
+                    : m.role === "member"
+                      ? "yellow"
+                      : "green"
+                }
+              />
+              <Button icon={PencilSimpleIcon} style="iconButton2" size={12} />
+            </div>
           </div>
         ))}
       </CardLayout>
@@ -125,7 +184,14 @@ export default function ProjectMembersTab() {
       {/* ADD MEMBERS SIDEBAR */}
       <AnimatePresence>
         {addingOpen && (
-          <DataSidebar title="Add Members" icon={PlusIcon} open={addingOpen} onClose={handleCloseAdd} isEditing={false} hideDelete>
+          <DataSidebar
+            title="Add Members"
+            icon={PlusIcon}
+            open={addingOpen}
+            onClose={handleCloseAdd}
+            isEditing={false}
+            hideDelete
+          >
             <div className="projectMembersAddPanel">
               <EmployeeMultiSelectEditor
                 placeholder="Select employees to add..."
@@ -167,10 +233,22 @@ export default function ProjectMembersTab() {
             hideDelete
           >
             <div className="projectMemberDetailPanel">
-              <EmployeeImage employee={selectedMember.employee} displayName showName setShowName={() => {}} />
+              <EmployeeImage
+                employee={selectedMember.employee}
+                displayName
+                showName={false}
+                setShowName={() => {}}
+              />
 
-              {selectedMember.employee?.department_name && <StatusBox status={selectedMember.employee.department_name} type="grey" />}
+              {selectedMember.employee?.department_name && (
+                <StatusBox
+                  status={selectedMember.employee.department_name}
+                  type="grey"
+                />
+              )}
+            </div>
 
+            <div className="projectMemberDetailPanel">
               {selectedMember.role === "owner" ? (
                 <StatusBox status="Owner" type="blue" />
               ) : permissions.isElevated ? (
@@ -179,17 +257,23 @@ export default function ProjectMembersTab() {
                   className="selectContainer projectMemberRoleSelect"
                   classNamePrefix="reactSelect"
                   options={ASSIGNABLE_PROJECT_ROLES}
-                  value={ASSIGNABLE_PROJECT_ROLES.find((r) => r.value === selectedMember.role)}
+                  value={ASSIGNABLE_PROJECT_ROLES.find(
+                    (r) => r.value === selectedMember.role,
+                  )}
                   isDisabled={updatingRole}
-                  onChange={(opt) => handleRoleChange(selectedMember, opt.value)}
+                  onChange={(opt) =>
+                    handleRoleChange(selectedMember, opt.value)
+                  }
                 />
               ) : (
-                <StatusBox status={PROJECT_ROLE_LABEL[selectedMember.role]} type="grey" />
+                <StatusBox
+                  status={PROJECT_ROLE_LABEL[selectedMember.role]}
+                  type="grey"
+                />
               )}
 
               {permissions.isElevated && selectedMember.role !== "owner" && (
                 <Button
-                  name="Remove from Project"
                   icon={TrashSimpleIcon}
                   style="button buttonType5 rejection textXS"
                   size={16}
