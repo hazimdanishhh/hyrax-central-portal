@@ -232,13 +232,13 @@ export default function LeadsOverview() {
       />
 
       {/* AI BUTTON */}
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      {/* <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <GenerateAiButton
           type="leads"
           filters={filters}
           onComplete={handleAiComplete}
         />
-      </div>
+      </div> */}
 
       <div
         ref={dashboardRef}
