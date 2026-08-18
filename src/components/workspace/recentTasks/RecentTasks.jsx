@@ -1,10 +1,14 @@
 import { useNavigate } from "react-router";
-import { ListChecksIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, ListChecksIcon } from "@phosphor-icons/react";
 import ChartCard from "../../chartCard/ChartCard";
 import LoadingIcon from "../../loadingIcon/LoadingIcon";
 import NoResult from "../../crud/noResult/NoResult";
 import TaskCard from "../taskCard/TaskCard";
 import { useRecentTasks } from "../../../features/workspace/tasks/private/hooks/useRecentTasks";
+import RouterButton from "../../buttons/routerButton/RouterButton";
+import CardLayout from "../../cardLayout/CardLayout";
+import PageHeader from "../../crud/pageHeader/PageHeader";
+import SectionHeader from "../../sectionHeader/SectionHeader";
 
 /**
  * Home dashboard widget -- newest-created tasks assigned to the current
@@ -17,7 +21,26 @@ export default function RecentTasks() {
   const { tasks, isLoading } = useRecentTasks(5);
 
   return (
-    <ChartCard icon={ListChecksIcon} title="Recent Tasks" viewAllTo="/app/workspace/tasks">
+    <CardLayout style="cardLayout1 generalCard">
+      <PageHeader>
+        <SectionHeader icon={ListChecksIcon} title="Recent Tasks" />
+
+        <div style={{ display: "flex", gap: "0.2rem" }}>
+          <RouterButton
+            name="View Overdue"
+            to="/app/workspace/tasks?dueStatus=overdue&page=1"
+            style="button buttonType5 yellow textXXXS textBold"
+            icon={CaretRightIcon}
+          />
+          <RouterButton
+            name="View All"
+            to="/app/workspace/tasks"
+            style="button buttonType5 textXXXS textBold"
+            icon={CaretRightIcon}
+          />
+        </div>
+      </PageHeader>
+
       {isLoading ? (
         <LoadingIcon />
       ) : !tasks.length ? (
@@ -33,6 +56,6 @@ export default function RecentTasks() {
           />
         ))
       )}
-    </ChartCard>
+    </CardLayout>
   );
 }

@@ -1,11 +1,15 @@
 import { useNavigate } from "react-router";
-import { FolderIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, FolderIcon } from "@phosphor-icons/react";
 import ChartCard from "../../chartCard/ChartCard";
 import LoadingIcon from "../../loadingIcon/LoadingIcon";
 import NoResult from "../../crud/noResult/NoResult";
 import ProjectCard from "../projectCard/ProjectCard";
 import { useRecentProjects } from "../../../features/workspace/projects/private/hooks/useRecentProjects";
 import { useProjectCategories } from "../../../features/workspace/projects/private/hooks/useProjectCategories";
+import CardLayout from "../../cardLayout/CardLayout";
+import PageHeader from "../../crud/pageHeader/PageHeader";
+import SectionHeader from "../../sectionHeader/SectionHeader";
+import RouterButton from "../../buttons/routerButton/RouterButton";
 
 /**
  * Home dashboard widget -- newest-created projects the current employee is
@@ -18,7 +22,18 @@ export default function RecentProjects() {
   const { categories } = useProjectCategories();
 
   return (
-    <ChartCard icon={FolderIcon} title="Recent Projects" viewAllTo="/app/workspace/projects">
+    <CardLayout style="cardLayout1 generalCard">
+      <PageHeader>
+        <SectionHeader icon={FolderIcon} title="Recent Projects" />
+
+        <RouterButton
+          name="View All"
+          to="/app/workspace/projects"
+          style="button buttonType5 textXXXS textBold"
+          icon={CaretRightIcon}
+        />
+      </PageHeader>
+
       {isLoading ? (
         <LoadingIcon />
       ) : !projects.length ? (
@@ -33,6 +48,6 @@ export default function RecentProjects() {
           />
         ))
       )}
-    </ChartCard>
+    </CardLayout>
   );
 }
