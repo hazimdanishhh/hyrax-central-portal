@@ -105,3 +105,58 @@ export async function fetchMyTasks({ employeeId, page, pageSize, search, filters
     totalCount: count || 0,
   };
 }
+
+/**
+ * Lightweight "last N tasks assigned to me, newest first" fetch for the home
+ * dashboard's Recent Tasks widget -- unlike fetchMyTasks above, this is
+ * flat/unpaginated and ordered by created_at, not the fixed
+ * status-then-due_date ordering My Tasks itself always uses (that ordering
+ * suits "what's urgent", not "what's recent"). Same restrict-with-one-query,
+ * display-the-full-roster-with-a-second split as fetchMyTasks, for the same
+ * reason -- task_assignees!inner narrows the returned array down to just the
+ * matching employee, wrong for TaskCard's display of every assignee.
+ */
+export async function fetchRecentTasks(employeeId, limit = 5) {
+  if (!employeeId) return [];
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(
+      `
+      *,
+      project:projects (id, name),
+      task_assignees!inner (employee_id)
+    `,
+    )
+    .eq("task_assignees.employee_id", employeeId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  const tasks = data || [];
+
+  if (!tasks.length) {
+    return [];
+  }
+
+  const { data: allAssignees, error: assigneesError } = await supabase
+    .from("task_assignees")
+    .select("task_id, employee_id")
+    .in(
+      "task_id",
+      tasks.map((t) => t.id),
+    );
+
+  if (assigneesError) throw assigneesError;
+
+  const employeesById = await fetchEmployeesPublicByIds((allAssignees || []).map((a) => a.employee_id));
+
+  const assigneesByTask = new Map();
+  (allAssignees || []).forEach((a) => {
+    if (!assigneesByTask.has(a.task_id)) assigneesByTask.set(a.task_id, []);
+    assigneesByTask.get(a.task_id).push({ ...a, employee: employeesById.get(a.employee_id) ?? null });
+  });
+
+  return tasks.map((t) => ({ ...t, task_assignees: assigneesByTask.get(t.id) || [] }));
+}

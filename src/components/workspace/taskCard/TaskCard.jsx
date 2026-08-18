@@ -4,7 +4,12 @@ import StatusBox from "../../status/statusBox/StatusBox";
 import IconCard from "../../iconCard/IconCard";
 import Button from "../../buttons/button/Button";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
-import { ClockIcon, CaretDownIcon, CaretUpIcon, FolderIcon } from "@phosphor-icons/react";
+import {
+  ClockIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+  FolderIcon,
+} from "@phosphor-icons/react";
 import {
   TASK_STATUSES,
   TASK_STATUS_TYPE,
@@ -98,6 +103,7 @@ export default function TaskCard({
                   setShowName={(show) =>
                     setHoveredAssigneeId(show ? a.employee_id : null)
                   }
+                  position="left"
                 />
               ))}
             </div>

@@ -1,7 +1,11 @@
 // pages/user/workspace/tasks/list/MyTasks.jsx
 import { useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ListChecksIcon, PencilSimpleLineIcon } from "@phosphor-icons/react";
+import {
+  FolderIcon,
+  ListChecksIcon,
+  PencilSimpleLineIcon,
+} from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
@@ -12,7 +16,10 @@ import NoResult from "../../../../../components/crud/noResult/NoResult";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
 import { buildStatusTabs } from "../../../../../functions/statusTabs";
-import { TASK_STATUSES, TASK_STATUS_TYPE } from "../../../../../features/workspace/tasks/private/taskStatusMeta";
+import {
+  TASK_STATUSES,
+  TASK_STATUS_TYPE,
+} from "../../../../../features/workspace/tasks/private/taskStatusMeta";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
@@ -28,6 +35,7 @@ import { myTasksTableConfig } from "./tableConfig";
 import { getMyTasksFilterConfig } from "./filterConfig";
 import { useTheme } from "../../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
+import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 
 /**
  * Cross-project "what do I need to do" view. URL-driven sidebar, mirroring
@@ -77,8 +85,14 @@ export default function MyTasks() {
   const sidebarOpen = !!selectedTask;
 
   const { updateTask, updating } = useTaskMutations(selectedTask?.project_id);
-  const { syncDocumentLinks } = useTaskDocumentMutations(selectedTask?.project_id);
-  const { documents: projectDocuments } = useProjectDocuments(selectedTask?.project_id);
+  const { syncDocumentLinks } = useTaskDocumentMutations(
+    selectedTask?.project_id,
+  );
+  const { documents: projectDocuments } = useProjectDocuments(
+    selectedTask?.project_id,
+  );
+
+  console.log("selectedTask", selectedTask);
   const {
     pendingAction,
     modalOpen,
@@ -187,7 +201,7 @@ export default function MyTasks() {
               ) : !hasData || error ? (
                 <NoResult title="No tasks assigned to you" />
               ) : (
-                <CardLayout style="cardLayout1">
+                <CardLayout style="cardLayout1 cardGapSmall">
                   {tasks.map((task) => (
                     <TaskCard
                       key={task.id}
@@ -205,8 +219,8 @@ export default function MyTasks() {
             <AnimatePresence>
               {sidebarOpen && (
                 <DataSidebar
-                  title="Task Details"
-                  icon={PencilSimpleLineIcon}
+                  title={`${selectedTask?.project.name} Task Details`}
+                  icon={ListChecksIcon}
                   open={sidebarOpen}
                   onClose={handleCloseSidebar}
                   rowData={selectedTask}

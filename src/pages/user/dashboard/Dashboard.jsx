@@ -1,6 +1,6 @@
 // pages/user/dashboard/Dashboard.jsx
 
-import { HouseIcon } from "@phosphor-icons/react";
+import { FolderIcon, HouseIcon } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import AttendanceActivityClockin from "../../../components/attendanceActivityClockin/AttendanceActivityClockin";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
@@ -16,6 +16,8 @@ import { useTheme } from "../../../context/ThemeContext";
 import { departmentLinkCardData } from "../../../data/departmentLinkCardData";
 import { quickActionsHome } from "../../../data/quickActionsCardData";
 import GeneralAccessBanner from "../../../components/generalAccessBanner/GeneralAccessBanner";
+import RecentProjects from "../../../components/workspace/recentProjects/RecentProjects";
+import RecentTasks from "../../../components/workspace/recentTasks/RecentTasks";
 
 function Dashboard() {
   const { darkMode } = useTheme();
@@ -60,6 +62,14 @@ function Dashboard() {
                 quickActionsList={quickActionsHome}
                 title="Web Services"
               />
+
+              <div>
+                <SectionHeader icon={FolderIcon} title="WORKSPACE" />
+                <CardLayout style="cardLayout2">
+                  <RecentProjects />
+                  <RecentTasks />
+                </CardLayout>
+              </div>
 
               {departmentLinkSections.map((segment) => (
                 <div key={segment.segmentCode}>
