@@ -149,6 +149,19 @@ No new notification trigger is seeded in this step — `document.attached`/`docu
 
 ---
 
+## 13. Post-launch addition — auto-activate project on task started
+
+**If you've already run steps 0–12 above, this is the only new SQL to run.** `projects.status` was manual-only in every direction — correct for the completion side (a project can be fully task-complete and still waiting on sign-off), but a project sitting in `PLANNING` while a task has clearly started had no automation to reflect that. This closes just that one gap: a project in `PLANNING` flips to `ACTIVE` the moment any one of its tasks reaches `IN_PROGRESS`, whether that happens via an update (the Start button) or directly on task creation (the Add Task form's own `status` field). Every other project status (`ON_HOLD`/`COMPLETED`/`CANCELLED`) is left alone, and there's no reverse rule.
+
+- [ ] `supabase/functions/auto_activate_project_on_task_started.sql`
+- [ ] `supabase/triggers/trg_auto_activate_project_on_task_started.sql`
+
+No RLS/policy changes — this is an integrity/automation trigger, the same layer as the CC-demotion guard in step 11, not a permission check. Also fires the existing `project.status_changed` notification for free (step 10's seeded rule) — nothing extra to wire up.
+
+**Verify**: create a project (starts `PLANNING`), move one of its tasks to `IN_PROGRESS` — confirm the project flips to `ACTIVE` immediately and its other members get the `project.status_changed` notification. Repeat on a project that's `ON_HOLD`/`COMPLETED`/`CANCELLED` — confirm it does **not** get pulled back to `ACTIVE`.
+
+---
+
 ## Frontend
 
 Nothing to deploy specially — `src/routes/WorkspaceRoutes.jsx` and `src/data/sideNavLinkData.js` are already updated and shipped with the rest of the app's normal build/deploy. Confirm after your next deploy (or `npm run dev` locally) that **Projects** and **Tasks** appear as a new **WORKSPACE** section in the sidebar.

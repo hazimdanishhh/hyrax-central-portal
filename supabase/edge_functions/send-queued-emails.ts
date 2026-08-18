@@ -5,8 +5,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js";
 // same as auto-clock-out.ts's cron -- see docs/NOTIFICATIONS-ARCHITECTURE.md
 // for the exact schedule call). Reads pending email_queue rows, sends via
 // whichever provider EMAIL_PROVIDER selects, and durably records the
-// outcome in email_log -- the thing Discord alerts never had. One row's
+// outcome in email_log -- the thing Discord alerts never had. One group's
 // failure never stops the rest of the batch.
+//
+// Digested by recipient before sending (2026-08) -- fan_out_notification_event()
+// still writes one email_queue row per notification per recipient, exactly
+// as before; this file is the only thing that changed. Whatever's still
+// `pending` for the same to_email within one tick is combined into a
+// single physical email instead of one email each, to avoid "bombing" a
+// user's inbox when several notification events land close together (e.g.
+// a busy project with several assignees). A recipient with only one
+// pending row is unaffected -- their original subject/body goes out
+// untouched, exactly like before this change.
 const MAX_ATTEMPTS = 3;
 const BATCH_LIMIT = 50;
 
@@ -165,6 +175,43 @@ async function sendEmail(
   return "none";
 }
 
+// ─── DIGESTING ──────────────────────────────────────────────────────────
+
+// Groups this tick's pending rows by recipient, preserving each group's
+// relative order (the fetch below is already created_at ascending).
+function groupByRecipient(rows: any[]): Map<string, any[]> {
+  const groups = new Map<string, any[]>();
+
+  for (const row of rows) {
+    const group = groups.get(row.to_email);
+    if (group) {
+      group.push(row);
+    } else {
+      groups.set(row.to_email, [row]);
+    }
+  }
+
+  return groups;
+}
+
+// A lone pending row goes out exactly as authored -- no generic wrapper.
+// 2+ rows for the same recipient become one email: a generic subject (the
+// "bit generic" title), each item's own subject as a mini-heading above its
+// own body (which already carries its own "View in Hyrax Central Portal"
+// link, added by fan_out_notification_event.sql), oldest first.
+function buildDigest(rows: any[]): { subject: string; html: string } {
+  if (rows.length === 1) {
+    return { subject: rows[0].subject, html: rows[0].body_html };
+  }
+
+  return {
+    subject: `You have ${rows.length} new updates on Hyrax Central Portal`,
+    html: rows
+      .map((row) => `<h3>${row.subject}</h3>${row.body_html}`)
+      .join("<hr />"),
+  };
+}
+
 // ─── DISPATCHER ─────────────────────────────────────────────────────────
 
 serve(async () => {
@@ -186,61 +233,84 @@ serve(async () => {
     });
   }
 
-  let sent = 0;
-  let failed = 0;
+  let notificationsSent = 0;
+  let notificationsFailed = 0;
+  let emailsSent = 0;
 
-  for (const row of pending || []) {
+  const groups = groupByRecipient(pending || []);
+
+  for (const [toEmail, rows] of groups) {
+    const { subject, html } = buildDigest(rows);
+
     try {
-      const provider = await sendEmail(
-        row.to_email,
-        row.subject,
-        row.body_html,
-      );
+      const provider = await sendEmail(toEmail, subject, html);
+      const sentAt = new Date().toISOString();
 
       await supabase
         .from("email_queue")
-        .update({ status: "sent", sent_at: new Date().toISOString() })
-        .eq("id", row.id);
+        .update({ status: "sent", sent_at: sentAt })
+        .in(
+          "id",
+          rows.map((row) => row.id),
+        );
 
-      await supabase.from("email_log").insert({
-        queue_id: row.id,
-        to_email: row.to_email,
-        subject: row.subject,
-        status: "sent",
-        provider,
-      });
-
-      sent++;
-    } catch (err) {
-      const attempts = row.attempts + 1;
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      const exhausted = attempts >= MAX_ATTEMPTS;
-
-      await supabase
-        .from("email_queue")
-        .update({
-          attempts,
-          last_error: errorMessage,
-          status: exhausted ? "failed" : "pending",
-        })
-        .eq("id", row.id);
-
-      if (exhausted) {
-        await supabase.from("email_log").insert({
+      // One email_log row per original notification, even though it went
+      // out as a single physical email -- keeps the per-notification audit
+      // trail exactly as complete as before digesting.
+      await supabase.from("email_log").insert(
+        rows.map((row) => ({
           queue_id: row.id,
           to_email: row.to_email,
           subject: row.subject,
-          status: "failed",
-          error: errorMessage,
-        });
+          status: "sent",
+          provider,
+        })),
+      );
+
+      emailsSent++;
+      notificationsSent += rows.length;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      // Per-row, not a shared counter -- rows in the same group can have
+      // different existing `attempts` values (some may already have been
+      // retried in an earlier tick that failed for a different recipient
+      // grouping), so each one's retry/exhaustion state is independent.
+      for (const row of rows) {
+        const attempts = row.attempts + 1;
+        const exhausted = attempts >= MAX_ATTEMPTS;
+
+        await supabase
+          .from("email_queue")
+          .update({
+            attempts,
+            last_error: errorMessage,
+            status: exhausted ? "failed" : "pending",
+          })
+          .eq("id", row.id);
+
+        if (exhausted) {
+          await supabase.from("email_log").insert({
+            queue_id: row.id,
+            to_email: row.to_email,
+            subject: row.subject,
+            status: "failed",
+            error: errorMessage,
+          });
+        }
       }
 
-      failed++;
+      notificationsFailed += rows.length;
     }
   }
 
   return new Response(
-    JSON.stringify({ sent, failed, total: (pending || []).length }),
+    JSON.stringify({
+      notificationsSent,
+      notificationsFailed,
+      emailsSent,
+      total: (pending || []).length,
+    }),
     { status: 200 },
   );
 });
