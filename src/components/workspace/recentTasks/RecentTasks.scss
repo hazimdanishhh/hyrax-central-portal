@@ -1,5 +1,15 @@
 .recentWorkspaceSection {
-  flex-direction: row;
+  flex-direction: column;
   justify-content: start;
   height: fit-content;
+  width: 100%;
+  // .recentWorkspaceSection is itself a grid item of Dashboard's
+  // .cardLayout2 (display: grid) -- a grid item's default min-width is
+  // auto (its content's intrinsic minimum), not 0, same issue
+  // ProjectCard.scss/TaskCard.scss already document for their own grid
+  // contexts. Without this, the column refuses to shrink narrower than
+  // the widest unbreakable content run among the recent project/task
+  // cards, pinning the whole panel wider than its grid track and
+  // overflowing to the right.
+  min-width: 0;
 }
