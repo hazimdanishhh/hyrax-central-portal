@@ -7,6 +7,21 @@
   cursor: pointer;
   width: fit-content;
 
+  &:hover {
+    .projectMemberAvatarStackImage {
+      border-color: $primary500;
+      transition: border-color 0.3s ease-in-out;
+    }
+
+    .projectMemberAvatarStackOverflow {
+      border-color: $primary500;
+      background-color: $primary500;
+      transition:
+        border-color 0.3s ease-in-out,
+        background-color 0.3s ease-in-out;
+    }
+  }
+
   .projectMemberAvatarStackImage {
     width: 28px;
     height: 28px;
@@ -14,6 +29,7 @@
     object-fit: cover;
     border: 2px solid $neutral100;
     margin-left: -10px;
+    transition: border-color 0.3s ease-in-out;
 
     &:first-child {
       margin-left: 0;
@@ -21,6 +37,7 @@
   }
 
   .projectMemberAvatarStackOverflow {
+    color: $neutral100;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -30,5 +47,8 @@
     background-color: $neutral500;
     border: 2px solid $neutral100;
     margin-left: -10px;
+    transition:
+      border-color 0.3s ease-in-out,
+      background-color 0.3s ease-in-out;
   }
 }

@@ -68,13 +68,13 @@ export default function ProjectCard({ project, category, onClick }) {
               icon={ClockIcon}
               weight="fill"
               name={`Start: ${project.start_date}`}
-              style="blue textXXS"
+              style="blue textXXXS textBold"
             />
             <IconCard
               icon={ClockIcon}
               weight="fill"
               name={`End: ${project.target_end_date}`}
-              style="yellow textXXS"
+              style="yellow textXXXS textBold"
             />
           </div>
 

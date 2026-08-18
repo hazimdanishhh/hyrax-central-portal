@@ -24,7 +24,7 @@ export default function ProjectMemberAvatarStack({ members = [], onClick }) {
         e.stopPropagation();
         onClick?.();
       }}
-      title="View project members"
+      title="View Project Members"
     >
       {visible.map((m) => (
         <img
@@ -34,7 +34,11 @@ export default function ProjectMemberAvatarStack({ members = [], onClick }) {
           alt={m.employee?.full_name || "Member"}
         />
       ))}
-      {overflow > 0 && <div className="projectMemberAvatarStackOverflow textXXXS">+{overflow}</div>}
+      {overflow > 0 && (
+        <div className="projectMemberAvatarStackOverflow textXXXS">
+          +{overflow}
+        </div>
+      )}
     </button>
   );
 }

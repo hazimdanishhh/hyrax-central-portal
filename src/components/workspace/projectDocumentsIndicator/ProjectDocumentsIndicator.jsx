@@ -7,6 +7,7 @@ import NoResult from "../../crud/noResult/NoResult";
 import DocumentCard from "../documentCard/DocumentCard";
 import { useProjectDocuments } from "../../../features/workspace/tasks/private/hooks/useProjectDocuments";
 import "./ProjectDocumentsIndicator.scss";
+import Button from "../../buttons/button/Button";
 
 /**
  * Deliberately simpler than ProjectMemberAvatarStack -- "just a document
@@ -21,17 +22,17 @@ export default function ProjectDocumentsIndicator({ projectId, projectName }) {
 
   return (
     <>
-      <button
+      <Button
         type="button"
-        className="projectDocumentsIndicator"
+        style="button buttonType5 textXXXS"
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);
         }}
-        title="View project documents"
-      >
-        <FileIcon size={20} />
-      </button>
+        title="View Project Documents"
+        icon={FileIcon}
+        size={16}
+      />
 
       <AnimatePresence>
         {open && (
@@ -50,7 +51,14 @@ function ProjectDocumentsIndicatorSidebar({ projectId, projectName, onClose }) {
   const { documents, isLoading } = useProjectDocuments(projectId);
 
   return (
-    <DataSidebar title={`${projectName} — Documents`} icon={FileIcon} open onClose={onClose} isEditing={false} hideDelete>
+    <DataSidebar
+      title={`${projectName} — Documents`}
+      icon={FileIcon}
+      open
+      onClose={onClose}
+      isEditing={false}
+      hideDelete
+    >
       <div className="projectDocumentsIndicatorPanel">
         {isLoading ? (
           <LoadingIcon />
