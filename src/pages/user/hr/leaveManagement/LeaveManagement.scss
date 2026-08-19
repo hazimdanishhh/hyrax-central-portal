@@ -1,0 +1,13 @@
+.leaveDetailRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba($neutral500, 0.15);
+
+  p.textBold {
+    color: $neutral500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+}

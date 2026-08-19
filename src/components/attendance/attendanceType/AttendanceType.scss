@@ -37,4 +37,12 @@
     background-color: rgba($neutral500, 0.2);
     color: inherit;
   }
+
+  // HR2000 leave ledger integration -- "On Leave (...)" gets its own
+  // distinct color, since red/green/blue/yellow/grey are all already
+  // meaningfully spoken for by other statuses.
+  &.purple {
+    background-color: rgba($secondary600, 0.2);
+    color: $secondary600;
+  }
 }

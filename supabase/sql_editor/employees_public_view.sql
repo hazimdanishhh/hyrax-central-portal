@@ -45,6 +45,11 @@ select
       or app.latest_event_time > hw.scanned_at
     ) then app.type_name
     when hw.scanned_at is not null then hw.scanner_location
+    -- HR2000 leave ledger integration -- only replaces the terminal
+    -- fallback (no app/hardware event today at all), never an actual
+    -- observed activity above, so an employee on leave who still came in
+    -- keeps their real status (e.g. 'Office').
+    when lv.leave_type_codes is not null then 'On Leave (' || lv.leave_type_codes || ')'
     else 'Offline / Not Arrived'::text
   end as current_status,
   to_char(
@@ -60,7 +65,14 @@ select
     'HH12:MI AM'::text
   ) as first_arrival_time,
   app.id as current_attendance_id,
-  app.attendance_type_id as current_attendance_type_id
+  app.attendance_type_id as current_attendance_type_id,
+  -- HR2000 leave ledger integration -- appended at the end, not inserted
+  -- earlier in the list: CREATE OR REPLACE VIEW only allows new columns to
+  -- be added after every existing one (Postgres matches view columns
+  -- positionally, so inserting mid-list looks like renaming an existing
+  -- column and fails with error 42P16).
+  (lv.leave_type_codes is not null) as is_on_leave_today,
+  lv.leave_type_codes as leave_type_codes_today
 from
   employees e
   left join profiles p on p.id = e.profile_id
@@ -152,4 +164,17 @@ from
           attendance_logs.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text
         )
       ) = CURRENT_DATE
-  ) first_hw on true;
+  ) first_hw on true
+  -- HR2000 leave ledger integration -- "today" scope only, matching this
+  -- view's own real-time-snapshot grain (unlike unified_daily_attendance,
+  -- which is date-ranged).
+  left join lateral (
+    select
+      string_agg(distinct lt.code, '+' order by lt.code) as leave_type_codes
+    from
+      leave_ledger_entries le
+      join leave_ledger_types lt on lt.id = le.leave_type_id
+    where
+      le.employee_id = e.id
+      and le.leave_date = current_date
+  ) lv on true;

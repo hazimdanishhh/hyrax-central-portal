@@ -11,6 +11,7 @@ import {
   AlarmIcon,
   SignOutIcon,
   UserCircleDashedIcon,
+  CalendarXIcon,
 } from "@phosphor-icons/react";
 
 // ATTENDANCE TYPE COMPONENT WITH ICONS
@@ -70,11 +71,18 @@ function AttendanceType({ attendanceType = "" }) {
     },
   };
 
-  const selected = config[type] || {
-    icon: BuildingOfficeIcon,
-    className: "default",
-    label: attendanceType,
-  };
+  // HR2000 leave ledger integration -- current_status/hr_flag values like
+  // "On Leave (AL)" carry a dynamic type suffix, so they can't be matched by
+  // the exact-string config map above. Checked before it so any leave-type
+  // suffix gets consistent icon/color treatment while keeping the specific
+  // type visible in the label.
+  const selected = type.startsWith("on leave")
+    ? { icon: CalendarXIcon, label: attendanceType, className: "purple" }
+    : config[type] || {
+        icon: BuildingOfficeIcon,
+        className: "default",
+        label: attendanceType,
+      };
 
   const Icon = selected.icon;
 

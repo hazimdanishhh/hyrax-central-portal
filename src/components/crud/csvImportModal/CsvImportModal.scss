@@ -1,0 +1,71 @@
+.csvImportModal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 1rem;
+  overflow-y: auto;
+
+  .csvImportSelect {
+    align-items: flex-start;
+  }
+
+  .csvImportBanner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.8rem;
+    border-radius: 8px;
+
+    &.csvImportBannerWarning {
+      background-color: rgba($warning600, 0.15);
+      color: $warning600;
+    }
+
+    &.csvImportBannerError {
+      background-color: rgba($error600, 0.15);
+      color: $error600;
+    }
+
+    &.csvImportBannerSuccess {
+      background-color: rgba($success600, 0.15);
+      color: $success600;
+    }
+
+    p {
+      color: inherit;
+    }
+  }
+
+  .csvImportStatRow {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+
+  .csvImportStatTile {
+    flex: 1;
+    min-width: 100px;
+    padding: 0.8rem;
+    border-radius: 8px;
+    border: 1px solid rgba($neutral500, 0.3);
+    text-align: center;
+
+    &.emphasize {
+      border-color: rgba($error600, 0.5);
+
+      p.textBold {
+        color: $error600;
+      }
+    }
+  }
+
+  .csvImportRemovedHeading {
+    color: $error600;
+  }
+
+  .csvImportActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+}

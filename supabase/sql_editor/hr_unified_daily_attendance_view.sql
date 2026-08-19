@@ -75,6 +75,24 @@ daily_app AS (
     FROM public.attendance_activities aa
     LEFT JOIN public.attendance_types at ON aa.attendance_type_id = at.id
     GROUP BY aa.employee_id, DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur')
+),
+
+-- 4b. Leave: one row per employee-date that has ANY leave entries that day
+-- (there can be more than one -- confirmed AM/PM half-day splits). Sums
+-- day_fraction (useful later for payroll's paid/unpaid day counting) and
+-- collapses the type(s) present that day into a label for hr_flag.
+daily_leave AS (
+    SELECT
+        le.employee_id AS leave_emp_uuid,
+        le.leave_date AS work_date,
+        SUM(le.day_fraction) AS leave_day_fraction_total,
+        CASE
+            WHEN COUNT(DISTINCT le.leave_type_id) = 1 THEN MAX(lt.code)
+            ELSE STRING_AGG(DISTINCT lt.code, '+' ORDER BY lt.code)
+        END AS leave_type_codes
+    FROM public.leave_ledger_entries le
+    JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
+    GROUP BY le.employee_id, le.leave_date
 )
 
 -- 5. Bring it all together onto the Expected Shifts matrix
@@ -105,29 +123,40 @@ SELECT
     COALESCE(h.hw_hours, 0) + COALESCE(a.app_hours, 0) AS hours_worked,
 
     -- 🚨 HYBRID DISCREPANCY & ABSENCE DETECTION 🚨
-    CASE 
+    CASE
         -- 1. Absence Catching: No Hardware AND No Valid App Data
         WHEN h.hw_check_in IS NULL AND a.app_check_in IS NULL THEN
-            -- Check if the date is a Saturday (6) or Sunday (7)
-            CASE 
+            -- Check if the date is a Saturday (6) or Sunday (7). Leave is
+            -- checked only inside this "nothing happened today" branch, and
+            -- only after the weekend check -- it can only ever replace the
+            -- Absent fallback below, never override Approved/Pending/
+            -- Missing-Checkout/Incomplete-Scans/OK further down, so it can
+            -- only fix a miscategorization, never hide a real anomaly. A
+            -- half-day-leave/half-day-worked day still falls through to
+            -- whichever work-based branch applies -- is_on_leave/
+            -- leave_type_codes/leave_day_fraction below stay populated
+            -- regardless, so that context isn't lost even when it's not the
+            -- headline hr_flag.
+            CASE
                 WHEN EXTRACT(ISODOW FROM u.work_date) IN (6, 7) THEN 'Weekend / Rest Day'
+                WHEN dl.leave_type_codes IS NOT NULL THEN 'On Leave (' || dl.leave_type_codes || ')'
                 ELSE 'Absent'
             END
 
         -- 2. Master Override: All existing activities are Approved
-        WHEN a.all_approved = TRUE 
+        WHEN a.all_approved = TRUE
             THEN 'Approved'
-            
+
         -- 3. Pending Protection: Waiting on HR/Manager to approve remote work
-        WHEN a.has_pending = TRUE 
+        WHEN a.has_pending = TRUE
             THEN 'Pending App Approval'
 
         -- 4. App Error: They left a remote session running
-        WHEN a.has_missing_app_checkout = TRUE 
+        WHEN a.has_missing_app_checkout = TRUE
             THEN 'Missing App Check-Out'
-            
+
         -- 5. Hardware Error: They only scanned the building once
-        WHEN h.total_hw_scans = 1 
+        WHEN h.total_hw_scans = 1
             THEN 'Incomplete Card Scans'
 
         -- 6. Perfect Hardware Data (No App data used today, scanned in and out properly)
@@ -148,11 +177,23 @@ SELECT
     -- for lateArrivalsCount/earlyLeaveCount, so the List filter and the RPC
     -- KPI can never disagree.
     (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time AS first_in_time_of_day,
-    (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time AS last_out_time_of_day
+    (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time AS last_out_time_of_day,
+
+    -- HR2000 leave ledger integration -- appended at the end, not inserted
+    -- earlier in the list: CREATE OR REPLACE VIEW only allows new columns
+    -- to be added after every existing one (Postgres matches view columns
+    -- positionally, so inserting mid-list looks like renaming an existing
+    -- column and fails with error 42P16). Always populated regardless of
+    -- which hr_flag branch fired above -- see HR2000 leave ledger
+    -- integration comment on the CASE expression.
+    (dl.leave_type_codes IS NOT NULL) AS is_on_leave,
+    dl.leave_type_codes,
+    dl.leave_day_fraction_total AS leave_day_fraction
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date
 LEFT JOIN daily_app a ON u.employee_uuid = a.app_emp_uuid AND u.work_date = a.work_date
+LEFT JOIN daily_leave dl ON u.employee_uuid = dl.leave_emp_uuid AND u.work_date = dl.work_date
 LEFT JOIN public.departments d ON u.department_id = d.id
 LEFT JOIN public.employees m ON u.manager_id = m.id
 LEFT JOIN public.profiles p ON u.profile_id = p.id;

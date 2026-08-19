@@ -428,13 +428,13 @@ export const sideNavLinkData = [
         departments: ["HR"],
       },
 
-      // {
-      //   label: "Leave Management",
-      //   icon: CalendarIcon,
-      //   path: "hr/leaves",
+      {
+        label: "Leave Management",
+        icon: CalendarIcon,
+        path: "hr/leaves",
 
-      //   departments: ["HR"],
-      // },
+        departments: ["HR"],
+      },
 
       // {
       //   label: "Recruitment",

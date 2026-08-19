@@ -21,14 +21,16 @@ const { error } = await supabase.from("profiles").upsert(
     id: user.id,
     full_name: user.user_metadata?.full_name || null,
     email: user.email,
-    avatar_url: avatarAlreadySet ? existingProfile.avatar_url : "/profilePhoto/default.webp",
+    avatar_url: avatarAlreadySet
+      ? existingProfile.avatar_url
+      : "/profilePhoto/default.webp",
     updated_at: new Date().toISOString(),
   },
   { onConflict: "id" },
 );
 ```
 
-This payload never sets `role_id`/`department_id` — but that does **not** mean they're `null` on a new row. Confirmed against the live lookup data (`supabase/csv/roles_rows.csv`, `supabase/csv/departments_rows.csv`): both columns default to id `1` — `role_id = 1` is **`staff`**, `department_id = 1` is **`General`** (`GEN`). So a brand-new profile isn't "unassigned" in the sense of having no access at all — it's a real, legitimate `staff` role in a real (if generic) department, until a superadmin moves it. That's the actual first gap: `staff` is very often the *correct* permanent role for a new hire, but `General` is clearly a placeholder bucket nobody's real department should stay as — the department is the field that reliably needs fixing, not necessarily the role.
+This payload never sets `role_id`/`department_id` — but that does **not** mean they're `null` on a new row. Confirmed against the live lookup data (`supabase/csv/roles_rows.csv`, `supabase/csv/departments_rows.csv`): both columns default to id `1` — `role_id = 1` is **`staff`**, `department_id = 1` is **`General`** (`GEN`). So a brand-new profile isn't "unassigned" in the sense of having no access at all — it's a real, legitimate `staff` role in a real (if generic) department, until a superadmin moves it. That's the actual first gap: `staff` is very often the _correct_ permanent role for a new hire, but `General` is clearly a placeholder bucket nobody's real department should stay as — the department is the field that reliably needs fixing, not necessarily the role.
 
 The second gap is architectural: since this is a client-side `upsert`, not a dedicated "create new user" server-side function, it's tempting to assume a normal `AFTER INSERT` trigger wouldn't reliably distinguish "genuinely new person" from "just refreshed their session." It does, though — Postgres executes `INSERT ... ON CONFLICT (id) DO UPDATE` as a genuine `INSERT` (firing `INSERT` triggers) only on the row's first-ever write; every subsequent call for the same `id` takes the conflict path and executes as an `UPDATE` (firing `UPDATE` triggers instead, if any existed). So a plain `AFTER INSERT ON public.profiles FOR EACH ROW` trigger fires **exactly once** per genuinely-new profile, regardless of how the row was created — no different in reliability from `log_sales_leads_stage_change.sql`'s `AFTER UPDATE` trigger, despite the unusual client-side creation path.
 
@@ -37,6 +39,7 @@ The second gap is architectural: since this is a client-side `upsert`, not a ded
 Today's fan-out shares one event's `payload` (`title`/`message`/`link_to`) across every recipient of that `event_type` — there's no per-recipient-group message customization. Since a superadmin, HR, and the new hire themself each need genuinely different message content (not just different audiences for the same message), this is designed as **one trigger emitting three distinct events**, not one event with three targeting rules. This is a normal, already-supported pattern — nothing stops a trigger from calling `emit_notification_event()` more than once.
 
 **`profile.created.needs_department_assignment`** — only fires if the new row is still sitting in the default `General` department:
+
 ```sql
 if new.department_id = 1 then -- still "General" -- id 1, confirmed via departments_rows.csv
     perform public.emit_notification_event(
@@ -50,11 +53,13 @@ if new.department_id = 1 then -- still "General" -- id 1, confirmed via departme
     );
 end if;
 ```
+
 Recipients: `target_roles: ['superadmin']` — the only role that can actually change `role_id`/`department_id` (per `Users.jsx`'s existing gate). `link_to` points at the bare list, not a per-profile deep link — unconfirmed whether `Users.jsx` supports a `:id`-style URL-synced sidebar the way `EmployeeManagement.jsx` now does (see Section C).
 
-Checking `department_id = 1` rather than `role_id` is deliberate: at the exact moment this trigger fires (profile creation), `department_id` is *always* `1` — nothing else sets it during creation — so the check is really documentation of intent and a guard against a future code path that might one day pre-assign a real department at creation time, in which case this notification should correctly stay silent.
+Checking `department_id = 1` rather than `role_id` is deliberate: at the exact moment this trigger fires (profile creation), `department_id` is _always_ `1` — nothing else sets it during creation — so the check is really documentation of intent and a guard against a future code path that might one day pre-assign a real department at creation time, in which case this notification should correctly stay silent.
 
 **`profile.created.needs_employee_link`** — always fires (a brand-new profile is essentially never already linked, since `employees.profile_id` can't reference a not-yet-existing profile row):
+
 ```sql
 perform public.emit_notification_event(
     'profile.created.needs_employee_link', 'profiles', new.id::text,
@@ -66,9 +71,11 @@ perform public.emit_notification_event(
     )
 );
 ```
+
 Recipients: `target_departments: ['HR']` (no role restriction — matches the Employee Management page's own dept-only gate).
 
 **`profile.created.welcome`** — always fires, targets the new person themself via `target_payload_keys`, the exact mechanism already built for `manager_profile_id`:
+
 ```sql
 perform public.emit_notification_event(
     'profile.created.welcome', 'profiles', new.id::text,
@@ -80,6 +87,7 @@ perform public.emit_notification_event(
     )
 );
 ```
+
 Recipient rule: `target_payload_keys: ['new_profile_id']`, no role/department targeting at all. `link_to` points at `/app/profile` (changed from an earlier `/app/employee/onboarding` sketch — that route is still just a content-less stub, while `/app/profile` is real today and concretely shows the person's current role/department, reinforcing the message).
 
 ### Deliberately no automated department sync
@@ -94,7 +102,7 @@ An earlier draft of this design also had linking a profile to an employee auto-c
 
 ### Closing the loop: telling the user once the work is actually done
 
-The three events above tell admins there's work to do, and welcome the new user once — but nobody ever told the user once an admin actually *did* that work. Two more events, both firing on the relevant `UPDATE`/`INSERT` rather than the original profile-creation `INSERT`, both targeting the user themself via `target_payload_keys` (never superadmin or HR — they already know, since they're the ones acting):
+The three events above tell admins there's work to do, and welcome the new user once — but nobody ever told the user once an admin actually _did_ that work. Two more events, both firing on the relevant `UPDATE`/`INSERT` rather than the original profile-creation `INSERT`, both targeting the user themself via `target_payload_keys` (never superadmin or HR — they already know, since they're the ones acting):
 
 - **`profile.department_role_assigned`** (`supabase/functions/notify_profile_updated.sql`, `AFTER UPDATE ON public.profiles`) — fires whenever `department_id` and/or `role_id` actually changes (`IS DISTINCT FROM`), not just the first out-of-`General` transition, so a later legitimate transfer or promotion notifies the person too. Resolves the department/role **names** (not raw ids) for a readable message. Confirmed this can't be spuriously triggered by routine logins: `syncProfile()`'s upsert never includes these two columns in its payload at all, on either the insert or conflict/update path.
 - **`employee.profile_linked`** (`supabase/functions/notify_employee_profile_linked.sql`, `AFTER INSERT OR UPDATE ON public.employees`) — fires when `profile_id` is newly set or changed to a different employee (via either Employee Management's field or the Users page's `link_profile_to_employee` RPC), not on unlinking. `TG_OP = 'INSERT'` handles an employee row created with `profile_id` already populated, where there's no `old` row to diff against.
@@ -117,6 +125,7 @@ Same conventions throughout: plain trigger functions (no `SECURITY DEFINER` on t
 ### New schema: a three-state flag, not a plain boolean
 
 `employees.needs_it_asset boolean` — deliberately **nullable**, not defaulting to `false`:
+
 - `null` = HR hasn't made a decision yet (critical: this is what every existing employee row would have on migration day — a plain `false` default would be indistinguishable from "explicitly doesn't need one," while `null` correctly means "not yet decided" and avoids ever retroactively implying a decision that was never made).
 - `true` = needs a device, not yet assigned.
 - `false` = HR explicitly decided this employee doesn't need one.
@@ -140,15 +149,18 @@ if (old.needs_it_asset is distinct from new.needs_it_asset) and new.needs_it_ass
     );
 end if;
 ```
+
 Recipients: `target_departments: ['IT']` — IT's route gate (`src/routes/ITRoutes.jsx`) has no role restriction on any of its pages, confirmed, so no role narrowing is needed. No dedup column is needed here (unlike the confirmation reminder) — this is a one-time state transition, not a recurring scan, so it can never "re-fire" the way a date-based condition would.
 
 ### Resolution is derived, not tracked
 
 "Still needs assignment" is expressed as a query, not a stored flag:
+
 ```sql
 needs_it_asset = true
 and not exists (select 1 from it_assets where asset_user_id = employees.id)
 ```
+
 `it_assets.asset_user_id` already exists and already backs the IT Assets Overview page's "Unassigned" KPI — it's the single source of truth for whether an employee has been given a device. No second "resolved"/"fulfilled" column is needed on either table; the moment IT sets `asset_user_id` on some asset to point at this employee, they naturally drop out of the "pending assignment" set.
 
 ### IT Assets Overview UI change
@@ -160,6 +172,42 @@ and not exists (select 1 from it_assets where asset_user_id = employees.id)
 - **`Users.jsx` still doesn't support a per-profile deep link.** `profile.created.needs_department_assignment`'s `link_to` stays the bare `/app/system/users` page until/unless `Users.jsx` gets the same URL-sync-sidebar treatment `EmployeeManagement.jsx` already received.
 - **Follow-up reminder if IT doesn't act.** The initial `employee.it_asset_requested` notification is one-shot (Shape A). If a request could plausibly sit unactioned for days, a second, Shape-B rule (scheduled scan over `needs_it_asset = true` rows with no matching `it_assets.asset_user_id`, past N days) would layer cleanly on top — not needed for the initial notification, and not designed in detail here since there's no evidence yet that IT actually misses these.
 - **Dollar thresholds for every "large X" event** across Sales/Finance (see `NOTIFICATION-RULES-TRACKER.csv`) are explicitly left as `TBD` — a business decision, not something to guess.
+
+## Full Proper Onboarding Lifecycle
+
+1. HR send and retrieve new hire's personal details (e.g. personal email, personal data, etc.)
+2. HR add new employee row in employee's table (details, device requirement, access card requirement)
+3. IT notified on new employee row creation, signals whether device is required, access card is required, etc. should also include specified details for device
+4. IT create Google Workspace account for new hire, add to appropriate email groups
+5. New hire notified directly from Google Workspace account creation, sending it through their personal email (secondary) for the login details
+6. IT should have ability in the Portal to manually send an invite to that employee's work email, so once they log into gmail, they can see the notification
+7. New hire logs into Portal (first time)
+8. HR, IT and Superadmin notified
+9. HR/IT/Superadmin link profile to employee record
+10. IT/Superadmin assign role/module access
+11. New hire notified about record linking and role/module assignment
+
+Running in parallel to step 3 (If device/access card are required)
+
+1. IT setup device and access card
+
+Running in parallel to step 8
+
+1. IT & HR hand device and access card to new hire
+2. IT assign device and access card to new hire in Portal
+
+Then new hire should undergo onboarding such as:
+
+1. HR onboarding
+2. IT onboarding (systems, policies, guides, etc.)
+
+Completion
+
+> Need to think about adding other things as well such as
+>
+> - Software assignment (for IT to keep track of software that employees have access to, so that during offboarding, everything can be checklisted)
+> - HR side of things that would help in offboarding properly
+> - What other things are missing from this onboarding, that is essential for onboarding, and would aid in proper offboarding procedures?
 
 ## Non-goals
 
