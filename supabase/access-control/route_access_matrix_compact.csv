@@ -23,8 +23,8 @@
 "Sales","/app/sales/leads/overview",,"SAL"
 "Sales","/app/sales/leads/list",,"SAL"
 "Sales","/app/sales/leads/targets","manager","SAL"
-"Sales","/app/sales/orders","manager","SAL"
-"Sales","/app/sales/orders/all","manager","SAL"
+"Sales","/app/sales/orders",,"SAL"
+"Sales","/app/sales/orders/all",,"SAL"
 "Sales","/app/sales/orders/budgets","manager","SAL"
 "Sales","/app/sales/quotations",,"SAL"
 "HR","/app/hr",,

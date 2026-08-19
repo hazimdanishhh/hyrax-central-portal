@@ -200,7 +200,6 @@ export const sideNavLinkData = [
         path: "sales/orders",
 
         departments: ["SAL"],
-        roles: ["manager"],
       },
 
       {

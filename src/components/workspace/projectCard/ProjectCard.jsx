@@ -58,7 +58,14 @@ export default function ProjectCard({ project, category, onClick }) {
               {project.name}
             </p>
           </div>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+              justifyContent: "end",
+            }}
+          >
             <StatusBadge
               status={statusLabel}
               type={PROJECT_STATUS_TYPE[project.status] || "grey"}

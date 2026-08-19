@@ -32,8 +32,17 @@
 
       .salesOrderStatus {
         display: flex;
+        align-items: center;
         gap: 0.4rem;
         flex-wrap: wrap;
+
+        .salesOrderRepAvatar {
+          width: 1.5rem;
+          height: 1.5rem;
+          border-radius: 50%;
+          object-fit: cover;
+          flex-shrink: 0;
+        }
       }
     }
 
@@ -43,6 +52,7 @@
       flex-direction: column;
       height: 100%;
       justify-content: space-between;
+      gap: 0.4rem;
 
       @media screen and (max-width: 768px) {
         gap: 0.4rem;
@@ -82,7 +92,7 @@
       }
 
       .truncate {
-        max-width: 200px;
+        width: 200px;
       }
 
       .salesOrderCustomer {

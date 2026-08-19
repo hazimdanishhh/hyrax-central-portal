@@ -37,7 +37,6 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
     gp == null || Math.abs(gp) > Math.abs(total) * 5
       ? "—"
       : `RM ${Math.round(gp).toLocaleString()}`;
-  console.log(lines);
   return (
     <div className="salesOrderSidebar">
       <SalesOrderCard order={selectedRow} onClick={() => {}} />

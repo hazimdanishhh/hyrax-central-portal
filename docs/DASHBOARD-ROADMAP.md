@@ -76,6 +76,8 @@ The dormant `sales_attainment_snapshots` table is the natural place to lock peri
 
 `sales_leads.po_number` (unique) maps to `sap_sales_orders.customer_ref` (SAP NumAtCard). This bridge converts a rep's manually-typed WON `actual_revenue` into SAP-validated actuals. The dormant `sales_orders` bridge table (`sap_so_id`, `sales_lead_id`, `sales_quotation_id`) exists for exactly this, currently unused.
 
+**Notification-only slice wired 2026-08** (`trg_notify_sales_order_po_matched` on `sap_sales_orders`, event `sales_order.po_matched` — see `docs/NOTIFICATION-RULES-TRACKER.csv`): the moment a newly-ingested SAP sales order's `customer_ref` matches an existing lead's `po_number`, that lead's owner is notified in-app + email, linking to the lead's own detail page. This is purely a notification — it does **not** populate the `sales_orders` bridge table above, and doesn't touch `actual_revenue` reconciliation. Wiring the persisted bridge (and the SAP-validated-actuals workflow it implies) remains the separate, still-unbuilt item this section originally described.
+
 ### 1.4 Sales Leads architecture — resolved 2026-08 (hybrid of Path A/B)
 
 Previously framed as two paths with the decision deferred — reproduced below for history, then the actual resolution.

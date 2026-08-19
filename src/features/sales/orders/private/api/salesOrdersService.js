@@ -1,6 +1,38 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
+ * Resolves sap_sales_orders.sales_rep_code -> the owning employee (for
+ * SalesOrderCard's avatar). Done as a separate, small full-table fetch --
+ * NOT a PostgREST embedded select -- because sap_sales_orders.sales_rep_code
+ * has no real FK constraint (only employee_sales_rep_mapping.sales_rep_code
+ * -> sap_sales_persons.sales_rep_code does), and PostgREST's `!` embed
+ * syntax requires an actual FK to resolve a relationship. Same "small
+ * outrigger table, fetch it whole" reasoning as
+ * salesRepMappingService.js/salesOrdersMetadataService.js's own
+ * sap_sales_persons fetch. employees_public (not the raw employees table)
+ * is used so avatar_url comes pre-joined from profiles, same as
+ * leadsService.js's lead_owner:employees_public!lead_owner_id(*) precedent.
+ */
+async function fetchRepsByCode() {
+  const { data, error } = await supabase
+    .from("employee_sales_rep_mapping")
+    .select("sales_rep_code, employee:employees_public!employee_id(*)");
+
+  if (error) throw error;
+
+  const repsByCode = {};
+  (data || []).forEach((row) => {
+    repsByCode[row.sales_rep_code] = row.employee || null;
+  });
+
+  return repsByCode;
+}
+
+function attachRep(order, repsByCode) {
+  return { ...order, rep: repsByCode[order.sales_rep_code] || null };
+}
+
+/**
  * Read-only sales order list, backed directly by the sap_sales_orders
  * mirror table (ORDR). SAP is the system of record for this data -- no
  * create/update/delete here.
@@ -70,12 +102,38 @@ export async function fetchSalesOrders({
   // paginate LAST
   query = query.range(from, to);
 
-  const { data, count, error } = await query;
+  const [{ data, count, error }, repsByCode] = await Promise.all([
+    query,
+    fetchRepsByCode(),
+  ]);
 
   if (error) throw error;
 
   return {
-    data: data || [],
+    data: (data || []).map((order) => attachRep(order, repsByCode)),
     totalCount: count || 0,
   };
+}
+
+/**
+ * Fetch a single sales order by its natural key (doc_entry), for the
+ * deep-linkable /app/sales/orders/all/:docEntry detail route -- mirrors
+ * fetchLeadById's role for useLead (see useSalesOrder.js).
+ */
+export async function fetchSalesOrderByDocEntry(docEntry) {
+  if (!docEntry) return null;
+
+  const [{ data, error }, repsByCode] = await Promise.all([
+    supabase
+      .from("sap_sales_orders")
+      .select("*")
+      .eq("doc_entry", Number(docEntry))
+      .maybeSingle(),
+    fetchRepsByCode(),
+  ]);
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return attachRep(data, repsByCode);
 }

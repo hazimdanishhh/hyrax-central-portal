@@ -42,13 +42,16 @@ function Reports() {
   const { canAccess } = useAccessControl();
   const dashboardRef = useRef(null);
 
-  // sales/orders requires SAL + manager (MGM excluded, see R3 in
-  // supabase/access-control/README.md) -- the Sales Order Book tile/chart
-  // below only link there for viewers who'd actually get in, so an MGM
-  // viewer never sees a dead link to a page they can't open.
+  // sales/orders requires SAL, no role restriction (MGM excluded; reversed
+  // 2026-08 off manager-only, see supabase/access-control/README.md) -- the
+  // Sales Order Book tile/chart below only link there for viewers who'd
+  // actually get in, so an MGM viewer never sees a dead link to a page they
+  // can't open. Every actual viewer of this page is already a SAL/MGM
+  // manager (Reports itself is manager-gated), so this flag is always true
+  // for them today -- kept computed from the target route's real gate
+  // anyway, per this file's own stated convention, not hardcoded true.
   const canAccessOrders = canAccess({
     departments: ["SAL"],
-    roles: ["manager"],
   });
 
   // finance/invoices and finance/payments are FIN-only, while this page is

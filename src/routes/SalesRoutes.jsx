@@ -104,11 +104,15 @@ export default (
       />
     </Route>
 
-    {/* SALES ORDERS */}
+    {/* SALES ORDERS -- department-only (R3), not manager-gated: reversed
+        2026-08 from the 2026-07 R4 classification (see
+        supabase/access-control/route_access_matrix.csv) now that a lead's
+        owner can be notified of, and needs to click through to, their own
+        matched SAP sales order (sales_order.po_matched notification). */}
     <Route
       path="orders"
       element={
-        <AccessRoute departments={["SAL"]} roles={["manager"]}>
+        <AccessRoute departments={["SAL"]}>
           <OrdersPageLayout />
         </AccessRoute>
       }
@@ -117,13 +121,17 @@ export default (
       <Route
         path="all"
         element={
-          <AccessRoute departments={["SAL"]} roles={["manager"]}>
+          <AccessRoute departments={["SAL"]}>
             <Orders />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":docEntry" element={null} />
+      </Route>
 
-      {/* BUDGETS (Forecast 2 -- SAP invoice quota per rep) */}
+      {/* BUDGETS (Forecast 2 -- SAP invoice quota per rep) -- stays
+          manager-gated; reads sales_budgets/sales_targets, not
+          sap_sales_orders, so it's outside the R3 reclassification above. */}
       <Route
         path="budgets"
         element={

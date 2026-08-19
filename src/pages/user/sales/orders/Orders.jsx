@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { ReceiptIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
@@ -11,6 +12,7 @@ import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchSalesOrders } from "../../../../features/sales/orders/private/api/salesOrdersService";
+import { useSalesOrder } from "../../../../features/sales/orders/private/hooks/useSalesOrder";
 import { useSalesOrdersMetadata } from "../../../../features/sales/orders/private/hooks/useSalesOrdersMetadata";
 import { getSalesOrdersFilterConfig } from "./filterConfig";
 import SalesOrderCard from "../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
@@ -22,10 +24,17 @@ import PageTitle from "../../../../components/pageTitle/PageTitle";
  * create/edit/delete here, just search/filter/sort/paginate over
  * sap_sales_orders. This is the drill-through target for the Sales Reports
  * dashboard's Order Book KPI card and Order Book by Rep chart.
+ *
+ * Row-click opens the detail sidebar via a real URL
+ * (/app/sales/orders/all/:docEntry), not local state -- mirrors
+ * LeadsManagement.jsx's :leadId pattern (2026-08) so a matched-order card
+ * elsewhere in the app (LeadSidebar.jsx) or a future notification can
+ * deep-link straight to one specific order.
  */
 export default function Orders() {
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const { docEntry } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     data: salesOrders,
@@ -58,6 +67,25 @@ export default function Orders() {
     error: metadataError,
   } = useSalesOrdersMetadata();
 
+  const { data: fetchedOrder } = useSalesOrder(docEntry);
+
+  // Find selected row based on URL param -- in-memory paginated list first
+  // (instant UI for a click from the list), falling back to the
+  // fetch-by-id result (direct/shared URL, or a notification linking
+  // straight to an order). Same shape as LeadsManagement.jsx's selectedRow.
+  const selectedRow = useMemo(() => {
+    if (!docEntry) return null;
+
+    const orderInList = salesOrders?.find(
+      (order) => String(order.doc_entry) === docEntry,
+    );
+    if (orderInList) return orderInList;
+
+    return fetchedOrder || null;
+  }, [docEntry, salesOrders, fetchedOrder]);
+
+  const sidebarOpen = !!selectedRow;
+
   const filterConfig = getSalesOrdersFilterConfig({ salesReps });
 
   const isLoading = ordersLoading || metadataLoading;
@@ -65,13 +93,12 @@ export default function Orders() {
   const error = ordersError || metadataError;
   const hasData = salesOrders.length > 0;
 
-  function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
+  function handleOpenSidebar(order) {
+    navigate(`${order.doc_entry}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
+    navigate(`/app/sales/orders/all?${searchParams.toString()}`);
   }
 
   return (

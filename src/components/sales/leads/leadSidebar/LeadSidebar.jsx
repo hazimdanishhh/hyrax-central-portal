@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import StatusBox from "../../../status/statusBox/StatusBox";
 import "./LeadSidebar.scss";
@@ -49,6 +50,7 @@ export default function LeadSidebar({
 }) {
   const [showName, setShowName] = useState(false);
   const { canAccess, isManager, isSuperAdmin } = useAccessControl();
+  const navigate = useNavigate();
 
   // Account identity (2026-08): a lead references exactly one of a real SAP
   // customer or a native Prospect client, never both -- see
@@ -270,10 +272,14 @@ export default function LeadSidebar({
           (rep-typed at WON) matched against sap_sales_orders.customer_ref
           (SAP NumAtCard). No persisted bridge -- see
           docs/DASHBOARD-ROADMAP.md §1.3 for the larger, not-yet-built
-          persisted version of this idea. The "View in Sales Orders" link is
+          persisted version of this idea. Each matched card deep-links
+          straight to that order's own detail page (2026-08, mirrors Sales
+          Leads' own :leadId URL pattern -- see Orders.jsx/SalesRoutes.jsx),
+          gated the same as the "View in Sales Orders" link below, which is
           only shown to users who'd actually pass that route's own access
-          check (SalesRoutes.jsx: departments=["SAL"], roles=["manager"]) --
-          everyone else still sees the inline match summary. */}
+          check (SalesRoutes.jsx: departments=["SAL"], no role restriction
+          since 2026-08 -- everyone else still sees the inline match
+          summary, just without a way to click through to the raw order). */}
       {selectedRow.po_number && (
         <CardLayout style="generalCard cardPaddingSmall">
           <IconCard
@@ -302,19 +308,24 @@ export default function LeadSidebar({
                   <SalesOrderCard
                     key={order.doc_entry}
                     order={order}
-                    onClick={() => {}}
+                    onClick={
+                      canAccess({ departments: ["SAL"] })
+                        ? () =>
+                            navigate(`/app/sales/orders/all/${order.doc_entry}`)
+                        : undefined
+                    }
                   />
                 ))}
               </CardLayout>
 
-              {canAccess({ roles: ["manager"], departments: ["SAL"] }) && (
+              {/* {canAccess({ departments: ["SAL"] }) && (
                 <RouterButton
                   to={`/app/sales/orders/all?search=${encodeURIComponent(selectedRow.po_number)}`}
                   name="View in Sales Orders"
                   icon={ReceiptIcon}
                   style="button buttonType4 textXXS"
                 />
-              )}
+              )} */}
             </>
           )}
         </CardLayout>

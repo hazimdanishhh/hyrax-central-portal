@@ -78,7 +78,6 @@ export const departmentLinkCardData = [
         path: "sales/orders",
 
         departments: ["SAL"],
-        roles: ["manager"],
       },
     ],
   },

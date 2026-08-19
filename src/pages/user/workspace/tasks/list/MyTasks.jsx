@@ -95,7 +95,6 @@ export default function MyTasks() {
     selectedTask?.project_id,
   );
 
-  console.log("selectedTask", selectedTask);
   const {
     pendingAction,
     modalOpen,
