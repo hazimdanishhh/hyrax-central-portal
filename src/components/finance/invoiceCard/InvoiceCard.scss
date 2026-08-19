@@ -1,0 +1,111 @@
+.salesOrderCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 100%;
+  cursor: pointer;
+  text-align: start;
+
+  .salesOrderCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 0.8rem;
+    width: 100%;
+
+    @media screen and (max-width: 768px) {
+      flex-direction: column;
+      align-items: start;
+    }
+
+    .salesOrderCardHeaderLeft {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+
+      @media screen and (max-width: 768px) {
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .salesOrderStatus {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+
+        .salesOrderRepAvatar {
+          width: 1.5rem;
+          height: 1.5rem;
+          border-radius: 50%;
+          object-fit: cover;
+          flex-shrink: 0;
+        }
+      }
+    }
+
+    .salesOrderCardRight {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      justify-content: space-between;
+      gap: 0.4rem;
+
+      @media screen and (max-width: 768px) {
+        gap: 0.4rem;
+        width: 100%;
+      }
+
+      .salesOrderCardDates {
+        display: flex;
+        gap: 0.4rem;
+        align-self: flex-end;
+
+        @media screen and (max-width: 768px) {
+          width: 100%;
+          justify-content: space-between;
+          flex-wrap: wrap;
+        }
+      }
+    }
+
+    .salesOrderCardHeaderDetails {
+      display: flex;
+      flex-direction: column;
+      align-items: start;
+      text-align: start;
+      gap: 0.2rem;
+
+      @media screen and (max-width: 768px) {
+        flex-direction: row;
+        gap: 0.4rem;
+        width: 100%;
+        align-items: center;
+        flex-wrap: wrap;
+
+        p {
+          width: fit-content;
+        }
+      }
+
+      .truncate {
+        width: 200px;
+      }
+
+      .salesOrderCustomer {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+        flex-wrap: wrap;
+        text-wrap: wrap;
+      }
+    }
+  }
+
+  p {
+    text-align: start;
+  }
+}

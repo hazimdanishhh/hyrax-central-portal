@@ -19,6 +19,7 @@ import { useFinanceMetadata } from "../../../../features/finance/reports/private
 import { getInvoicesFilterConfig } from "./filterConfig";
 import { invoicesTableConfig } from "./tableConfig";
 import InvoiceSidebar from "./detail/InvoiceSidebar";
+import InvoiceCard from "../../../../components/finance/invoiceCard/InvoiceCard";
 
 /**
  * Read-only invoices list -- SAP is the system of record, so there's no
@@ -131,12 +132,15 @@ export default function Invoices() {
               ) : error ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <DataTable
-                  data={invoices}
-                  columns={columns}
-                  rowKey="doc_entry"
-                  onRowClick={handleOpenSidebar}
-                />
+                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                  {invoices.map((invoice) => (
+                    <InvoiceCard
+                      key={invoice.doc_entry}
+                      invoice={invoice}
+                      onClick={() => handleOpenSidebar(invoice)}
+                    />
+                  ))}
+                </CardLayout>
               )}
             </div>
           </CardWrapper>
