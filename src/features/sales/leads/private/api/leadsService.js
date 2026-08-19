@@ -111,6 +111,7 @@ export async function fetchLeads({
       leadSourceType: "lead_source_type_id",
       productType: "product_type",
       loseReason: "lose_reason_id",
+      pendingSapOrder: "pending_sap_order",
     };
 
     const column = map[key];

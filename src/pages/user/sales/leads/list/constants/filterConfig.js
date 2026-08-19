@@ -94,6 +94,14 @@ export function getFilterConfig({
       ],
     },
     {
+      key: "pendingSapOrder",
+      label: "Pending SAP Order",
+      options: [
+        { label: "True", value: "true" },
+        { label: "False", value: "false" },
+      ],
+    },
+    {
       key: "activePipelineOnly",
       label: "Active Pipeline",
       options: [{ label: "Active Only (Not Won/Lost/Cancelled)", value: "true" }],

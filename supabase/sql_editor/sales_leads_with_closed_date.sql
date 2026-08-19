@@ -16,13 +16,30 @@
 -- client_contact_id (a `select sl.*` view pins a dependency on every column
 -- sl.* expanded to at CREATE time, including columns never named
 -- explicitly). If this view's query ever changes, update both copies.
+-- pending_sap_order (added 2026-08): a WON lead with a rep-typed po_number
+-- that no sap_sales_orders row has matched yet (customer_ref = po_number),
+-- i.e. the sales admin still needs to enter it into SAP. EXISTS, not a LEFT
+-- JOIN -- customer_ref has no uniqueness constraint on the SAP side (see
+-- useSalesOrderByPoNumber.js's own comment), so a join would fan out and
+-- duplicate rows for any PO matching more than one order. Backs the Leads
+-- List "Pending SAP Order" filter/badge and the Leads Overview KPI tile --
+-- see get_sales_leads_dashboard_rpc.sql's wonLeadsPendingSapOrderCount for
+-- the aggregate version of this same check.
 create or replace view public.sales_leads_with_closed_date as
 select
     sl.*,
     coalesce(
         cd.closed_date,
         case when sl.stage in ('WON', 'LOST') or sl.is_cancelled then sl.updated_at end
-    ) as closed_date
+    ) as closed_date,
+    (
+        sl.stage = 'WON'
+        and sl.po_number is not null
+        and not exists (
+            select 1 from public.sap_sales_orders sso
+            where sso.customer_ref = sl.po_number
+        )
+    ) as pending_sap_order
 from public.sales_leads sl
 left join (
     select lead_id, max(changed_at) as closed_date

@@ -91,10 +91,27 @@ select json_build_object(
             ), 0),
             
             'avgDealSize', coalesce(round(avg(actual_revenue) filter (
-                where stage = 'WON' 
+                where stage = 'WON'
                 and (p_start_date is null or closed_date >= p_start_date)
                 and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
             )), 0),
+
+            -- Current backlog, deliberately NOT date-scoped (no p_start_date/
+            -- p_end_date predicate) -- this counts WON leads still sitting
+            -- unactioned in SAP right now, not "became pending in period".
+            -- Same reasoning as Finance's overdueValue KPI. Still respects
+            -- base_leads' own non-date filters (owner/client/stage/etc), same
+            -- as every other KPI here. Mirrors
+            -- sales_leads_with_closed_date.sql's pending_sap_order column --
+            -- keep both in sync if this predicate ever changes.
+            'wonLeadsPendingSapOrderCount', count(*) filter (
+                where stage = 'WON'
+                and po_number is not null
+                and not exists (
+                    select 1 from public.sap_sales_orders sso
+                    where sso.customer_ref = base_leads.po_number
+                )
+            ),
 
             'lostLeads', count(*) filter (
                 where (stage = 'LOST' or is_cancelled)

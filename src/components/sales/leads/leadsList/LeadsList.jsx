@@ -8,6 +8,7 @@ import {
   FilePdfIcon,
   NotePencilIcon,
   UserCircleIcon,
+  WarningIcon,
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import AttendanceType from "../../../attendance/attendanceType/AttendanceType";
@@ -20,6 +21,7 @@ import { useState } from "react";
 import LeadStage, { PIPELINE_STAGES } from "../leadStage/LeadStage";
 import IconCard from "../../../iconCard/IconCard";
 import StatusIcon from "../../../status/statusIcon/StatusIcon";
+import { formatDate } from "../../../../functions/formatDate";
 
 export default function LeadsList({
   lead,
@@ -49,13 +51,13 @@ export default function LeadsList({
           <div className="leadsListHeaderContainer">
             <div className="leadsListDateTimeContainer">
               <IconCard
-                name={lead.created_at}
+                name={formatDate(lead.created_at)}
                 icon={ClockIcon}
                 style="textLight textXXXS cardStyle"
                 size={14}
               />
               <IconCard
-                name={lead.updated_at}
+                name={formatDate(lead.updated_at)}
                 icon={ClockClockwiseIcon}
                 style="textLight textXXXS cardStyle"
                 size={14}
@@ -107,7 +109,7 @@ export default function LeadsList({
               style="textLight textXS"
             />
 
-            <CardLayout style="cardLayout2 cardGapSmall">
+            <div className="leadsListDetails">
               <StatusBox
                 status={`${lead.close_probability}% Probability`}
                 type={
@@ -134,7 +136,15 @@ export default function LeadsList({
                   type="yellow"
                 />
               )}
-            </CardLayout>
+              {lead.pending_sap_order && (
+                <IconCard
+                  name="Pending SAP Order"
+                  icon={WarningIcon}
+                  style="textXXS red"
+                  weight="fill"
+                />
+              )}
+            </div>
           </div>
         </div>
 

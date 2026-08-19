@@ -38,6 +38,12 @@
         align-items: center;
         gap: 0.3rem;
       }
+
+      .leadsListDetails {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
     }
   }
 }

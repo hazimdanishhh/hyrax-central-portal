@@ -86,6 +86,17 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
     thresholds: { warningAt: 20, criticalAt: 40 },
   });
 
+  // Backlog count, not a period metric (see get_sales_leads_dashboard_rpc.sql)
+  // -- thresholds are a starting estimate, tune freely without touching
+  // statusVariant.js.
+  const pendingSapOrderStatus = getStatusVariant(
+    kpis.wonLeadsPendingSapOrderCount || 0,
+    {
+      direction: "low-good",
+      thresholds: { warningAt: 1, criticalAt: 5 },
+    },
+  );
+
   // Carried into every link below -- the Overview's own narrowing, so a tile
   // click never silently resets it.
   const baseFilter = {
@@ -262,6 +273,22 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
           icon: PercentIcon,
         },
       ],
+    },
+
+    {
+      icon: WarningCircleIcon,
+      label: "Pending SAP Order Entry",
+      sublabel: "WON Leads Without a Matching SAP Order (Not Based on Period)",
+      value: kpis.wonLeadsPendingSapOrderCount || 0,
+      variant: pendingSapOrderStatus.variant,
+      status: {
+        icon: pendingSapOrderStatus.statusIcon,
+        label: pendingSapOrderStatus.statusLabel,
+      },
+      to: "../list",
+      filter: { ...baseFilter, pendingSapOrder: "true" },
+      title:
+        "WON leads with a PO number typed in, but no SAP sales order has been created for that PO yet -- the sales admin still needs to enter it into SAP.",
     },
 
     // ==========================================

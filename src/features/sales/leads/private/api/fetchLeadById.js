@@ -29,6 +29,36 @@ export async function fetchLeadById(id) {
 }
 
 /**
+ * Fetch a lead by its PO number -- the reverse of the Sales Order Sidebar's
+ * "View Matching Lead" button (sap_sales_orders.customer_ref -> this).
+ * po_number is UNIQUE on sales_leads (unlike customer_ref on the SAP side),
+ * so this resolves to at most one row -- maybeSingle, not the 0/1/many
+ * handling useSalesOrderByPoNumber.js needs for the other direction.
+ */
+export async function fetchLeadByPoNumber(poNumber) {
+  if (!poNumber) return null;
+
+  const { data, error } = await supabase
+    .from("sales_leads")
+    .select(
+      `
+      *,
+      client:client_id(*),
+      sap_customer:sap_customers!sap_customer_code(customer_code, customer_name, city, contact_person, phone),
+      lead_owner:employees_public!lead_owner_id(*),
+      lead_source_type:lead_source_type_id(*)
+    `,
+    )
+    .eq("po_number", poNumber)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return normalizeLeads([data])[0];
+}
+
+/**
  * Normalize returned data
  */
 function normalizeLeads(rows) {

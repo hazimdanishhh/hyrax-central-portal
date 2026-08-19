@@ -1,4 +1,4 @@
-import { FileTextIcon } from "@phosphor-icons/react";
+import { FileTextIcon, HandshakeIcon } from "@phosphor-icons/react";
 import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
@@ -7,10 +7,13 @@ import NoResult from "../../../../../components/crud/noResult/NoResult";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import { formatDate } from "../../../../../functions/formatDate";
 import { useSalesOrderLines } from "../../../../../features/sales/orders/private/hooks/useSalesOrderLines";
+import { useLeadByPoNumber } from "../../../../../features/sales/leads/private/hooks/useLeadByPoNumber";
+import { useAccessControl } from "../../../../../context/AccessControlContext";
 import { salesOrderLinesTableConfig } from "./salesOrderLinesTableConfig";
 import "./SalesOrderSidebar.scss";
 import SalesOrderCard from "../../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
 import SalesOrderLineCard from "../../../../../components/sales/orders/salesOrderLineCard/SalesOrderLineCard";
+import RouterButton from "../../../../../components/buttons/routerButton/RouterButton";
 
 /**
  * Read-only detail view for a sales order -- no Edit button anywhere, no
@@ -18,11 +21,18 @@ import SalesOrderLineCard from "../../../../../components/sales/orders/salesOrde
  * permanently in its read-only (children-only) mode for this entity.
  */
 export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
+  const { canAccess } = useAccessControl();
   const {
     data: lines,
     isLoading,
     error,
   } = useSalesOrderLines(selectedRow?.doc_entry);
+
+  // Reverse of LeadSidebar.jsx's "MATCHED SAP SALES ORDER" block --
+  // customer_ref (SAP NumAtCard) matched against sales_leads.po_number.
+  // po_number is UNIQUE, so this is at most one lead, no 0/1/many handling
+  // needed here.
+  const { data: matchedLead } = useLeadByPoNumber(selectedRow?.customer_ref);
 
   const columns = salesOrderLinesTableConfig();
   const hasData = lines?.length > 0;
@@ -40,6 +50,15 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
   return (
     <div className="salesOrderSidebar">
       <SalesOrderCard order={selectedRow} onClick={() => {}} />
+
+      {matchedLead && canAccess({ departments: ["SAL"] }) && (
+        <RouterButton
+          to={`/app/sales/leads/list/${matchedLead.id}`}
+          name="View Matching Lead"
+          icon={HandshakeIcon}
+          style="button buttonType4 textXXS"
+        />
+      )}
 
       <CardLayout style="generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Order Lines" />
