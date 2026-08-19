@@ -4,6 +4,7 @@ import { formatDate } from "../../../../functions/formatDate";
 import "./SalesOrderCard.scss";
 import IconCard from "../../../iconCard/IconCard";
 import { ClockIcon } from "@phosphor-icons/react";
+import StatusBadge from "../../../status/statusBadge/StatusBadge";
 
 // Read-only card for a sap_sales_orders row -- SAP is the system of record,
 // so this only ever displays. status_code/gross_profit carry the same
@@ -23,54 +24,75 @@ function SalesOrderCard({ order, onClick }) {
   return (
     <button className="generalCard salesOrderCard" onClick={onClick}>
       <div className="salesOrderCardHeader">
-        <StatusBox
-          status={isOpen ? "Open" : "Closed"}
-          type={isOpen ? "green" : "grey"}
-        />
-        <div className="salesOrderCardHeaderCode">
-          <p className="textBold textXS">SO# {order.so_number}</p>
-          <p className="textLight textXXS">{order.customer_name}</p>
+        <div className="salesOrderCardHeaderLeft">
+          <div className="salesOrderStatus">
+            <StatusBadge
+              status={isOpen ? "Open" : "Closed"}
+              type={isOpen ? "green" : "grey"}
+            />
+            {order.is_cancelled === "Y" && (
+              <StatusBox status="Cancelled" type="red" />
+            )}
+          </div>
+
+          <div className="salesOrderCardHeaderDetails">
+            <p className="textBold textXS">SO# {order.so_number}</p>
+
+            <div className="salesOrderCustomer">
+              <StatusBox status={order.customer_code} type="blue" />
+              <p
+                className="textLight textXXS truncate"
+                title={order.customer_name}
+              >
+                {order.customer_name}
+              </p>
+            </div>
+
+            <StatusBox
+              status={
+                order.customer_ref ? `PO: ${order.customer_ref}` : "PO: —"
+              }
+              type={order.customer_ref ? "green" : "grey"}
+            />
+          </div>
+        </div>
+
+        <div className="salesOrderCardRight">
+          <div className="salesOrderCardDates">
+            <IconCard
+              icon={ClockIcon}
+              weight="fill"
+              name={
+                order.order_date
+                  ? `Order: ${formatDate(order.order_date)}`
+                  : "—"
+              }
+              style="blue textXXXS textBold"
+            />
+            <IconCard
+              icon={ClockIcon}
+              weight="fill"
+              name={
+                order.delivery_date
+                  ? `Delivery: ${formatDate(order.delivery_date)}`
+                  : "—"
+              }
+              style="yellow textXXXS textBold"
+            />
+          </div>
+
+          <div className="salesOrderCardHeaderDetails">
+            <p className="textLight textXXS">
+              <strong className="textBold">Total (RM):</strong> RM{" "}
+              {Math.round(total).toLocaleString()}
+            </p>
+            <p className="textLight textXXS">
+              <strong className="textBold">Gross Profit (RM):</strong>{" "}
+              {grossProfitDisplay}
+            </p>
+          </div>
         </div>
       </div>
-
-      <CardLayout style="cardLayout2 cardGapSmall">
-        <IconCard
-          icon={ClockIcon}
-          weight="fill"
-          name={
-            order.order_date ? `Order: ${formatDate(order.order_date)}` : "—"
-          }
-          style="blue textXXXS textBold"
-        />
-        <IconCard
-          icon={ClockIcon}
-          weight="fill"
-          name={
-            order.delivery_date
-              ? `Delivery: ${formatDate(order.delivery_date)}`
-              : "—"
-          }
-          style="yellow textXXXS textBold"
-        />
-
-        <p className="textLight textXXS">
-          <strong className="textBold">Total (RM):</strong> RM{" "}
-          {Math.round(total).toLocaleString()}
-        </p>
-        <p className="textLight textXXS">
-          <strong className="textBold">Gross Profit (RM):</strong>{" "}
-          {grossProfitDisplay}
-        </p>
-
-        <StatusBox
-          status={
-            order.customer_ref
-              ? `Customer PO: ${order.customer_ref}`
-              : "Customer PO: —"
-          }
-          type="green"
-        />
-      </CardLayout>
     </button>
   );
 }
