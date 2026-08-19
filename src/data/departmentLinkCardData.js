@@ -79,6 +79,15 @@ export const departmentLinkCardData = [
 
         departments: ["SAL"],
       },
+
+      {
+        label: "Guides",
+        description: "Step-by-step walkthroughs of the Sales pipeline.",
+        icon: BookOpenIcon,
+        path: "sales/guides",
+
+        departments: ["SAL"],
+      },
     ],
   },
 

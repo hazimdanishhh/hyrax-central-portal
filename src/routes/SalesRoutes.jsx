@@ -13,6 +13,8 @@ import OrdersPageLayout from "../pages/user/sales/orders/OrdersPageLayout";
 import SalesBudgetsManagement from "../pages/user/sales/orders/budgets/SalesBudgetsManagement";
 import SalesTargetsManagement from "../pages/user/sales/leads/targets/SalesTargetsManagement";
 import SalesRepMapping from "../pages/user/sales/salesRepMapping/SalesRepMapping";
+import SalesGuides from "../pages/user/sales/guides/SalesGuides";
+import SalesGuideTopic from "../pages/user/sales/guides/SalesGuideTopic";
 
 export default (
   <Route path="sales">
@@ -149,6 +151,35 @@ export default (
       element={
         <AccessRoute departments={["SAL"]} roles={["manager"]}>
           <SalesRepMapping />
+        </AccessRoute>
+      }
+    />
+
+    {/* GUIDES -- step-by-step, media-capable walkthroughs of the Sales
+        module, department-only (matches Leads/Clients/Orders' R3 gate) so
+        any SAL staff member can read every topic, even ones documenting a
+        manager-only page (Reports/Rep Mapping/Targets/Budgets). Content is
+        static data (src/data/guides/salesGuideTopics.js), not a DB table --
+        see docs/SALES-ORDER-PIPELINE-ROADMAP.md's own "Notes for the future
+        in-portal guide" section for why this is deliberately separate from
+        Help's unrelated "Guides & Policies" tab. Two flat sibling routes
+        (search + card grid, and a standalone topic detail page with its own
+        back-to-Guides breadcrumb), not a layout+Outlet nesting -- same shape
+        as employees/:employeeId relative to the employees list route in
+        GeneralRoutes.jsx. */}
+    <Route
+      path="guides"
+      element={
+        <AccessRoute departments={["SAL"]}>
+          <SalesGuides />
+        </AccessRoute>
+      }
+    />
+    <Route
+      path="guides/:topicId"
+      element={
+        <AccessRoute departments={["SAL"]}>
+          <SalesGuideTopic />
         </AccessRoute>
       }
     />

@@ -1,0 +1,13 @@
+.salesGuideTopic {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  width: 100%;
+
+  .salesGuideTopicHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    text-align: start;
+  }
+}

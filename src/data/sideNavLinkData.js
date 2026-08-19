@@ -211,6 +211,18 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
+      {
+        label: "Guides",
+        icon: BookOpenIcon,
+        path: "sales/guides",
+
+        // No role restriction -- every SAL staff member can read every
+        // topic, including ones documenting manager-only pages
+        // (Reports/Rep Mapping/Targets/Budgets). Reading about a page isn't
+        // the same as having access to it.
+        departments: ["SAL"],
+      },
+
       // Quotations: intentional placeholder, not an orphan (confirmed
       // 2026-08) -- reserved for a future in-app quotation-generation
       // feature (SAP's own OQUT/QUT1 module is unused by Hyrax). Left

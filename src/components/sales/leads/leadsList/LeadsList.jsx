@@ -4,6 +4,7 @@ import {
   CircleIcon,
   ClockClockwiseIcon,
   ClockIcon,
+  CopyIcon,
   DropIcon,
   FilePdfIcon,
   NotePencilIcon,
@@ -22,6 +23,7 @@ import LeadStage, { PIPELINE_STAGES } from "../leadStage/LeadStage";
 import IconCard from "../../../iconCard/IconCard";
 import StatusIcon from "../../../status/statusIcon/StatusIcon";
 import { formatDate } from "../../../../functions/formatDate";
+import { useMessage } from "../../../../context/MessageContext";
 
 export default function LeadsList({
   lead,
@@ -33,6 +35,21 @@ export default function LeadsList({
   onSelect,
 }) {
   const [showName, setShowName] = useState(false);
+  const { showMessage } = useMessage();
+
+  async function handleCopyPoNumber(e) {
+    e.stopPropagation();
+    if (!lead.po_number) return;
+
+    try {
+      await navigator.clipboard.writeText(lead.po_number);
+      showMessage("PO Number Copied to Clipboard", "success");
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      showMessage(`Failed to copy: ${err}`, "error");
+    }
+  }
+
   //   BOOLEANS
   const isWon = lead.stage === "WON";
   const isLost = lead.stage === "LOST";
@@ -131,10 +148,19 @@ export default function LeadsList({
                 />
               )}
               {lead.po_number && (
-                <StatusBox
-                  status={`PO Number: ${lead.po_number}`}
-                  type="yellow"
-                />
+                <div className="leadPoNumberGroup">
+                  <StatusBox
+                    status={`PO Number: ${lead.po_number}`}
+                    type="yellow"
+                  />
+                  <Button
+                    onClick={handleCopyPoNumber}
+                    icon={CopyIcon}
+                    style="iconButton2"
+                    size={14}
+                    title="Copy PO Number"
+                  />
+                </div>
               )}
               {lead.pending_sap_order && (
                 <IconCard

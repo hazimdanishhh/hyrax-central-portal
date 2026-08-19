@@ -43,6 +43,13 @@
         display: flex;
         gap: 0.4rem;
         flex-wrap: wrap;
+        align-items: center;
+
+        .leadPoNumberGroup {
+          display: flex;
+          align-items: center;
+          gap: 0.2rem;
+        }
       }
     }
   }
