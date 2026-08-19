@@ -108,19 +108,31 @@ export default function LeadsList({
             />
 
             <CardLayout style="cardLayout2 cardGapSmall">
-              <p className="textLight textXXXS employeeListMobile cardStyle">
-                <span className="textRegular">Success Probability: </span>
-                {lead.close_probability}%
-              </p>
-              <p className="textLight textXXXS employeeListMobile cardStyle">
-                <span className="textRegular">Expected Revenue: </span>
-                RM{lead.expected_revenue}
-              </p>
+              <StatusBox
+                status={`${lead.close_probability}% Probability`}
+                type={
+                  lead.close_probability > 75
+                    ? "green"
+                    : lead.close_probability < 40
+                      ? "red"
+                      : "yellow"
+                }
+              />
+              <StatusBox
+                status={`Expected: RM${lead.expected_revenue}`}
+                type="blue"
+              />
               {lead.actual_revenue && (
-                <p className="textLight textXXXS employeeListMobile cardStyle">
-                  <span className="textRegular">Actual Revenue: </span>
-                  RM{lead.actual_revenue}
-                </p>
+                <StatusBox
+                  status={`Actual: RM${lead.actual_revenue}`}
+                  type="green"
+                />
+              )}
+              {lead.po_number && (
+                <StatusBox
+                  status={`PO Number: ${lead.po_number}`}
+                  type="yellow"
+                />
               )}
             </CardLayout>
           </div>

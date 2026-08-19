@@ -39,6 +39,7 @@ import "./ProjectDetailLayout.scss";
 import IconCard from "../../../../../components/iconCard/IconCard";
 import { getDueDateStatus } from "../../../../../functions/dueDateStatus";
 import { formatDate } from "../../../../../functions/formatDate";
+import StatusBadge from "../../../../../components/status/statusBadge/StatusBadge";
 
 /**
  * A "smart" per-record tab shell -- unlike the existing static
@@ -140,7 +141,10 @@ export default function ProjectDetailLayout() {
     project.completed_task_count === project.active_task_count &&
     project.status !== "COMPLETED";
 
-  const endDateStatus = getDueDateStatus(project.target_end_date, project.status);
+  const endDateStatus = getDueDateStatus(
+    project.target_end_date,
+    project.status,
+  );
 
   return (
     <>
@@ -160,7 +164,7 @@ export default function ProjectDetailLayout() {
                 <div className="projectDetailHeaderTop">
                   <div className="projectDetailHeaderTitle">
                     <p className="textBold textM">{project.name}</p>
-                    <StatusBox
+                    <StatusBadge
                       status={
                         PROJECT_STATUSES.find((s) => s.value === project.status)
                           ?.label || project.status
@@ -192,7 +196,9 @@ export default function ProjectDetailLayout() {
                       style="blue textXXS"
                     />
                     <IconCard
-                      icon={endDateStatus.isOverdue ? WarningCircleIcon : ClockIcon}
+                      icon={
+                        endDateStatus.isOverdue ? WarningCircleIcon : ClockIcon
+                      }
                       weight="fill"
                       name={`End: ${formatDate(project.target_end_date)}`}
                       style={`${endDateStatus.colorClass} textXXS`}

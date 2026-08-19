@@ -8,6 +8,9 @@ import DataTable from "../../../../../components/dataTable/DataTable";
 import { formatDate } from "../../../../../functions/formatDate";
 import { useSalesOrderLines } from "../../../../../features/sales/orders/private/hooks/useSalesOrderLines";
 import { salesOrderLinesTableConfig } from "./salesOrderLinesTableConfig";
+import "./SalesOrderSidebar.scss";
+import SalesOrderCard from "../../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
+import SalesOrderLineCard from "../../../../../components/sales/orders/salesOrderLineCard/SalesOrderLineCard";
 
 /**
  * Read-only detail view for a sales order -- no Edit button anywhere, no
@@ -34,40 +37,12 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
     gp == null || Math.abs(gp) > Math.abs(total) * 5
       ? "—"
       : `RM ${Math.round(gp).toLocaleString()}`;
-
+  console.log(lines);
   return (
-    <>
-      <CardLayout style="cardLayout1 generalCard cardPadding">
-        <DetailFieldGrid
-          fields={[
-            { label: "SO #", value: selectedRow.so_number },
-            { label: "Customer", value: selectedRow.customer_name },
-            {
-              label: "Sales Rep",
-              value: salesRep?.sales_rep_name || "—",
-            },
-            {
-              label: "Order Date",
-              value: formatDate(selectedRow.order_date),
-            },
-            {
-              label: "Delivery Date",
-              value: formatDate(selectedRow.delivery_date),
-            },
-            {
-              label: "Status",
-              value: selectedRow.status_code === "O" ? "Open" : "Closed",
-            },
-            {
-              label: "Total (RM)",
-              value: `RM ${Math.round(total).toLocaleString()}`,
-            },
-            { label: "Gross Profit (RM)", value: grossProfitDisplay },
-          ]}
-        />
-      </CardLayout>
+    <div className="salesOrderSidebar">
+      <SalesOrderCard order={selectedRow} onClick={() => {}} />
 
-      <CardLayout style="sidebarTable cardWrapperScroll generalCard cardPaddingSmall">
+      <CardLayout style="generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Order Lines" />
 
         {isLoading ? (
@@ -77,9 +52,13 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
         ) : !hasData ? (
           <NoResult />
         ) : (
-          <DataTable data={lines} columns={columns} rowKey="line_num" />
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+            {lines.map((line) => (
+              <SalesOrderLineCard key={line.line_num} line={line} />
+            ))}
+          </CardLayout>
         )}
       </CardLayout>
-    </>
+    </div>
   );
 }

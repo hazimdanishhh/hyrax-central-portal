@@ -38,6 +38,7 @@ import NoResult from "../../../crud/noResult/NoResult";
 import LoadingIcon from "../../../loadingIcon/LoadingIcon";
 import DetailFieldGrid from "../../../dataSidebar/DetailFieldGrid";
 import { formatDate } from "../../../../functions/formatDate";
+import SalesOrderCard from "../../orders/salesOrderCard/SalesOrderCard";
 
 export default function LeadSidebar({
   selectedRow,
@@ -161,19 +162,31 @@ export default function LeadSidebar({
           </div>
 
           <CardLayout style="cardLayout2 cardGapSmall">
-            <p className="textLight textXXXS cardStyle">
-              <span className="textRegular">Success Probability: </span>
-              {selectedRow.close_probability}%
-            </p>
-            <p className="textLight textXXXS cardStyle">
-              <span className="textRegular">Expected Revenue: </span>
-              RM{selectedRow.expected_revenue}
-            </p>
+            <StatusBox
+              status={`${selectedRow.close_probability}% Probability`}
+              type={
+                selectedRow.close_probability > 75
+                  ? "green"
+                  : selectedRow.close_probability < 40
+                    ? "red"
+                    : "yellow"
+              }
+            />
+            <StatusBox
+              status={`Expected: RM${selectedRow.expected_revenue}`}
+              type="blue"
+            />
             {selectedRow.actual_revenue && (
-              <p className="textLight textXXXS cardStyle">
-                <span className="textRegular">Actual Revenue: </span>
-                RM{selectedRow.actual_revenue}
-              </p>
+              <StatusBox
+                status={`Actual: RM${selectedRow.actual_revenue}`}
+                type="green"
+              />
+            )}
+            {selectedRow.po_number && (
+              <StatusBox
+                status={`PO Number: ${selectedRow.po_number}`}
+                type="yellow"
+              />
             )}
           </CardLayout>
 
@@ -253,34 +266,6 @@ export default function LeadSidebar({
         </CardLayout>
       )}
 
-      {/* RELATED SAP ORDERS -- read-only sap_sales_orders, filtered by this
-          lead's sap_customer_code -> sap_sales_orders.customer_code, same
-          bridge Orders.jsx's own Customer filter uses. Only ever shown for
-          the SAP-customer case -- a Prospect has no SAP relationship yet. */}
-      {/* {isSapLinked && (
-        <CardLayout style="generalCard cardPaddingSmall">
-          <IconCard
-            name="Recent Orders"
-            icon={ReceiptIcon}
-            style="textBold textXS"
-          />
-
-          <CardLayout style="cardWrapperScroll generalCard">
-            {ordersLoading ? (
-              <CardLayout style="cardLayoutFlexFull">
-                <LoadingIcon />
-              </CardLayout>
-            ) : ordersError ? (
-              <NoResult title="Error loading results" />
-            ) : orders.length === 0 ? (
-              <NoResult />
-            ) : (
-              <DataTable data={orders} columns={orderColumns} rowKey="doc_entry" />
-            )}
-          </CardLayout>
-        </CardLayout>
-      )} */}
-
       {/* MATCHED SAP SALES ORDER -- live lookup only, sales_leads.po_number
           (rep-typed at WON) matched against sap_sales_orders.customer_ref
           (SAP NumAtCard). No persisted bridge -- see
@@ -312,33 +297,15 @@ export default function LeadSidebar({
                 </p>
               )}
 
-              <DetailFieldGrid
-                fields={[
-                  {
-                    label: "SO #",
-                    value: matchedOrders[0].so_number,
-                    half: true,
-                  },
-                  {
-                    label: "Status",
-                    value:
-                      matchedOrders[0].status_code === "O" ? "Open" : "Closed",
-                    half: true,
-                  },
-                  {
-                    label: "Order Date",
-                    value: formatDate(matchedOrders[0].order_date),
-                    half: true,
-                  },
-                  {
-                    label: "Total (RM)",
-                    value: `RM ${Math.round(
-                      matchedOrders[0].total_amount_myr || 0,
-                    ).toLocaleString()}`,
-                    half: true,
-                  },
-                ]}
-              />
+              <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                {matchedOrders.map((order) => (
+                  <SalesOrderCard
+                    key={order.doc_entry}
+                    order={order}
+                    onClick={() => {}}
+                  />
+                ))}
+              </CardLayout>
 
               {canAccess({ roles: ["manager"], departments: ["SAL"] }) && (
                 <RouterButton
