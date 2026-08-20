@@ -16,9 +16,14 @@ import "./DocumentCard.scss";
  * employee.id || isElevated), a UX mirror of documents_crud.sql's actual
  * DELETE policy, not the security boundary itself.
  */
-export default function DocumentCard({ document, showProject = false, canRemove = false, onRemove }) {
+export default function DocumentCard({
+  document,
+  showProject = false,
+  canRemove = false,
+  onRemove,
+}) {
   const linkedTaskTitles = document.linked_task_titles ?? [];
-
+  console.log(document);
   return (
     <div className="generalCard documentCard cardPaddingSmall">
       <div className="documentCardMainRow">
@@ -30,7 +35,13 @@ export default function DocumentCard({ document, showProject = false, canRemove 
           )}
 
           <div className="documentCardTitleText">
-            <a href={document.url} target="_blank" rel="noreferrer" className="textBold textXS truncate" title={document.name}>
+            <a
+              href={document.url}
+              target="_blank"
+              rel="noreferrer"
+              className="textBold textXS"
+              title={document.name}
+            >
               {document.name}
             </a>
 
@@ -45,16 +56,21 @@ export default function DocumentCard({ document, showProject = false, canRemove 
                 </Link>
               )}
               <span>
-                Attached by {document.attached_by_name || "Unknown"} on {formatDate(document.attached_at)}
+                Attached by {document.attached_by_name || "Unknown"} on{" "}
+                {formatDate(document.attached_at)}
               </span>
             </div>
 
             {linkedTaskTitles.length > 0 && (
               <div className="documentCardTaskBadges">
                 {linkedTaskTitles.map((title, i) => (
-                  <span key={i} className="documentCardTaskBadge textXXXS">
+                  <a
+                    key={i}
+                    className="documentCardTaskBadge textXXXS"
+                    href={`/app/workspace/projects/${document.project_id}/tasks/${document.linked_task_ids[i]}`}
+                  >
                     {title}
-                  </span>
+                  </a>
                 ))}
               </div>
             )}
