@@ -109,50 +109,49 @@ export default function TaskCard({
             )}
           </div>
 
-          {actions.length > 0 ||
-            (assignees.length && (
-              <div className="taskCardRightGroup">
-                {assignees.length > 0 && (
-                  <div className="taskCardAssignees">
-                    {assignees.map((a) => (
-                      <EmployeeImage
-                        key={a.employee_id}
-                        employee={a.employee}
-                        employeeId={a.employee_id}
-                        showName={hoveredAssigneeId === a.employee_id}
-                        setShowName={(show) =>
-                          setHoveredAssigneeId(show ? a.employee_id : null)
-                        }
-                        position="left"
-                      />
-                    ))}
-                  </div>
-                )}
+          {(actions.length > 0 || assignees.length) && (
+            <div className="taskCardRightGroup">
+              {assignees.length > 0 && (
+                <div className="taskCardAssignees">
+                  {assignees.map((a) => (
+                    <EmployeeImage
+                      key={a.employee_id}
+                      employee={a.employee}
+                      employeeId={a.employee_id}
+                      showName={hoveredAssigneeId === a.employee_id}
+                      setShowName={(show) =>
+                        setHoveredAssigneeId(show ? a.employee_id : null)
+                      }
+                      position="left"
+                    />
+                  ))}
+                </div>
+              )}
 
-                {actions.length > 0 && (
-                  <div className="taskCardActions">
-                    {actions.map((action) => (
-                      <Button
-                        key={action.label}
-                        name={action.label === "Cancel" ? null : action.label}
-                        style={`button buttonType5 ${action.style} textXXS`}
-                        icon={action.icon}
-                        size={14}
-                        weight="bold"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRequestStatusChange?.(
-                            task,
-                            action.nextStatus,
-                            action.label,
-                          );
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+              {actions.length > 0 && (
+                <div className="taskCardActions">
+                  {actions.map((action) => (
+                    <Button
+                      key={action.label}
+                      name={action.label === "Cancel" ? null : action.label}
+                      style={`button buttonType5 ${action.style} textXXS`}
+                      icon={action.icon}
+                      size={14}
+                      weight="bold"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestStatusChange?.(
+                          task,
+                          action.nextStatus,
+                          action.label,
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
