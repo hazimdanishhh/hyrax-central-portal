@@ -175,6 +175,17 @@ li {
     background-color: rgb($info600, 0.1);
   }
 
+  // Pairs with MatchConnector.jsx -- marks a "Matched ..." block as a
+  // different, related record rather than the sidebar's own record. A left
+  // accent border + lighter fill (vs. the base generalCard's neutral 0.2
+  // background) so it reads as attached/secondary, plus a small inset to
+  // sit visually under the connector's node.
+  &.matchedSection {
+    border-left: 3px solid rgba($info600, 0.7);
+    background-color: rgb($neutral300, 0.1);
+    margin-left: 0.3rem;
+  }
+
   // blueCardFill's white text passes WCAG AA (~5:1 on $secondary) -- left as
   // white. green/yellow/red's mid-tone fills fail badly with white text
   // (~1.9:1 / ~1.6:1 / ~3.2:1) -- dark text clears AA comfortably on all three.

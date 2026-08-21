@@ -1,0 +1,38 @@
+// MATCH CONNECTOR -- see MatchConnector.jsx for intent. Sizing mirrors
+// LeadStage.scss's vertical circle+line, themed with $info600 (the same
+// "linked/active" blue used by generalCard's .blueCard and LeadStage's
+// .active state) instead of the stage-progress palette.
+.matchConnector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+
+  .matchConnectorTrack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+
+    .matchConnectorLine {
+      width: 2px;
+      height: 14px;
+      background-color: rgba($info600, 0.5);
+    }
+
+    .matchConnectorNode {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background-color: rgba($info600, 0.7);
+      border: 1px solid $info600;
+    }
+  }
+
+  .matchConnectorLabel {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: $info600;
+  }
+}

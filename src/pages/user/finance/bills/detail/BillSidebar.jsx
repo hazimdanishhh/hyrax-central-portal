@@ -1,16 +1,15 @@
 import { InvoiceIcon } from "@phosphor-icons/react";
 import { useNavigate } from "react-router";
-import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
-import IconCard from "../../../../../components/iconCard/IconCard";
+import MatchConnector from "../../../../../components/matchConnector/MatchConnector";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import { formatDate } from "../../../../../functions/formatDate";
 import { useBillLines } from "../../../../../features/finance/bills/private/hooks/useBillLines";
 import { useVendorPaymentsForBill } from "../../../../../features/finance/vendorPayments/private/hooks/useVendorPaymentsForBill";
 import BillLineCard from "../../../../../components/finance/billLineCard/BillLineCard";
 import VendorPaymentCard from "../../../../../components/finance/vendorPaymentCard/VendorPaymentCard";
+import BillCard from "../../../../../components/finance/billCard/BillCard";
 
 /**
  * Read-only detail view for a vendor bill -- no Edit button anywhere, no
@@ -37,48 +36,17 @@ export default function BillSidebar({ selectedRow }) {
   } = useVendorPaymentsForBill(selectedRow?.doc_entry);
 
   const hasData = lines?.length > 0;
-  const outstanding =
-    (selectedRow.total_amount_myr || 0) - (selectedRow.paid_to_date || 0);
 
   return (
     <div className="salesOrderSidebar">
-      <CardLayout style="cardLayout1 generalCard cardPadding">
-        <DetailFieldGrid
-          fields={[
-            { label: "Bill #", value: selectedRow.bill_number },
-            { label: "Vendor", value: selectedRow.vendor_name },
-            {
-              label: "Bill Date",
-              value: formatDate(selectedRow.bill_date),
-            },
-            { label: "Due Date", value: formatDate(selectedRow.due_date) },
-            {
-              label: "Status",
-              value: selectedRow.status_code === "O" ? "Open" : "Closed",
-            },
-            {
-              label: "Total (RM)",
-              value: `RM ${Math.round(selectedRow.total_amount_myr || 0).toLocaleString()}`,
-            },
-            {
-              label: "Outstanding (RM)",
-              value: `RM ${Math.round(outstanding).toLocaleString()}`,
-            },
-          ]}
-        />
-      </CardLayout>
+      <BillCard bill={selectedRow} onClick={() => {}} />
 
       {/* MATCHED VENDOR PAYMENT(S) -- live lookup via SAP's real document
           trail (sap_vendor_payment_applications.doc_entry/doc_type), not a
           persisted bridge. Reverse of VendorPaymentSidebar.jsx's
           per-application bill enrichment. */}
-      <CardLayout style="generalCard cardPaddingSmall">
-        <IconCard
-          name="Matched Vendor Payment(s)"
-          icon={InvoiceIcon}
-          style="textBold textXS"
-        />
-
+      <MatchConnector label="Matched Vendor Payment(s)" icon={InvoiceIcon} />
+      <CardLayout style="generalCard matchedSection cardPaddingSmall">
         {matchedVendorPaymentsLoading ? (
           <LoadingIcon />
         ) : matchedVendorPaymentsError ? (

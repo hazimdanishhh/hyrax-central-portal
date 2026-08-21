@@ -7,7 +7,7 @@ import { useNavigate } from "react-router";
 import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
-import IconCard from "../../../../../components/iconCard/IconCard";
+import MatchConnector from "../../../../../components/matchConnector/MatchConnector";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import DataTable from "../../../../../components/dataTable/DataTable";
@@ -86,13 +86,8 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
           page (/app/finance/invoices/:docEntry), gated the same as any other
           Invoices link -- only shown to users who'd actually pass that
           route's own access check (FinanceRoutes.jsx: departments=["FIN"]). */}
-      <CardLayout style="generalCard cardPaddingSmall">
-        <IconCard
-          name="Matched Invoice(s)"
-          icon={ReceiptIcon}
-          style="textBold textXS"
-        />
-
+      <MatchConnector label="Matched Invoice(s)" icon={ReceiptIcon} />
+      <CardLayout style="generalCard matchedSection cardPaddingSmall">
         {matchedInvoicesLoading ? (
           <LoadingIcon />
         ) : matchedInvoicesError ? (

@@ -2,7 +2,7 @@ import { FileTextIcon, ReceiptIcon } from "@phosphor-icons/react";
 import { useNavigate } from "react-router";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
-import IconCard from "../../../../../components/iconCard/IconCard";
+import MatchConnector from "../../../../../components/matchConnector/MatchConnector";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import { useInvoiceLines } from "../../../../../features/finance/invoices/private/hooks/useInvoiceLines";
@@ -60,13 +60,8 @@ export default function InvoiceSidebar({ selectedRow }) {
           (/app/sales/orders/all/:docEntry), gated the same as any other
           Sales Orders link -- only shown to users who'd actually pass that
           route's own access check (SalesRoutes.jsx: departments=["SAL"]). */}
-      <CardLayout style="generalCard cardPaddingSmall">
-        <IconCard
-          name="Matched Sales Order(s)"
-          icon={ReceiptIcon}
-          style="textBold textXS"
-        />
-
+      <MatchConnector label="Matched Sales Order(s)" icon={ReceiptIcon} />
+      <CardLayout style="generalCard matchedSection cardPaddingSmall">
         {matchedOrdersLoading ? (
           <LoadingIcon />
         ) : matchedOrdersError ? (
@@ -99,13 +94,8 @@ export default function InvoiceSidebar({ selectedRow }) {
           enrichment. No canAccess gate needed -- Invoices and Payments are
           both gated under the same departments=["FIN"], unlike the
           Sales/Finance split the Sales Order match above needs. */}
-      <CardLayout style="generalCard cardPaddingSmall">
-        <IconCard
-          name="Matched Payment(s)"
-          icon={FileTextIcon}
-          style="textBold textXS"
-        />
-
+      <MatchConnector label="Matched Payment(s)" icon={FileTextIcon} />
+      <CardLayout style="generalCard matchedSection cardPaddingSmall">
         {matchedPaymentsLoading ? (
           <LoadingIcon />
         ) : matchedPaymentsError ? (

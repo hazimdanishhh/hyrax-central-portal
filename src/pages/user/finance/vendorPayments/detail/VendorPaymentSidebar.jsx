@@ -1,13 +1,12 @@
 import { FileTextIcon } from "@phosphor-icons/react";
 import { useNavigate } from "react-router";
-import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import { formatDate } from "../../../../../functions/formatDate";
 import { useVendorPaymentApplications } from "../../../../../features/finance/vendorPayments/private/hooks/useVendorPaymentApplications";
 import VendorPaymentApplicationCard from "../../../../../components/finance/vendorPaymentApplicationCard/VendorPaymentApplicationCard";
+import VendorPaymentCard from "../../../../../components/finance/vendorPaymentCard/VendorPaymentCard";
 
 /**
  * Read-only detail view for a vendor payment -- no Edit button anywhere, no
@@ -26,30 +25,7 @@ export default function VendorPaymentSidebar({ selectedRow }) {
 
   return (
     <div className="salesOrderSidebar">
-      <CardLayout style="cardLayout1 generalCard cardPadding">
-        <DetailFieldGrid
-          fields={[
-            { label: "Payment #", value: selectedRow.payment_number },
-            { label: "Vendor", value: selectedRow.vendor_name },
-            {
-              label: "Payment Date",
-              value: formatDate(selectedRow.payment_date),
-            },
-            {
-              label: "Status",
-              value: selectedRow.is_cancelled === "Y" ? "Cancelled" : "Active",
-            },
-            {
-              label: "Total (RM)",
-              value: `RM ${Math.round(selectedRow.total_amount_myr || 0).toLocaleString()}`,
-            },
-            {
-              label: "Unallocated (RM)",
-              value: `RM ${Math.round(selectedRow.unallocated_amount || 0).toLocaleString()}`,
-            },
-          ]}
-        />
-      </CardLayout>
+      <VendorPaymentCard vendorPayment={selectedRow} onClick={() => {}} />
 
       <CardLayout style="sidebarTable cardWrapperScroll generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Payment Applications" />
