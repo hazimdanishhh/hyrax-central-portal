@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { CoinsIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -9,15 +10,15 @@ import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilter
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
-import DataTable from "../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchPayments } from "../../../../features/finance/payments/private/api/paymentsService";
+import { usePayment } from "../../../../features/finance/payments/private/hooks/usePayment";
 import { getPaymentsFilterConfig } from "./filterConfig";
-import { paymentsTableConfig } from "./tableConfig";
 import PaymentSidebar from "./detail/PaymentSidebar";
+import PaymentCard from "../../../../components/finance/paymentCard/PaymentCard";
 
 /**
  * Read-only payments list -- SAP is the system of record, so there's no
@@ -27,8 +28,9 @@ import PaymentSidebar from "./detail/PaymentSidebar";
  */
 export default function Payments() {
   const { darkMode } = useTheme();
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const { docEntry } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     data: payments,
@@ -54,17 +56,34 @@ export default function Payments() {
     defaultSortOrder: "descending",
   });
 
+  const { data: fetchedPayment } = usePayment(docEntry);
+
+  // Find selected row based on URL param -- in-memory paginated list first
+  // (instant UI for a click from the list), falling back to the
+  // fetch-by-id result (direct/shared URL). Same shape as Orders.jsx's
+  // selectedRow.
+  const selectedRow = useMemo(() => {
+    if (!docEntry) return null;
+
+    const paymentInList = payments?.find(
+      (payment) => String(payment.doc_entry) === docEntry,
+    );
+    if (paymentInList) return paymentInList;
+
+    return fetchedPayment || null;
+  }, [docEntry, payments, fetchedPayment]);
+
+  const sidebarOpen = !!selectedRow;
+
   const filterConfig = getPaymentsFilterConfig();
-  const columns = paymentsTableConfig();
   const hasData = payments.length > 0;
 
   function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
+    navigate(`${row.doc_entry}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
+    navigate(`/app/finance/payments?${searchParams.toString()}`);
   }
 
   return (
@@ -80,7 +99,7 @@ export default function Payments() {
               filters={filters}
               onFilterChange={setFilters}
               filterConfig={filterConfig}
-              placeholder="Search payments..."
+              placeholder="Search by Receipt# or Customer Name..."
               enableDateRange
             />
 
@@ -119,12 +138,15 @@ export default function Payments() {
               ) : error ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <DataTable
-                  data={payments}
-                  columns={columns}
-                  rowKey="doc_entry"
-                  onRowClick={handleOpenSidebar}
-                />
+                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                  {payments.map((payment) => (
+                    <PaymentCard
+                      key={payment.doc_entry}
+                      payment={payment}
+                      onClick={() => handleOpenSidebar(payment)}
+                    />
+                  ))}
+                </CardLayout>
               )}
             </div>
           </CardWrapper>

@@ -109,7 +109,8 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
     ...(filters.productType && { productType: filters.productType }),
   };
 
-  const isPeriodFiltered = Boolean(filters.startDate) && Boolean(filters.endDate);
+  const isPeriodFiltered =
+    Boolean(filters.startDate) && Boolean(filters.endDate);
   // created_at window -- backs "generated" KPIs (Leads Created, Pipeline
   // Generated).
   const periodFilter = isPeriodFiltered
@@ -286,7 +287,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         label: pendingSapOrderStatus.statusLabel,
       },
       to: "../list",
-      filter: { ...baseFilter, pendingSapOrder: "true" },
+      filter: { ...baseFilter, stage: "WON", pendingSapOrder: "true" },
       title:
         "WON leads with a PO number typed in, but no SAP sales order has been created for that PO yet -- the sales admin still needs to enter it into SAP.",
     },
@@ -300,7 +301,10 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       sublabel: "Expected Revenue (Lost/Cancelled)",
       value: `RM ${lostRevenue.toLocaleString()}`,
       variant: lostRevenueStatus.variant,
-      status: { icon: lostRevenueStatus.statusIcon, label: lostRevenueStatus.statusLabel },
+      status: {
+        icon: lostRevenueStatus.statusIcon,
+        label: lostRevenueStatus.statusLabel,
+      },
       // stage and is_cancelled are orthogonal columns -- a lead can be
       // cancelled from any stage, not just LOST. lostOrCancelled mirrors
       // lostRevenue/lostLeads' own (stage='LOST' OR is_cancelled) union

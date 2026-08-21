@@ -8,17 +8,15 @@ import { supabase } from "../../../../../lib/supabaseClient";
  * table) -- same RCT2-style join trap as the AR side, see
  * data-dictionary.md.
  *
- * inv_entry/doc_type/doc_entry are returned raw, NOT resolved to a bill here.
- * doc_entry -> sap_vendor_bills.doc_entry is confirmed, but only when
- * doc_type = 18 (OPCH, vendor bill) -- doc_type = 19 (ORPC, A/P credit memo)
- * and other values point at different, unextracted document tables, which is
- * expected, not a bug (see get_finance_dashboard_rpc.sql's "THE VPM2 JOIN
- * TRAP" comment). inv_entry is NOT the bill FK -- its true meaning is
- * undetermined, same caveat as sap_payment_applications.inv_entry on the AR
- * side. Resolving doc_entry into a displayed bill number (join
- * sap_vendor_bills on doc_entry + doc_type=18, left-join to leave non-bill
- * rows blank) is a small, not-yet-done follow-up -- raw values are still
- * shown here for now.
+ * Each row is enriched with `bill` (the resolved sap_vendor_bills row, or
+ * null) via the CONFIRMED FK: doc_entry -> sap_vendor_bills.doc_entry, only
+ * when doc_type = 18 (OPCH, vendor bill) -- doc_type = 19 (ORPC, A/P credit
+ * memo) and other values point at different, unextracted document tables,
+ * which is expected, not a bug (see get_finance_dashboard_rpc.sql's "THE
+ * VPM2 JOIN TRAP" comment). inv_entry is NOT the bill FK -- its true meaning
+ * is undetermined, same caveat as sap_payment_applications.inv_entry on the
+ * AR side -- still used for the "On Account"/"Entry #N" fallback label when
+ * `bill` doesn't resolve.
  */
 export async function fetchVendorPaymentApplications(vendorPaymentDocEntry) {
   if (!vendorPaymentDocEntry) return [];
@@ -30,5 +28,37 @@ export async function fetchVendorPaymentApplications(vendorPaymentDocEntry) {
 
   if (error) throw error;
 
-  return data || [];
+  const applications = data || [];
+
+  const billDocEntries = [
+    ...new Set(
+      applications
+        .filter((application) => application.doc_type === 18)
+        .map((application) => application.doc_entry),
+    ),
+  ];
+
+  if (billDocEntries.length === 0) {
+    return applications.map((application) => ({ ...application, bill: null }));
+  }
+
+  const { data: bills, error: billsError } = await supabase
+    .from("sap_vendor_bills")
+    .select("doc_entry, bill_number, vendor_name, total_amount_myr")
+    .in("doc_entry", billDocEntries);
+
+  if (billsError) throw billsError;
+
+  const billsByDocEntry = {};
+  (bills || []).forEach((bill) => {
+    billsByDocEntry[bill.doc_entry] = bill;
+  });
+
+  return applications.map((application) => ({
+    ...application,
+    bill:
+      application.doc_type === 18
+        ? billsByDocEntry[application.doc_entry] || null
+        : null,
+  }));
 }

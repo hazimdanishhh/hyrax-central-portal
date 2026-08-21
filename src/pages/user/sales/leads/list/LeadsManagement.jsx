@@ -54,6 +54,7 @@ export default function LeadsManagement() {
   const currentStage = searchParams.get("stage");
   const isCancelled = searchParams.get("cancelled") === "true";
   const isOnHold = searchParams.get("onHold") === "true";
+  const isPendingSAP = searchParams.get("pendingSapOrder") === "true";
   const isCreating = leadId === "new";
 
   const [isEditing, setIsEditing] = useState(isCreating);
@@ -458,6 +459,7 @@ export default function LeadsManagement() {
           currentStage,
           isCancelled,
           isOnHold,
+          isPendingSAP,
         ).map((tab) => (
           <StatusTab
             key={tab.label}

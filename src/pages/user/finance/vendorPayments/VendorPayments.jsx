@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { HandCoinsIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -9,15 +10,15 @@ import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilter
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
-import DataTable from "../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchVendorPayments } from "../../../../features/finance/vendorPayments/private/api/vendorPaymentsService";
+import { useVendorPayment } from "../../../../features/finance/vendorPayments/private/hooks/useVendorPayment";
 import { getVendorPaymentsFilterConfig } from "./filterConfig";
-import { vendorPaymentsTableConfig } from "./tableConfig";
 import VendorPaymentSidebar from "./detail/VendorPaymentSidebar";
+import VendorPaymentCard from "../../../../components/finance/vendorPaymentCard/VendorPaymentCard";
 
 /**
  * Read-only vendor payments list -- SAP is the system of record, so there's
@@ -28,8 +29,9 @@ import VendorPaymentSidebar from "./detail/VendorPaymentSidebar";
  */
 export default function VendorPayments() {
   const { darkMode } = useTheme();
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const { docEntry } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     data: vendorPayments,
@@ -55,17 +57,34 @@ export default function VendorPayments() {
     defaultSortOrder: "descending",
   });
 
+  const { data: fetchedVendorPayment } = useVendorPayment(docEntry);
+
+  // Find selected row based on URL param -- in-memory paginated list first
+  // (instant UI for a click from the list), falling back to the
+  // fetch-by-id result (direct/shared URL). Same shape as Orders.jsx's
+  // selectedRow.
+  const selectedRow = useMemo(() => {
+    if (!docEntry) return null;
+
+    const vendorPaymentInList = vendorPayments?.find(
+      (vendorPayment) => String(vendorPayment.doc_entry) === docEntry,
+    );
+    if (vendorPaymentInList) return vendorPaymentInList;
+
+    return fetchedVendorPayment || null;
+  }, [docEntry, vendorPayments, fetchedVendorPayment]);
+
+  const sidebarOpen = !!selectedRow;
+
   const filterConfig = getVendorPaymentsFilterConfig();
-  const columns = vendorPaymentsTableConfig();
   const hasData = vendorPayments.length > 0;
 
   function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
+    navigate(`${row.doc_entry}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
+    navigate(`/app/finance/vendor-payments?${searchParams.toString()}`);
   }
 
   return (
@@ -81,7 +100,7 @@ export default function VendorPayments() {
               filters={filters}
               onFilterChange={setFilters}
               filterConfig={filterConfig}
-              placeholder="Search vendor payments..."
+              placeholder="Search by Payment# or Vendor Name..."
               enableDateRange
             />
 
@@ -120,12 +139,15 @@ export default function VendorPayments() {
               ) : error ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <DataTable
-                  data={vendorPayments}
-                  columns={columns}
-                  rowKey="doc_entry"
-                  onRowClick={handleOpenSidebar}
-                />
+                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                  {vendorPayments.map((vendorPayment) => (
+                    <VendorPaymentCard
+                      key={vendorPayment.doc_entry}
+                      vendorPayment={vendorPayment}
+                      onClick={() => handleOpenSidebar(vendorPayment)}
+                    />
+                  ))}
+                </CardLayout>
               )}
             </div>
           </CardWrapper>

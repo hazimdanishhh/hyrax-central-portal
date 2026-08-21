@@ -1,0 +1,78 @@
+import { ClockIcon } from "@phosphor-icons/react";
+import { formatDate } from "../../../functions/formatDate";
+import StatusBox from "../../status/statusBox/StatusBox";
+import StatusBadge from "../../status/statusBadge/StatusBadge";
+import IconCard from "../../iconCard/IconCard";
+
+// Read-only card for a sap_vendor_payments row -- AP mirror of PaymentCard.
+export default function VendorPaymentCard({ vendorPayment, onClick }) {
+  const isActive = vendorPayment.is_cancelled !== "Y";
+  const total = vendorPayment.total_amount_myr || 0;
+  const unallocated = vendorPayment.unallocated_amount || 0;
+
+  return (
+    <button className="generalCard salesOrderCard" onClick={onClick}>
+      <div className="salesOrderCardHeader">
+        <div className="salesOrderCardHeaderLeft">
+          <div className="salesOrderStatus">
+            <StatusBadge
+              status={isActive ? "Active" : "Cancelled"}
+              type={isActive ? "green" : "red"}
+            />
+          </div>
+
+          <div className="salesOrderCardHeaderDetails">
+            <p className="textBold textXS">
+              PMT# {vendorPayment.payment_number}
+            </p>
+
+            <div className="salesOrderCustomer">
+              <StatusBox status={vendorPayment.vendor_code} type="blue" />
+              <p
+                className="textLight textXXS truncate"
+                title={vendorPayment.vendor_name}
+              >
+                {vendorPayment.vendor_name}
+              </p>
+            </div>
+
+            <StatusBox
+              status={
+                vendorPayment.reference
+                  ? `Ref: ${vendorPayment.reference}`
+                  : "Ref: —"
+              }
+              type={vendorPayment.reference ? "green" : "grey"}
+            />
+          </div>
+        </div>
+
+        <div className="salesOrderCardRight">
+          <div className="salesOrderCardDates">
+            <IconCard
+              icon={ClockIcon}
+              weight="fill"
+              name={
+                vendorPayment.payment_date
+                  ? `Payment: ${formatDate(vendorPayment.payment_date)}`
+                  : "—"
+              }
+              style="blue textXXXS textBold"
+            />
+          </div>
+
+          <div className="salesOrderCardHeaderDetails">
+            <p className="textLight textXXS">
+              <strong className="textBold">Total (RM):</strong> RM{" "}
+              {Math.round(total).toLocaleString()}
+            </p>
+            <p className="textLight textXXS">
+              <strong className="textBold">Unallocated (RM):</strong> RM{" "}
+              {Math.round(unallocated).toLocaleString()}
+            </p>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}

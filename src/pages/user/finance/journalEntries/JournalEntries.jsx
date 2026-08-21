@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { BookOpenIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -15,6 +16,7 @@ import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchJournalEntries } from "../../../../features/finance/journalEntries/private/api/journalEntriesService";
+import { useJournalEntry } from "../../../../features/finance/journalEntries/private/hooks/useJournalEntry";
 import { getJournalEntriesFilterConfig } from "./filterConfig";
 import { journalEntriesTableConfig } from "./tableConfig";
 import JournalEntrySidebar from "./detail/JournalEntrySidebar";
@@ -30,8 +32,9 @@ import JournalEntrySidebar from "./detail/JournalEntrySidebar";
  */
 export default function JournalEntries() {
   const { darkMode } = useTheme();
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const { transId } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     data: journalEntries,
@@ -57,17 +60,35 @@ export default function JournalEntries() {
     defaultSortOrder: "descending",
   });
 
+  const { data: fetchedJournalEntry } = useJournalEntry(transId);
+
+  // Find selected row based on URL param -- in-memory paginated list first
+  // (instant UI for a click from the list), falling back to the
+  // fetch-by-id result (direct/shared URL). Same shape as Orders.jsx's
+  // selectedRow, keyed by trans_id instead of doc_entry.
+  const selectedRow = useMemo(() => {
+    if (!transId) return null;
+
+    const entryInList = journalEntries?.find(
+      (entry) => String(entry.trans_id) === transId,
+    );
+    if (entryInList) return entryInList;
+
+    return fetchedJournalEntry || null;
+  }, [transId, journalEntries, fetchedJournalEntry]);
+
+  const sidebarOpen = !!selectedRow;
+
   const filterConfig = getJournalEntriesFilterConfig();
   const columns = journalEntriesTableConfig();
   const hasData = journalEntries.length > 0;
 
   function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
+    navigate(`${row.trans_id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
+    navigate(`/app/finance/journal-entries?${searchParams.toString()}`);
   }
 
   return (

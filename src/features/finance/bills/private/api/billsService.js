@@ -25,9 +25,19 @@ export async function fetchBills({
 
   // --- SEARCH ---
   if (search) {
-    query = query.or(
-      `bill_number.ilike.%${search}%,vendor_name.ilike.%${search}%`,
-    );
+    const cleanSearch = search.trim();
+    // Check if the search term is only numbers
+    const isNumeric = /^\d+$/.test(cleanSearch);
+
+    // Always search the text columns
+    let orQuery = `vendor_name.ilike.%${cleanSearch}%`;
+
+    // If it's a number, also search so_number for an exact match
+    if (isNumeric) {
+      orQuery += `,bill_number.eq.${cleanSearch}`;
+    }
+
+    query = query.or(orQuery);
   }
 
   // --- FILTERS ---
@@ -77,4 +87,24 @@ export async function fetchBills({
     data: data || [],
     totalCount: count || 0,
   };
+}
+
+/**
+ * Fetch-by-id fallback for the /app/finance/bills/:docEntry detail route --
+ * covers a direct/shared URL where the bill isn't already in the in-memory
+ * paginated list. Mirrors salesOrdersService.js's fetchSalesOrderByDocEntry,
+ * minus the rep-enrichment join (fetchBills doesn't join one either).
+ */
+export async function fetchBillByDocEntry(docEntry) {
+  if (!docEntry) return null;
+
+  const { data, error } = await supabase
+    .from("sap_vendor_bills")
+    .select("*")
+    .eq("doc_entry", Number(docEntry))
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data || null;
 }

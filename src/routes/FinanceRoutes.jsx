@@ -17,7 +17,10 @@ export default (
     {/* INDEX */}
     <Route index element={<Navigate to="reports" replace />} />
 
-    {/* INVOICES */}
+    {/* INVOICES -- :docEntry child route (2026-08) opens the detail sidebar
+        via a real URL, mirroring Sales Orders'/Leads' :docEntry/:leadId
+        pattern, so a matched-entity card elsewhere (e.g. a Sales Order's
+        "MATCHED INVOICE(S)" block) can deep-link straight to one invoice. */}
     <Route
       path="invoices"
       element={
@@ -25,9 +28,11 @@ export default (
           <Invoices />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":docEntry" element={null} />
+    </Route>
 
-    {/* PAYMENTS */}
+    {/* PAYMENTS -- :docEntry child route (2026-08), same pattern as Invoices. */}
     <Route
       path="payments"
       element={
@@ -35,11 +40,14 @@ export default (
           <Payments />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":docEntry" element={null} />
+    </Route>
 
     {/* BILLS (Accounts Payable chain, added 2026-07, Finance Expansion Phase 1) --
         access gate mirrors Invoices' exactly (department-only, no role
-        restriction), since Bills mirrors Invoices file-for-file. */}
+        restriction), since Bills mirrors Invoices file-for-file. :docEntry
+        child route (2026-08), same pattern as Invoices. */}
     <Route
       path="bills"
       element={
@@ -47,11 +55,14 @@ export default (
           <Bills />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":docEntry" element={null} />
+    </Route>
 
     {/* VENDOR PAYMENTS (Accounts Payable chain, added 2026-07, Finance Expansion Phase 1) --
         access gate mirrors Payments' exactly (department only, no role restriction),
-        since Vendor Payments mirrors Payments file-for-file. */}
+        since Vendor Payments mirrors Payments file-for-file. :docEntry child
+        route (2026-08), same pattern as Invoices. */}
     <Route
       path="vendor-payments"
       element={
@@ -59,12 +70,16 @@ export default (
           <VendorPayments />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":docEntry" element={null} />
+    </Route>
 
     {/* JOURNAL ENTRIES (General Ledger, added 2026-07, Finance Expansion
         Phase 2 follow-up) -- access gate mirrors Bills'/Invoices' exactly
         (department-only, no role restriction), since Journal Entries mirrors
-        that same read-only list+drill-down pattern. */}
+        that same read-only list+drill-down pattern. :transId child route
+        (2026-08) -- trans_id, not doc_entry, is sap_gl_journal_entries'
+        natural key. */}
     <Route
       path="journal-entries"
       element={
@@ -72,7 +87,9 @@ export default (
           <JournalEntries />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":transId" element={null} />
+    </Route>
 
     {/* CHART OF ACCOUNTS (General Ledger reference data, added 2026-07,
         Finance Expansion Phase 2 follow-up) -- same access gate as Journal

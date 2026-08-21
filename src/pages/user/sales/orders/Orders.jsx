@@ -114,7 +114,7 @@ export default function Orders() {
         filters={filters}
         onFilterChange={setFilters}
         filterConfig={filterConfig}
-        placeholder="Search sales orders..."
+        placeholder="Search by SO#, PO# or Customer Name..."
         enableDateRange
       />
 

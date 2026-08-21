@@ -3,6 +3,7 @@ export const stageTabsConfig = (
   currentStage,
   isCancelled,
   isOnHold,
+  isPendingSAP,
 ) => [
   {
     label: "ALL",
@@ -44,7 +45,14 @@ export const stageTabsConfig = (
     label: "WON",
     to: "?stage=WON",
     themeType: "approval",
-    isActive: currentStage === "WON" && !isCancelled && !isOnHold,
+    isActive:
+      currentStage === "WON" && !isCancelled && !isOnHold && !isPendingSAP,
+  },
+  {
+    label: "PENDING SAP",
+    to: "?stage=WON&pendingSapOrder=true",
+    themeType: "rejection",
+    isActive: currentStage === "WON" && isPendingSAP,
   },
   {
     label: "LOST",

@@ -1,13 +1,13 @@
 import { FileTextIcon } from "@phosphor-icons/react";
+import { useNavigate } from "react-router";
 import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import DataTable from "../../../../../components/dataTable/DataTable";
 import { formatDate } from "../../../../../functions/formatDate";
 import { useVendorPaymentApplications } from "../../../../../features/finance/vendorPayments/private/hooks/useVendorPaymentApplications";
-import { vendorPaymentApplicationsTableConfig } from "./vendorPaymentApplicationsTableConfig";
+import VendorPaymentApplicationCard from "../../../../../components/finance/vendorPaymentApplicationCard/VendorPaymentApplicationCard";
 
 /**
  * Read-only detail view for a vendor payment -- no Edit button anywhere, no
@@ -15,17 +15,17 @@ import { vendorPaymentApplicationsTableConfig } from "./vendorPaymentApplication
  * permanently in its read-only (children-only) mode for this entity.
  */
 export default function VendorPaymentSidebar({ selectedRow }) {
+  const navigate = useNavigate();
   const {
     data: applications,
     isLoading,
     error,
   } = useVendorPaymentApplications(selectedRow?.doc_entry);
 
-  const columns = vendorPaymentApplicationsTableConfig();
   const hasData = applications?.length > 0;
 
   return (
-    <>
+    <div className="salesOrderSidebar">
       <CardLayout style="cardLayout1 generalCard cardPadding">
         <DetailFieldGrid
           fields={[
@@ -61,9 +61,24 @@ export default function VendorPaymentSidebar({ selectedRow }) {
         ) : !hasData ? (
           <NoResult />
         ) : (
-          <DataTable data={applications} columns={columns} rowKey="doc_entry" />
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+            {applications.map((application) => (
+              <VendorPaymentApplicationCard
+                key={application.doc_line}
+                application={application}
+                onClick={
+                  application.bill
+                    ? () =>
+                        navigate(
+                          `/app/finance/bills/${application.bill.doc_entry}?search=${application.bill.bill_number}`,
+                        )
+                    : undefined
+                }
+              />
+            ))}
+          </CardLayout>
         )}
       </CardLayout>
-    </>
+    </div>
   );
 }

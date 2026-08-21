@@ -1,13 +1,13 @@
 import { FileTextIcon } from "@phosphor-icons/react";
+import { useNavigate } from "react-router";
 import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import DataTable from "../../../../../components/dataTable/DataTable";
 import { formatDate } from "../../../../../functions/formatDate";
 import { usePaymentApplications } from "../../../../../features/finance/payments/private/hooks/usePaymentApplications";
-import { paymentApplicationsTableConfig } from "./paymentApplicationsTableConfig";
+import PaymentApplicationCard from "../../../../../components/finance/paymentApplicationCard/PaymentApplicationCard";
 
 /**
  * Read-only detail view for a payment -- no Edit button anywhere, no
@@ -15,17 +15,17 @@ import { paymentApplicationsTableConfig } from "./paymentApplicationsTableConfig
  * permanently in its read-only (children-only) mode for this entity.
  */
 export default function PaymentSidebar({ selectedRow }) {
+  const navigate = useNavigate();
   const {
     data: applications,
     isLoading,
     error,
   } = usePaymentApplications(selectedRow?.doc_entry);
 
-  const columns = paymentApplicationsTableConfig();
   const hasData = applications?.length > 0;
 
   return (
-    <>
+    <div className="salesOrderSidebar">
       <CardLayout style="cardLayout1 generalCard cardPadding">
         <DetailFieldGrid
           fields={[
@@ -61,9 +61,24 @@ export default function PaymentSidebar({ selectedRow }) {
         ) : !hasData ? (
           <NoResult />
         ) : (
-          <DataTable data={applications} columns={columns} rowKey="doc_entry" />
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+            {applications.map((application) => (
+              <PaymentApplicationCard
+                key={application.doc_line}
+                application={application}
+                onClick={
+                  application.invoice
+                    ? () =>
+                        navigate(
+                          `/app/finance/invoices/${application.invoice.doc_entry}?search=${application.invoice.invoice_number}`,
+                        )
+                    : undefined
+                }
+              />
+            ))}
+          </CardLayout>
         )}
       </CardLayout>
-    </>
+    </div>
   );
 }

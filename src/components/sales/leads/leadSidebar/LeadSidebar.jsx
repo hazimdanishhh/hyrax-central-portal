@@ -311,7 +311,9 @@ export default function LeadSidebar({
                     onClick={
                       canAccess({ departments: ["SAL"] })
                         ? () =>
-                            navigate(`/app/sales/orders/all/${order.doc_entry}`)
+                            navigate(
+                              `/app/sales/orders/all/${order.doc_entry}?search=${order.so_number}`,
+                            )
                         : undefined
                     }
                   />

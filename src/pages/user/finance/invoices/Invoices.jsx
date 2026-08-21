@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { FileTextIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -9,15 +10,14 @@ import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilter
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
-import DataTable from "../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchInvoices } from "../../../../features/finance/invoices/private/api/invoicesService";
+import { useInvoice } from "../../../../features/finance/invoices/private/hooks/useInvoice";
 import { useFinanceMetadata } from "../../../../features/finance/reports/private/hooks/useFinanceMetadata";
 import { getInvoicesFilterConfig } from "./filterConfig";
-import { invoicesTableConfig } from "./tableConfig";
 import InvoiceSidebar from "./detail/InvoiceSidebar";
 import InvoiceCard from "../../../../components/finance/invoiceCard/InvoiceCard";
 
@@ -29,8 +29,9 @@ import InvoiceCard from "../../../../components/finance/invoiceCard/InvoiceCard"
  */
 export default function Invoices() {
   const { darkMode } = useTheme();
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const { docEntry } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     data: invoices,
@@ -63,8 +64,27 @@ export default function Invoices() {
     error: metadataError,
   } = useFinanceMetadata();
 
+  const { data: fetchedInvoice } = useInvoice(docEntry);
+
+  // Find selected row based on URL param -- in-memory paginated list first
+  // (instant UI for a click from the list), falling back to the
+  // fetch-by-id result (direct/shared URL, or a matched-order card
+  // deep-linking straight to an invoice). Same shape as Orders.jsx's
+  // selectedRow.
+  const selectedRow = useMemo(() => {
+    if (!docEntry) return null;
+
+    const invoiceInList = invoices?.find(
+      (invoice) => String(invoice.doc_entry) === docEntry,
+    );
+    if (invoiceInList) return invoiceInList;
+
+    return fetchedInvoice || null;
+  }, [docEntry, invoices, fetchedInvoice]);
+
+  const sidebarOpen = !!selectedRow;
+
   const filterConfig = getInvoicesFilterConfig({ salesReps });
-  const columns = invoicesTableConfig();
 
   const isLoading = invoicesLoading || metadataLoading;
   const isFetching = invoicesFetching || metadataFetching;
@@ -72,12 +92,11 @@ export default function Invoices() {
   const hasData = invoices.length > 0;
 
   function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
+    navigate(`${row.doc_entry}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
+    navigate(`/app/finance/invoices?${searchParams.toString()}`);
   }
 
   return (
@@ -93,7 +112,7 @@ export default function Invoices() {
               filters={filters}
               onFilterChange={setFilters}
               filterConfig={filterConfig}
-              placeholder="Search invoices..."
+              placeholder="Search by INV# or Customer Name..."
               enableDateRange
             />
 

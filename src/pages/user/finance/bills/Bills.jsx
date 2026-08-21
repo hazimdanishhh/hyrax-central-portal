@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { InvoiceIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -9,15 +10,15 @@ import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilter
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
-import DataTable from "../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchBills } from "../../../../features/finance/bills/private/api/billsService";
+import { useBill } from "../../../../features/finance/bills/private/hooks/useBill";
 import { getBillsFilterConfig } from "./filterConfig";
-import { billsTableConfig } from "./tableConfig";
 import BillSidebar from "./detail/BillSidebar";
+import BillCard from "../../../../components/finance/billCard/BillCard";
 
 /**
  * Read-only vendor bills list -- SAP is the system of record, so there's no
@@ -28,8 +29,9 @@ import BillSidebar from "./detail/BillSidebar";
  */
 export default function Bills() {
   const { darkMode } = useTheme();
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const { docEntry } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     data: bills,
@@ -55,17 +57,34 @@ export default function Bills() {
     defaultSortOrder: "descending",
   });
 
+  const { data: fetchedBill } = useBill(docEntry);
+
+  // Find selected row based on URL param -- in-memory paginated list first
+  // (instant UI for a click from the list), falling back to the
+  // fetch-by-id result (direct/shared URL). Same shape as Orders.jsx's
+  // selectedRow.
+  const selectedRow = useMemo(() => {
+    if (!docEntry) return null;
+
+    const billInList = bills?.find(
+      (bill) => String(bill.doc_entry) === docEntry,
+    );
+    if (billInList) return billInList;
+
+    return fetchedBill || null;
+  }, [docEntry, bills, fetchedBill]);
+
+  const sidebarOpen = !!selectedRow;
+
   const filterConfig = getBillsFilterConfig();
-  const columns = billsTableConfig();
   const hasData = bills.length > 0;
 
   function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
+    navigate(`${row.doc_entry}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
+    navigate(`/app/finance/bills?${searchParams.toString()}`);
   }
 
   return (
@@ -81,7 +100,7 @@ export default function Bills() {
               filters={filters}
               onFilterChange={setFilters}
               filterConfig={filterConfig}
-              placeholder="Search bills..."
+              placeholder="Search by BILL# or Vendor Name..."
               enableDateRange
             />
 
@@ -120,12 +139,15 @@ export default function Bills() {
               ) : error ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <DataTable
-                  data={bills}
-                  columns={columns}
-                  rowKey="doc_entry"
-                  onRowClick={handleOpenSidebar}
-                />
+                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                  {bills.map((bill) => (
+                    <BillCard
+                      key={bill.doc_entry}
+                      bill={bill}
+                      onClick={() => handleOpenSidebar(bill)}
+                    />
+                  ))}
+                </CardLayout>
               )}
             </div>
           </CardWrapper>

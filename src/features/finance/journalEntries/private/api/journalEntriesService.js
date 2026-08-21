@@ -60,3 +60,26 @@ export async function fetchJournalEntries({
     totalCount: count || 0,
   };
 }
+
+/**
+ * Fetch-by-id fallback for the /app/finance/journal-entries/:transId detail
+ * route -- covers a direct/shared URL where the journal entry isn't already
+ * in the in-memory paginated list. Keyed by trans_id, not doc_entry --
+ * sap_gl_journal_entries' natural key (OJDT.TransId), unlike every other
+ * Finance submodule here. Mirrors salesOrdersService.js's
+ * fetchSalesOrderByDocEntry, minus the rep-enrichment join
+ * (fetchJournalEntries doesn't join one either).
+ */
+export async function fetchJournalEntryByTransId(transId) {
+  if (!transId) return null;
+
+  const { data, error } = await supabase
+    .from("sap_gl_journal_entries")
+    .select("*")
+    .eq("trans_id", Number(transId))
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data || null;
+}

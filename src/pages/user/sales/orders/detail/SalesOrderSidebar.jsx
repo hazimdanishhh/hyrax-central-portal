@@ -1,18 +1,26 @@
-import { FileTextIcon, HandshakeIcon } from "@phosphor-icons/react";
+import {
+  FileTextIcon,
+  HandshakeIcon,
+  ReceiptIcon,
+} from "@phosphor-icons/react";
+import { useNavigate } from "react-router";
 import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
+import IconCard from "../../../../../components/iconCard/IconCard";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import { formatDate } from "../../../../../functions/formatDate";
 import { useSalesOrderLines } from "../../../../../features/sales/orders/private/hooks/useSalesOrderLines";
 import { useLeadByPoNumber } from "../../../../../features/sales/leads/private/hooks/useLeadByPoNumber";
+import { useInvoicesForSalesOrder } from "../../../../../features/finance/invoices/private/hooks/useInvoicesForSalesOrder";
 import { useAccessControl } from "../../../../../context/AccessControlContext";
 import { salesOrderLinesTableConfig } from "./salesOrderLinesTableConfig";
 import "./SalesOrderSidebar.scss";
 import SalesOrderCard from "../../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
 import SalesOrderLineCard from "../../../../../components/sales/orders/salesOrderLineCard/SalesOrderLineCard";
+import InvoiceCard from "../../../../../components/finance/invoiceCard/InvoiceCard";
 import RouterButton from "../../../../../components/buttons/routerButton/RouterButton";
 
 /**
@@ -21,6 +29,7 @@ import RouterButton from "../../../../../components/buttons/routerButton/RouterB
  * permanently in its read-only (children-only) mode for this entity.
  */
 export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
+  const navigate = useNavigate();
   const { canAccess } = useAccessControl();
   const {
     data: lines,
@@ -33,6 +42,16 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
   // po_number is UNIQUE, so this is at most one lead, no 0/1/many handling
   // needed here.
   const { data: matchedLead } = useLeadByPoNumber(selectedRow?.customer_ref);
+
+  // Reverse of InvoiceSidebar.jsx's "MATCHED SALES ORDER(S)" block --
+  // resolved via SAP's real document trail (sap_invoice_lines'
+  // base_entry/base_type), not the free-typed PO number. No uniqueness
+  // constraint in this chain, so this is 0/1/many (unlike matchedLead above).
+  const {
+    data: matchedInvoices = [],
+    isLoading: matchedInvoicesLoading,
+    error: matchedInvoicesError,
+  } = useInvoicesForSalesOrder(selectedRow?.doc_entry);
 
   const columns = salesOrderLinesTableConfig();
   const hasData = lines?.length > 0;
@@ -59,6 +78,46 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
           style="button buttonType4 textXXS"
         />
       )}
+
+      {/* MATCHED INVOICE(S) -- live lookup via SAP's real document trail
+          (sap_invoice_lines.base_entry/base_type), not a persisted bridge.
+          Reverse of InvoiceSidebar.jsx's "MATCHED SALES ORDER(S)" block.
+          Each matched card deep-links straight to that invoice's own detail
+          page (/app/finance/invoices/:docEntry), gated the same as any other
+          Invoices link -- only shown to users who'd actually pass that
+          route's own access check (FinanceRoutes.jsx: departments=["FIN"]). */}
+      <CardLayout style="generalCard cardPaddingSmall">
+        <IconCard
+          name="Matched Invoice(s)"
+          icon={ReceiptIcon}
+          style="textBold textXS"
+        />
+
+        {matchedInvoicesLoading ? (
+          <LoadingIcon />
+        ) : matchedInvoicesError ? (
+          <NoResult title="Error checking for a matching invoice" />
+        ) : matchedInvoices.length === 0 ? (
+          <NoResult title="No matching invoice found" />
+        ) : (
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+            {matchedInvoices.map((invoice) => (
+              <InvoiceCard
+                key={invoice.doc_entry}
+                invoice={invoice}
+                onClick={
+                  canAccess({ departments: ["FIN"] })
+                    ? () =>
+                        navigate(
+                          `/app/finance/invoices/${invoice.doc_entry}?search=${invoice.invoice_number}`,
+                        )
+                    : undefined
+                }
+              />
+            ))}
+          </CardLayout>
+        )}
+      </CardLayout>
 
       <CardLayout style="generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Order Lines" />

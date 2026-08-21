@@ -56,9 +56,19 @@ export async function fetchSalesOrders({
 
   // --- SEARCH ---
   if (search) {
-    query = query.or(
-      `so_number.ilike.%${search}%,customer_name.ilike.%${search}%,customer_ref.ilike.%${search}%`,
-    );
+    const cleanSearch = search.trim();
+    // Check if the search term is only numbers
+    const isNumeric = /^\d+$/.test(cleanSearch);
+
+    // Always search the text columns
+    let orQuery = `customer_name.ilike.%${cleanSearch}%,customer_ref.ilike.%${cleanSearch}%`;
+
+    // If it's a number, also search so_number for an exact match
+    if (isNumeric) {
+      orQuery += `,so_number.eq.${cleanSearch}`;
+    }
+
+    query = query.or(orQuery);
   }
 
   // --- FILTERS ---
@@ -136,4 +146,65 @@ export async function fetchSalesOrderByDocEntry(docEntry) {
   if (!data) return null;
 
   return attachRep(data, repsByCode);
+}
+
+/**
+ * Reverse of invoicesService.js's fetchInvoicesForSalesOrder -- resolves the
+ * sales order(s) an invoice was generated from via SAP's real document trail
+ * (sap_invoice_lines' base_entry/base_type), not the free-typed PO number
+ * (unlike useSalesOrderByPoNumber.js's Lead<->Order match). Two confirmed
+ * branches: base_type=17 (direct from a sales order) and base_type=15 (via a
+ * delivery in between, resolved through sap_delivery_lines). A live data
+ * check (2026-08) confirmed sap_deliveries has no rows after 2022-05-25, and
+ * no invoice has used the base_type=15 path since that same date -- so the
+ * delivery hop below is included for historical correctness but will only
+ * ever resolve pre-2022 invoices in practice. No uniqueness constraint
+ * exists anywhere in this chain, so this can resolve to 0, 1, or many rows.
+ */
+export async function fetchSalesOrdersForInvoice(invoiceDocEntry) {
+  if (!invoiceDocEntry) return [];
+
+  const { data: lines, error: linesError } = await supabase
+    .from("sap_invoice_lines")
+    .select("base_entry, base_type")
+    .eq("doc_entry", invoiceDocEntry);
+
+  if (linesError) throw linesError;
+  if (!lines?.length) return [];
+
+  const directSoIds = lines
+    .filter((line) => line.base_type === 17)
+    .map((line) => line.base_entry);
+
+  const deliveryIds = [
+    ...new Set(
+      lines
+        .filter((line) => line.base_type === 15)
+        .map((line) => line.base_entry),
+    ),
+  ];
+
+  let soIdsViaDelivery = [];
+  if (deliveryIds.length > 0) {
+    const { data: deliveryLines, error: deliveryLinesError } = await supabase
+      .from("sap_delivery_lines")
+      .select("base_entry")
+      .in("doc_entry", deliveryIds)
+      .eq("base_type", 17);
+
+    if (deliveryLinesError) throw deliveryLinesError;
+    soIdsViaDelivery = (deliveryLines || []).map((line) => line.base_entry);
+  }
+
+  const soIds = [...new Set([...directSoIds, ...soIdsViaDelivery])];
+  if (soIds.length === 0) return [];
+
+  const [{ data: orders, error: ordersError }, repsByCode] = await Promise.all([
+    supabase.from("sap_sales_orders").select("*").in("doc_entry", soIds),
+    fetchRepsByCode(),
+  ]);
+
+  if (ordersError) throw ordersError;
+
+  return (orders || []).map((order) => attachRep(order, repsByCode));
 }
