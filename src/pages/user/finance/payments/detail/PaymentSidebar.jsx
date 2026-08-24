@@ -27,7 +27,7 @@ export default function PaymentSidebar({ selectedRow }) {
     <div className="salesOrderSidebar">
       <PaymentCard payment={selectedRow} onClick={() => {}} />
 
-      <CardLayout style="sidebarTable cardWrapperScroll generalCard cardPaddingSmall">
+      <CardLayout style="generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Payment Applications" />
 
         {isLoading ? (

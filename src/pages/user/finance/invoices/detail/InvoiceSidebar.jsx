@@ -119,7 +119,7 @@ export default function InvoiceSidebar({ selectedRow }) {
         )}
       </CardLayout>
 
-      <CardLayout style="sidebarTable cardWrapperScroll generalCard cardPaddingSmall">
+      <CardLayout style="generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Line Items" />
 
         {isLoading ? (

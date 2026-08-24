@@ -70,7 +70,7 @@ export default function BillSidebar({ selectedRow }) {
         )}
       </CardLayout>
 
-      <CardLayout style="sidebarTable cardWrapperScroll generalCard cardPaddingSmall">
+      <CardLayout style="generalCard cardPaddingSmall">
         <SectionHeader icon={InvoiceIcon} title="Line Items" />
 
         {isLoading ? (
