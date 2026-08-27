@@ -238,7 +238,7 @@ export default function ProjectsManagement() {
               ))}
             </div>
 
-            <CardLayout style="cardWrapperScroll generalCard cardPaddingSmall">
+            <CardLayout style="cardWrapperScroll">
               {isLoading || isFetching ? (
                 <CardLayout style="cardLayoutFlexFull">
                   <LoadingIcon />

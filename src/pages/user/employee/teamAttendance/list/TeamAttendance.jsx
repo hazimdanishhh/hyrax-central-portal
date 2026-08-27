@@ -205,7 +205,8 @@ export default function TeamAttendance() {
 
   async function handleConfirmAction(formValues) {
     if (modalType === "approve") await handleApprove(selectedId);
-    if (modalType === "reject") await handleReject(selectedId, formValues?.reason);
+    if (modalType === "reject")
+      await handleReject(selectedId, formValues?.reason);
 
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["team_attendance_daily"] }),
@@ -229,7 +230,11 @@ export default function TeamAttendance() {
       />
 
       <PageHeader>
-        <PageActions layout={layout} setLayout={setLayout} options={layoutOptions} />
+        <PageActions
+          layout={layout}
+          setLayout={setLayout}
+          options={layoutOptions}
+        />
 
         <SortBar
           sortBy={sortBy}
@@ -307,7 +312,7 @@ export default function TeamAttendance() {
         />
       )}
 
-      <div className="cardWrapperScroll generalCard">
+      <div className="cardWrapperScroll">
         {isLoading || isFetching ? (
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />

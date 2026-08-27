@@ -265,7 +265,7 @@ export default function ProjectTasksTab() {
         ))}
       </div>
 
-      <CardLayout style="cardWrapperScroll generalCard cardPaddingSmall">
+      <CardLayout style="cardWrapperScroll">
         {isLoading ? (
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />

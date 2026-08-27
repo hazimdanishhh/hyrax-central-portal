@@ -129,7 +129,7 @@ export default function Bills() {
               error={error}
             />
 
-            <div className="cardWrapperScroll generalCard">
+            <div className="cardWrapperScroll">
               {isLoading || isFetching ? (
                 <CardLayout style="cardLayoutFlexFull">
                   <LoadingIcon />

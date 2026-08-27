@@ -45,7 +45,8 @@ export default function ProjectDocumentsTab() {
   const { members } = useProject(projectId);
   const permissions = useProjectPermissions(members);
   const { documents, isLoading, error } = useProjectDocuments(projectId);
-  const { attachDocuments, attaching, removeDocument, removing } = useDocumentMutations(projectId);
+  const { attachDocuments, attaching, removeDocument, removing } =
+    useDocumentMutations(projectId);
 
   const [pendingRemove, setPendingRemove] = useState(null);
 
@@ -79,7 +80,9 @@ export default function ProjectDocumentsTab() {
   const setFilters = (newFilters) => updateParams(newFilters);
   const resetParams = () => setSearchParams({});
 
-  const activeFilters = Object.entries(filters).filter(([, v]) => v !== "" && v != null);
+  const activeFilters = Object.entries(filters).filter(
+    ([, v]) => v !== "" && v != null,
+  );
   const hasActiveFilters = activeFilters.length > 0 || search.length > 0;
 
   const filteredDocuments = useMemo(() => {
@@ -129,11 +132,15 @@ export default function ProjectDocumentsTab() {
 
       {permissions.isWorkingMember && (
         <PageHeader>
-          <GoogleDrivePicker multiple label="Attach Document" onSelect={handleAttach} />
+          <GoogleDrivePicker
+            multiple
+            label="Attach Document"
+            onSelect={handleAttach}
+          />
         </PageHeader>
       )}
 
-      <CardLayout style="cardWrapperScroll generalCard cardPaddingSmall">
+      <CardLayout style="cardWrapperScroll">
         {isLoading || attaching ? (
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />
@@ -154,7 +161,9 @@ export default function ProjectDocumentsTab() {
               <DocumentCard
                 key={doc.id}
                 document={doc}
-                canRemove={doc.attached_by === employee?.id || permissions.isElevated}
+                canRemove={
+                  doc.attached_by === employee?.id || permissions.isElevated
+                }
                 onRemove={setPendingRemove}
               />
             ))}

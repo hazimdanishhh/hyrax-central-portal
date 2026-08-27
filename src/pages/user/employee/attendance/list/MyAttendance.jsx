@@ -177,7 +177,11 @@ export default function MyAttendance() {
       />
 
       <PageHeader>
-        <PageActions layout={layout} setLayout={setLayout} options={layoutOptions} />
+        <PageActions
+          layout={layout}
+          setLayout={setLayout}
+          options={layoutOptions}
+        />
 
         <SortBar
           sortBy={sortBy}
@@ -252,7 +256,7 @@ export default function MyAttendance() {
         />
       )}
 
-      <div className="cardWrapperScroll generalCard">
+      <div className="cardWrapperScroll">
         {isLoading || isFetching ? (
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />

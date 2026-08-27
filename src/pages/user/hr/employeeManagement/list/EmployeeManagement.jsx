@@ -367,7 +367,7 @@ export default function EmployeeManagement() {
       />
 
       {/* TABLE DISPLAY UI */}
-      <div className="cardWrapperScroll generalCard">
+      <div className="cardWrapperScroll">
         {isLoading || isFetching ? (
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />

@@ -472,7 +472,7 @@ export default function LeadsManagement() {
       </div>
 
       {/* TABLE DISPLAY UI */}
-      <CardLayout style="cardWrapperScroll generalCard">
+      <CardLayout style="cardWrapperScroll">
         {isLoading || isFetching ? (
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />

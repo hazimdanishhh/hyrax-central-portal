@@ -90,7 +90,7 @@ export default function ChartOfAccounts() {
               error={error}
             />
 
-            <div className="cardWrapperScroll generalCard">
+            <div className="cardWrapperScroll">
               {isLoading || isFetching ? (
                 <CardLayout style="cardLayoutFlexFull">
                   <LoadingIcon />
@@ -100,7 +100,11 @@ export default function ChartOfAccounts() {
               ) : error ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <DataTable data={accounts} columns={columns} rowKey="account_code" />
+                <DataTable
+                  data={accounts}
+                  columns={columns}
+                  rowKey="account_code"
+                />
               )}
             </div>
           </CardWrapper>

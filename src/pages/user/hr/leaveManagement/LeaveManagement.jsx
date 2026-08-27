@@ -153,7 +153,7 @@ export default function LeaveManagement() {
               error={error}
             />
 
-            <div className="cardWrapperScroll generalCard">
+            <div className="cardWrapperScroll">
               {isLoading || isFetching ? (
                 <CardLayout style="cardLayoutFlexFull">
                   <LoadingIcon />
@@ -195,16 +195,26 @@ export default function LeaveManagement() {
               <CardLayout style="cardLayout1 cardGapSmall">
                 <DetailRow
                   label="Employee"
-                  value={selectedRow.employee?.full_name || selectedRow.employee_code}
+                  value={
+                    selectedRow.employee?.full_name || selectedRow.employee_code
+                  }
                 />
-                <DetailRow label="Employee Code" value={selectedRow.employee_code} />
+                <DetailRow
+                  label="Employee Code"
+                  value={selectedRow.employee_code}
+                />
                 <DetailRow label="Date" value={selectedRow.leave_date} />
                 <DetailRow
                   label="Type"
-                  value={selectedRow.leave_type?.label || selectedRow.leave_type_code}
+                  value={
+                    selectedRow.leave_type?.label || selectedRow.leave_type_code
+                  }
                 />
                 <DetailRow label="Days" value={selectedRow.day_fraction} />
-                <DetailRow label="Remarks" value={selectedRow.remarks || "--"} />
+                <DetailRow
+                  label="Remarks"
+                  value={selectedRow.remarks || "--"}
+                />
                 <DetailRow
                   label="Last Synced"
                   value={
