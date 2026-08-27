@@ -198,6 +198,17 @@ function Reports() {
     value: d.revenue_myr,
   }));
 
+  // Top Products (added 2026-08) -- the first real "actual sales" product
+  // cut on this page, sourced from sap_invoice_lines (billed/invoiced), not
+  // the CRM product_type enum productTypeData above uses. See
+  // get_sales_reports_dashboard_rpc.sql's base_invoice_lines/topProductsData
+  // for the source rationale.
+  const topProductsData =
+    dashboard?.topProductsData?.map((d) => ({
+      name: d.item_name,
+      value: d.revenue_myr,
+    })) ?? [];
+
   // Invoiced / Collected / Budget (added 2026-07, invoice/budget/collected
   // rebalance) -- monthly, respects the page's own date filter (all-time if
   // unset), unlike the fixed trailing-12-month bookingsVsInvoicedTrendData
@@ -507,6 +518,17 @@ function Reports() {
                           <HorizontalBarChartRenderer
                             data={topInvoicedCustomersData}
                             colorMap={YELLOW_COLOR}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Top Products"
+                          subtitle="SAP Invoiced (RM) — actual sales, not CRM pipeline"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={topProductsData}
+                            colorMap={GREEN_COLOR}
                           />
                         </ChartCard>
                       </CardLayout>

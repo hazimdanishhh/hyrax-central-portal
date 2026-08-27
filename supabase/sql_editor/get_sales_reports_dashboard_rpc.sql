@@ -10,6 +10,18 @@ as
 $$
 declare
     result json;
+    -- Resolved/overridable copy of p_owner_id -- see the access guard below,
+    -- which forces this to the caller's own employee id for a staff-role
+    -- caller, and the sales_rep_code resolution right after it, which every
+    -- SAP-sourced base CTE now filters on. Every reference to the CRM owner
+    -- filter further down in this function reads v_owner_id, never the raw
+    -- p_owner_id parameter, so the staff self-scope override actually takes
+    -- effect everywhere (CRM AND SAP sides), not just on the SAP side.
+    v_owner_id uuid := p_owner_id;
+    v_sales_rep_code bigint;
+    v_caller_role text;
+    v_caller_department text;
+    v_caller_employee_id uuid;
 begin
 
 -- Sales Reports (Tier 3) -- department-level synthesis, distinct from Leads
@@ -28,6 +40,60 @@ begin
 --     docs/DASHBOARD-ROADMAP.md §1.1) -- NOT employees.employee_id =
 --     sap_sales_persons.employee_id (EmpID), which is confirmed broken
 --     (type mismatch, empty in production, wrong conceptual target).
+
+-- ─── Access guard (added 2026-08) ──────────────────────────────────────
+-- This RPC has SECURITY INVOKER (the default) and reads tables with no RLS
+-- at all today (sap_*, sales_leads, sales_budgets -- see
+-- supabase/access-control/table_access_matrix.csv). Without this guard, any
+-- authenticated user calling get_sales_reports_dashboard directly --
+-- bypassing the frontend's AccessRoute(departments:["SAL","MGM"],
+-- roles:["manager"]) gate entirely -- would get back full, unfiltered,
+-- company-wide data. Mirrors get_finance_dashboard_rpc.sql's own guard of
+-- the same shape (added for the same reason -- its GL source is a
+-- materialized view, which can't have RLS at all).
+--
+-- A staff-role caller is force-scoped to their own data (v_owner_id
+-- overridden below, ignoring whatever p_owner_id was actually passed) --
+-- this is currently unreachable from the frontend (sales/reports stays
+-- manager-gated), but is the foundation a future self-service surface plugs
+-- into without any further RPC change. See docs/DASHBOARD-ROADMAP.md's
+-- Sales Reports section for the deferred frontend work this sets up.
+select r.name, d.sub, e.id
+  into v_caller_role, v_caller_department, v_caller_employee_id
+from profiles p
+join roles r on r.id = p.role_id
+join departments d on d.id = p.department_id
+left join employees e on e.profile_id = p.id
+where p.id = auth.uid();
+
+if v_caller_role is null then
+    raise exception 'Access denied';
+end if;
+
+if v_caller_role <> 'superadmin' then
+    if v_caller_department not in ('SAL', 'MGM') then
+        raise exception 'Access denied';
+    end if;
+    if v_caller_role = 'staff' then
+        v_owner_id := v_caller_employee_id;
+    end if;
+end if;
+
+-- Resolve the CRM owner (employees.id) to a SAP sales_rep_code ONCE, via the
+-- same employee_sales_rep_mapping bridge invoiceBudgetScorecardData already
+-- joins for display below -- every SAP-sourced base CTE (base_invoices/
+-- base_orders/base_payment_apps/budget_math) filters on v_sales_rep_code, so
+-- selecting a Salesperson on the frontend now scopes SAP data the same way
+-- it already scoped CRM data, instead of only the latter. A rep with no
+-- employee_id assigned in that mapping table can't be reached via
+-- v_owner_id anyway (the frontend's Salesperson dropdown lists employees,
+-- not raw SAP reps), so this is a strict fix, not a behavior change for any
+-- rep reachable from the UI today.
+if v_owner_id is not null then
+    select m.sales_rep_code into v_sales_rep_code
+    from employee_sales_rep_mapping m
+    where m.employee_id = v_owner_id;
+end if;
 
 with closing_dates as (
     select lead_id, max(changed_at) as closed_date
@@ -51,20 +117,32 @@ base_leads as (
     left join closing_dates cd on cd.lead_id = sl.id
     left join clients c on c.id = sl.client_id
     left join sap_customers sc on sc.customer_code = sl.sap_customer_code
-    where (p_owner_id is null or sl.lead_owner_id = p_owner_id)
+    where (v_owner_id is null or sl.lead_owner_id = v_owner_id)
       and (p_product_type is null or sl.product_type = p_product_type)
 ),
 
+-- v_sales_rep_code (resolved above from v_owner_id via
+-- employee_sales_rep_mapping) scopes this CTE -- every downstream consumer
+-- (rep_invoice_actuals, invoice_kpis, invoiceBudgetScorecardData,
+-- grossProfitByRepData, topInvoicedCustomersData,
+-- bookingsVsInvoicedTrendData, invoicedVsBudgetTrendData, and the new
+-- base_invoice_lines/topProductsData below) reads FROM this CTE rather than
+-- re-querying sap_invoices directly, so they all inherit the filter for
+-- free instead of needing their own predicate.
 base_invoices as (
     select oi.*
     from sap_invoices oi
     where oi.is_cancelled = 'N'
+      and (v_sales_rep_code is null or oi.sales_rep_code = v_sales_rep_code)
 ),
 
+-- Same v_sales_rep_code scoping as base_invoices above -- rep_order_actuals,
+-- orderBookData, and bookingsVsInvoicedTrendData all read FROM this CTE.
 base_orders as (
     select so.*
     from sap_sales_orders so
     where so.is_cancelled = 'N'
+      and (v_sales_rep_code is null or so.sales_rep_code = v_sales_rep_code)
 ),
 
 -- Cash collected (added 2026-07, invoice/budget/collected rebalance) -- the
@@ -111,6 +189,15 @@ base_payment_apps as (
       -- back null too, and the "i.doc_entry is null or ..." form below would
       -- then incorrectly KEEP it instead of excluding it.
       and (i.doc_entry is null or i.is_cancelled = 'N')
+      -- v_sales_rep_code scoping (added 2026-08): when a Salesperson filter
+      -- is active, cash that can't be attributed to any invoice at all
+      -- (i.doc_entry is null, so i.sales_rep_code is also null) can't be
+      -- attributed to THIS rep either -- excluded, same rule
+      -- rep_collected_actuals already applies via its own "is not null"
+      -- filter, just enforced one level up here so collected_kpis/
+      -- invoicedVsBudgetTrendData (which read this CTE dept-wide, not
+      -- through rep_collected_actuals) are scoped too.
+      and (v_sales_rep_code is null or i.sales_rep_code = v_sales_rep_code)
 ),
 
 -- Forecast 1: department-wide prorated CRM pipeline target, summed across
@@ -132,11 +219,14 @@ pipeline_target_math as (
             )
         ) as prorated_target
     from sales_targets t
-    where (p_owner_id is null or t.lead_owner_id = p_owner_id)
+    where (v_owner_id is null or t.lead_owner_id = v_owner_id)
 ),
 
 -- Forecast 2: per-rep prorated invoice budget (identical proration formula,
--- keyed by sales_rep_code instead of lead_owner_id).
+-- keyed by sales_rep_code instead of lead_owner_id). v_sales_rep_code
+-- scoping added 2026-08 -- previously had no owner/rep filter at all, the
+-- clearest instance of the Invoice Budget Scorecard always showing every
+-- rep regardless of the page's Owner filter.
 budget_math as (
     select
         b.sales_rep_code,
@@ -153,6 +243,7 @@ budget_math as (
             )
         ) as prorated_budget
     from sales_budgets b
+    where (v_sales_rep_code is null or b.sales_rep_code = v_sales_rep_code)
     group by b.sales_rep_code
 ),
 
@@ -164,6 +255,55 @@ rep_invoice_actuals as (
     where (p_start_date is null or "invoice_date"::date >= p_start_date)
       and (p_end_date is null or "invoice_date"::date <= p_end_date)
     group by sales_rep_code
+),
+
+-- Top Products (added 2026-08) -- line-level SAP data behind topProductsData
+-- below, the first real "actual sales" product cut on this page (previously
+-- the only product cut was sales_leads.product_type, a 3-value CRM enum
+-- with no link to a real SKU). Sourced from INV1 (billed/invoiced), not
+-- RDR1 (booked) -- mirrors this page's existing convention that "Invoice"
+-- is always the audited/system-of-record figure (see
+-- docs/DASHBOARD-CONVENTIONS.md's Source-labeling table); a "booked"
+-- companion from sap_sales_order_lines is a cheap future addition, not
+-- built here. Joins base_invoices (not sap_invoices directly), so this
+-- inherits BOTH the is_cancelled filter and the v_sales_rep_code scoping
+-- above for free.
+--
+-- sap_invoice_lines.line_total has NO materialized MYR-converted sibling
+-- column, unlike its header table (sap_invoices has both total_amount and
+-- total_amount_myr) -- confirmed via
+-- hyrax-data-platform/ingestion/sap_supabase/src/config.py's INV1_FIELDS
+-- mapping (LineTotal -> line_total, Rate -> exchange_rate, no LineTotalSy
+-- equivalent).
+--
+-- FIXED 2026-08 (real reported bug: topProductsData showed real values for
+-- some reps, all-zero for others): do NOT multiply by the line's own
+-- exchange_rate. SAP Business One is documented to commonly store 0 in the
+-- line-level Rate field when a document's currency IS the local/system
+-- currency (MYR, true for the large majority of Hyrax's domestic invoices)
+-- -- unlike the header's DocRate, which is 1.0 for the same case, with
+-- DocTotalSy maintained separately by SAP rather than derived as DocTotal x
+-- DocRate (see SAP B1 currency docs -- this diagnosis is corroborated by
+-- SAP's own documented behavior and matches the reported symptom exactly,
+-- but has not been directly queried against Hyrax's live sap_invoice_lines
+-- data). Fix: derive a per-document MYR ratio from the header's own
+-- already-correct total_amount/total_amount_myr pair instead -- one
+-- invoice has one currency and one effective conversion factor, so this
+-- sidesteps needing the line-level Rate field to mean anything at all
+-- regardless of the exact live root cause, and guarantees sum(line MYR)
+-- reconciles to the header's total_amount_myr by construction (up to
+-- rounding), for every document regardless of currency.
+base_invoice_lines as (
+    select
+        il.*,
+        case when bi.total_amount <> 0
+             then bi.total_amount_myr / bi.total_amount
+             else 1
+        end as doc_myr_ratio
+    from sap_invoice_lines il
+    join base_invoices bi on bi.doc_entry = il.doc_entry
+    where (p_start_date is null or bi."invoice_date"::date >= p_start_date)
+      and (p_end_date is null or bi."invoice_date"::date <= p_end_date)
 ),
 
 -- The company's actual sales-side analysis: PO (sales order) vs Invoice vs
@@ -796,6 +936,32 @@ select json_build_object(
             where (p_start_date is null or "invoice_date"::date >= p_start_date)
               and (p_end_date is null or "invoice_date"::date <= p_end_date)
             group by customer_code, customer_name
+            order by revenue_myr desc
+            limit 10
+        ) x
+    ),
+
+    -- Top Products (added 2026-08) -- see base_invoice_lines above for the
+    -- source/currency-conversion rationale (doc_myr_ratio, not the line's
+    -- own exchange_rate -- fixed 2026-08, see that CTE's comment). Same
+    -- shape as Operations' topUndeliveredItemsData
+    -- (get_operations_dashboard_rpc.sql): item_code/item_name from
+    -- sap_items, quantity_sold and revenue_myr summed per item, top 10 by
+    -- revenue. "Invoice" tag (sap_invoice_lines) per
+    -- DASHBOARD-CONVENTIONS.md's Source-labeling convention -- billed/actual,
+    -- not booked (sap_sales_order_lines) and not the CRM product_type enum
+    -- (productTypeData above).
+    'topProductsData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from (
+            select
+                bil.item_code,
+                coalesce(it.item_name, bil.item_code) as item_name,
+                sum(bil.quantity) as quantity_sold,
+                sum(bil.line_total * bil.doc_myr_ratio) as revenue_myr
+            from base_invoice_lines bil
+            left join sap_items it on it.item_code = bil.item_code
+            group by bil.item_code, coalesce(it.item_name, bil.item_code)
             order by revenue_myr desc
             limit 10
         ) x
