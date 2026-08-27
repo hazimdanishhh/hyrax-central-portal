@@ -84,15 +84,29 @@ end if;
 -- joins for display below -- every SAP-sourced base CTE (base_invoices/
 -- base_orders/base_payment_apps/budget_math) filters on v_sales_rep_code, so
 -- selecting a Salesperson on the frontend now scopes SAP data the same way
--- it already scoped CRM data, instead of only the latter. A rep with no
--- employee_id assigned in that mapping table can't be reached via
--- v_owner_id anyway (the frontend's Salesperson dropdown lists employees,
--- not raw SAP reps), so this is a strict fix, not a behavior change for any
--- rep reachable from the UI today.
+-- it already scoped CRM data, instead of only the latter.
 if v_owner_id is not null then
     select m.sales_rep_code into v_sales_rep_code
     from employee_sales_rep_mapping m
     where m.employee_id = v_owner_id;
+end if;
+
+-- FIXED 2026-08 (real fail-open bug, found during Sales Reports
+-- restructuring research): every predicate below reads "v_sales_rep_code is
+-- null or x = v_sales_rep_code", which was written to mean "unfiltered" when
+-- NO owner is selected. But if an owner IS selected and simply has no
+-- employee_sales_rep_mapping row with employee_id set (a real, still
+-- manual-only state -- see DASHBOARD-ROADMAP.md 1.1), the select above
+-- leaves v_sales_rep_code NULL too -- so that same "is null" branch
+-- silently meant "unfiltered" here as well, returning every company
+-- invoice/order/payment/budget while the CRM side stayed correctly scoped
+-- to the one selected owner. Fail-open, not fail-closed. Force a sentinel
+-- that can never match a real sales_rep_code (SAP SlpCode is never
+-- negative) so an unmapped owner correctly gets zero SAP rows instead of
+-- everyone's -- every downstream predicate needs no change, since they
+-- already compare against v_sales_rep_code as-is.
+if v_owner_id is not null and v_sales_rep_code is null then
+    v_sales_rep_code := -1;
 end if;
 
 with closing_dates as (
@@ -382,7 +396,15 @@ collected_kpis as (
         coalesce(sum(amount_applied_myr) filter (where
             (p_start_date is null or payment_date::date >= p_start_date)
             and (p_end_date is null or payment_date::date <= p_end_date)
-        ), 0) as total_collected
+        ), 0) as total_collected,
+
+        -- Payment count (added 2026-08, O2C funnel restructure) -- same
+        -- filter as total_collected above, so the funnel stat-strip's
+        -- Payment-stage count and value always tie out.
+        count(*) filter (where
+            (p_start_date is null or payment_date::date >= p_start_date)
+            and (p_end_date is null or payment_date::date <= p_end_date)
+        ) as payment_count
     from base_payment_apps
 ),
 
@@ -393,6 +415,21 @@ lead_kpis as (
             and (p_start_date is null or closed_date >= p_start_date)
             and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
         ), 0) as won_revenue,
+
+        -- Won lead count (added 2026-08, O2C funnel restructure) -- IDENTICAL
+        -- filter to won_revenue above, so the funnel stat-strip's
+        -- Pipeline-stage count and value always tie out. Deliberately NOT
+        -- reusing stageData's WON row count -- that CTE's own window is a
+        -- broader "created_at OR closed_date" OR (see its comment below),
+        -- so pairing it with won_revenue's narrower closed_date-only window
+        -- would silently combine two counts computed under different
+        -- filters -- exactly the kind of drift DASHBOARD-CONVENTIONS.md
+        -- warns against.
+        count(*) filter (
+            where stage = 'WON'
+            and (p_start_date is null or closed_date >= p_start_date)
+            and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+        ) as won_lead_count,
 
         coalesce(round(
             (count(*) filter (
@@ -482,6 +519,9 @@ select json_build_object(
         select json_build_object(
             'pipelineTargetRevenue', coalesce(pt.prorated_target, 0),
             'pipelineWonRevenue', lk.won_revenue,
+            -- O2C funnel stat-strip count (added 2026-08) -- see lead_kpis
+            -- above for why this isn't shared with stageData's WON count.
+            'wonLeadCount', lk.won_lead_count,
             'pipelineAttainmentPct', case when coalesce(pt.prorated_target, 0) > 0
                 then round((lk.won_revenue / pt.prorated_target) * 100)
                 else 0 end,
@@ -541,6 +581,10 @@ select json_build_object(
             -- and window to get_finance_dashboard's own totalCollected.
             'totalCollected', ck.total_collected,
 
+            -- O2C funnel stat-strip count (added 2026-08) -- same filter as
+            -- totalCollected, see collected_kpis above.
+            'paymentCount', ck.payment_count,
+
             -- Cash conversion. NOT "what share of THIS period's invoices got
             -- paid" -- numerator and denominator are two independent
             -- period-bound flows (cash applied in the window vs invoices
@@ -556,6 +600,25 @@ select json_build_object(
         cross join invoice_kpis ik
         cross join collected_kpis ck
     ),
+
+    -- Resolved SAP identity (added 2026-08) -- the v_sales_rep_code this
+    -- whole request was scoped by (see the guard/resolution block above),
+    -- exposed so the frontend can drive drill-through links (e.g. into
+    -- sales/orders) without a second lookup. -1 is the "selected owner has
+    -- no employee_sales_rep_mapping row" sentinel -- never a real SAP
+    -- SlpCode -- surfaced plainly here as -1, not nulled out, so a caller
+    -- inspecting this field directly can tell the two "no rep" cases apart
+    -- (no owner selected at all vs owner selected but unmapped) if it ever
+    -- needs to; ownerSapMappingMissing below is the friendlier flag for
+    -- the common case of just wanting to show an explanatory UI note.
+    'resolvedSalesRepCode', v_sales_rep_code,
+
+    -- FIXED 2026-08, see the guard/resolution block above -- true only when
+    -- a Salesperson filter is active AND that employee has no
+    -- employee_sales_rep_mapping.employee_id row, so the frontend can show
+    -- "this salesperson has no linked SAP rep" instead of a page that just
+    -- looks empty with no explanation.
+    'ownerSapMappingMissing', (v_owner_id is not null and v_sales_rep_code = -1),
 
     -- The company's real sales analysis, per rep: PO (sales order) vs Invoice
     -- vs Budget variance -- see rep_order_actuals/rep_invoice_actuals/

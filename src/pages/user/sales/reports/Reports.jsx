@@ -3,9 +3,12 @@ import {
   GaugeIcon,
   UsersThreeIcon,
   RankingIcon,
+  ReceiptIcon,
   ChartPieIcon,
   ChartBarIcon,
   WarningIcon,
+  WarningCircleIcon,
+  FunnelIcon,
 } from "@phosphor-icons/react";
 
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -62,6 +65,12 @@ function Reports() {
   const canAccessInvoices = canAccess({ departments: ["FIN"] });
   const canAccessPayments = canAccess({ departments: ["FIN"] });
 
+  // Needs Attention (added 2026-08, O2C funnel restructure) -- SAL-manager
+  // only, not MGM: MGM viewers of this page are the holistic/exec-summary
+  // audience, not day-to-day coaches -- see
+  // docs/SALES-REPORTS-RESTRUCTURE-PLAN.md Part 4.
+  const canSeeNeedsAttention = canAccess({ departments: ["SAL"] });
+
   const {
     data: dashboard,
     filters,
@@ -92,6 +101,12 @@ function Reports() {
   const isError = dashboardError || metadataError;
 
   const kpis = dashboard?.kpis ?? {};
+  // Fail-open fix (added 2026-08, see get_sales_reports_dashboard_rpc.sql's
+  // guard/resolution block) -- true when a Salesperson filter is active but
+  // that employee has no employee_sales_rep_mapping row, so every SAP-side
+  // figure on this page is correctly showing zero, not "unfiltered by
+  // accident." Surfaced as a note rather than a silent empty page.
+  const ownerSapMappingMissing = dashboard?.ownerSapMappingMissing ?? false;
   const invoiceBudgetScorecardData =
     dashboard?.invoiceBudgetScorecardData ?? [];
   // Raw (unmapped) topClientsData -- feeds ONLY the CRM-side "Top Clients"
@@ -149,7 +164,33 @@ function Reports() {
     order_value_myr: r.order_value_myr,
     po_vs_budget_variance_myr: r.po_vs_budget_variance_myr,
     po_vs_invoice_variance_myr: r.po_vs_invoice_variance_myr,
+    // O2C funnel's 4th leg (added 2026-08) -- the RPC already computed these
+    // (invoiceBudgetScorecardData.collected_myr etc.), this page just never
+    // rendered them despite this section's own subtitle already claiming a
+    // "Collected" leg existed. See LeadsScoreCard.jsx's hasCollectedVariance.
+    collected_myr: r.collected_myr,
+    invoice_vs_collected_variance_myr: r.invoice_vs_collected_variance_myr,
+    collection_rate_pct: r.collection_rate_pct,
   }));
+
+  // Needs Attention (added 2026-08) -- a client-side-filtered slice of the
+  // same scorecard array above, zero new RPC data. Thresholds mirror ones
+  // already used elsewhere on this page (80% budget-attainment warning in
+  // overviewConfig.js, 70% collection-rate warning matching Payments
+  // Collected's own band) -- documented estimates, not audited Sales
+  // targets, same convention as DASHBOARD-CONVENTIONS.md's KPI Card Color
+  // rules. The unbilled-backlog check flags a rep whose booked-but-not-yet-
+  // invoiced backlog exceeds 30% of what they've booked this period.
+  const needsAttentionScorecard = invoiceBudgetScorecard.filter((r) => {
+    const belowBudget =
+      (r.target_revenue ?? 0) > 0 && (r.attainment_percentage ?? 0) < 80;
+    const highUnbilledBacklog =
+      (r.order_value_myr ?? 0) > 0 &&
+      (r.po_vs_invoice_variance_myr ?? 0) / r.order_value_myr > 0.3;
+    const lowCollectionRate =
+      (r.actual_revenue ?? 0) > 0 && (r.collection_rate_pct ?? 100) < 70;
+    return belowBudget || highUnbilledBacklog || lowCollectionRate;
+  });
 
   // Series renamed 2026-07 (source-labeling clarity pass, see
   // DASHBOARD-CONVENTIONS.md): the chart title's own "(SAP)"/"(CRM)" tags
@@ -242,6 +283,17 @@ function Reports() {
       "Sales Order (Booked)": d.booked_revenue_myr,
       "Invoice (Billed)": d.invoiced_revenue_myr,
     })) ?? [];
+
+  // The O2C Funnel (added 2026-08) -- one bar per funnel stage, all four
+  // values already exist in kpis, zero new data beyond the two small
+  // additive counts (wonLeadCount/paymentCount) the RPC now also returns.
+  // See docs/SALES-REPORTS-RESTRUCTURE-PLAN.md Part 4.
+  const o2cFunnelData = [
+    { name: "Pipeline (Won) — CRM", value: kpis.pipelineWonRevenue ?? 0 },
+    { name: "Sales Order (Booked) — SAP", value: kpis.orderBookValue ?? 0 },
+    { name: "Invoice (Billed) — SAP", value: kpis.totalInvoiced ?? 0 },
+    { name: "Payment (Collected) — SAP", value: kpis.totalCollected ?? 0 },
+  ];
 
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -337,8 +389,28 @@ function Reports() {
                 </CardLayout>
               ) : (
                 <>
+                  {/* Fail-open fix note (added 2026-08) -- see
+                      ownerSapMappingMissing above. */}
+                  {ownerSapMappingMissing && (
+                    <p
+                      className="textXXS textLight"
+                      style={{ padding: "0 1rem" }}
+                    >
+                      <WarningCircleIcon
+                        size={12}
+                        weight="fill"
+                        color="#d76363"
+                      />{" "}
+                      This salesperson has no linked SAP sales rep yet — every
+                      SAP-sourced figure below correctly shows zero for them
+                      (see Sales Rep Mapping).
+                    </p>
+                  )}
+
                   <div className="pdfOverviewSection">
-                    {/* TIER 1: THE HIGH-LEVEL SUMMARY */}
+                    {/* SALES KPIs -- one tile per O2C stage (row 1), each
+                        stage's own diagnostic (row 2). See
+                        docs/SALES-REPORTS-RESTRUCTURE-PLAN.md Part 4. */}
                     <div
                       style={{
                         justifyContent: "start",
@@ -357,8 +429,8 @@ function Reports() {
                           <h2 className="textL textBold">Sales KPIs</h2>
                         </div>
                         <p className="textXS textLight">
-                          Invoices, budget, and collections first — plus the CRM
-                          pipeline forecast.
+                          Pipeline, orders, invoices, and collections — the same
+                          Order-to-Cash flow, top to bottom.
                         </p>
                       </div>
 
@@ -367,7 +439,104 @@ function Reports() {
                   </div>
 
                   <div className="pdfOverviewSection">
-                    {/* TIER 2: THE TWO FORECASTS, IN DETAIL */}
+                    {/* THE ORDER-TO-CASH FUNNEL (new, 2026-08) */}
+                    <div
+                      style={{
+                        justifyContent: "start",
+                        textAlign: "start",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          marginBottom: "1rem",
+                          gap: "0.4rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
+                          <FunnelIcon size={24} />
+                          <h2 className="textL textBold">
+                            The Order-to-Cash Funnel
+                          </h2>
+                        </div>
+                        <p className="textXS textLight">
+                          Where this period's revenue is right now — from
+                          pipeline won to cash collected.
+                        </p>
+
+                        <CardLayout style="cardLayout2">
+                          <ChartCard
+                            title="Pipeline → Order → Invoice → Payment"
+                            subtitle="This period (RM) — each stage tagged by source"
+                            style="cardGapSmall"
+                          >
+                            <HorizontalBarChartRenderer
+                              data={o2cFunnelData}
+                              colorMap={BLUE_COLOR}
+                            />
+                          </ChartCard>
+                          <ChartCard
+                            title="Invoice (SAP) vs Pipeline (CRM) Revenue"
+                            subtitle="Two systems of record, side by side — not blended"
+                            style="cardGapSmall"
+                          >
+                            <LineChartRenderer
+                              data={realizedVsPipelineData}
+                              lines={[
+                                { dataKey: "Pipeline", color: BLUE_COLOR },
+                                { dataKey: "Invoice", color: GREEN_COLOR },
+                              ]}
+                            />
+                          </ChartCard>
+                        </CardLayout>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* NEEDS ATTENTION (new, 2026-08, SAL-manager only) */}
+                  {canSeeNeedsAttention &&
+                    needsAttentionScorecard.length > 0 && (
+                      <div className="pdfOverviewSection">
+                        <div
+                          style={{
+                            justifyContent: "start",
+                            textAlign: "start",
+                          }}
+                        >
+                          <div style={{ marginBottom: "1rem" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.8rem",
+                              }}
+                            >
+                              <WarningCircleIcon size={24} />
+                              <h2 className="textL textBold">
+                                Needs Attention
+                              </h2>
+                            </div>
+                            <p className="textXS textLight">
+                              Behind budget, sitting on an unbilled backlog, or
+                              collecting below pace — worth a 1:1 this period.
+                            </p>
+                          </div>
+
+                          <ScorecardList data={needsAttentionScorecard} />
+                        </div>
+                      </div>
+                    )}
+
+                  <div className="pdfOverviewSection">
+                    {/* REP FUNNEL SCORECARD (renamed from "Invoice Budget
+                        Scorecard", extended 2026-08 with the Collected leg) */}
                     <div
                       style={{
                         justifyContent: "start",
@@ -384,7 +553,7 @@ function Reports() {
                         >
                           <UsersThreeIcon size={24} />
                           <h2 className="textL textBold">
-                            Invoice Budget Scorecard
+                            Rep Funnel Scorecard
                           </h2>
                         </div>
                         <p className="textXS textLight">
@@ -400,43 +569,10 @@ function Reports() {
                         <NoResult title="No invoice-budget rows for this period yet." />
                       )}
                     </div>
-
-                    <div style={{ marginTop: "1.6rem" }}>
-                      <ChartCard
-                        title="Invoiced / Collected / Budget"
-                        subtitle="Monthly, this period's date filter applies (all time if unset)"
-                        style="cardGapSmall"
-                      >
-                        <LineChartRenderer
-                          data={invoicedVsBudgetTrendData}
-                          lines={[
-                            { dataKey: "Invoice", color: BLUE_COLOR },
-                            { dataKey: "Payment", color: GREEN_COLOR },
-                            { dataKey: "Budget", color: YELLOW_COLOR },
-                          ]}
-                        />
-                      </ChartCard>
-                    </div>
-
-                    <div style={{ marginTop: "1.6rem" }}>
-                      <ChartCard
-                        title="Invoice (SAP) vs Pipeline (CRM) Revenue"
-                        subtitle="Two systems of record, side by side — not blended"
-                        style="cardGapSmall"
-                      >
-                        <LineChartRenderer
-                          data={realizedVsPipelineData}
-                          lines={[
-                            { dataKey: "Pipeline", color: BLUE_COLOR },
-                            { dataKey: "Invoice", color: GREEN_COLOR },
-                          ]}
-                        />
-                      </ChartCard>
-                    </div>
                   </div>
 
                   <div className="pdfOverviewSection">
-                    {/* TIER 3: ORDER BOOK, PROFITABILITY & CUSTOMERS */}
+                    {/* PIPELINE-STAGE DETAIL */}
                     <div
                       style={{
                         justifyContent: "start",
@@ -451,129 +587,14 @@ function Reports() {
                             gap: "0.8rem",
                           }}
                         >
-                          <RankingIcon size={24} />
-                          <h2 className="textL textBold">
-                            Order Book, Profitability &amp; Customers
-                          </h2>
-                        </div>
-                        <p className="textXS textLight">
-                          SAP sales orders booked, revenue/GP by rep, and where
-                          invoiced revenue is concentrated.
-                        </p>
-                      </div>
-
-                      <CardLayout style="cardLayout2">
-                        <ChartCard
-                          title="Order Book by Rep"
-                          subtitle="SAP Sales Orders (RM)"
-                          style="cardGapSmall"
-                          viewAllTo={canAccessOrders ? "../orders" : undefined}
-                          viewAllFilter={{ ...chartPeriodFilter }}
-                        >
-                          <HorizontalBarChartRenderer
-                            data={orderBookData}
-                            colorMap={BLUE_COLOR}
-                          />
-                        </ChartCard>
-
-                        <ChartCard
-                          title="Gross Profit by Rep"
-                          subtitle="Revenue & GP (RM)"
-                          style="cardGapSmall"
-                          viewAllTo={
-                            canAccessInvoices
-                              ? "/app/finance/invoices"
-                              : undefined
-                          }
-                          viewAllFilter={{ ...chartPeriodFilter }}
-                        >
-                          <HorizontalMultiBarRenderer
-                            data={grossProfitByRepData}
-                            bars={[
-                              {
-                                dataKey: "revenue_myr",
-                                name: "Revenue",
-                                color: BLUE_COLOR,
-                              },
-                              {
-                                dataKey: "gross_profit_myr",
-                                name: "Gross Profit",
-                                color: GREEN_COLOR,
-                              },
-                            ]}
-                          />
-                        </ChartCard>
-
-                        <ChartCard
-                          title="Top Customers by Invoiced Revenue"
-                          subtitle="SAP Invoiced (RM)"
-                          style="cardGapSmall"
-                          viewAllTo={
-                            canAccessInvoices
-                              ? "/app/finance/invoices"
-                              : undefined
-                          }
-                          viewAllFilter={{ ...chartPeriodFilter }}
-                        >
-                          <HorizontalBarChartRenderer
-                            data={topInvoicedCustomersData}
-                            colorMap={YELLOW_COLOR}
-                          />
-                        </ChartCard>
-
-                        <ChartCard
-                          title="Top Products"
-                          subtitle="SAP Invoiced (RM) — actual sales, not CRM pipeline"
-                          style="cardGapSmall"
-                        >
-                          <HorizontalBarChartRenderer
-                            data={topProductsData}
-                            colorMap={GREEN_COLOR}
-                          />
-                        </ChartCard>
-                      </CardLayout>
-
-                      <div style={{ marginTop: "1.6rem" }}>
-                        <ChartCard
-                          title="Bookings vs Invoiced Revenue"
-                          subtitle="SAP Sales Orders vs SAP Invoices, trailing 12 months (RM) — not affected by the date filter"
-                          style="cardGapSmall"
-                        >
-                          <LineChartRenderer
-                            data={bookingsVsInvoicedTrendData}
-                            lines={[
-                              {
-                                dataKey: "Sales Order (Booked)",
-                                color: YELLOW_COLOR,
-                              },
-                              {
-                                dataKey: "Invoice (Billed)",
-                                color: GREEN_COLOR,
-                              },
-                            ]}
-                          />
-                        </ChartCard>
-                      </div>
-                    </div>
-
-                    {/* TIER 4: PIPELINE COMPOSITION */}
-                    <div style={{ marginTop: "1.6rem" }}>
-                      <div style={{ marginBottom: "1rem" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.8rem",
-                          }}
-                        >
                           <ChartPieIcon size={24} />
                           <h2 className="textL textBold">
-                            Pipeline Composition
+                            Pipeline-Stage Detail
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          Where WON revenue is coming from — pipeline stage,
-                          product, source, and account concentration.
+                          Where WON revenue is coming from — stage, product,
+                          source, and account concentration.
                         </p>
                       </div>
 
@@ -650,6 +671,170 @@ function Reports() {
                           />
                         </ChartCard>
                       </CardLayout>
+                    </div>
+
+                    {/* ORDER-STAGE DETAIL */}
+                    <div
+                      style={{
+                        justifyContent: "start",
+                        textAlign: "start",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          marginBottom: "1rem",
+                          gap: "0.4rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
+                          <RankingIcon size={24} />
+                          <h2 className="textL textBold">Order-Stage Detail</h2>
+                        </div>
+                        <p className="textXS textLight">
+                          SAP sales orders booked, by rep and over time.
+                        </p>
+
+                        <CardLayout style="cardLayout2">
+                          <ChartCard
+                            title="Order Book by Rep"
+                            subtitle="SAP Sales Orders (RM)"
+                            style="cardGapSmall"
+                            viewAllTo={
+                              canAccessOrders ? "../orders" : undefined
+                            }
+                            viewAllFilter={{ ...chartPeriodFilter }}
+                          >
+                            <HorizontalBarChartRenderer
+                              data={orderBookData}
+                              colorMap={BLUE_COLOR}
+                            />
+                          </ChartCard>
+                          <ChartCard
+                            title="Bookings vs Invoiced Revenue"
+                            subtitle="SAP Sales Orders vs SAP Invoices, trailing 12 months (RM) — not affected by the date filter"
+                            style="cardGapSmall"
+                          >
+                            <LineChartRenderer
+                              data={bookingsVsInvoicedTrendData}
+                              lines={[
+                                {
+                                  dataKey: "Sales Order (Booked)",
+                                  color: YELLOW_COLOR,
+                                },
+                                {
+                                  dataKey: "Invoice (Billed)",
+                                  color: GREEN_COLOR,
+                                },
+                              ]}
+                            />
+                          </ChartCard>
+                        </CardLayout>
+                      </div>
+                    </div>
+
+                    {/* INVOICE-STAGE DETAIL */}
+                    <div style={{ marginTop: "1.6rem" }}>
+                      <div style={{ marginBottom: "1rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
+                          <ReceiptIcon size={24} />
+                          <h2 className="textL textBold">
+                            Invoice-Stage Detail
+                          </h2>
+                        </div>
+                        <p className="textXS textLight">
+                          Revenue/GP by rep, products, and where invoiced
+                          revenue is concentrated.
+                        </p>
+                      </div>
+
+                      <CardLayout style="cardLayout2">
+                        <ChartCard
+                          title="Gross Profit by Rep"
+                          subtitle="Revenue & GP (RM)"
+                          style="cardGapSmall"
+                          viewAllTo={
+                            canAccessInvoices
+                              ? "/app/finance/invoices"
+                              : undefined
+                          }
+                          viewAllFilter={{ ...chartPeriodFilter }}
+                        >
+                          <HorizontalMultiBarRenderer
+                            data={grossProfitByRepData}
+                            bars={[
+                              {
+                                dataKey: "revenue_myr",
+                                name: "Revenue",
+                                color: BLUE_COLOR,
+                              },
+                              {
+                                dataKey: "gross_profit_myr",
+                                name: "Gross Profit",
+                                color: GREEN_COLOR,
+                              },
+                            ]}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Top Customers by Invoiced Revenue"
+                          subtitle="SAP Invoiced (RM)"
+                          style="cardGapSmall"
+                          viewAllTo={
+                            canAccessInvoices
+                              ? "/app/finance/invoices"
+                              : undefined
+                          }
+                          viewAllFilter={{ ...chartPeriodFilter }}
+                        >
+                          <HorizontalBarChartRenderer
+                            data={topInvoicedCustomersData}
+                            colorMap={YELLOW_COLOR}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Top Products"
+                          subtitle="SAP Invoiced (RM) — actual sales, not CRM pipeline"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={topProductsData}
+                            colorMap={GREEN_COLOR}
+                          />
+                        </ChartCard>
+                      </CardLayout>
+
+                      <div style={{ marginTop: "1.6rem" }}>
+                        <ChartCard
+                          title="Invoiced / Collected / Budget"
+                          subtitle="Monthly, this period's date filter applies (all time if unset)"
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={invoicedVsBudgetTrendData}
+                            lines={[
+                              { dataKey: "Invoice", color: BLUE_COLOR },
+                              { dataKey: "Payment", color: GREEN_COLOR },
+                              { dataKey: "Budget", color: YELLOW_COLOR },
+                            ]}
+                          />
+                        </ChartCard>
+                      </div>
                     </div>
                   </div>
                 </>
