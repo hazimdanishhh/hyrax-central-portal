@@ -1,6 +1,6 @@
 # Employee Lifecycle Checklist Architecture
 
-**Status:** Proposed — design only (2026-09), no schema/triggers/UI built yet. Supersedes the "dedicated onboarding checklist/wizard UI" exclusion in [`ONBOARDING-WORKFLOW-ARCHITECTURE.md`](./ONBOARDING-WORKFLOW-ARCHITECTURE.md)'s Non-goals section — that is now this project — and resolves that doc's own open TODO about offboarding, which had zero prior art (no doc, table, route, or code) anywhere in this repo or the sibling `hyrax-data-platform` repo before this design. Builds directly on top of that doc's Section A (live) and Section B (designed, not built), and reuses the notification engine from [`NOTIFICATIONS-ARCHITECTURE.md`](./NOTIFICATIONS-ARCHITECTURE.md) and UI/data-model patterns established in [`PROJECTS-TASKS-ARCHITECTURE.md`](./PROJECTS-TASKS-ARCHITECTURE.md) (Workspace Tasks) as-is, without changing either.
+**Status:** Built (2026-09) — schema, RLS, triggers, notifications, and frontend all implemented per the design below; deployment (running the SQL against the live Supabase project) is a separate manual step, see [`docs/setup/EMPLOYEE-LIFECYCLE-CHECKLIST-DEPLOYMENT-GUIDE.md`](./setup/EMPLOYEE-LIFECYCLE-CHECKLIST-DEPLOYMENT-GUIDE.md). Reviewed and amended (2026-09) after a dedicated verification pass caught a schema error (this doc originally specified `bigint` ids/FKs — `employees.id` is actually `uuid`, corrected throughout below) and several real design gaps, now resolved: a manual status-override path, handling for simultaneous onboarding+offboarding cases, a deploy-time backfill for pre-existing employees, and — the most consequential gap — integration with the existing HR Employee Management and IT Asset Management pages, without which this design's own new pages would just become a second place to remember to check. See "Employee Management & IT Asset Management integration" below. Supersedes the "dedicated onboarding checklist/wizard UI" exclusion in [`ONBOARDING-WORKFLOW-ARCHITECTURE.md`](./ONBOARDING-WORKFLOW-ARCHITECTURE.md)'s Non-goals section — that is now this project — and resolves that doc's own open TODO about offboarding, which had zero prior art (no doc, table, route, or code) anywhere in this repo or the sibling `hyrax-data-platform` repo before this design. Builds directly on top of that doc's Section A (live) and Section B (designed, not built), and reuses the notification engine from [`NOTIFICATIONS-ARCHITECTURE.md`](./NOTIFICATIONS-ARCHITECTURE.md) and UI/data-model patterns established in [`PROJECTS-TASKS-ARCHITECTURE.md`](./PROJECTS-TASKS-ARCHITECTURE.md) (Workspace Tasks) as-is, without changing either.
 
 ## The problem
 
@@ -33,8 +33,8 @@ One row per onboarding or offboarding attempt for one employee.
 
 | column | type | notes |
 |---|---|---|
-| `id` | bigint PK | |
-| `employee_id` | bigint FK → `employees(id)` | Anchored on `employees`, not `profiles` — an onboarding case starts (HR creates the employee row) before a `profiles` row exists at all, per the existing flow's own step ordering. Every other assignment-style table in this schema (`it_assets.asset_user_id`, `attendance_activities.employee_id`) already anchors on `employees` for the same reason. |
+| `id` | uuid PK, default `gen_random_uuid()` | |
+| `employee_id` | uuid FK → `employees(id)` | Anchored on `employees`, not `profiles` — an onboarding case starts (HR creates the employee row) before a `profiles` row exists at all, per the existing flow's own step ordering. Every other assignment-style table in this schema (`it_assets.asset_user_id`, `attendance_activities.employee_id`) already anchors on `employees` for the same reason. **`employees.id` is `uuid`**, not `bigint` — confirmed live (the same wrong assumption `link_profile_to_employee.sql` had to fix in 2026-08); every id/FK in this design uses `uuid`, matching the Workspace/Projects-era convention (`project_members`, `tasks`, `task_assignees`), not the older bigserial lookup-table convention (`departments`, `roles`, `employment_status`). |
 | `case_type` | enum `lifecycle_case_type`: `ONBOARDING`, `OFFBOARDING` | Native Postgres enum, matching how `tasks.status`/`projects.status` are already typed in `projects_tasks_schema_migration.sql`. |
 | `status` | enum `lifecycle_case_status`: `OPEN`, `COMPLETED`, `CANCELLED` | |
 | `opened_at` | timestamptz default `now()` | |
@@ -54,14 +54,15 @@ One row per checklist item per case.
 
 | column | type | notes |
 |---|---|---|
-| `id` | bigint PK | |
-| `case_id` | bigint FK → `employee_lifecycle_cases(id)` | |
+| `id` | uuid PK, default `gen_random_uuid()` | |
+| `case_id` | uuid FK → `employee_lifecycle_cases(id)`, `on delete cascade` | |
 | `item_key` | text | Matches a key 1:1 in a fixed JS config file — see "Where item definitions live" below. |
 | `status` | enum `lifecycle_item_status`: `PENDING`, `IN_PROGRESS`, `DONE`, `SKIPPED` | |
 | `completed_at` | timestamptz, nullable | |
 | `completed_by` | uuid FK → `profiles(id)`, nullable | Null for system-derived completions. |
 | `notes` | text, nullable | |
-| `owning_department_sub` | text, nullable | Stamped from the same fixed config at seed time. Exists purely so RLS can enforce "only IT can write IT-owned items, only HR can write HR-owned items" — without it, ownership would exist only inside a JS file Postgres has no way to check. **Flagged as an implementation-time call**: if per-item write granularity turns out not to matter (a coarser "HR or IT, no per-item distinction" policy is good enough), this column can be dropped with no other change to this design. |
+| `owning_department_sub` | text, nullable | Stamped from the same fixed config at seed time. **Required, not optional**: RLS enforces "only IT can write IT-owned items, only HR can write HR-owned items" against this column — without it, ownership would exist only inside a JS file Postgres has no way to check. |
+| `employee_visible` | boolean, not null, default `false` | Also stamped from the fixed config at seed time, and — like `owning_department_sub` — **required as a persisted column, not JS-only config**. The same argument applies identically: without a DB-side flag, an offboarding employee could read a sensitive item (e.g. `credentials_rotated`, `workspace_account_revoked`) directly via the REST API even though the frontend simply never renders it. RLS gates the employee's own `select` on this column (and on the case-level `employee_can_view` flag below) — see "Employee self-service" and Non-goals. |
 
 Unique constraint on `(case_id, item_key)`.
 
@@ -77,7 +78,7 @@ Every case is seeded with a row for **every** item in its fixed set at creation 
 
 ### Where item definitions live
 
-Per scope decision #4 (fixed checklist, not admin-configurable), item definitions — key, label, owner, `employee_visible` flag, applies-if condition, sort order — live in two new plain JS config files, `src/data/onboardingChecklistMeta.js` and `src/data/offboardingChecklistMeta.js`, mirroring the existing convention `src/features/workspace/tasks/private/taskStatusMeta.js` already established for `TASK_STATUS_ACTIONS`. The database only ever stores per-case, per-item *state* (the `employee_lifecycle_case_items` columns above) — never a duplicate copy of the label/owner/config data, the same division of responsibility `tasks.status`'s hardcoded action map already keeps clean of the database.
+Per scope decision #4 (fixed checklist, not admin-configurable), item definitions — key, label, owner, `employee_visible` flag, applies-if condition, sort order — live in two new plain JS config files, `src/data/onboardingChecklistMeta.js` and `src/data/offboardingChecklistMeta.js`, mirroring the existing convention `src/features/workspace/tasks/private/taskStatusMeta.js` already established for `TASK_STATUS_ACTIONS`. The database only ever stores per-case, per-item *state* (the `employee_lifecycle_case_items` columns above) — never a duplicate copy of the label/applies-if/sort-order config, the same division of responsibility `tasks.status`'s hardcoded action map already keeps clean of the database. **Two fields are the deliberate exception**: `owner` and `employee_visible` are also stamped from this same JS config into the `owning_department_sub`/`employee_visible` columns at seed time, because RLS needs to enforce both at the database layer — a fact that exists only in a JS file can't gate a Postgres policy. The JS config stays the single source of truth for *content* (what the label says, what order items display in); the seeded columns exist purely so the database can independently enforce *who can write* and *who can read* each item, matching how `owning_department_sub` was already reasoned about before this revision — `employee_visible` follows the identical logic.
 
 ## Derived vs. manual completion
 
@@ -157,11 +158,28 @@ Three branches, each covering a real separation path scope decision #3 requires:
 2. **Status transitions to 13 ("Terminated Notice")** — an involuntary-but-with-notice separation where HR moves status straight to Notice without necessarily setting `resignation_date` (a field name that implies voluntary resignation, and shouldn't be forced for a company-initiated notice period).
 3. **Status transitions directly to any `employment_status.category = 'terminated'` value** (joined by `category`, the same style `check_employee_contract_actions_due.sql` already uses rather than hardcoding ids) — covers a summary/immediate termination with no notice period at all. This branch fires the instant status finalizes, with no dependency on ever passing through Notice first, since a summary termination by definition never will.
 
-`get_or_create_offboarding_case()` is idempotent against the partial unique index, so branches firing together on the same `UPDATE` (HR commonly sets `resignation_date` and status=13 in one edit) never double-open a case, and branch 3 firing later against an already-open case from branch 1/2 is a no-op — the same case simply continues toward closure.
+`get_or_create_offboarding_case()` is idempotent against the partial unique index, so branches firing together on the same `UPDATE` (HR commonly sets `resignation_date` and status=13 in one edit) never double-open a case, and branch 3 firing later against an already-open case from branch 1/2 is a no-op — the same case simply continues toward closure. To let the wrapping trigger tell a genuine open apart from a no-op re-fire (needed both for the notification-emission logic above and for the simultaneous-cases handling below), `get_or_create_offboarding_case()` returns `(case_id uuid, was_newly_created boolean)`, not just a bare id.
+
+### Simultaneous cases — an employee can genuinely have both open at once
+
+An employee resigning (or being terminated) while still early in onboarding is a real scenario, not a hypothetical edge case — confirmed against real employee data in the sibling `hyrax-data-platform` repo, where one of only three recorded departures in a sample of 85 employees happened roughly 39 days after joining, still effectively on the probation track. That's well inside this design's own 30-day onboarding-case-creation guard window, so an `OPEN` onboarding case and a newly-`OPEN` offboarding case can legitimately coexist for the same employee — the partial unique index is scoped per `case_type` specifically so this isn't blocked at the database level.
+
+Left alone, though, an onboarding checklist for someone who's already leaving can never organically complete (nobody's going to finish "IT onboarding briefing" for a person on their way out), so it would sit `OPEN` indefinitely, polluting case lists and KPI tiles. The resolution: the moment the offboarding-case trigger genuinely opens a new case (`was_newly_created = true`, not a branch re-fire against an already-open case), the same trigger also auto-cancels any still-`OPEN` onboarding case for that employee — `status = 'CANCELLED'`, `closed_reason = 'offboarding_case_opened'`. This is the exact mirror image of the resignation-retraction auto-cancel below, same mechanism, opposite direction: one lifecycle event's clear onset auto-resolves the other's now-moot case. `CANCELLED`, not deleted and not force-completed — the onboarding work genuinely didn't finish, and the case history should say so honestly.
 
 ### Retracted resignation — closing the loop
 
 A companion condition in the same trigger function: if there is a currently `OPEN` offboarding case and `new.resignation_date IS NULL AND old.resignation_date IS NOT NULL` and the new status's category is `active`, auto-cancel the case (`status = 'CANCELLED'`, `closed_reason = 'resignation_retracted'`). This is the direct offboarding analogue of Section A's own "closing the loop" philosophy — nobody should have to remember to manually cancel a stale offboarding case.
+
+### Backfill for pre-existing employees
+
+Both case-creation triggers above are `AFTER INSERT`/`AFTER UPDATE` — they only ever fire on a genuinely new row or a genuine change. Anyone already sitting in `employees` at the moment this feature deploys never gets re-inserted or has the qualifying field re-set, so they would silently never receive a case: a real hire who joined 10 days before deploy and is still mid-Probation, or someone already mid-notice-period. This is exactly the class of bug this codebase already had to fix once, for `employee_sales_rep_mapping`: its `AFTER INSERT` trigger for future rows shipped alongside a one-time backfill `INSERT ... SELECT ... ON CONFLICT DO NOTHING` for pre-existing qualifying rows (see `hyrax-data-platform/infrastructure/employee_sales_rep_mapping_migration.sql`).
+
+The same shape applies here, run once at deploy time, calling the get-or-create functions directly rather than through the notification-emitting trigger wrappers (so pre-existing mid-flight employees don't flood HR/IT with day-one notifications for work that's actually been in progress for weeks):
+
+- **Onboarding backfill** uses the identical guard the live trigger uses: every `employees` row with `employment_status_id = 3` (Probation) or `join_date` within the last 30 days gets `get_or_create_onboarding_case()` called for it.
+- **Offboarding backfill is deliberately narrower**, covering only `resignation_date is not null` or `employment_status_id = 13` (Terminated Notice) — both inherently "still in progress" facts. It **excludes** the direct-to-terminated-category branch on purpose: `employees` has no employment-status-change timestamp, so a point-in-time scan can't tell "just terminated yesterday" from "terminated three years ago." Retroactively opening a fresh offboarding case for a years-old departure would be exactly the "footgun, not a helpful automation" this codebase's own `auto_activate_project_on_task_started.sql` already argues against for the analogous reverse-transition risk on `projects.status`.
+
+Because the two Shape-B offboarding scans (`employee.offboarding_last_day_approaching`, `employee.offboarding_overdue`) would otherwise fire on their very first cron tick against every case this backfill just created, their notification rules should be seeded in a paused state (`is_active = false`, the same pattern already used for `employee.confirmation_status_mismatch`) and re-enabled manually only after HR/IT have reviewed the backfilled cases — an implementation-phase deployment step, not a further design decision.
 
 ### Case completion (both types, one mechanism)
 
@@ -181,6 +199,12 @@ end if;
 ```
 
 "Complete" means every seeded item (including `SKIPPED` ones) reaches `DONE`/`SKIPPED` — there is no separate required-vs-optional item tier for v1, matching the fixed-checklist brief. Because this fires on the item table itself, it's agnostic to whether the last item to finish was a manual checkbox tick or a derived-item sync — one completion mechanism, not two. This is a deliberate departure from Workspace Projects' manual-only completion ("a project can be fully task-complete and still waiting on sign-off"): a checklist's "done" is a mechanical AND of already-verified facts, with no separate judgment call left to make once every fact is true.
+
+### Manual status override
+
+Automatic triggers cover the normal path, but HR sometimes needs to override `employee_lifecycle_cases.status` directly — reopening a case closed by mistake, or force-cancelling one that's gone stale. A direct, already-confirmed precedent exists in this codebase: `projects.status` is a plain, unrestricted `select` field in the CRUD edit form, freely settable by any elevated project member or superadmin at any time, including reversing the one automatic trigger transition it has (`PLANNING → ACTIVE`) — there's no bespoke "reopen" RPC, just a normal editable column sitting alongside a narrow, one-directional automation.
+
+This design follows the same shape — `employee_lifecycle_cases.status` is a plain, editable field, not a bespoke RPC — but with **narrower write access than `projects.status`'s "any elevated member": HR and superadmin only**, not IT. The extra caution is deliberate: unlike a project's status, this field also drives visibility (`employee_can_view` interacts with it) and notification behavior, and IT owns individual checklist items but not the case shell itself. No special-casing is needed for the interaction with automation: the completion trigger's own `where status = 'OPEN'` guard means a manually-reopened case naturally becomes eligible to auto-complete again the next time an item changes, exactly like `projects.status` requires no guard against its own automation either.
 
 ## Reconciling with Section A/B — sync triggers, not replacements
 
@@ -273,6 +297,20 @@ A case auto-completes (per the trigger above) and stays reachable afterward, mov
 
 The one connective thread, answering "how does anyone know what's next" without rebuilding the employee lifecycle dashboard: a completed onboarding case's detail page shows one additional **read-only** info line, sourced from the same `employees.confirmation_due_date` the existing KPI tile already reads — "Probation review due: [date]." A label, not an interactive item, and not a new notification (that notification already exists and fires on its own independent schedule).
 
+## Employee Management & IT Asset Management integration
+
+The design above builds entirely new standalone pages (`hr/onboarding`, `hr/offboarding`, `it/onboarding`, `it/offboarding`) — but on its own, that recreates the exact coordination gap this whole document exists to close. If HR is looking at the Employee Management page they already use daily and sees nothing about an employee's lifecycle case, the new pages just become a second place someone has to remember to check. This section is not optional polish; it's part of what makes the design actually work.
+
+Four insertion points, all additive to already-working pages, all using patterns already established elsewhere in this exact codebase:
+
+- **Employee Management sidebar.** `EmployeeManagement.jsx`'s per-employee `DataSidebar` already renders a generic `children` slot, currently filled with exactly one component (`EmployeeSidebar.jsx` — a header card). A second component, `EmployeeLifecycleCaseSummary.jsx`, sits alongside it — additive, not a rewrite — showing the employee's open case(s) with a progress bar and a link to the full checklist. It must render **zero, one, or two** case blocks, never assuming at most one, since simultaneous onboarding+offboarding cases are real (see above).
+- **Employee Management's default view.** `EmployeeManagement.jsx` defaults to a card list (`EmployeesList.jsx`), which does **not** consume `tableConfig.jsx` at all — it's a hand-built card with a fixed field set. A case-status indicator added only to `tableConfig.jsx` (the table-layout toggle) would be invisible in the view HR actually sees by default. `EmployeesList.jsx` itself needs its own small addition: a case-type badge next to its existing status badge.
+- **Employee Management table view.** A non-editable, computed column in `tableConfig.jsx` (the same `render: (value, row) => <JSX/>` escape hatch Workspace's own `progress_percentage` column already uses), for the table-layout toggle.
+- **Overview KPI tiles.** HR's Employee Management overview gets an "Open Lifecycle Cases" tile, matching the existing "HR Actions Needed" severity-scored pattern. IT's Asset Management overview gets an "Employees Awaiting IT Setup" tile — the only IT-side surface needed, since `ITAssetManagement`'s sidebar has no per-employee view mode at all (assets aren't 1:1 with employees) and its list is asset-centric, not employee-centric.
+- **A "has an open case" filter** on the Employee Management list, following the same conditional-embed mechanism the existing `employment_status` filter already uses.
+
+A "no open case" negative-existence filter is left as a follow-up, not v1 — the two positive filters (open onboarding / open offboarding) cover the actual use case HR has today.
+
 ## Offboarding checklist — practitioner rationale
 
 Beyond what's already justified in the item tables above:
@@ -303,7 +341,8 @@ The existing doc's TODO explicitly asks for software-assignment tracking "so dur
 
 Informational only — not built in this pass:
 
-- **New tables/columns**: `employee_lifecycle_cases`, `employee_lifecycle_case_items`, `profiles.deactivated_at`.
-- **New functions/triggers**: `get_or_create_onboarding_case()`, `get_or_create_offboarding_case()`, the offboarding case-open trigger (three conditions + retraction), `check_lifecycle_case_completion()`, the four sync triggers listed under "Reconciling with Section A/B," `deactivate_profile()` RPC, two new `pg_cron` scan functions for the Shape-B notifications.
-- **New frontend files**: `src/data/onboardingChecklistMeta.js`, `src/data/offboardingChecklistMeta.js`, new routes in `HRRoutes.jsx`/`ITRoutes.jsx`/`EmployeeRoutes.jsx`, a shared case-detail component, `CaseCard`, `ChecklistItemCard`, feature modules under `src/features/hr/lifecycleCases/` and `src/features/it/lifecycleCases/` following the existing `features/<domain>/<entity>/{private,public}/{api,hooks}` convention, a rebuilt `src/pages/user/employee/onboarding/Onboarding.jsx` and new `employee/offboarding` page.
+- **New tables/columns**: `employee_lifecycle_cases`, `employee_lifecycle_case_items` (all ids/FKs `uuid`), `profiles.deactivated_at`.
+- **New helper function**: `is_department(p_department_sub text)`, the RLS idiom this design reuses (`security definer language plpgsql set search_path = ''`, alongside the already-live `is_superadmin()`/`current_employee_id()`) — never a literal `department_id = <id>` check.
+- **New functions/triggers**: `get_or_create_onboarding_case()`, `get_or_create_offboarding_case()` (returns `case_id, was_newly_created`), the offboarding case-open trigger (three conditions + retraction + onboarding auto-cancel), `check_lifecycle_case_completion()`, the four sync triggers listed under "Reconciling with Section A/B," `deactivate_profile()` RPC, two new `pg_cron` scan functions for the Shape-B notifications (added to the existing daily HR cron job body, not a new job), and the one-time backfill script.
+- **New frontend files**: `src/data/onboardingChecklistMeta.js`, `src/data/offboardingChecklistMeta.js`, new routes in `HRRoutes.jsx`/`ITRoutes.jsx`/`EmployeeRoutes.jsx`, a shared case-list and case-detail component (mounted identically at all four `hr/`/`it/` routes — no per-department wrapper), `CaseCard`, `ChecklistItemCard`, **one shared** feature module at `src/features/employeeLifecycle/{private,public}/{api,hooks}` (not split per department — a split module would contradict this design's own "one unified case" thesis), a rebuilt `src/pages/user/employee/onboarding/Onboarding.jsx` and new `employee/offboarding` page, plus the Employee Management/IT Asset Management integration files named in the section above (`EmployeeLifecycleCaseSummary.jsx`, edits to `EmployeeManagement.jsx`/`tableConfig.jsx`/`filterConfig.js`/`EmployeesList.jsx`/both modules' `overviewConfig.js`).
 - **New docs**: a companion `docs/setup/EMPLOYEE-LIFECYCLE-CHECKLIST-DEPLOYMENT-GUIDE.md`, matching the naming convention of `PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`/`WORKSPACE-STATUS-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`.

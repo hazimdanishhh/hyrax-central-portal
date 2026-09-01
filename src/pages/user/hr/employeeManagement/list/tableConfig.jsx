@@ -7,6 +7,12 @@
 // options = for option input
 // editable = boolean
 
+import StatusBox from "../../../../../components/status/statusBox/StatusBox";
+import {
+  CASE_TYPE_LABEL,
+  CASE_TYPE_BADGE_TYPE,
+} from "../../../../../features/employeeLifecycle/private/lifecycleCaseStatusMeta";
+
 export const employeesTableConfig = ({
   managers,
   profiles,
@@ -24,6 +30,24 @@ export const employeesTableConfig = ({
     editable: false,
     editor: "text",
     show: false,
+  },
+  // LIFECYCLE CASE -- computed/non-editable, see
+  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md. show:false hides it
+  // from the create/edit form only (DataForm's own convention); DataTable
+  // never reads `show`, so it still renders here via `render`.
+  {
+    key: "lifecycle_cases",
+    label: "Lifecycle Case",
+    getValue: (employee) => employee.lifecycle_cases,
+    editable: false,
+    show: false,
+    render: (_displayValue, employee) => {
+      const cases = employee.lifecycle_cases ?? [];
+      if (!cases.length) return <span className="textLight textXXS">—</span>;
+      return cases.map((c) => (
+        <StatusBox key={c.id} status={CASE_TYPE_LABEL[c.case_type]} type={CASE_TYPE_BADGE_TYPE[c.case_type]} />
+      ));
+    },
   },
   // SYSTEM SETTINGS
   {

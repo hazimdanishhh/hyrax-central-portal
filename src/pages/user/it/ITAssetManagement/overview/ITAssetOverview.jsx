@@ -27,6 +27,7 @@ import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import { getAssetsOverviewConfig } from "./overviewConfig";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
+import { useLifecycleCasesOverview } from "../../../../../features/employeeLifecycle/private/hooks/useLifecycleCasesOverview";
 
 function ITAssetOverview() {
   // ==============
@@ -56,7 +57,14 @@ function ITAssetOverview() {
     error: overviewError,
   } = useITAssetsOverview();
 
-  const overviewItems = getAssetsOverviewConfig(kpis);
+  // Composed here, not inside useITAssetsOverview.js -- that hook stays
+  // scoped purely to it_assets rows, unchanged. See
+  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md.
+  const { kpis: onboardingCaseKpis } = useLifecycleCasesOverview("ONBOARDING");
+  const overviewItems = getAssetsOverviewConfig({
+    ...kpis,
+    openOnboardingCasesCount: onboardingCaseKpis.openCount,
+  });
   const loading = overviewLoading;
   const error = overviewError;
 

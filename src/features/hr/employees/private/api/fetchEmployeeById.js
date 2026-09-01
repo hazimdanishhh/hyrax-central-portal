@@ -22,10 +22,12 @@ export async function fetchEmployeeById(id) {
         employment_status:employment_status_id (id,name),
         employment_type:employment_type_id (id,name),
         termination_reason:termination_reason_id (id,name
-        )
+        ),
+        lifecycle_cases:employee_lifecycle_cases (id,case_type,status)
       `,
     )
     .eq("id", id)
+    .eq("lifecycle_cases.status", "OPEN")
     .maybeSingle();
 
   if (error) throw error;

@@ -1,5 +1,6 @@
 import { Navigate, Route } from "react-router";
 import Onboarding from "../pages/user/employee/onboarding/Onboarding";
+import Offboarding from "../pages/user/employee/offboarding/Offboarding";
 import LeaveRequest from "../pages/user/employee/leaveRequest/LeaveRequest";
 import Claims from "../pages/user/employee/claims/Claims";
 import MyDocuments from "../pages/user/employee/myDocuments/MyDocuments";
@@ -18,6 +19,13 @@ export default (
     <Route index element={<Navigate to="onboarding" replace />} />
 
     <Route path="onboarding" element={<Onboarding />} />
+
+    {/* Read-only self-service view of the caller's own open offboarding
+        case (if any and if HR has flipped employee_can_view) -- R2
+        universal, no gate, matching "onboarding" above. Not in the
+        permanent sidenav -- reached via notification link_to deep links
+        only, see sideNavLinkData.js. */}
+    <Route path="offboarding" element={<Offboarding />} />
 
     {/* MY ATTENDANCE -- R2 universal self-service, no gate */}
     <Route path="attendance" element={<AttendancePageLayout />}>

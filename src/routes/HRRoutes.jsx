@@ -10,6 +10,8 @@ import AttendancePageLayout from "../pages/user/hr/attendanceManagement/Attendan
 import Performance from "../pages/user/hr/performance/Performance";
 import AttendanceOverview from "../pages/user/hr/attendanceManagement/overview/AttendanceOverview";
 import AttendanceManagement from "../pages/user/hr/attendanceManagement/list/AttendanceManagement";
+import LifecycleCaseList from "../pages/user/employeeLifecycle/list/LifecycleCaseList";
+import LifecycleCaseDetail from "../pages/user/employeeLifecycle/detail/LifecycleCaseDetail";
 import AccessRoute from "./AccessRoute";
 
 export default (
@@ -132,5 +134,49 @@ export default (
         </AccessRoute>
       }
     />
+
+    {/* EMPLOYEE ONBOARDING/OFFBOARDING CHECKLISTS -- see
+        docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md. Same
+        LifecycleCaseList/LifecycleCaseDetail components ITRoutes.jsx
+        mounts below -- one unified case, filtered per viewer via
+        useAccessControl() inside the shared detail component, not two
+        separately-modeled checklists. */}
+    <Route path="onboarding">
+      <Route
+        index
+        element={
+          <AccessRoute departments={["HR"]}>
+            <LifecycleCaseList caseType="ONBOARDING" />
+          </AccessRoute>
+        }
+      />
+      <Route
+        path=":caseId"
+        element={
+          <AccessRoute departments={["HR"]}>
+            <LifecycleCaseDetail />
+          </AccessRoute>
+        }
+      />
+    </Route>
+
+    <Route path="offboarding">
+      <Route
+        index
+        element={
+          <AccessRoute departments={["HR"]}>
+            <LifecycleCaseList caseType="OFFBOARDING" />
+          </AccessRoute>
+        }
+      />
+      <Route
+        path=":caseId"
+        element={
+          <AccessRoute departments={["HR"]}>
+            <LifecycleCaseDetail />
+          </AccessRoute>
+        }
+      />
+    </Route>
   </Route>
 );

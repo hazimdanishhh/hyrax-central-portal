@@ -36,6 +36,7 @@ import { useEmployeesMetadata } from "../../../../../features/hr/employees/priva
 import { getFilterConfig } from "./config/filterConfig";
 import { getEmployeesOverviewConfig } from "./overviewConfig";
 import FiscalYearFilterBar from "../../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
+import { useLifecycleCasesOverview } from "../../../../../features/employeeLifecycle/private/hooks/useLifecycleCasesOverview";
 
 export default function EmployeeOverview() {
   const dashboardRef = useRef(null);
@@ -72,7 +73,21 @@ export default function EmployeeOverview() {
   const isFetching = dashboardFetching;
   const isError = dashboardError || metadataError;
 
-  const kpis = dashboard?.kpis ?? {};
+  // Composed at the page level rather than folded into the existing
+  // get_hr_employees_dashboard RPC/fetchEmployeesDashboard -- a second,
+  // independent client-side query (mirroring the IT overview's own
+  // composition of useITAssetsOverview + this same hook), not a change to
+  // that delicate, already-large RPC. See
+  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md.
+  const { kpis: onboardingKpis } = useLifecycleCasesOverview("ONBOARDING");
+  const { kpis: offboardingKpis } = useLifecycleCasesOverview("OFFBOARDING");
+
+  const kpis = {
+    ...(dashboard?.kpis ?? {}),
+    openOnboardingCasesCount: onboardingKpis.openCount,
+    openOffboardingCasesCount: offboardingKpis.openCount,
+    stuckLifecycleCasesCount: onboardingKpis.stuckCount + offboardingKpis.stuckCount,
+  };
 
   const departmentData = dashboard?.departmentData ?? [];
   const employmentTypeData = dashboard?.employmentTypeData ?? [];

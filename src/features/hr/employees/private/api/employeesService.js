@@ -86,6 +86,27 @@ export async function fetchEmployees({
   // below -- it's genuinely nullable (see "No Employment Type" filter), and
   // an unconditional !inner there would silently drop every employee with
   // no employment type from every query, not just filtered ones.
+  // lifecycle_cases: NOT !inner -- a plain optional embed, filtered below
+  // to OPEN rows only via the dot-path .eq() (same "filters the nested
+  // list without excluding the parent row" mechanism statusBucket's own
+  // comment documents for the !inner case, just the non-restricting mirror
+  // of it). employee_lifecycle_cases is a real table with a real FK to
+  // employees, so PostgREST can embed it directly here -- unlike
+  // lifecycleCasesService.js's own case-list query, which has to resolve
+  // employee identity via a separate employees_public batch fetch because
+  // THAT query goes the other direction, off a VIEW with no FK for
+  // PostgREST to detect.
+  // "lifecycleCase" filter ("onboarding_open"/"offboarding_open") needs the
+  // embed to become row-restricting -- the same !inner-vs-plain switch
+  // statusBucket's own comment documents, just decided at select-string
+  // build time here since (unlike statusBucket, which reuses the same
+  // always-!inner employment_status embed for every request) this embed's
+  // join type genuinely differs per request.
+  const lifecycleCaseFilterValue = f.lifecycleCase;
+  const lifecycleCasesEmbed = lifecycleCaseFilterValue
+    ? "lifecycle_cases:employee_lifecycle_cases!inner (id,case_type,status)"
+    : "lifecycle_cases:employee_lifecycle_cases (id,case_type,status)";
+
   let query = supabase
     .from("employees")
     .select(
@@ -100,11 +121,20 @@ export async function fetchEmployees({
         employment_status:employment_status_id!inner (id,name,category),
         employment_type:employment_type_id (id,name),
         termination_reason:termination_reason_id (id,name
-        )
+        ),
+        ${lifecycleCasesEmbed}
       `,
       { count: "exact" },
     )
+    .eq("lifecycle_cases.status", "OPEN")
     .order(sortBy, { ascending: sortOrder === "ascending" });
+
+  if (lifecycleCaseFilterValue) {
+    query = query.eq(
+      "lifecycle_cases.case_type",
+      lifecycleCaseFilterValue === "offboarding_open" ? "OFFBOARDING" : "ONBOARDING",
+    );
+  }
 
   // --- SEARCH ---
   if (search) {

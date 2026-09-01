@@ -50,6 +50,7 @@ import { useEmployeesMetadata } from "../../../../../features/hr/employees/priva
 import { useEmployeeById } from "../../../../../features/hr/employees/private/hooks/useEmployeeById";
 import useEmployeeMutations from "../../../../../features/hr/employees/private/hooks/useEmployeeMutations";
 import EmployeeSidebar from "./item/EmployeeSidebar";
+import EmployeeLifecycleCaseSummary from "./item/EmployeeLifecycleCaseSummary";
 import PageActions from "../../../../../components/crud/pageActions/PageActions";
 
 /**
@@ -423,11 +424,17 @@ export default function EmployeeManagement() {
           >
             {/* PICTURE */}
             {selectedRow?.id && !isEditing && (
-              <EmployeeSidebar
-                selectedRow={selectedRow}
-                isEditing={isEditing}
-                setIsEditing={setIsEditing}
-              />
+              <>
+                <EmployeeSidebar
+                  selectedRow={selectedRow}
+                  isEditing={isEditing}
+                  setIsEditing={setIsEditing}
+                />
+                {/* Onboarding/offboarding checklist status -- see
+                    docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md's
+                    "Employee Management & IT Asset Management integration". */}
+                <EmployeeLifecycleCaseSummary employeeId={selectedRow.id} />
+              </>
             )}
           </DataSidebar>
         )}

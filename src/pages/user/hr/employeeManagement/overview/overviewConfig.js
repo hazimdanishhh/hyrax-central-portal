@@ -11,6 +11,7 @@ import {
   TrendUpIcon,
   TrendDownIcon,
   WarningCircleIcon,
+  ListChecksIcon,
 } from "@phosphor-icons/react";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
 
@@ -126,6 +127,21 @@ export function getEmployeesOverviewConfig(
         ? 1
         : 0;
   const hrActionsStatus = getStatusVariant(hrActionsSeverity, {
+    direction: "low-good",
+    thresholds: { warningAt: 1, criticalAt: 2 },
+  });
+
+  // See docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md's "Employee
+  // Management & IT Asset Management integration" -- same OR-of-conditions
+  // severity pattern as HR Actions Needed above: 2 = something's stuck, 1 =
+  // cases are open but moving, 0 = nothing open at all.
+  const lifecycleCasesSeverity =
+    kpis.stuckLifecycleCasesCount > 0
+      ? 2
+      : (kpis.openOnboardingCasesCount || 0) + (kpis.openOffboardingCasesCount || 0) > 0
+        ? 1
+        : 0;
+  const lifecycleCasesStatus = getStatusVariant(lifecycleCasesSeverity, {
     direction: "low-good",
     thresholds: { warningAt: 1, criticalAt: 2 },
   });
@@ -417,6 +433,32 @@ export function getEmployeesOverviewConfig(
       ],
       title:
         "Confirmation is due 6 months after join_date (company policy). 'Due Soon' = still on Probation, unconfirmed, due within 30 days. 'Overdue' = still on Probation, unconfirmed, already past the 6-month mark. 'Contracts Ending' = contract-type employment with an end_date in the next 30 days.",
+    },
+    {
+      icon: ListChecksIcon,
+      label: "Open Lifecycle Cases",
+      sublabel: "Onboarding & Offboarding Checklists In Progress",
+      value: (kpis.openOnboardingCasesCount || 0) + (kpis.openOffboardingCasesCount || 0),
+      variant: lifecycleCasesStatus.variant,
+      status: { icon: lifecycleCasesStatus.statusIcon, label: lifecycleCasesStatus.statusLabel },
+      // Two unrelated cohorts (onboarding vs offboarding) -- same
+      // OR-of-cohorts reasoning as HR Actions Needed/Data Gaps above, each
+      // sub-metric links to its own dedicated list page, not this one.
+      to: null,
+      metrics: [
+        {
+          label: "Onboarding",
+          value: kpis.openOnboardingCasesCount || 0,
+          to: "/app/hr/onboarding",
+        },
+        {
+          label: "Offboarding",
+          value: kpis.openOffboardingCasesCount || 0,
+          to: "/app/hr/offboarding",
+        },
+      ],
+      title:
+        "Employees currently mid-checklist for onboarding or offboarding (see docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md). A case counts as 'stuck' once it's been open more than 14 days with no closure.",
     },
   ];
 }

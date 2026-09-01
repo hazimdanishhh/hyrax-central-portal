@@ -21,6 +21,18 @@ export function getEmployeesFilterConfig({
 }) {
   return [
     {
+      // See docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md. Positive
+      // filters only for v1 -- "no open case" is a negative-existence
+      // query PostgREST's embed-filter syntax can't express as a simple
+      // .eq(), flagged as a follow-up, not built here.
+      key: "lifecycleCase",
+      label: "Lifecycle Case",
+      options: [
+        { label: "Open Onboarding Case", value: "onboarding_open" },
+        { label: "Open Offboarding Case", value: "offboarding_open" },
+      ],
+    },
+    {
       key: "statusBucket",
       label: "Status Bucket",
       options: [

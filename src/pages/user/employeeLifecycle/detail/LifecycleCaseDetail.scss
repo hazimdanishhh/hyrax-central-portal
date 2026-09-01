@@ -1,0 +1,44 @@
+.lifecycleCaseDetailHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 100%;
+
+  .lifecycleCaseDetailHeaderTop {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    width: 100%;
+
+    @media screen and (max-width: 768px) {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  .lifecycleCaseDetailHeaderTitle {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .lifecycleCaseDetailHeaderDates {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .lifecycleCaseDetailHeaderActions {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  .lifecycleCaseDetailProbationNote {
+    padding-top: 0.2rem;
+  }
+}

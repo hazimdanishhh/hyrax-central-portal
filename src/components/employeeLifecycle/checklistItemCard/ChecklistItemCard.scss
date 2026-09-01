@@ -1,0 +1,57 @@
+.checklistItemCard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+
+  .checklistItemCardMainRow {
+    display: flex;
+    flex-direction: row;
+    align-items: start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    width: 100%;
+
+    @media screen and (max-width: 768px) {
+      flex-direction: column;
+    }
+  }
+
+  .checklistItemCardTitleGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .checklistItemCardTitleRow {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .checklistItemSkipped {
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+
+  .checklistItemCardNotes {
+    padding-left: 1.4rem;
+    white-space: pre-wrap;
+  }
+
+  .checklistItemCardStatusGroup {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .checklistItemCardActions {
+    display: flex;
+    gap: 0.4rem;
+  }
+}

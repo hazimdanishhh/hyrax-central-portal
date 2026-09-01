@@ -1,0 +1,12 @@
+-- Run once in the Supabase SQL editor, alongside
+-- employee_lifecycle_schema_migration.sql. Own small file, matching this
+-- repo's single-column-addition convention (e.g.
+-- employees_add_confirmation_reminder_sent_at.sql, projects_add_completed_date.sql).
+--
+-- Backs the offboarding checklist's derived `portal_account_deactivated`
+-- item -- set via the new deactivate_profile() RPC. Does not itself block
+-- login; enforcing that (checking it in AuthContext.jsx/ProtectedRoute, or
+-- calling Supabase's Auth Admin API to actually disable the auth.users row)
+-- is left as an implementation-time decision, not designed further in the
+-- architecture doc.
+alter table public.profiles add column if not exists deactivated_at timestamptz;

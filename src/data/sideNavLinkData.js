@@ -40,6 +40,7 @@ import {
   ChartLineUpIcon,
   UserCheckIcon,
   LinkIcon,
+  DoorOpenIcon,
 } from "@phosphor-icons/react";
 
 export const sideNavLinkData = [
@@ -445,12 +446,20 @@ export const sideNavLinkData = [
       //   roles: ["manager"],
       // },
 
-      // {
-      //   label: "Onboarding Management",
-      //   icon: AddressBookIcon,
-      //   path: "hr/onboarding",
-      //   departments: ["HR"],
-      // },
+      // Reactivates this previously-dead slot -- see
+      // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md.
+      {
+        label: "Onboarding",
+        icon: AddressBookIcon,
+        path: "hr/onboarding",
+        departments: ["HR"],
+      },
+      {
+        label: "Offboarding",
+        icon: DoorOpenIcon,
+        path: "hr/offboarding",
+        departments: ["HR"],
+      },
       // {
       //   label: "Policy Management",
       //   icon: FilesIcon,
@@ -506,6 +515,22 @@ export const sideNavLinkData = [
         label: "Software",
         icon: AppWindowIcon,
         path: "it/software",
+
+        departments: ["IT"],
+      },
+
+      {
+        label: "Onboarding",
+        icon: AddressBookIcon,
+        path: "it/onboarding",
+
+        departments: ["IT"],
+      },
+
+      {
+        label: "Offboarding",
+        icon: DoorOpenIcon,
+        path: "it/offboarding",
 
         departments: ["IT"],
       },

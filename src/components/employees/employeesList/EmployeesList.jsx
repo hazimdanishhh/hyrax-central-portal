@@ -6,8 +6,13 @@ import {
 import { motion } from "framer-motion";
 import CardLayout from "../../cardLayout/CardLayout";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
+import StatusBox from "../../status/statusBox/StatusBox";
 import AttendanceType from "../../attendance/attendanceType/AttendanceType";
 import Button from "../../buttons/button/Button";
+import {
+  CASE_TYPE_LABEL,
+  CASE_TYPE_BADGE_TYPE,
+} from "../../../features/employeeLifecycle/private/lifecycleCaseStatusMeta";
 
 export default function EmployeesList({
   employee,
@@ -54,6 +59,14 @@ export default function EmployeesList({
         </div>
         <div className="employeeCardStatusContainer">
           <StatusBadge status={employee.employment_status?.name} />
+          {/* Lifecycle case badges -- this is the DEFAULT view
+              (EmployeeManagement.jsx's layout=2), so this is where the
+              onboarding/offboarding gap actually needs to close, not just
+              in the table-layout toggle. See
+              docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md. */}
+          {(employee.lifecycle_cases ?? []).map((c) => (
+            <StatusBox key={c.id} status={CASE_TYPE_LABEL[c.case_type]} type={CASE_TYPE_BADGE_TYPE[c.case_type]} />
+          ))}
           <button
             className="listArrow iconButton2 employeeListMobile"
             onClick={setIsEditing}
