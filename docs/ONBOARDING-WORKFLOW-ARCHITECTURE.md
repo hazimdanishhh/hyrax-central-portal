@@ -9,6 +9,29 @@ Two related gaps, both about getting a new hire from "exists in Google Workspace
 
 Both reuse the existing generic notification engine (`docs/NOTIFICATIONS-ARCHITECTURE.md`) as-is — neither needs new dispatch infrastructure, just new triggers + new rule rows, the same recipe every notification since the first one has followed.
 
+## The Flow (Based on HR and IT)
+
+1. HR send & retrieve new hire's personal details (e.g.: personal email, phone, etc.)
+2. HR create new employee row with details
+   - Details
+   - Device requirement (like laptop, desktop, phone etc.)
+   - Access card (required or not, etc.)
+3. IT notified
+4. IT create Google Workspace user and add user to relevant group emails
+5. IT notify HR and the new hire regarding the creation of the new user
+6. HR/IT should be able to send an email to the new hire's work email to login to the portal
+7. New hire logs into portal
+8. HR, IT, superadmin notified
+9. HR/IT link profile to employee record
+10. IR/superadmin assign role and module access
+11. New hire notified
+
+Running in parallel from 4
+
+1. IT/HR setup device and access card (if required)
+2. IT/HR assign device/access card to new hire in portal
+3. IT/HR hand device/access card to new hire
+
 ## Section A — New-profile onboarding notifications
 
 ### The mechanism, and why it still works despite how profiles are actually created

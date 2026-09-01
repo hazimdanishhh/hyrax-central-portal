@@ -3,6 +3,7 @@ import Button from "../../buttons/button/Button";
 import { CaretLeftIcon, CaretRightIcon } from "@phosphor-icons/react";
 import { useState, useEffect } from "react";
 import "./PageResult.scss";
+import { useTheme } from "../../../context/ThemeContext";
 
 export default function PageResult({
   data,
@@ -13,6 +14,7 @@ export default function PageResult({
   error,
 }) {
   const [inputValue, setInputValue] = useState(page);
+  const { darkMode } = useTheme();
 
   // keep input synced when page changes externally
   useEffect(() => {
@@ -20,7 +22,7 @@ export default function PageResult({
   }, [page]);
 
   return (
-    <CardLayout style="pageResultContainer">
+    <CardLayout style={`pageResultContainer ${darkMode ? "dark" : "light"}`}>
       {error ? (
         <p className="textRegular textXXS">Error loading results</p>
       ) : (
