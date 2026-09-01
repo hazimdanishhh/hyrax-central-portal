@@ -1,6 +1,6 @@
 # Onboarding Workflow Architecture
 
-**Status:** Section A built (2026-08) — the three profile-created notifications, the two closing-the-loop notifications (`profile.department_role_assigned`, `employee.profile_linked`), the global "bare-minimum access" banner, manual employee-linking on the Users page, and a Users Overview tab are all live. Section B (IT asset assignment) is still design-only, tracked as `Proposed` rows in [`docs/NOTIFICATION-RULES-TRACKER.csv`](./NOTIFICATION-RULES-TRACKER.csv). Setup steps: [`docs/setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md).
+**Status:** Section A built (2026-08) — the three profile-created notifications, the two closing-the-loop notifications (`profile.department_role_assigned`, `employee.profile_linked`), the global "bare-minimum access" banner, manual employee-linking on the Users page, and a Users Overview tab are all live. Section B (IT asset assignment) is still design-only, tracked as `Proposed` rows in [`docs/NOTIFICATION-RULES-TRACKER.csv`](./NOTIFICATION-RULES-TRACKER.csv). Setup steps: [`docs/setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./setup/PROFILE-ONBOARDING-NOTIFICATIONS-DEPLOYMENT-GUIDE.md). The checklist/wizard UI and the offboarding process this doc originally called out of scope are now designed in full in [`docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`](./EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md).
 
 Two related gaps, both about getting a new hire from "exists in Google Workspace" to "fully set up in this portal" without anyone having to remember to check:
 
@@ -153,7 +153,7 @@ Same conventions throughout: plain trigger functions (no `SECURITY DEFINER` on t
 - `true` = needs a device, not yet assigned.
 - `false` = HR explicitly decided this employee doesn't need one.
 
-Exposed as a new field on the **existing** Employee Management `tableConfig.jsx` (a `select` editor: "Not Decided" / "Needed" / "Not Needed", or a boolean toggle with a third "unset" state depending on which the shared `Editors.jsx` widget set supports more cleanly) — reusing the CRUD page HR already has. Building a dedicated onboarding checklist/wizard UI is a larger, separate future project, deliberately out of scope here.
+Exposed as a new field on the **existing** Employee Management `tableConfig.jsx` (a `select` editor: "Not Decided" / "Needed" / "Not Needed", or a boolean toggle with a third "unset" state depending on which the shared `Editors.jsx` widget set supports more cleanly) — reusing the CRUD page HR already has. Building a dedicated onboarding checklist/wizard UI was called out of scope here — superseded by [`docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`](./EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md), which designs exactly that, including how this `needs_it_asset` flag and its resolution query are consumed as a checklist item.
 
 ### Trigger: Shape A, not Shape B
 
@@ -232,8 +232,10 @@ Completion
 > - HR side of things that would help in offboarding properly
 > - What other things are missing from this onboarding, that is essential for onboarding, and would aid in proper offboarding procedures?
 
+These open questions are resolved in [`docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`](./EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md), which designs the full onboarding checklist and the offboarding process end to end.
+
 ## Non-goals
 
-- Not building a dedicated onboarding checklist/wizard UI (either the HR-admin-side "Onboarding Management" or the employee-self-service `/app/employee/onboarding` page beyond its current stub) — both are separate, larger projects.
+- Not building a dedicated onboarding checklist/wizard UI here — **superseded** by [`docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`](./EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md), which is now that project, covering both the HR-admin "Onboarding Management" view and the employee-self-service `/app/employee/onboarding` page.
 - Not adding a real "admin" role or any new role beyond `staff`/`manager`/`superadmin` — `profile.created.needs_department_assignment` targets `superadmin` specifically because that's the only role that can act on it today.
 - Not replacing or duplicating `hyrax-data-platform`'s Discord alerting anywhere in this doc.
