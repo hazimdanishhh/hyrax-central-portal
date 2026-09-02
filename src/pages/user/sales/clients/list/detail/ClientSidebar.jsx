@@ -148,7 +148,7 @@ export default function ClientSidebar({
           />
         )}
 
-        <CardLayout style="cardWrapperScroll generalCard">
+        <CardLayout style="cardWrapperScroll">
           {leadsLoading ? (
             <CardLayout style="cardLayoutFlexFull">
               <LoadingIcon />
