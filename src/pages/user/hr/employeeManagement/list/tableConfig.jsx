@@ -44,14 +44,19 @@ export const employeesTableConfig = ({
     show: false,
   },
   // LIFECYCLE CASE -- computed/non-editable, see
-  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md. show:false hides it
-  // from the create/edit form only (DataForm's own convention); DataTable
-  // never reads `show`, so it still renders here via `render`.
+  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md. computed:true keeps
+  // DataForm from ever seeding/submitting it (see DataForm.jsx's
+  // getDefaultValues) since it's a query-time embed, not a real column on
+  // employees -- PostgREST rejects it outright otherwise (PGRST204).
+  // show:false additionally hides it from the create/edit form's rendered
+  // fields; DataTable never reads `show`, so it still renders here via
+  // `render`.
   {
     key: "lifecycle_cases",
     label: "Lifecycle Case",
     getValue: (employee) => employee.lifecycle_cases,
     editable: false,
+    computed: true,
     show: false,
     render: (_displayValue, employee) => {
       const cases = employee.lifecycle_cases ?? [];
