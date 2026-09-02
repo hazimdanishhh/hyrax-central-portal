@@ -20,7 +20,7 @@ import { ONBOARDING_MILESTONES, ONBOARDING_CHECKLIST_ITEMS } from "../../../../d
  */
 export default function Onboarding() {
   const { darkMode } = useTheme();
-  const { lifecycleCase, isLoading } = useMyLifecycleCase("ONBOARDING");
+  const { lifecycleCase, isLoading, error } = useMyLifecycleCase("ONBOARDING");
 
   const milestoneStatus = {};
   if (lifecycleCase) {
@@ -58,6 +58,13 @@ export default function Onboarding() {
               <CardLayout style="cardLayoutFlexFull">
                 <LoadingIcon />
               </CardLayout>
+            ) : error ? (
+              // A thrown query error (RLS/view misconfiguration, a bad
+              // profile_id link causing current_employee_id() to error,
+              // etc.) must never render as "No onboarding in progress." --
+              // that message means "we checked, there's genuinely nothing
+              // here," not "the check itself failed."
+              <NoResult title="Couldn't load your onboarding. Try refreshing, or contact HR/IT if this keeps happening." />
             ) : !lifecycleCase ? (
               <NoResult title="No onboarding in progress." />
             ) : (

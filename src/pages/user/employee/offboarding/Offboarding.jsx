@@ -25,7 +25,7 @@ import { formatDate } from "../../../../functions/formatDate";
  */
 export default function Offboarding() {
   const { darkMode } = useTheme();
-  const { lifecycleCase, isLoading } = useMyLifecycleCase("OFFBOARDING");
+  const { lifecycleCase, isLoading, error } = useMyLifecycleCase("OFFBOARDING");
 
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -40,6 +40,11 @@ export default function Offboarding() {
               <CardLayout style="cardLayoutFlexFull">
                 <LoadingIcon />
               </CardLayout>
+            ) : error ? (
+              // Same distinction as Onboarding.jsx -- a thrown query error
+              // must never be confused with the legitimate "no case, or
+              // employee_can_view is still false" empty result below.
+              <NoResult title="Couldn't load your offboarding. Try refreshing, or contact HR/IT if this keeps happening." />
             ) : !lifecycleCase ? (
               <NoResult title="Nothing to show yet." />
             ) : (
