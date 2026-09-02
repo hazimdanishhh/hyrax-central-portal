@@ -73,7 +73,17 @@ begin
         (employee_id, case_type, opened_reason, expected_last_day)
     select
         p_employee_id, 'OFFBOARDING', p_opened_reason,
-        coalesce(e.resignation_date, e.end_date)
+        -- end_date first, not resignation_date -- matches the established
+        -- convention elsewhere in this app (get_hr_employees_dashboard_rpc.sql's
+        -- departure_date, overviewConfig.js: "end_date as the authoritative
+        -- separation date, falling back to resignation_date"). This file
+        -- previously had the order backwards. Guided-action-opened cases
+        -- (see EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2) set
+        -- expected_last_day directly afterward and don't depend on this
+        -- fallback at all -- it only matters for cases opened via a direct
+        -- DB edit, CSV import, or the contract-expiration scan (which sets
+        -- end_date as the real signal in the first place).
+        coalesce(e.end_date, e.resignation_date)
     from public.employees e
     where e.id = p_employee_id
     returning id into v_case_id;

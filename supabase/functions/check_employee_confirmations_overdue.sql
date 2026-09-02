@@ -40,6 +40,12 @@ begin
           and (e.join_date + interval '6 months')::date < current_date
           and (e.confirmation_overdue_last_notified_at is null
                or e.confirmation_overdue_last_notified_at < now() - interval '7 days')
+          -- Suppressed once offboarding has started -- see the identical
+          -- exclusion in check_employee_confirmations_due_soon.sql.
+          and not exists (
+              select 1 from public.employee_lifecycle_cases c
+              where c.employee_id = e.id and c.case_type = 'OFFBOARDING' and c.status = 'OPEN'
+          )
     loop
         begin
             perform public.emit_notification_event(

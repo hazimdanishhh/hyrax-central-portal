@@ -7,6 +7,7 @@ import {
   useUnlinkedEmployees,
   useLinkProfileToEmployee,
 } from "../../../../../../features/superadmin/users/private/hooks/useEmployeeLink";
+import UserLifecycleCaseSummary from "./UserLifecycleCaseSummary";
 
 // Manual profile <-> employee linking, a superadmin convenience separate
 // from the generic column-edit save flow above it in DataSidebar -- writes
@@ -90,6 +91,12 @@ export default function UserEmployeeLink({ selectedRow }) {
             onClick={handleLink}
           />
         </div>
+      )}
+
+      {/* Lifecycle-case awareness, previously missing entirely from this
+          page -- see docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md. */}
+      {linkedEmployee && (
+        <UserLifecycleCaseSummary profileId={profileId} employeeId={linkedEmployee.id} />
       )}
     </CardLayout>
   );

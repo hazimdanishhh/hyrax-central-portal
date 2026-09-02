@@ -211,14 +211,18 @@ employees_agg as (
             and confirmation_due_date < current_date
         ) as status_mismatch_count,
 
-        -- ASSUMPTION: matches employment_type.name loosely (case-insensitive
-        -- "contract" substring) since the actual lookup values aren't
-        -- hardcoded anywhere in the app to verify against -- confirm this
-        -- matches your live employment_type rows (e.g. "Contract",
-        -- "Fixed-Term Contract") before trusting this figure.
+        -- Exclude-'full-time' filter, not an include-'%contract%' match --
+        -- kept identical to check_employee_contract_actions_due.sql's own
+        -- redesign (2026-09): the "contract" substring match was confirmed
+        -- against live data to be too narrow (misses part-time/intern/
+        -- temporary/etc.), and this KPI had drifted out of sync with that
+        -- fix until now. employment_type_name is null-safe the same way --
+        -- `null not ilike 'full-time'` is unknown, not true, so an employee
+        -- with no employment_type_id set stays excluded rather than
+        -- assumed non-permanent.
         count(*) filter (
             where status_bucket = 'active'
-            and employment_type_name ilike '%contract%'
+            and employment_type_name not ilike 'full-time'
             and end_date is not null
             and end_date between current_date and current_date + interval '30 days'
         ) as contract_actions_due_count

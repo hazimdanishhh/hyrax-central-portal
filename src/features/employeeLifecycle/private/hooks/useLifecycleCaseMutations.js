@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateLifecycleCase, updateChecklistItemStatus } from "../api/lifecycleCaseMutations";
+import { deactivateProfile } from "../api/deactivateProfile";
 import { useMessage } from "../../../../context/MessageContext";
 import { getFriendlyError } from "../../../_shared/getFriendlyError";
 
@@ -44,11 +45,23 @@ export function useLifecycleCaseMutations(caseId, employeeId, caseType) {
     onError: (err) => showMessage(getFriendlyError(err, errorConfig), "error"),
   });
 
+  const deactivateProfileMutation = useMutation({
+    mutationFn: deactivateProfile,
+    onMutate: () => showMessage("Deactivating portal account...", "loading"),
+    onSuccess: () => {
+      showMessage("Portal account deactivated", "success");
+      invalidate();
+    },
+    onError: (err) => showMessage(getFriendlyError(err, errorConfig), "error"),
+  });
+
   return {
     updateLifecycleCase: updateCaseMutation.mutateAsync,
     updateChecklistItemStatus: updateItemMutation.mutateAsync,
+    deactivateProfile: deactivateProfileMutation.mutateAsync,
 
     updatingCase: updateCaseMutation.isPending,
     updatingItem: updateItemMutation.isPending,
+    deactivatingProfile: deactivateProfileMutation.isPending,
   };
 }

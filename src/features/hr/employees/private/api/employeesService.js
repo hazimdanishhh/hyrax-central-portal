@@ -236,8 +236,12 @@ export async function fetchEmployees({
   // "contractEndingSoon" -- mirrors contractActionsDueCount's end_date
   // window exactly. Scope to active employees via statusBucket=active
   // alongside this one (same composable-filters approach as
-  // confirmationStatus above) -- the RPC additionally requires
-  // employment_type_name ILIKE '%contract%', applied here too.
+  // confirmationStatus above). Exclude-'full-time' rule, not an
+  // include-'%contract%' match -- kept in sync with
+  // check_employee_contract_actions_due.sql's own redesign (2026-09): the
+  // "contract" substring match was confirmed against live data to be too
+  // narrow (misses part-time/intern/temporary/etc.), and this filter had
+  // drifted out of sync with that fix until now.
   //
   // Resolved via an upfront id lookup + .in() on the plain employment_type_id
   // column, NOT a dot-path filter into the employment_type embed --
@@ -250,17 +254,17 @@ export async function fetchEmployees({
     const today = new Date();
     const days = parseInt(f.contractEndingSoon, 10) || 30;
 
-    const { data: contractTypes, error: contractTypesError } = await supabase
+    const { data: nonFullTimeTypes, error: employmentTypesError } = await supabase
       .from("employment_type")
       .select("id")
-      .ilike("name", "%contract%");
-    if (contractTypesError) throw contractTypesError;
+      .not("name", "ilike", "full-time");
+    if (employmentTypesError) throw employmentTypesError;
 
     query = query
       .not("end_date", "is", null)
       .gte("end_date", toISODate(today))
       .lte("end_date", toISODate(subDays(today, -days)))
-      .in("employment_type_id", (contractTypes ?? []).map((t) => t.id));
+      .in("employment_type_id", (nonFullTimeTypes ?? []).map((t) => t.id));
   }
 
   // Hire-date range (join_date) -- same startDate/endDate keys every other

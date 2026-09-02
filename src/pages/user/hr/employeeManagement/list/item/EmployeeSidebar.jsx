@@ -6,28 +6,37 @@ import {
 } from "@phosphor-icons/react";
 import StatusBadge from "../../../../../../components/status/statusBadge/StatusBadge";
 import Button from "../../../../../../components/buttons/button/Button";
+import { EMPLOYEE_STATUS_TRANSITIONS } from "../../../../../../features/hr/employees/private/employeeStatusTransitions";
+import "./EmployeeSidebar.scss";
 
-function EmployeeSidebar({ selectedRow, setIsEditing, isEditing }) {
+// Guided status-transition buttons -- mirrors LeadSidebar.jsx's own button
+// placement (the detail sidebar, not the list/card row). See
+// docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2.
+//
+// `canManageTransitions` gates the buttons themselves (HR dept or
+// superadmin); raw editing of the underlying fields is separately gated
+// superadmin-only in tableConfig.jsx -- the two are deliberately different
+// tiers (HR gets the guided path, superadmin gets both).
+function EmployeeSidebar({
+  selectedRow,
+  setIsEditing,
+  isEditing,
+  canManageTransitions,
+  onRequestTransition,
+}) {
+  const currentStatusId = selectedRow.employment_status?.id;
+  const currentStatusCategory = selectedRow.employment_status?.category;
+  const isTerminatedNotice = currentStatusId === 13;
+  const isTerminatedCategory = currentStatusCategory === "terminated";
+
+  const showBeginOffboarding =
+    canManageTransitions && !isTerminatedNotice && !isTerminatedCategory;
+  const showImmediateTermination =
+    canManageTransitions && !isTerminatedCategory;
+  const showFinalizeDeparture = canManageTransitions && isTerminatedNotice;
+
   return (
     <CardLayout style="cardPadding">
-      {!isEditing ? (
-        <Button
-          name="Edit"
-          icon={PencilSimpleLineIcon}
-          style="button buttonType4 textXS"
-          size={16}
-          onClick={() => setIsEditing(!isEditing)}
-        />
-      ) : (
-        <Button
-          name="Cancel Edit"
-          icon={PencilSimpleSlashIcon}
-          onClick={() => setIsEditing(!isEditing)}
-          style="button buttonType4 textXS"
-          size={16}
-        />
-      )}
-
       <div className="profileOverview">
         <div className="profilePhoto">
           <img
@@ -54,6 +63,59 @@ function EmployeeSidebar({ selectedRow, setIsEditing, isEditing }) {
           <StatusBadge status={selectedRow.employment_status?.name} />
         </div>
       </div>
+
+      {!isEditing ? (
+        <Button
+          name="Edit"
+          icon={PencilSimpleLineIcon}
+          style="button buttonType4 textXS"
+          size={16}
+          onClick={() => setIsEditing(!isEditing)}
+        />
+      ) : (
+        <Button
+          name="Cancel Edit"
+          icon={PencilSimpleSlashIcon}
+          onClick={() => setIsEditing(!isEditing)}
+          style="button buttonType4 textXS"
+          size={16}
+        />
+      )}
+
+      {!isEditing &&
+        (showBeginOffboarding ||
+          showImmediateTermination ||
+          showFinalizeDeparture) && (
+          <CardLayout style="cardLayout2 cardGapSmall">
+            {showBeginOffboarding && (
+              <Button
+                name={EMPLOYEE_STATUS_TRANSITIONS.BEGIN_OFFBOARDING.label}
+                icon={EMPLOYEE_STATUS_TRANSITIONS.BEGIN_OFFBOARDING.icon}
+                style={`button buttonType4 ${EMPLOYEE_STATUS_TRANSITIONS.BEGIN_OFFBOARDING.style} textXS`}
+                size={16}
+                onClick={() => onRequestTransition("BEGIN_OFFBOARDING")}
+              />
+            )}
+            {showImmediateTermination && (
+              <Button
+                name={EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_TERMINATION.label}
+                icon={EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_TERMINATION.icon}
+                style={`button buttonType4 ${EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_TERMINATION.style} textXS`}
+                size={16}
+                onClick={() => onRequestTransition("IMMEDIATE_TERMINATION")}
+              />
+            )}
+            {showFinalizeDeparture && (
+              <Button
+                name={EMPLOYEE_STATUS_TRANSITIONS.FINALIZE_DEPARTURE.label}
+                icon={EMPLOYEE_STATUS_TRANSITIONS.FINALIZE_DEPARTURE.icon}
+                style={`button buttonType4 ${EMPLOYEE_STATUS_TRANSITIONS.FINALIZE_DEPARTURE.style} textXS`}
+                size={16}
+                onClick={() => onRequestTransition("FINALIZE_DEPARTURE")}
+              />
+            )}
+          </CardLayout>
+        )}
     </CardLayout>
   );
 }

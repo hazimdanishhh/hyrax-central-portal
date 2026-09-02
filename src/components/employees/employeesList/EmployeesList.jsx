@@ -31,7 +31,7 @@ export default function EmployeesList({
       whileHover={{ y: -3 }}
     >
       <div className="employeeListHeaderContainer">
-        <Button
+        {/* <Button
           style={`iconButton ${selected ? "active" : ""}`}
           size={12}
           icon={CircleIcon}
@@ -40,7 +40,7 @@ export default function EmployeesList({
             e.stopPropagation();
             onSelect();
           }}
-        />
+        /> */}
         <div className="employeeCardPhoto">
           <img
             src={employee.profile?.avatar_url || "/profilePhoto/default.webp"}
@@ -65,7 +65,11 @@ export default function EmployeesList({
               in the table-layout toggle. See
               docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md. */}
           {(employee.lifecycle_cases ?? []).map((c) => (
-            <StatusBox key={c.id} status={CASE_TYPE_LABEL[c.case_type]} type={CASE_TYPE_BADGE_TYPE[c.case_type]} />
+            <StatusBox
+              key={c.id}
+              status={CASE_TYPE_LABEL[c.case_type]}
+              type={CASE_TYPE_BADGE_TYPE[c.case_type]}
+            />
           ))}
           <button
             className="listArrow iconButton2 employeeListMobile"

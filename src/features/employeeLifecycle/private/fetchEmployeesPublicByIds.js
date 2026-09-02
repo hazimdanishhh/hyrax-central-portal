@@ -24,7 +24,7 @@ export async function fetchEmployeesPublicByIds(employeeIds) {
 
   const { data, error } = await supabase
     .from("employees_public")
-    .select("id, full_name, avatar_url, department_id, department_name")
+    .select("id, full_name, avatar_url, department_id, department_name, profile_id")
     .in("id", ids);
 
   if (error) throw error;

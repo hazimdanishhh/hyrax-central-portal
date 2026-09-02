@@ -5,6 +5,7 @@ import {
   ListChecksIcon,
   PencilSimpleLineIcon,
   ClockIcon,
+  UserMinusIcon,
 } from "@phosphor-icons/react";
 import { useTheme } from "../../../../context/ThemeContext";
 import { useAccessControl } from "../../../../context/AccessControlContext";
@@ -63,8 +64,10 @@ export default function LifecycleCaseDetail() {
   const {
     updateLifecycleCase,
     updateChecklistItemStatus,
+    deactivateProfile,
     updatingCase,
     updatingItem,
+    deactivatingProfile,
   } = useLifecycleCaseMutations(
     caseId,
     lifecycleCase?.employee_id,
@@ -79,6 +82,7 @@ export default function LifecycleCaseDetail() {
   } = useChecklistItemStatusAction(updateChecklistItemStatus, profile?.id);
 
   const [editingOpen, setEditingOpen] = useState(false);
+  const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -115,9 +119,32 @@ export default function LifecycleCaseDetail() {
     caseType: lifecycleCase.case_type,
   });
 
+  // "Deactivate Portal Account" -- wires up the previously-dead
+  // deactivate_profile() RPC (see docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md
+  // Part 1). portal_account_deactivated is class:"DERIVED" (never a manual
+  // checklist checkbox -- see canActOnItem), so this button is the only
+  // path that can ever complete it; the existing sync trigger
+  // (sync_lifecycle_item_on_profile_deactivated.sql) still owns marking
+  // the item DONE once deactivated_at is actually set.
+  const portalDeactivatedItem = lifecycleCase.items.find(
+    (i) => i.item_key === "portal_account_deactivated",
+  );
+  const showDeactivateAction =
+    lifecycleCase.case_type === "OFFBOARDING" &&
+    !!lifecycleCase.employee?.profile_id &&
+    portalDeactivatedItem &&
+    portalDeactivatedItem.status !== "DONE" &&
+    (departmentSub === "IT" || isSuperAdmin);
+
   async function handleEditSave(formData) {
     await updateLifecycleCase({ id: lifecycleCase.id, ...formData });
     setEditingOpen(false);
+  }
+
+  async function handleConfirmDeactivate() {
+    if (!lifecycleCase.employee?.profile_id) return;
+    await deactivateProfile(lifecycleCase.employee.profile_id);
+    setDeactivateModalOpen(false);
   }
 
   const pendingLabel = pendingAction?.label;
@@ -145,6 +172,8 @@ export default function LifecycleCaseDetail() {
                     employee={lifecycleCase.employee}
                     employeeId={lifecycleCase.employee_id}
                     displayName
+                    showName={false}
+                    setShowName={() => {}}
                   />
                   <StatusBadge
                     status={
@@ -173,15 +202,28 @@ export default function LifecycleCaseDetail() {
                   )}
                 </div>
 
-                {(departmentSub === "HR" || isSuperAdmin) && (
+                {(departmentSub === "HR" ||
+                  isSuperAdmin ||
+                  showDeactivateAction) && (
                   <div className="lifecycleCaseDetailHeaderActions">
-                    <Button
-                      name="Edit"
-                      icon={PencilSimpleLineIcon}
-                      style="button buttonType5 textXS"
-                      size={16}
-                      onClick={() => setEditingOpen(true)}
-                    />
+                    {(departmentSub === "HR" || isSuperAdmin) && (
+                      <Button
+                        name="Edit"
+                        icon={PencilSimpleLineIcon}
+                        style="button buttonType5 textXS"
+                        size={16}
+                        onClick={() => setEditingOpen(true)}
+                      />
+                    )}
+                    {showDeactivateAction && (
+                      <Button
+                        name="Deactivate Portal Account"
+                        icon={UserMinusIcon}
+                        style="button buttonType5 rejection textXS"
+                        size={16}
+                        onClick={() => setDeactivateModalOpen(true)}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -251,6 +293,17 @@ export default function LifecycleCaseDetail() {
         loading={updatingItem}
         onConfirm={confirmAction}
         modalType={pendingLabel === "Undo" ? "delete" : "approve"}
+      />
+
+      <ActionModal
+        open={deactivateModalOpen}
+        onClose={() => setDeactivateModalOpen(false)}
+        title="Deactivate Portal Account"
+        description={`Are you sure you want to deactivate ${lifecycleCase.employee?.full_name || "this employee"}'s portal account? This does not immediately block login -- see the RPC's own notes.`}
+        confirmText="Deactivate"
+        loading={deactivatingProfile}
+        onConfirm={handleConfirmDeactivate}
+        modalType="delete"
       />
     </section>
   );

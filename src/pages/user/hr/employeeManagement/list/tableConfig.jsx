@@ -13,6 +13,17 @@ import {
   CASE_TYPE_BADGE_TYPE,
 } from "../../../../../features/employeeLifecycle/private/lifecycleCaseStatusMeta";
 
+// `isSuperAdmin` gates raw editing of employment_status_id/end_date/
+// resignation_date/termination_reason_id -- see
+// docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2. HR uses the
+// guided status-transition buttons on EmployeeSidebar.jsx instead; these
+// fields stay visible (read-only) in the plain form for HR, and directly
+// editable only for superadmin, as a correction/backfill escape hatch --
+// mirrors how Sales Leads/Tasks removed raw status editing once a guided
+// flow existed, but deliberately keeps a raw-edit path open here (unlike
+// those two modules) since Employee Management is also a system of record
+// that needs to absorb historical corrections, not just a forward-moving
+// process tracker.
 export const employeesTableConfig = ({
   managers,
   profiles,
@@ -22,6 +33,7 @@ export const employeesTableConfig = ({
   employmentTypes,
   terminationReasons,
   employmentStatuses,
+  isSuperAdmin = false,
 }) => [
   {
     key: "id",
@@ -45,7 +57,11 @@ export const employeesTableConfig = ({
       const cases = employee.lifecycle_cases ?? [];
       if (!cases.length) return <span className="textLight textXXS">—</span>;
       return cases.map((c) => (
-        <StatusBox key={c.id} status={CASE_TYPE_LABEL[c.case_type]} type={CASE_TYPE_BADGE_TYPE[c.case_type]} />
+        <StatusBox
+          key={c.id}
+          status={CASE_TYPE_LABEL[c.case_type]}
+          type={CASE_TYPE_BADGE_TYPE[c.case_type]}
+        />
       ));
     },
   },
@@ -289,7 +305,7 @@ export const employeesTableConfig = ({
     label: "Employment Status",
     getValue: (employee) => employee.employment_status?.id,
     displayValue: (employee) => employee.employment_status?.name,
-    editable: true,
+    editable: isSuperAdmin,
     editor: "select",
     options: employmentStatuses.map((e) => ({
       label: e.name,
@@ -315,6 +331,28 @@ export const employeesTableConfig = ({
     section: "Employment Details",
     half: true,
   },
+  // Tri-state, not a plain boolean -- null means "not yet decided" (every
+  // existing employee row has this on migration day, and a plain false
+  // default would be indistinguishable from an explicit "doesn't need
+  // one"). Drives the onboarding checklist's 3 device/access-card items
+  // (see src/data/onboardingChecklistMeta.js) -- without this field, HR
+  // has no way to ever set it, and those items always seed SKIPPED. See
+  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Section B.
+  {
+    key: "needs_it_asset",
+    label: "Require Device / Access Card?",
+    getValue: (employee) => employee.needs_it_asset,
+    editable: true,
+    editor: "select",
+    options: [
+      { label: "Not Decided", value: null },
+      { label: "Needed", value: true },
+      { label: "Not Needed", value: false },
+    ],
+    isSearchable: false,
+    section: "Employment Details",
+  },
+
   {
     key: "join_date",
     label: "Join Date",
@@ -322,6 +360,7 @@ export const employeesTableConfig = ({
     editable: true,
     editor: "date",
     section: "Employment Details",
+    half: true,
   },
   {
     key: "confirmation_date",
@@ -330,29 +369,32 @@ export const employeesTableConfig = ({
     editable: true,
     editor: "date",
     section: "Employment Details",
+    half: true,
   },
   {
     key: "end_date",
-    label: "End Date",
+    label: "Contract End Date",
     getValue: (employee) => employee.end_date,
-    editable: true,
+    editable: isSuperAdmin,
     editor: "date",
     section: "Employment Details",
+    half: true,
   },
   {
     key: "resignation_date",
     label: "Resignation Date",
     getValue: (employee) => employee.resignation_date,
-    editable: true,
+    editable: isSuperAdmin,
     editor: "date",
     section: "Employment Details",
+    half: true,
   },
   {
     key: "termination_reason_id",
     label: "Termination Reason",
     getValue: (employee) => employee.termination_reason?.id,
     displayValue: (employee) => employee.termination_reason?.name,
-    editable: true,
+    editable: isSuperAdmin,
     editor: "select",
     options: terminationReasons.map((t) => ({
       label: t.name,

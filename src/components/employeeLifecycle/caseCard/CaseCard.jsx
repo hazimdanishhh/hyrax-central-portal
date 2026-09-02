@@ -21,14 +21,18 @@ import "./CaseCard.scss";
  */
 export default function CaseCard({ lifecycleCase, onClick }) {
   const statusLabel =
-    CASE_STATUSES.find((s) => s.value === lifecycleCase.status)?.label || lifecycleCase.status;
+    CASE_STATUSES.find((s) => s.value === lifecycleCase.status)?.label ||
+    lifecycleCase.status;
   const waitingOn =
     lifecycleCase.status === "OPEN"
       ? getWaitingOnOwner(lifecycleCase.items ?? [], lifecycleCase.case_type)
       : null;
   const progressValue =
     lifecycleCase.total_item_count > 0
-      ? Math.round((100 * lifecycleCase.completed_item_count) / lifecycleCase.total_item_count)
+      ? Math.round(
+          (100 * lifecycleCase.completed_item_count) /
+            lifecycleCase.total_item_count,
+        )
       : null;
 
   return (
@@ -39,14 +43,21 @@ export default function CaseCard({ lifecycleCase, onClick }) {
             employee={lifecycleCase.employee}
             employeeId={lifecycleCase.employee_id}
             displayName
+            showName={false}
+            setShowName={() => {}}
           />
         </div>
 
         <div className="caseCardStatusWrapper">
           <div className="caseCardStatusGroup">
-            <StatusBadge status={statusLabel} type={CASE_STATUS_TYPE[lifecycleCase.status] || "grey"} />
+            <StatusBadge
+              status={statusLabel}
+              type={CASE_STATUS_TYPE[lifecycleCase.status] || "grey"}
+            />
 
-            {waitingOn && <StatusBox status={`Waiting on: ${waitingOn}`} type="yellow" />}
+            {waitingOn && (
+              <StatusBox status={`Waiting on: ${waitingOn}`} type="yellow" />
+            )}
 
             <IconCard
               icon={ClockIcon}

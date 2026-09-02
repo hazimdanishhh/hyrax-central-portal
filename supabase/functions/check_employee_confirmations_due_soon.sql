@@ -53,6 +53,15 @@ begin
           and (e.join_date + interval '6 months')::date
               between current_date and current_date + interval '30 days'
           and e.confirmation_reminder_sent_at is null
+          -- Suppressed once offboarding has started (see
+          -- docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md) -- an
+          -- employee resigning mid-Probation (a real, confirmed scenario,
+          -- not hypothetical) shouldn't also get "run their probation
+          -- review" nudges alongside their own offboarding notifications.
+          and not exists (
+              select 1 from public.employee_lifecycle_cases c
+              where c.employee_id = e.id and c.case_type = 'OFFBOARDING' and c.status = 'OPEN'
+          )
     loop
         -- Each employee processed in its own block, same reasoning as
         -- fan_out_notification_event()'s per-rule wrapping: one bad row

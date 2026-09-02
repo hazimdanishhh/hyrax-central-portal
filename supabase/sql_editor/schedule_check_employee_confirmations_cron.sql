@@ -33,12 +33,20 @@
 --   existing job, so unschedule it first either way:
 --   select cron.unschedule('check-employee-lifecycle-daily');
 --
+-- check_employee_contract_offboarding_due() (added 2026-09) closes the
+-- "contract employees get no offboarding lead time" gap -- see
+-- docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 3. Deliberately
+-- placed after check_employee_contract_actions_due() in the body (not that
+-- it matters for correctness -- each function is independently
+-- transactional and dedup-guarded -- just readability: the reminder and
+-- the case-opening scan over the same population sit next to each other).
+--
 -- Unlike schedule_send_queued_emails_cron.sql, this never leaves Postgres --
 -- no pg_net/HTTP call, no Edge Function, no secret to store in Vault. It's
 -- a straight pg_cron call into plpgsql functions, since the whole job
 -- (scanning employees, emitting events, updating dedup/cooldown columns)
--- is pure SQL. All five scan the same table domain on the same daily
--- cadence, so they share one cron job rather than five separate ones.
+-- is pure SQL. All six scan the same table domain on the same daily
+-- cadence, so they share one cron job rather than six separate ones.
 create extension if not exists pg_cron;
 
 select cron.schedule(
@@ -48,6 +56,7 @@ select cron.schedule(
     select public.check_employee_confirmations_due_soon();
     select public.check_employee_confirmations_overdue();
     select public.check_employee_contract_actions_due();
+    select public.check_employee_contract_offboarding_due();
     select public.check_employee_offboarding_last_day_approaching();
     select public.check_employee_offboarding_overdue();
     $$

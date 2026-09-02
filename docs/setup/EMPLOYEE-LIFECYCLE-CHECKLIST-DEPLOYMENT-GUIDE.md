@@ -103,6 +103,19 @@ where event_type in ('employee.offboarding_last_day_approaching', 'employee.offb
 
 **That flip — not step 12 itself — is the actual go-live moment for those two notifications.**
 
+## 13. Post-launch addition — hardening pass (2026-09-02)
+
+If you've already run steps 0–12 above, this is the only new SQL to run — see `docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`'s "Hardening pass" section for why.
+
+- Run `supabase/functions/get_or_create_offboarding_case.sql` again (coalesce order fix — `create or replace function`, safe to re-run).
+- Run `supabase/sql_editor/employees_add_contract_offboarding_case_opened_at.sql`, then `supabase/functions/check_employee_contract_offboarding_due.sql`.
+- Re-run `supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` — its body now has 6 calls instead of 5. **Unschedule first**: `select cron.unschedule('check-employee-lifecycle-daily');` (schedule() with the same name doesn't update an existing job), then re-run the file.
+- Run `supabase/functions/check_employee_confirmations_due_soon.sql` and `check_employee_confirmations_overdue.sql` again (both gained a `not exists (open OFFBOARDING case)` condition — `create or replace function`, safe to re-run).
+- Re-run `supabase/sql_editor/get_hr_employees_dashboard_rpc.sql` in full (the `contractActionsDueCount` KPI's matching logic changed — this is the existing HR dashboard RPC, not new to this module, but touched here).
+- Run `supabase/sql_editor/seed_access_card_asset_subcategory.sql` — confirm it actually inserted a row (`select * from it_asset_subcategory where name = 'Access Card';`), since it silently no-ops if "Security" isn't found under that exact name.
+
+**Checkpoint: contract/non-full-time employees now get a real offboarding case with lead time, HR/superadmin can drive offboarding through guided buttons instead of raw field edits, and the confirmation-reminder/offboarding notification collision is gone.**
+
 ## Frontend
 
 Already shipped in this repo, ships via your normal build/deploy — nothing to do here beyond confirming, once you're logged in as HR/IT/superadmin, that new sidenav entries "Onboarding"/"Offboarding" appear under both the HR and IT segments.
@@ -122,3 +135,11 @@ Already shipped in this repo, ships via your normal build/deploy — nothing to 
 - [ ] Confirm the Employee Management sidebar (click an employee row) shows the `EmployeeLifecycleCaseSummary` block, and that an employee with both an open onboarding and open offboarding case shows two blocks, not one overwriting the other.
 - [ ] Click the new "Open Lifecycle Cases" tile (HR Employee Overview) and "Employees Awaiting IT Setup" tile (IT Asset Overview) — confirm each sub-metric link lands on a page showing that same count.
 - [ ] If an email fails, check `email_queue.last_error` (retries automatically while `attempts < 3`) or `email_log` (once attempts are exhausted) — same as every other notification in this system.
+
+**Hardening pass (step 13) additions:**
+
+- [ ] As HR, click "Begin Offboarding (Notice)" on an active test employee — fill in the modal, confirm `employment_status_id` becomes 13, an `OFFBOARDING` case opens, and its `expected_last_day` matches what you entered in the modal (not `employees.end_date`, which should stay untouched).
+- [ ] As HR, confirm `employment_status_id`/`end_date`/`resignation_date`/`termination_reason_id` render but are **not editable** in the plain employee edit form; as superadmin, confirm the same four fields **are** editable.
+- [ ] Set a test employee's `employment_type_id` to a non-"Full-time" type and `end_date` within 30 days, with `employment_status_id` still active-category — confirm `check_employee_contract_offboarding_due()` opens an `OFFBOARDING` case with `expected_last_day` matching `end_date`, without you touching `employment_status_id` at all.
+- [ ] Insert a test employee on Probation with a `confirmation_due_date` inside the next 30 days, then open an `OFFBOARDING` case for them — confirm `check_employee_confirmations_due_soon()` no longer fires for them (negative case).
+- [ ] Click "Deactivate Portal Account" from an offboarding case's detail page — confirm `profiles.deactivated_at` is set and `portal_account_deactivated` flips to `DONE` automatically. Repeat from the Users page's employee-link sidebar.

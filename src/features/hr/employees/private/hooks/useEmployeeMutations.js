@@ -6,6 +6,7 @@ import {
   bulkDeleteEmployees,
   bulkUpdateEmployees,
 } from "../api/employeeMutations";
+import { applyEmployeeStatusTransition } from "../api/employeeStatusTransitionMutations";
 
 import { useMessage } from "../../../../../context/MessageContext";
 import { getFriendlyError } from "@/features/_shared/getFriendlyError";
@@ -117,6 +118,30 @@ export default function useEmployeeMutations() {
   });
 
   /**
+   * GUIDED STATUS TRANSITION -- also invalidates lifecycleCases queries,
+   * since this is the primary path that opens/affects an offboarding case
+   * now (see docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2).
+   */
+  const statusTransitionMutation = useMutation({
+    mutationFn: applyEmployeeStatusTransition,
+
+    onMutate: () => {
+      showMessage("Updating employee status...", "loading");
+    },
+
+    onSuccess: () => {
+      showMessage("Employee status updated", "success");
+
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["lifecycleCases"] });
+    },
+
+    onError: (err) => {
+      showMessage(getFriendlyError(err, errorConfig), "error");
+    },
+  });
+
+  /**
    * BULK DELETE
    */
   const bulkDeleteMutation = useMutation({
@@ -145,11 +170,13 @@ export default function useEmployeeMutations() {
     deleteEmployee: deleteMutation.mutateAsync,
     bulkDeleteEmployees: bulkDeleteMutation.mutateAsync,
     bulkUpdateEmployees: bulkUpdateMutation.mutateAsync,
+    applyEmployeeStatusTransition: statusTransitionMutation.mutateAsync,
 
     creating: createMutation.isPending,
     updating: updateMutation.isPending,
     deleting: deleteMutation.isPending,
     bulkDeleting: bulkDeleteMutation.isPending,
     bulkUpdating: bulkUpdateMutation.isPending,
+    applyingStatusTransition: statusTransitionMutation.isPending,
   };
 }

@@ -1,57 +1,45 @@
 // pages/user/hr/employees/Employees.jsx
-import "./EmployeeManagement.scss";
 import {
   CheckIcon,
   PencilSimpleLineIcon,
   PlusCircleIcon,
   TrashIcon,
-  UsersFourIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import CardLayout from "../../../../../components/cardLayout/CardLayout";
-import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
-import { useTheme } from "../../../../../context/ThemeContext";
-import { useEffect, useMemo, useState } from "react";
-import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
-import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
-import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
-import DataTable from "../../../../../components/dataTable/DataTable";
-import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import { AnimatePresence } from "framer-motion";
-import EmployeesList from "../../../../../components/employees/employeesList/EmployeesList";
-import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
-import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
-import { employeesTableConfig } from "./tableConfig";
-import { getEmployeesFilterConfig } from "./filterConfig";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
-import PageResult from "../../../../../components/crud/pageResult/PageResult";
-import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import { getEmployeesOverviewConfig } from "../overview/overviewConfig";
-import { getEmployeesLayoutConfig } from "./layoutConfig";
-import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
-import { getEmployeesSortConfig } from "./sortConfig";
-import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import CardLayout from "../../../../../components/cardLayout/CardLayout";
+import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import ChartCard from "../../../../../components/chartCard/ChartCard";
-import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
-import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
-import {
-  BLUE_COLOR,
-  CONDITION_COLORS,
-  EMPLOYMENT_TYPE_COLORS,
-  GREEN_COLOR,
-  STATUS_COLORS,
-  UTILIZATION_COLORS,
-} from "../../../../../components/chartCard/chartColors";
-import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
+import PageActions from "../../../../../components/crud/pageActions/PageActions";
+import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
+import PageResult from "../../../../../components/crud/pageResult/PageResult";
+import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
+import DataTable from "../../../../../components/dataTable/DataTable";
+import EmployeesList from "../../../../../components/employees/employeesList/EmployeesList";
+import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
+import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
+import { useAccessControl } from "../../../../../context/AccessControlContext";
+import { useTheme } from "../../../../../context/ThemeContext";
 import { fetchEmployees } from "../../../../../features/hr/employees/private/api/employeesService";
-import { useEmployeesMetadata } from "../../../../../features/hr/employees/private/hooks/useEmployeesMetadata";
+import {
+  EMPLOYEE_STATUS_TRANSITIONS,
+  FINALIZE_DEPARTURE_STATUS_IDS,
+} from "../../../../../features/hr/employees/private/employeeStatusTransitions";
 import { useEmployeeById } from "../../../../../features/hr/employees/private/hooks/useEmployeeById";
 import useEmployeeMutations from "../../../../../features/hr/employees/private/hooks/useEmployeeMutations";
-import EmployeeSidebar from "./item/EmployeeSidebar";
+import { useEmployeesMetadata } from "../../../../../features/hr/employees/private/hooks/useEmployeesMetadata";
+import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
+import "./EmployeeManagement.scss";
+import { getEmployeesFilterConfig } from "./filterConfig";
 import EmployeeLifecycleCaseSummary from "./item/EmployeeLifecycleCaseSummary";
-import PageActions from "../../../../../components/crud/pageActions/PageActions";
+import EmployeeSidebar from "./item/EmployeeSidebar";
+import { getEmployeesLayoutConfig } from "./layoutConfig";
+import { getEmployeesSortConfig } from "./sortConfig";
+import { employeesTableConfig } from "./tableConfig";
 
 /**
  * HR Employee Management Page
@@ -64,6 +52,7 @@ export default function EmployeeManagement() {
   const [searchParams] = useSearchParams();
 
   const { darkMode } = useTheme();
+  const { departmentSub, isSuperAdmin } = useAccessControl();
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState(null);
@@ -72,6 +61,11 @@ export default function EmployeeManagement() {
   const [pendingSaveRow, setPendingSaveRow] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
+  // Guided status-transition modal state -- separate from the plain
+  // save/delete ActionModal above (different fields/confirm behavior, see
+  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2).
+  const [pendingTransition, setPendingTransition] = useState(null); // { key, employeeId } | null
+  const canManageTransitions = departmentSub === "HR" || isSuperAdmin;
 
   // ==============
   // HOOKS
@@ -129,11 +123,13 @@ export default function EmployeeManagement() {
     deleteEmployee,
     bulkDeleteEmployees,
     bulkUpdateEmployees,
+    applyEmployeeStatusTransition,
     creating,
     updating,
     deleting,
     bulkDeleting,
     bulkUpdating,
+    applyingStatusTransition,
   } = useEmployeeMutations();
 
   // ==============
@@ -150,6 +146,7 @@ export default function EmployeeManagement() {
     employmentTypes,
     terminationReasons,
     employmentStatuses,
+    isSuperAdmin,
   });
   const filterConfig = getEmployeesFilterConfig({
     managers,
@@ -282,6 +279,87 @@ export default function EmployeeManagement() {
     }
   }
 
+  // ==============
+  // GUIDED STATUS TRANSITIONS -- see
+  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2. Separate
+  // ActionModal instance from the save/delete one above -- different
+  // dynamic-fields schema and confirm behavior, not a status-only confirm.
+  // ==============
+  function handleRequestTransition(transitionKey) {
+    setPendingTransition({ key: transitionKey, employeeId: selectedRow.id });
+  }
+
+  function handleCancelTransition() {
+    setPendingTransition(null);
+  }
+
+  function getTransitionModalFields(transitionKey) {
+    const transition = EMPLOYEE_STATUS_TRANSITIONS[transitionKey];
+    if (!transition) return [];
+
+    const fields = [];
+
+    if (transition.collectsTerminationReason) {
+      fields.push({
+        name: "termination_reason_id",
+        type: "select",
+        label: "Termination Reason",
+        required: true,
+        options: terminationReasons.map((t) => ({
+          label: t.name,
+          value: t.id,
+        })),
+      });
+    }
+
+    if (transition.collectsExpectedLastDay) {
+      fields.push({
+        name: "expected_last_day",
+        type: "date",
+        label: "Expected Last Day",
+        required: true,
+      });
+    }
+
+    if (transition.collectsFinalStatus) {
+      fields.push({
+        name: "employment_status_id",
+        type: "select",
+        label: "Final Status",
+        required: true,
+        options: employmentStatuses
+          .filter((s) => FINALIZE_DEPARTURE_STATUS_IDS.includes(s.id))
+          .map((s) => ({ label: s.name, value: s.id })),
+      });
+    }
+
+    return fields;
+  }
+
+  async function handleConfirmTransition(formValues) {
+    if (!pendingTransition) return;
+    const transition = EMPLOYEE_STATUS_TRANSITIONS[pendingTransition.key];
+
+    try {
+      await applyEmployeeStatusTransition({
+        employeeId: pendingTransition.employeeId,
+        // Plain <select>/<input> values are always strings -- coerce the
+        // numeric FK fields before submitting.
+        employmentStatusId:
+          transition.targetEmploymentStatusId ??
+          parseInt(formValues.employment_status_id, 10),
+        terminationReasonId: formValues.termination_reason_id
+          ? parseInt(formValues.termination_reason_id, 10)
+          : null,
+        expectedLastDay: formValues.expected_last_day || null,
+      });
+
+      setPendingTransition(null);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   return (
     <>
       {/* SEARCH AND FILTER BAR -- enableDateRange's startDate/endDate maps to
@@ -301,9 +379,9 @@ export default function EmployeeManagement() {
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
         <PageActions
-          layout={layout}
-          setLayout={setLayout}
-          options={layoutOptions}
+          // layout={layout}
+          // setLayout={setLayout}
+          // options={layoutOptions}
           actionButtons={[
             {
               icon: PlusCircleIcon,
@@ -313,25 +391,25 @@ export default function EmployeeManagement() {
                 navigate(`new?${searchParams.toString()}`);
               },
             },
-            {
-              name: "Select All",
-              icon: CheckIcon,
-              onClick: () => setSelectedRows(employees),
-            },
-            {
-              name: "Unselect All",
-              icon: XIcon,
-              onClick: () => setSelectedRows([]),
-              disabled: selectedRows.length === 0,
-            },
-            {
-              name:
-                selectedRows.length !== 0 && `(${selectedRows.length} rows)`,
-              icon: TrashIcon,
-              style: "button buttonType5 rejection textXXS",
-              onClick: handleBulkDelete,
-              disabled: selectedRows.length === 0,
-            },
+            // {
+            //   name: "Select All",
+            //   icon: CheckIcon,
+            //   onClick: () => setSelectedRows(employees),
+            // },
+            // {
+            //   name: "Unselect All",
+            //   icon: XIcon,
+            //   onClick: () => setSelectedRows([]),
+            //   disabled: selectedRows.length === 0,
+            // },
+            // {
+            //   name:
+            //     selectedRows.length !== 0 && `(${selectedRows.length} rows)`,
+            //   icon: TrashIcon,
+            //   style: "button buttonType5 rejection textXXS",
+            //   onClick: handleBulkDelete,
+            //   disabled: selectedRows.length === 0,
+            // },
           ]}
         />
 
@@ -387,7 +465,7 @@ export default function EmployeeManagement() {
           />
         ) : (
           // LIST LAYOUT
-          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+          <CardLayout style="cardLayout1 cardGapSmall">
             {employees.map((employee) => (
               <EmployeesList
                 key={employee.id}
@@ -429,6 +507,8 @@ export default function EmployeeManagement() {
                   selectedRow={selectedRow}
                   isEditing={isEditing}
                   setIsEditing={setIsEditing}
+                  canManageTransitions={canManageTransitions}
+                  onRequestTransition={handleRequestTransition}
                 />
                 {/* Onboarding/offboarding checklist status -- see
                     docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md's
@@ -460,6 +540,41 @@ export default function EmployeeManagement() {
         }
         onConfirm={handleConfirmAction}
         modalType={modalType}
+      />
+
+      {/* GUIDED STATUS TRANSITION MODAL -- see
+          docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2. */}
+      <ActionModal
+        open={!!pendingTransition}
+        onClose={handleCancelTransition}
+        title={
+          pendingTransition
+            ? EMPLOYEE_STATUS_TRANSITIONS[pendingTransition.key].modalTitle
+            : "Confirm"
+        }
+        description={
+          pendingTransition
+            ? EMPLOYEE_STATUS_TRANSITIONS[pendingTransition.key]
+                .modalDescription
+            : ""
+        }
+        confirmText={
+          pendingTransition
+            ? EMPLOYEE_STATUS_TRANSITIONS[pendingTransition.key].label
+            : "Confirm"
+        }
+        fields={
+          pendingTransition
+            ? getTransitionModalFields(pendingTransition.key)
+            : []
+        }
+        loading={applyingStatusTransition}
+        onConfirm={handleConfirmTransition}
+        modalType={
+          pendingTransition?.key === "IMMEDIATE_TERMINATION"
+            ? "delete"
+            : "approve"
+        }
       />
     </>
   );

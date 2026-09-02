@@ -138,7 +138,9 @@ export function getEmployeesOverviewConfig(
   const lifecycleCasesSeverity =
     kpis.stuckLifecycleCasesCount > 0
       ? 2
-      : (kpis.openOnboardingCasesCount || 0) + (kpis.openOffboardingCasesCount || 0) > 0
+      : (kpis.openOnboardingCasesCount || 0) +
+            (kpis.openOffboardingCasesCount || 0) >
+          0
         ? 1
         : 0;
   const lifecycleCasesStatus = getStatusVariant(lifecycleCasesSeverity, {
@@ -271,7 +273,10 @@ export function getEmployeesOverviewConfig(
       sublabel: "Missing Manager, Department, or Profile Link",
       value: kpis.dataGapsCount || 0,
       variant: dataGapsStatus.variant,
-      status: { icon: dataGapsStatus.statusIcon, label: dataGapsStatus.statusLabel },
+      status: {
+        icon: dataGapsStatus.statusIcon,
+        label: dataGapsStatus.statusLabel,
+      },
       // The headline is an OR of 4 independent reasons -- no single filter
       // reproduces it faithfully (the previous manager=__null__-only link
       // both dropped 3 of the 4 reasons and wasn't active-bucket-scoped).
@@ -348,7 +353,10 @@ export function getEmployeesOverviewConfig(
       sublabel: "Left This Period",
       value: kpis.departuresInPeriod || 0,
       variant: departuresStatus.variant,
-      status: { icon: departuresStatus.statusIcon, label: departuresStatus.statusLabel },
+      status: {
+        icon: departuresStatus.statusIcon,
+        label: departuresStatus.statusLabel,
+      },
       to: "../list",
       filter: { statusBucket: "terminated", ...departurePeriodFilter },
       metrics: [
@@ -377,7 +385,10 @@ export function getEmployeesOverviewConfig(
       sublabel: "Departures vs Average Headcount, This Period",
       value: `${kpis.attritionRatePct || 0}%`,
       variant: attritionStatus.variant,
-      status: { icon: attritionStatus.statusIcon, label: attritionStatus.statusLabel },
+      status: {
+        icon: attritionStatus.statusIcon,
+        label: attritionStatus.statusLabel,
+      },
       // A ratio has no matching row-set -- was already correctly unlinked,
       // not a bug.
       to: null,
@@ -403,7 +414,10 @@ export function getEmployeesOverviewConfig(
         (kpis.lateConfirmationsCount || 0) +
         (kpis.contractActionsDueCount || 0),
       variant: hrActionsStatus.variant,
-      status: { icon: hrActionsStatus.statusIcon, label: hrActionsStatus.statusLabel },
+      status: {
+        icon: hrActionsStatus.statusIcon,
+        label: hrActionsStatus.statusLabel,
+      },
       // Same OR-of-unrelated-cohorts issue as Data Gaps -- the previous
       // employmentStatus=3-only link dumped every Probation employee
       // (most not due/overdue at all) and omitted Contracts Ending
@@ -438,9 +452,14 @@ export function getEmployeesOverviewConfig(
       icon: ListChecksIcon,
       label: "Open Lifecycle Cases",
       sublabel: "Onboarding & Offboarding Checklists In Progress",
-      value: (kpis.openOnboardingCasesCount || 0) + (kpis.openOffboardingCasesCount || 0),
+      value:
+        (kpis.openOnboardingCasesCount || 0) +
+        (kpis.openOffboardingCasesCount || 0),
       variant: lifecycleCasesStatus.variant,
-      status: { icon: lifecycleCasesStatus.statusIcon, label: lifecycleCasesStatus.statusLabel },
+      status: {
+        icon: lifecycleCasesStatus.statusIcon,
+        label: lifecycleCasesStatus.statusLabel,
+      },
       // Two unrelated cohorts (onboarding vs offboarding) -- same
       // OR-of-cohorts reasoning as HR Actions Needed/Data Gaps above, each
       // sub-metric links to its own dedicated list page, not this one.
@@ -449,12 +468,12 @@ export function getEmployeesOverviewConfig(
         {
           label: "Onboarding",
           value: kpis.openOnboardingCasesCount || 0,
-          to: "/app/hr/onboarding",
+          to: "../list?lifecycleCase=onboarding_open",
         },
         {
           label: "Offboarding",
           value: kpis.openOffboardingCasesCount || 0,
-          to: "/app/hr/offboarding",
+          to: "../list?lifecycleCase=offboarding_open",
         },
       ],
       title:
