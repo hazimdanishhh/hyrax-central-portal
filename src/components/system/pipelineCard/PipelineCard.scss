@@ -1,0 +1,34 @@
+.pipelineCardHeader {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+
+  .pipelineCardHeaderRight {
+    display: flex;
+    flex-direction: row;
+    justify-content: start;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+}
+
+.pipelineCardDates {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pipelineError {
+  text-align: start;
+  text-wrap: wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  color: $error600;
+}

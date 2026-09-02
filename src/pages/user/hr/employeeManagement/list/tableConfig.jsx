@@ -13,17 +13,30 @@ import {
   CASE_TYPE_BADGE_TYPE,
 } from "../../../../../features/employeeLifecycle/private/lifecycleCaseStatusMeta";
 
-// `isSuperAdmin` gates raw editing of employment_status_id/end_date/
-// resignation_date/termination_reason_id -- see
-// docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2. HR uses the
-// guided status-transition buttons on EmployeeSidebar.jsx instead; these
-// fields stay visible (read-only) in the plain form for HR, and directly
-// editable only for superadmin, as a correction/backfill escape hatch --
-// mirrors how Sales Leads/Tasks removed raw status editing once a guided
-// flow existed, but deliberately keeps a raw-edit path open here (unlike
-// those two modules) since Employee Management is also a system of record
-// that needs to absorb historical corrections, not just a forward-moving
-// process tracker.
+// `isSuperAdmin` gates raw editing of resignation_date/termination_reason_id
+// only -- see docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2 and
+// its UAT readiness pass. Both are purely departure-specific with a guided
+// alternative (the status-transition buttons on EmployeeSidebar.jsx) for
+// the normal path, so they stay visible (read-only) in the plain form for
+// HR, directly editable only for superadmin, as a correction/backfill
+// escape hatch -- mirrors how Sales Leads/Tasks removed raw status editing
+// once a guided flow existed, but deliberately keeps a raw-edit path open
+// here (unlike those two modules) since Employee Management is also a
+// system of record that needs to absorb historical corrections, not just a
+// forward-moving process tracker.
+//
+// employment_status_id/end_date were ALSO superadmin-gated in that same
+// pass, then reverted -- this same tableConfig drives both the create AND
+// edit forms, and gating them broke two things with no guided alternative:
+// a non-superadmin HR user could no longer set a brand-new hire's initial
+// status at all (silently landing as NULL on insert, which breaks
+// handle_employee_onboarding_case_open.sql's guard -- see the UAT
+// readiness pass), and there's no guided button for routine
+// Probation-confirmation/Suspend/Reinstate/Leave transitions by explicit
+// prior decision (employeeStatusTransitions.js's own header) -- so gating
+// employment_status_id blocked those too, not just departures. end_date is
+// ordinary data-entry for a new contract/non-full-time hire, unrelated to
+// the guided offboarding flow. Both stay fully editable.
 export const employeesTableConfig = ({
   managers,
   profiles,
@@ -310,7 +323,7 @@ export const employeesTableConfig = ({
     label: "Employment Status",
     getValue: (employee) => employee.employment_status?.id,
     displayValue: (employee) => employee.employment_status?.name,
-    editable: isSuperAdmin,
+    editable: true,
     editor: "select",
     options: employmentStatuses.map((e) => ({
       label: e.name,
@@ -380,7 +393,7 @@ export const employeesTableConfig = ({
     key: "end_date",
     label: "Contract End Date",
     getValue: (employee) => employee.end_date,
-    editable: isSuperAdmin,
+    editable: true,
     editor: "date",
     section: "Employment Details",
     half: true,

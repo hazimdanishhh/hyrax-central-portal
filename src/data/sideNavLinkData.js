@@ -148,6 +148,26 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
+      // Self-service onboarding/offboarding -- read-only views of the
+      // caller's own open case, if any (universal route, no department/role
+      // gate, matching route_access_matrix.csv). Reinstated in the sidenav
+      // per explicit decision -- originally left out under "most employees
+      // never have an open case, so an always-visible nav entry is
+      // clutter," reversed after real UAT testing showed relying solely on
+      // notification deep links left the pages undiscoverable. See
+      // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md.
+      {
+        label: "Onboarding",
+        icon: AddressBookIcon,
+        path: "employee/onboarding",
+      },
+
+      {
+        label: "Offboarding",
+        icon: DoorOpenIcon,
+        path: "employee/offboarding",
+      },
+
       // {
       //   label: "Leave Request",
       //   icon: CalendarIcon,

@@ -30,6 +30,8 @@ import {
 } from "./tableConfig";
 import { getPipelineRunLogFilterConfig } from "./filterConfig";
 import { getPipelineRunLogSortConfig } from "./sortConfig";
+import PipelineCard from "../../../../components/system/pipelineCard/PipelineCard";
+import PipelineHistoryCard from "../../../../components/system/pipelineHistoryCard/PipelineHistoryCard";
 
 /**
  * Read-only -- sap_pipeline_state/pipeline_run_log are both pipeline-owned,
@@ -42,6 +44,7 @@ export default function PipelineStatus() {
 
   const { pipelines, isLoading: currentStateLoading } =
     usePipelineCurrentState();
+
   const { stats, isLoading: statsLoading } = usePipelineStats(7);
 
   const {
@@ -71,6 +74,7 @@ export default function PipelineStatus() {
     defaultSortBy: "run_at",
     defaultSortOrder: "descending",
   });
+  console.log(runLog);
 
   const currentStateColumns = pipelineCurrentStateTableConfig();
   const runLogColumns = pipelineRunLogTableConfig();
@@ -110,7 +114,7 @@ export default function PipelineStatus() {
             {!statsLoading && stats && <OverviewCards items={statCards} />}
 
             <SectionHeader title="Current State" icon={DatabaseIcon} />
-            <div className="cardWrapperScroll generalCard">
+            <div className="cardWrapperScroll">
               {currentStateLoading ? (
                 <CardLayout style="cardLayoutFlexFull">
                   <LoadingIcon />
@@ -118,11 +122,21 @@ export default function PipelineStatus() {
               ) : pipelines.length === 0 ? (
                 <NoResult />
               ) : (
-                <DataTable
-                  data={pipelines}
-                  columns={currentStateColumns}
-                  rowKey="pipeline_name"
-                />
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.4rem",
+                    width: "100%",
+                  }}
+                >
+                  {pipelines.map((pipeline) => (
+                    <PipelineCard
+                      key={pipeline.pipeline_name}
+                      data={pipeline}
+                    />
+                  ))}
+                </div>
               )}
             </div>
 
@@ -170,7 +184,7 @@ export default function PipelineStatus() {
               error={runLogError}
             />
 
-            <div className="cardWrapperScroll generalCard">
+            <div className="cardWrapperScroll">
               {runLogLoading || runLogFetching ? (
                 <CardLayout style="cardLayoutFlexFull">
                   <LoadingIcon />
@@ -180,7 +194,18 @@ export default function PipelineStatus() {
               ) : runLogError ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <DataTable data={runLog} columns={runLogColumns} rowKey="id" />
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.4rem",
+                    width: "100%",
+                  }}
+                >
+                  {runLog.map((log) => (
+                    <PipelineHistoryCard key={log.id} data={log} />
+                  ))}
+                </div>
               )}
             </div>
           </CardWrapper>

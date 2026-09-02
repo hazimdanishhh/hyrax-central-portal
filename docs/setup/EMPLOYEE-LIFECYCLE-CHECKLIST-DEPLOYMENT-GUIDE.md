@@ -126,12 +126,18 @@ If you've already run steps 0–13 above, this is the only new SQL to run — se
 4. Re-run `supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` — its body now has 7 calls instead of 6. **Unschedule first**: `select cron.unschedule('check-employee-lifecycle-daily');`, then re-run the file.
 5. Run `supabase/functions/handle_employee_onboarding_case_open.sql` again (`create or replace function`, safe to re-run — it previously emitted no notifications at all; now emits two), then `supabase/sql_editor/seed_onboarding_case_opened_notification_rules.sql`. No cron change needed — this is Shape A (change-triggered), already wired via the existing `trg_employee_onboarding_case_open.sql`.
 6. Frontend: the "Immediate Termination" button is now "Immediate Departure (No Notice)" and asks for Final Status instead of assuming Terminated — ships with your normal build/deploy, nothing to run in SQL for this part. **Before real UAT use**, check the live `termination_reason` table's content — if every row reads as termination-specific with nothing resignation/retirement-appropriate, add a few neutral rows first (no seed file provided here since the gap is unconfirmed; follow `seed_access_card_asset_subcategory.sql`'s pattern if needed).
+7. Run `supabase/functions/notify_employee_profile_linked.sql` again (`create or replace function`, safe to re-run — adds a second, conditional notification it previously never sent), then `supabase/sql_editor/seed_onboarding_case_ready_notification_rule.sql`.
+8. Frontend: `employment_status_id`/`end_date` are editable again for non-superadmin HR (were mistakenly gated to superadmin-only in step 13, which also silently blocked creating any new employee at all — see the architecture doc's UAT readiness pass), and "Onboarding"/"Offboarding" are back in the Employee sidenav/mobile nav. Both ship with your normal build/deploy, nothing to run in SQL. **If you already have a test employee stuck with a `NULL`/wrong `employment_status_id` from before this fix** (its onboarding case can never open retroactively — the case-open trigger is insert-only), unblock it manually:
+   ```sql
+   update employees set employment_status_id = 3 where id = '<test-employee-id>';
+   select public.get_or_create_onboarding_case('<test-employee-id>', 'manual_backfill');
+   ```
 
-**Checkpoint: all nine lifecycle notification rules are live (none paused), a new hire's onboarding case-open now actually notifies HR/manager/IT instead of no one, IT gets offboarding-completion confirmations, HR gets the same proactive last-day reminder IT already had, and the guided no-notice-departure button no longer assumes the outcome is always a termination.**
+**Checkpoint: all ten lifecycle notification rules are live (none paused), a new hire's onboarding case-open now actually notifies HR/manager/IT instead of no one, a new hire gets their own deep link to their onboarding checklist once linked, IT gets offboarding-completion confirmations, HR gets the same proactive last-day reminder IT already had, the guided no-notice-departure button no longer assumes the outcome is always a termination, and HR can once again create employees and do routine status housekeeping.**
 
 ## Frontend
 
-Already shipped in this repo, ships via your normal build/deploy — nothing to do here beyond confirming, once you're logged in as HR/IT/superadmin, that new sidenav entries "Onboarding"/"Offboarding" appear under both the HR and IT segments.
+Already shipped in this repo, ships via your normal build/deploy — nothing to do here beyond confirming, once you're logged in, that "Onboarding"/"Offboarding" appear under the HR and IT segments (for HR/IT users) and under the EMPLOYEE segment (for every logged-in user, desktop and mobile nav alike).
 
 ## Verifying it all worked
 
@@ -166,3 +172,9 @@ Already shipped in this repo, ships via your normal build/deploy — nothing to 
 - [ ] As HR, click "Immediate Departure (No Notice)" on an active test employee — confirm the modal asks for **Final Status** (Terminated/Resigned/Retired) rather than assuming Terminated, and that picking "Resigned" actually sets `employees.employment_status_id = 5`.
 - [ ] Confirm the modal's reason field now reads "Reason for Departure" (not "Termination Reason") on both "Begin Offboarding (Notice)" and "Immediate Departure (No Notice)."
 - [ ] Confirm `docs/NOTIFICATION-RULES-TRACKER.csv` shows all seven lifecycle rows as `Implemented`.
+- [ ] Insert a new test employee row with `employment_status_id = 3` (Probation) — confirm both an HR test user and an IT test user receive a notification (`employee.onboarding_case_opened` and `employee.onboarding_it_setup_needed` respectively), where previously nobody was notified at all. If that employee has a `manager_id` set, confirm the manager also receives the HR-audience notification.
+- [ ] As a non-superadmin HR test user, create a brand-new employee — confirm Employment Status is actually selectable (not greyed out), the row saves, and an `ONBOARDING` case opens immediately.
+- [ ] As the same non-superadmin HR user, confirm you can move an existing employee Probation → Active, or into Suspended/On Leave, via the raw Employment Status dropdown (no guided button covers these — this must still work).
+- [ ] Confirm `resignation_date`/`termination_reason_id` are still read-only for non-superadmin (unaffected by this fix).
+- [ ] Link a test profile to an employee with an open `ONBOARDING` case — confirm that profile's own user receives `employee.onboarding_case_ready` with a link landing on `/app/employee/onboarding`. Link a profile to an employee with no open case — confirm nothing fires (negative case). Link a profile to an employee with an open **offboarding** case — confirm nothing new fires there either (negative case).
+- [ ] Confirm "Onboarding" and "Offboarding" both appear under the Employee segment in the desktop sidenav and the mobile nav, for every logged-in employee.
