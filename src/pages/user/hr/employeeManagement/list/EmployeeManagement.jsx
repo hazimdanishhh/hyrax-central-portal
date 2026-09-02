@@ -303,7 +303,12 @@ export default function EmployeeManagement() {
       fields.push({
         name: "termination_reason_id",
         type: "select",
-        label: "Termination Reason",
+        // "Reason for Departure", not "Termination Reason" -- this field is
+        // shared by BEGIN_OFFBOARDING and IMMEDIATE_DEPARTURE, neither of
+        // which assumes the outcome is actually a termination (it could
+        // resolve to Resigned/Retired via Finalize Departure or the Final
+        // Status picker below).
+        label: "Reason for Departure",
         required: true,
         options: terminationReasons.map((t) => ({
           label: t.name,
@@ -318,6 +323,12 @@ export default function EmployeeManagement() {
         type: "date",
         label: "Expected Last Day",
         required: true,
+        // Immediate Departure has no notice period, so "expected" is
+        // normally today -- still editable, e.g. to backdate a walkout.
+        defaultValue:
+          transitionKey === "IMMEDIATE_DEPARTURE"
+            ? new Date().toISOString().slice(0, 10)
+            : undefined,
       });
     }
 
@@ -571,7 +582,7 @@ export default function EmployeeManagement() {
         loading={applyingStatusTransition}
         onConfirm={handleConfirmTransition}
         modalType={
-          pendingTransition?.key === "IMMEDIATE_TERMINATION"
+          pendingTransition?.key === "IMMEDIATE_DEPARTURE"
             ? "delete"
             : "approve"
         }

@@ -31,7 +31,7 @@ function EmployeeSidebar({
 
   const showBeginOffboarding =
     canManageTransitions && !isTerminatedNotice && !isTerminatedCategory;
-  const showImmediateTermination =
+  const showImmediateDeparture =
     canManageTransitions && !isTerminatedCategory;
   const showFinalizeDeparture = canManageTransitions && isTerminatedNotice;
 
@@ -84,7 +84,7 @@ function EmployeeSidebar({
 
       {!isEditing &&
         (showBeginOffboarding ||
-          showImmediateTermination ||
+          showImmediateDeparture ||
           showFinalizeDeparture) && (
           <CardLayout style="cardLayout2 cardGapSmall">
             {showBeginOffboarding && (
@@ -96,13 +96,13 @@ function EmployeeSidebar({
                 onClick={() => onRequestTransition("BEGIN_OFFBOARDING")}
               />
             )}
-            {showImmediateTermination && (
+            {showImmediateDeparture && (
               <Button
-                name={EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_TERMINATION.label}
-                icon={EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_TERMINATION.icon}
-                style={`button buttonType4 ${EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_TERMINATION.style} textXS`}
+                name={EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_DEPARTURE.label}
+                icon={EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_DEPARTURE.icon}
+                style={`button buttonType4 ${EMPLOYEE_STATUS_TRANSITIONS.IMMEDIATE_DEPARTURE.style} textXS`}
                 size={16}
-                onClick={() => onRequestTransition("IMMEDIATE_TERMINATION")}
+                onClick={() => onRequestTransition("IMMEDIATE_DEPARTURE")}
               />
             )}
             {showFinalizeDeparture && (

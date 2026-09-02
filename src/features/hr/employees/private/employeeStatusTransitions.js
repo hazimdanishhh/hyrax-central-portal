@@ -1,4 +1,4 @@
-import { ClockIcon, XCircleIcon, CheckCircleIcon } from "@phosphor-icons/react";
+import { ClockIcon, WarningIcon, CheckCircleIcon } from "@phosphor-icons/react";
 
 // Guided employment-status transitions for Employee Management -- mirrors
 // Sales Leads' stage-change UX (LeadSidebar.jsx / leadStageTransitions.js /
@@ -34,17 +34,26 @@ export const EMPLOYEE_STATUS_TRANSITIONS = {
     collectsExpectedLastDay: true,
     collectsTerminationReason: true,
   },
-  IMMEDIATE_TERMINATION: {
-    key: "IMMEDIATE_TERMINATION",
-    label: "Immediate Termination",
-    icon: XCircleIcon,
+  // Deliberately does NOT hardcode a target status (unlike the old
+  // IMMEDIATE_TERMINATION it replaces) -- an employee leaving with no
+  // notice period can just as easily be a resignation or a retirement as a
+  // termination. Structurally symmetric with BEGIN_OFFBOARDING ->
+  // FINALIZE_DEPARTURE: both paths defer the final classification to the
+  // same Final Status picker (FINALIZE_DEPARTURE_STATUS_IDS), this one just
+  // collects it immediately instead of after a waiting period. See
+  // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md's UAT readiness pass.
+  IMMEDIATE_DEPARTURE: {
+    key: "IMMEDIATE_DEPARTURE",
+    label: "Immediate Departure (No Notice)",
+    icon: WarningIcon,
     style: "rejection",
-    targetEmploymentStatusId: 4, // Terminated
-    modalTitle: "Immediate Termination",
+    targetEmploymentStatusId: null, // asked in the modal -- Terminated/Resigned/Retired
+    modalTitle: "Immediate Departure",
     modalDescription:
-      "Use for a termination with no notice period. Also starts the offboarding checklist, with no advance lead time.",
+      "Use when there is no notice period -- the employee is leaving effective immediately, whether by resignation, termination, or retirement. Starts the offboarding checklist with no advance lead time.",
     collectsExpectedLastDay: true,
     collectsTerminationReason: true,
+    collectsFinalStatus: true,
   },
   FINALIZE_DEPARTURE: {
     key: "FINALIZE_DEPARTURE",

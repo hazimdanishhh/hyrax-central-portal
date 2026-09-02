@@ -116,6 +116,19 @@ If you've already run steps 0–12 above, this is the only new SQL to run — se
 
 **Checkpoint: contract/non-full-time employees now get a real offboarding case with lead time, HR/superadmin can drive offboarding through guided buttons instead of raw field edits, and the confirmation-reminder/offboarding notification collision is gone.**
 
+## 14. UAT-readiness pass (2026-09-02)
+
+If you've already run steps 0–13 above, this is the only new SQL to run — see `docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`'s "UAT readiness pass" section for why. Run in this order:
+
+1. **Before re-enabling the paused rules**, preview roughly how many notifications the first tick will produce (see the comment at the top of the file below for the exact query), then run `supabase/sql_editor/resume_employee_offboarding_scan_rules.sql` — re-enables `employee.offboarding_last_day_approaching`/`employee.offboarding_overdue`, superseding the manual `UPDATE` shown in step 12 above (run this file instead of retyping that snippet).
+2. Run `supabase/sql_editor/update_offboarding_case_completed_notify_it.sql` — adds IT as a co-recipient of `employee.offboarding_case_completed`.
+3. Run `supabase/sql_editor/employee_lifecycle_cases_add_hr_items_reminder_column.sql`, then `supabase/functions/check_employee_offboarding_hr_items_approaching.sql`, then `supabase/sql_editor/seed_offboarding_hr_items_approaching_notification_rule.sql` — the new HR-side proactive reminder, seeded active immediately (no pause needed).
+4. Re-run `supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` — its body now has 7 calls instead of 6. **Unschedule first**: `select cron.unschedule('check-employee-lifecycle-daily');`, then re-run the file.
+5. Run `supabase/functions/handle_employee_onboarding_case_open.sql` again (`create or replace function`, safe to re-run — it previously emitted no notifications at all; now emits two), then `supabase/sql_editor/seed_onboarding_case_opened_notification_rules.sql`. No cron change needed — this is Shape A (change-triggered), already wired via the existing `trg_employee_onboarding_case_open.sql`.
+6. Frontend: the "Immediate Termination" button is now "Immediate Departure (No Notice)" and asks for Final Status instead of assuming Terminated — ships with your normal build/deploy, nothing to run in SQL for this part. **Before real UAT use**, check the live `termination_reason` table's content — if every row reads as termination-specific with nothing resignation/retirement-appropriate, add a few neutral rows first (no seed file provided here since the gap is unconfirmed; follow `seed_access_card_asset_subcategory.sql`'s pattern if needed).
+
+**Checkpoint: all nine lifecycle notification rules are live (none paused), a new hire's onboarding case-open now actually notifies HR/manager/IT instead of no one, IT gets offboarding-completion confirmations, HR gets the same proactive last-day reminder IT already had, and the guided no-notice-departure button no longer assumes the outcome is always a termination.**
+
 ## Frontend
 
 Already shipped in this repo, ships via your normal build/deploy — nothing to do here beyond confirming, once you're logged in as HR/IT/superadmin, that new sidenav entries "Onboarding"/"Offboarding" appear under both the HR and IT segments.
@@ -143,3 +156,13 @@ Already shipped in this repo, ships via your normal build/deploy — nothing to 
 - [ ] Set a test employee's `employment_type_id` to a non-"Full-time" type and `end_date` within 30 days, with `employment_status_id` still active-category — confirm `check_employee_contract_offboarding_due()` opens an `OFFBOARDING` case with `expected_last_day` matching `end_date`, without you touching `employment_status_id` at all.
 - [ ] Insert a test employee on Probation with a `confirmation_due_date` inside the next 30 days, then open an `OFFBOARDING` case for them — confirm `check_employee_confirmations_due_soon()` no longer fires for them (negative case).
 - [ ] Click "Deactivate Portal Account" from an offboarding case's detail page — confirm `profiles.deactivated_at` is set and `portal_account_deactivated` flips to `DONE` automatically. Repeat from the Users page's employee-link sidebar.
+
+**UAT-readiness pass (step 14) additions:**
+
+- [ ] `select event_type, is_active from notification_rules where event_type like 'employee.offboarding%' or event_type like 'employee.onboarding%';` — confirm all nine lifecycle rules show `is_active = true`, none paused.
+- [ ] Insert a new test employee row with `employment_status_id = 3` (Probation) — confirm both an HR test user and an IT test user receive a notification (`employee.onboarding_case_opened` and `employee.onboarding_it_setup_needed` respectively), where previously nobody was notified at all. If that employee has a `manager_id` set, confirm the manager also receives the HR-audience notification.
+- [ ] Mark every item DONE/SKIPPED on a test `OFFBOARDING` case where the last recipient department is IT — confirm an IT test user receives the `employee.offboarding_case_completed` notification, not just HR/superadmin.
+- [ ] On a test `OFFBOARDING` case with an `OPEN` HR-owned item and `expected_last_day` within 7 days, run `select public.check_employee_offboarding_hr_items_approaching();` manually — confirm a notification lands for an HR test user, and re-running it immediately after does **not** re-notify (3-day cooldown via `hr_items_reminder_last_notified_at`).
+- [ ] As HR, click "Immediate Departure (No Notice)" on an active test employee — confirm the modal asks for **Final Status** (Terminated/Resigned/Retired) rather than assuming Terminated, and that picking "Resigned" actually sets `employees.employment_status_id = 5`.
+- [ ] Confirm the modal's reason field now reads "Reason for Departure" (not "Termination Reason") on both "Begin Offboarding (Notice)" and "Immediate Departure (No Notice)."
+- [ ] Confirm `docs/NOTIFICATION-RULES-TRACKER.csv` shows all seven lifecycle rows as `Implemented`.

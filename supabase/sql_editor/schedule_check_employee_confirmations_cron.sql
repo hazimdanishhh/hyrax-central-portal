@@ -14,11 +14,19 @@
 -- (added 2026-09, Employee Lifecycle Checklist module) share this same job
 -- rather than getting their own -- same table domain (employees/
 -- employee_lifecycle_cases), same daily cadence as the three functions
--- already here. Their notification_rules rows are seeded paused (see
+-- already here. Their notification_rules rows were seeded paused (see
 -- pause_employee_offboarding_scan_rules.sql) until the deploy-time backfill
--- has been reviewed -- running them here regardless is safe, since a paused
--- rule's fan-out is a no-op but the scan still advances its own cooldown
--- timestamps.
+-- was reviewed -- running them here regardless was safe even while paused,
+-- since a paused rule's fan-out is a no-op but the scan still advances its
+-- own cooldown timestamps. Re-enabled 2026-09-02 via
+-- resume_employee_offboarding_scan_rules.sql ahead of UAT.
+--
+-- check_employee_offboarding_hr_items_approaching() (added 2026-09-02, UAT
+-- readiness pass) mirrors check_employee_offboarding_last_day_approaching()
+-- but scoped to HR-owned items instead of IT-owned, with its own cooldown
+-- column -- closes the gap where only IT had a proactive pre-last-day
+-- reminder. Seeded active immediately, no pause needed (see
+-- seed_offboarding_hr_items_approaching_notification_rule.sql).
 --
 -- UPGRADING FROM AN EARLIER VERSION OF THIS FILE (skip this if this is the
 -- first time 'check-employee-lifecycle-daily' is being scheduled at all --
@@ -45,8 +53,15 @@
 -- no pg_net/HTTP call, no Edge Function, no secret to store in Vault. It's
 -- a straight pg_cron call into plpgsql functions, since the whole job
 -- (scanning employees, emitting events, updating dedup/cooldown columns)
--- is pure SQL. All six scan the same table domain on the same daily
--- cadence, so they share one cron job rather than six separate ones.
+-- is pure SQL. All seven scan the same table domain on the same daily
+-- cadence, so they share one cron job rather than seven separate ones.
+--
+-- UPGRADING FROM AN EARLIER VERSION OF THIS FILE (skip this if this is the
+-- first time 'check-employee-lifecycle-daily' is being scheduled at all --
+-- cron.unschedule() errors on a job name that doesn't exist yet): the job
+-- NAME hasn't changed here (still just adding a 7th call to the body), but
+-- cron.schedule() with the same name does NOT update an existing job's
+-- body -- unschedule it first: select cron.unschedule('check-employee-lifecycle-daily');
 create extension if not exists pg_cron;
 
 select cron.schedule(
@@ -59,6 +74,7 @@ select cron.schedule(
     select public.check_employee_contract_offboarding_due();
     select public.check_employee_offboarding_last_day_approaching();
     select public.check_employee_offboarding_overdue();
+    select public.check_employee_offboarding_hr_items_approaching();
     $$
 );
 
