@@ -1,0 +1,38 @@
+.leaveCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  flex-wrap: wrap;
+
+  .leaveCardDetails {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+
+    @media screen and (max-width: 768px) {
+      width: 100%;
+    }
+  }
+}
+
+.leaveCardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  flex-wrap: wrap;
+
+  .leaveCardRemarks {
+    width: 50%;
+    text-align: left;
+
+    @media screen and (max-width: 768px) {
+      width: 100%;
+    }
+  }
+}

@@ -51,7 +51,7 @@ export default function AttendancePageLayout() {
                   Attendance List
                 </NavLink>
 
-                <NavLink
+                {/* <NavLink
                   to="/app/hr/attendance/settings"
                   className={({ isActive }) =>
                     `button buttonTypeTab textRegular textXS ${
@@ -63,7 +63,7 @@ export default function AttendancePageLayout() {
                     <GearIcon size={15} />
                   </div>
                   Settings
-                </NavLink>
+                </NavLink> */}
               </div>
               <Outlet />
             </CardWrapper>

@@ -30,6 +30,7 @@ import { getLeaveRecordsFilterConfig } from "./filterConfig";
 import { getLeaveRecordsSortConfig } from "./sortConfig";
 import { getLeaveCsvImportConfig } from "./leaveCsvImportConfig";
 import "./LeaveManagement.scss";
+import LeaveCard from "../../../../components/hr/leaveCard/LeaveCard";
 
 /**
  * HR Leave Management page. Read-only: leave_ledger_entries is populated
@@ -74,7 +75,7 @@ export default function LeaveManagement() {
     defaultSortBy: "leave_date",
     defaultSortOrder: "descending",
   });
-
+  console.log("records", records);
   const columns = leaveRecordsTableConfig();
   const filterConfig = getLeaveRecordsFilterConfig({ leaveTypes });
   const sortOptions = getLeaveRecordsSortConfig();
@@ -120,6 +121,7 @@ export default function LeaveManagement() {
                     name: "Import Leave CSV",
                     icon: UploadSimpleIcon,
                     onClick: () => setImportOpen(true),
+                    style: "button buttonType5 approval",
                   },
                 ]}
               />
@@ -167,12 +169,15 @@ export default function LeaveManagement() {
                   }
                 />
               ) : (
-                <DataTable
-                  data={records}
-                  columns={columns}
-                  rowKey="id"
-                  onRowClick={handleRowClick}
-                />
+                <CardLayout style="cardLayout1 cardGapSmall">
+                  {records.map((leave) => (
+                    <LeaveCard
+                      key={leave.id}
+                      leave={leave}
+                      onRowClick={handleRowClick}
+                    />
+                  ))}
+                </CardLayout>
               )}
             </div>
           </CardWrapper>

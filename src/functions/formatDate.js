@@ -39,7 +39,9 @@ export function formatTime(value) {
 export function formatRelativeTime(value) {
   if (!value) return null;
 
-  const diffMinutes = Math.round((Date.now() - new Date(value).getTime()) / 60000);
+  const diffMinutes = Math.round(
+    (Date.now() - new Date(value).getTime()) / 60000,
+  );
 
   if (diffMinutes < 1) return "just now";
   if (diffMinutes < 60) return `${diffMinutes}m ago`;

@@ -35,4 +35,12 @@
     border-radius: 4px;
     padding: 0.2rem;
   }
+
+  &.grey {
+    color: $neutral500;
+    background-color: rgba($neutral300, 0.2);
+    border: 1px solid $neutral500;
+    border-radius: 4px;
+    padding: 0.2rem;
+  }
 }

@@ -86,7 +86,7 @@ export const employeesTableConfig = ({
   // SYSTEM SETTINGS
   {
     key: "profile_id",
-    label: "Profile",
+    label: "User Profile",
     getValue: (employee) => employee.profile_id,
     editable: true,
     editor: "select",
@@ -295,7 +295,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.employee_id,
     editable: true,
     editor: "text",
-    section: "Personal Information",
+    section: "Employment Details",
   },
   {
     key: "department_id",
@@ -348,6 +348,7 @@ export const employeesTableConfig = ({
     isSearchable: false,
     section: "Employment Details",
     half: true,
+    required: true,
   },
   // Tri-state, not a plain boolean -- null means "not yet decided" (every
   // existing employee row has this on migration day, and a plain false
@@ -358,7 +359,7 @@ export const employeesTableConfig = ({
   // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Section B.
   {
     key: "needs_it_asset",
-    label: "Require Device / Access Card?",
+    label: "IT Asset",
     getValue: (employee) => employee.needs_it_asset,
     editable: true,
     editor: "select",
@@ -369,6 +370,7 @@ export const employeesTableConfig = ({
     ],
     isSearchable: false,
     section: "Employment Details",
+    required: true,
   },
 
   {
@@ -379,6 +381,7 @@ export const employeesTableConfig = ({
     editor: "date",
     section: "Employment Details",
     half: true,
+    required: true,
   },
   {
     key: "confirmation_date",
@@ -395,7 +398,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.end_date,
     editable: true,
     editor: "date",
-    section: "Employment Details",
+    section: "Termination/Resignation Details",
     half: true,
   },
   {
@@ -404,7 +407,7 @@ export const employeesTableConfig = ({
     getValue: (employee) => employee.resignation_date,
     editable: isSuperAdmin,
     editor: "date",
-    section: "Employment Details",
+    section: "Termination/Resignation Details",
     half: true,
   },
   {
@@ -419,7 +422,7 @@ export const employeesTableConfig = ({
       value: t.id,
     })),
     isSearchable: false,
-    section: "Employment Details",
+    section: "Termination/Resignation Details",
   },
 
   // REPORTING MANAGER

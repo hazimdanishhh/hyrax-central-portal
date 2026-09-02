@@ -381,9 +381,9 @@ export default function AttendanceManagement() {
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
         <PageActions
-          layout={layout}
-          setLayout={setLayout}
-          options={layoutOptions}
+          // layout={layout}
+          // setLayout={setLayout}
+          // options={layoutOptions}
           actionButtons={[
             {
               name: "Add Attendance",
@@ -392,6 +392,7 @@ export default function AttendanceManagement() {
                 setSelectedRow({});
                 setSidebarOpen(true);
               },
+              style: "button buttonType5 approval",
             },
           ]}
         />

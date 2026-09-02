@@ -95,7 +95,7 @@ export default function EmployeeManagement() {
   } = usePaginatedQuery({
     queryKey: "employees",
     queryFn: fetchEmployees,
-    pageSize: 20,
+    pageSize: 50,
     defaultSortBy: "full_name",
   });
 
