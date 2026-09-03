@@ -126,7 +126,51 @@ declare
     -- v_late_threshold_time above (a plain 9-to-6 company-wide shift) --
     -- also disclosed in its own tile's tooltip, not a real policy.
     v_early_leave_threshold_time constant time := '18:00:00';
+    -- Authorization guard state -- see "0. Authorization guard" below.
+    v_is_hr_or_superadmin boolean;
+    v_caller_employee_id uuid;
 begin
+
+-- 0. Authorization guard (added for HR UAT hardening): this RPC reads
+-- unified_daily_attendance, a plain view with no `security_invoker = on`
+-- (contrast hr_attendance_activities_hr_view.sql, which has it) -- so it
+-- runs with the view owner's privileges, meaning RLS on the underlying
+-- attendance_logs/attendance_activities never actually applies through it.
+-- Without this guard, any authenticated user could call this RPC directly
+-- (bypassing My Attendance/Team Attendance/HR's own frontend scoping) and
+-- get back every active employee's present/absent/overtime/leave/anomaly
+-- data company-wide, just by passing no filters. Mirrors the identical
+-- fix already applied to get_finance_dashboard for the same root cause
+-- (see supabase/access-control/README.md) -- same helper functions
+-- (public.is_superadmin(), public.current_employee_id()), same
+-- errcode = '42501' convention.
+--
+-- HR/superadmin: unrestricted, exactly as before this guard existed.
+-- Anyone else: only a genuinely self-scoped call (p_employee_id = their
+-- own id, p_department_id/p_manager_id both null -- what My Attendance
+-- always sends) or a genuinely manager-scoped call (p_manager_id = their
+-- own id, p_department_id/p_employee_id both null -- what Team Attendance
+-- always sends) is allowed. Every other combination, including the
+-- all-null default that used to silently mean "company-wide", is rejected.
+select (public.is_superadmin() or p.department_id = 7)
+into v_is_hr_or_superadmin
+from public.profiles p
+where p.id = auth.uid();
+
+v_caller_employee_id := public.current_employee_id();
+
+if not coalesce(v_is_hr_or_superadmin, false) then
+    if not (
+        p_department_id is null
+        and (
+            (p_employee_id is not null and p_employee_id = v_caller_employee_id and p_manager_id is null)
+            or
+            (p_manager_id is not null and p_manager_id = v_caller_employee_id and p_employee_id is null)
+        )
+    ) then
+        raise exception 'Unauthorized: get_attendance_dashboard requires HR/superadmin, or a call scoped to your own employee_id/manager_id' using errcode = '42501';
+    end if;
+end if;
 
 -- 1. Calculate the Previous Period for Deltas (mirrors get_hr_employees_dashboard)
 if p_start_date is not null and p_end_date is not null then
@@ -194,15 +238,11 @@ prev_period_rows as (
 employee_leave_rows as (
     select
         le.employee_id as leave_emp_uuid,
-        e.full_name,
-        coalesce(d.name, 'Unassigned') as department_name,
-        lt.code as leave_type_code,
         lt.label as leave_type_label,
         le.day_fraction
     from leave_ledger_entries le
     join leave_ledger_types lt on lt.id = le.leave_type_id
     join employees e on e.id = le.employee_id
-    left join departments d on d.id = e.department_id
     where (p_department_id is null or e.department_id = p_department_id)
     and (p_employee_id is null or le.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
@@ -276,41 +316,6 @@ open_session_rows as (
     and (p_department_id is null or e.department_id = p_department_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
-),
-
--- Per-employee, period-scoped reconciliation summary -- one row per employee
--- with any working-day record this period, backing the Overview page's new
--- "Leave Reconciliation" per-employee table. Reuses period_rows' already-
--- proven hr_flag/hours_worked filter conditions, grouped by employee instead
--- of summed company-wide.
-employee_reconciliation as (
-    select
-        pr.employee_uuid,
-        pr.full_name,
-        coalesce(pr.department_name, 'Unassigned') as department_name,
-        count(*) filter (where pr.hr_flag not in ('Absent', 'Weekend / Rest Day') and not pr.is_on_leave) as present_days,
-        count(*) filter (where pr.hr_flag = 'Absent') as absent_days,
-        round(sum(greatest(pr.hours_worked - 8, 0)) filter (where pr.hr_flag not in ('Weekend / Rest Day', 'Absent') and not pr.is_on_leave)::numeric, 2) as overtime_hours,
-        count(*) filter (where pr.hr_flag not in ('Weekend / Rest Day', 'Absent') and pr.first_in is not null and pr.first_in::time > v_late_threshold_time) as late_arrivals,
-        count(*) filter (where pr.hr_flag not in ('Weekend / Rest Day', 'Absent') and pr.last_out is not null and pr.last_out::time < v_early_leave_threshold_time) as early_leaves,
-        count(*) filter (where pr.hr_flag in ('Missing App Check-Out', 'Incomplete Card Scans')) as anomalies
-    from period_rows pr
-    group by pr.employee_uuid, pr.full_name, pr.department_name
-),
-
--- Per-employee leave summary, folded from employee_leave_rows -- total days
--- plus a compact "AL: 2, MC: 1"-style breakdown string for the table cell.
-employee_leave_summary as (
-    select
-        leave_emp_uuid,
-        sum(type_total) as leave_days_total,
-        string_agg(leave_type_code || ': ' || trim(to_char(type_total, 'FM990.0')), ', ' order by leave_type_code) as leave_breakdown
-    from (
-        select leave_emp_uuid, leave_type_code, sum(day_fraction) as type_total
-        from employee_leave_rows
-        group by leave_emp_uuid, leave_type_code
-    ) per_type
-    group by leave_emp_uuid
 ),
 
 kpi_totals as (
@@ -612,29 +617,6 @@ select json_build_object(
             select leave_type_label as name, sum(day_fraction) as value
             from employee_leave_rows
             group by leave_type_label
-        ) x
-    ),
-
-    -- Per-employee payroll-cycle reconciliation: present/absent/leave/
-    -- overtime/anomalies, one row per employee, this period -- backs the
-    -- Overview page's new "Leave Reconciliation" per-employee table.
-    'employeeReconciliationData', (
-        select coalesce(json_agg(x order by x.full_name), '[]'::json)
-        from (
-            select
-                er.employee_uuid,
-                er.full_name,
-                er.department_name,
-                er.present_days,
-                er.absent_days,
-                coalesce(els.leave_days_total, 0) as leave_days_total,
-                els.leave_breakdown,
-                coalesce(er.overtime_hours, 0) as overtime_hours,
-                er.late_arrivals,
-                er.early_leaves,
-                er.anomalies
-            from employee_reconciliation er
-            left join employee_leave_summary els on els.leave_emp_uuid = er.employee_uuid
         ) x
     )
 

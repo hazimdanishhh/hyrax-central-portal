@@ -1,22 +1,26 @@
 import { useRef } from "react";
 import {
+  CalendarXIcon,
   ChartLineUpIcon,
   ChartPieSliceIcon,
   GaugeIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import ChartCard from "@/components/chartCard/ChartCard";
+import HorizontalBarChartRenderer from "@/components/chartCard/HorizontalBarChartRenderer";
 import LineChartRenderer from "@/components/chartCard/LineChartRenderer";
 import PieChartRenderer from "@/components/chartCard/PieChartRenderer";
 import {
   ATTENDANCE_FLAG_COLORS,
   BLUE_COLOR,
   GREEN_COLOR,
+  PURPLE_COLOR,
   WORK_CHANNEL_COLORS,
 } from "@/components/chartCard/chartColors";
 import NoResult from "@/components/crud/noResult/NoResult";
 import OverviewCards from "@/components/crud/overviewCards/OverviewCards";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
+import PayrollCycleFilterBar from "@/components/payrollCycleFilterBar/PayrollCycleFilterBar";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
 import ExportActions from "@/components/exportActions/ExportActions";
 import { useEmployee } from "@/context/EmployeeContext";
@@ -66,6 +70,7 @@ export default function MyAttendanceOverview() {
 
   const hrFlagBreakdownData = dashboard?.hrFlagBreakdownData ?? [];
   const workChannelMixData = dashboard?.workChannelMixData ?? [];
+  const leaveTypeBreakdownData = dashboard?.leaveTypeBreakdownData ?? [];
 
   const dailyAttendanceTrendData =
     dashboard?.dailyAttendanceTrendData?.map((d) => ({
@@ -92,6 +97,8 @@ export default function MyAttendanceOverview() {
         isLoading={isLoading}
         isError={isError}
       />
+
+      <PayrollCycleFilterBar filters={filters} onFilterChange={setFilters} />
 
       <div
         style={{
@@ -233,6 +240,37 @@ export default function MyAttendanceOverview() {
                       data={workChannelMixData}
                       mode="semantic"
                       colorMap={WORK_CHANNEL_COLORS}
+                    />
+                  </ChartCard>
+                </CardLayout>
+              </div>
+            </div>
+
+            <div className="pdfOverviewSection">
+              <div style={{ justifyContent: "start", textAlign: "start" }}>
+                <div style={{ margin: "1rem 0" }}>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}
+                  >
+                    <CalendarXIcon size={24} />
+                    <h2 className="textL textBold">Leave</h2>
+                  </div>
+                  <p className="textXS textLight">
+                    Your leave days by type, this period.
+                  </p>
+                </div>
+
+                <CardLayout>
+                  <ChartCard
+                    title="Leave by Type"
+                    subtitle="Total Days, This Period"
+                    style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ onLeave: "true", ...chartPeriodFilter }}
+                  >
+                    <HorizontalBarChartRenderer
+                      data={leaveTypeBreakdownData}
+                      colorMap={PURPLE_COLOR}
                     />
                   </ChartCard>
                 </CardLayout>

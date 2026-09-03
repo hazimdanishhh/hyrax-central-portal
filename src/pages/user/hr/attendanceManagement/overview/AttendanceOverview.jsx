@@ -23,7 +23,6 @@ import {
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import DataTable from "../../../../../components/dataTable/DataTable";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import PayrollCycleFilterBar from "../../../../../components/payrollCycleFilterBar/PayrollCycleFilterBar";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
@@ -34,29 +33,6 @@ import { getAttendanceOverviewFilterConfig } from "./filterConfig";
 import { getAttendanceOverviewConfig } from "./overviewConfig";
 import ExportActions from "../../../../../components/exportActions/ExportActions";
 import { useRef } from "react";
-
-// Per-employee payroll-cycle reconciliation table columns -- read-only
-// (employeeReconciliationData is a computed RPC aggregate, not a writable
-// table row), same "editable: false, display-only" convention every other
-// read-only DataTable column set in this app already follows.
-const RECONCILIATION_COLUMNS = [
-  { key: "full_name", label: "Employee", getValue: "full_name" },
-  { key: "department_name", label: "Department", getValue: "department_name" },
-  { key: "present_days", label: "Present Days", getValue: "present_days" },
-  { key: "absent_days", label: "Absent Days", getValue: "absent_days" },
-  {
-    key: "leave_days_total",
-    label: "Leave Days",
-    getValue: (row) =>
-      row.leave_breakdown
-        ? `${row.leave_days_total} (${row.leave_breakdown})`
-        : row.leave_days_total,
-  },
-  { key: "overtime_hours", label: "Overtime (h)", getValue: "overtime_hours" },
-  { key: "late_arrivals", label: "Late Arrivals", getValue: "late_arrivals" },
-  { key: "early_leaves", label: "Early Leaves", getValue: "early_leaves" },
-  { key: "anomalies", label: "Anomalies", getValue: "anomalies" },
-];
 
 export default function AttendanceOverview() {
   const dashboardRef = useRef(null);
@@ -132,8 +108,6 @@ export default function AttendanceOverview() {
   const topAbsenteeismData = dashboard?.topAbsenteeismData ?? [];
   const topOvertimeData = dashboard?.topOvertimeData ?? [];
   const leaveTypeBreakdownData = dashboard?.leaveTypeBreakdownData ?? [];
-  const employeeReconciliationData =
-    dashboard?.employeeReconciliationData ?? [];
 
   // Raw RPC rows carry present_count/roster_count (and avg_hours) rather
   // than a pre-computed rate -- derived here, same "shape the chart data in
@@ -478,8 +452,7 @@ export default function AttendanceOverview() {
                     <h2 className="textL textBold">Leave Reconciliation</h2>
                   </div>
                   <p className="textXS textLight">
-                    Leave days by type, and a per-employee reconciliation of
-                    present/absent/leave/overtime/anomalies, this period.
+                    Leave days by type, this period.
                   </p>
                 </div>
 
@@ -501,14 +474,6 @@ export default function AttendanceOverview() {
                     />
                   </ChartCard>
                 </CardLayout>
-
-                {/* <div style={{ marginTop: "1rem", overflowX: "auto" }}>
-                  <DataTable
-                    data={employeeReconciliationData}
-                    columns={RECONCILIATION_COLUMNS}
-                    rowKey="employee_uuid"
-                  />
-                </div> */}
               </div>
             </div>
           </>

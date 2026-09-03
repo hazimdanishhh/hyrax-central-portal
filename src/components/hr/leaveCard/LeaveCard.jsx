@@ -6,7 +6,7 @@ import "./LeaveCard.scss";
 
 function LeaveCard({ leave, onClick }) {
   return (
-    <div className="generalCard cardPaddingSmall">
+    <button className="generalCard cardPaddingSmall leaveCard" onClick={onClick}>
       <div className="leaveCardHeader">
         <EmployeeImage
           employee={leave.employee}
@@ -32,7 +32,7 @@ function LeaveCard({ leave, onClick }) {
           style="grey textXXXS"
         />
       </div>
-    </div>
+    </button>
   );
 }
 

@@ -1,3 +1,14 @@
+// Root element is a <button> (fixed row-click wiring) -- resets the
+// default inline-block/centered-text button layout back to how this card
+// rendered as a <div>, same reset AttendanceCard.scss's own root class
+// already does for its own button root.
+.leaveCard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+}
+
 .leaveCardHeader {
   display: flex;
   justify-content: space-between;

@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import {
+  CalendarXIcon,
   ChartLineUpIcon,
   ChartPieSliceIcon,
   GaugeIcon,
@@ -14,6 +15,7 @@ import {
   ATTENDANCE_FLAG_COLORS,
   BLUE_COLOR,
   GREEN_COLOR,
+  PURPLE_COLOR,
   RED_COLOR,
   WORK_CHANNEL_COLORS,
   YELLOW_COLOR,
@@ -22,6 +24,7 @@ import ActiveFiltersBar from "@/components/crud/activeFiltersBar/ActiveFiltersBa
 import NoResult from "@/components/crud/noResult/NoResult";
 import OverviewCards from "@/components/crud/overviewCards/OverviewCards";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
+import PayrollCycleFilterBar from "@/components/payrollCycleFilterBar/PayrollCycleFilterBar";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
 import ExportActions from "@/components/exportActions/ExportActions";
 import { useEmployee } from "@/context/EmployeeContext";
@@ -88,6 +91,7 @@ export default function TeamAttendanceOverview() {
   const workChannelMixData = dashboard?.workChannelMixData ?? [];
   const topAbsenteeismData = dashboard?.topAbsenteeismData ?? [];
   const topOvertimeData = dashboard?.topOvertimeData ?? [];
+  const leaveTypeBreakdownData = dashboard?.leaveTypeBreakdownData ?? [];
 
   const dailyAttendanceTrendData =
     dashboard?.dailyAttendanceTrendData?.map((d) => ({
@@ -114,6 +118,8 @@ export default function TeamAttendanceOverview() {
         isLoading={isLoading}
         isError={isError}
       />
+
+      <PayrollCycleFilterBar filters={filters} onFilterChange={setFilters} />
 
       <div
         style={{
@@ -345,6 +351,41 @@ export default function TeamAttendanceOverview() {
                     <HorizontalBarChartRenderer
                       data={topOvertimeData}
                       colorMap={YELLOW_COLOR}
+                    />
+                  </ChartCard>
+                </CardLayout>
+              </div>
+            </div>
+
+            <div className="pdfOverviewSection">
+              <div style={{ justifyContent: "start", textAlign: "start" }}>
+                <div style={{ margin: "1rem 0" }}>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}
+                  >
+                    <CalendarXIcon size={24} />
+                    <h2 className="textL textBold">Leave</h2>
+                  </div>
+                  <p className="textXS textLight">
+                    Your team's leave days by type, this period.
+                  </p>
+                </div>
+
+                <CardLayout>
+                  <ChartCard
+                    title="Leave by Type"
+                    subtitle="Total Days, This Period"
+                    style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{
+                      ...chartBaseFilter,
+                      onLeave: "true",
+                      ...chartPeriodFilter,
+                    }}
+                  >
+                    <HorizontalBarChartRenderer
+                      data={leaveTypeBreakdownData}
+                      colorMap={PURPLE_COLOR}
                     />
                   </ChartCard>
                 </CardLayout>

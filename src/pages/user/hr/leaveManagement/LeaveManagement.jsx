@@ -75,7 +75,6 @@ export default function LeaveManagement() {
     defaultSortBy: "leave_date",
     defaultSortOrder: "descending",
   });
-  console.log("records", records);
   const columns = leaveRecordsTableConfig();
   const filterConfig = getLeaveRecordsFilterConfig({ leaveTypes });
   const sortOptions = getLeaveRecordsSortConfig();
@@ -174,7 +173,7 @@ export default function LeaveManagement() {
                     <LeaveCard
                       key={leave.id}
                       leave={leave}
-                      onRowClick={handleRowClick}
+                      onClick={() => handleRowClick(leave)}
                     />
                   ))}
                 </CardLayout>
