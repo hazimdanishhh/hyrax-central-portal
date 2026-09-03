@@ -34,6 +34,7 @@ function EmployeeSidebar({
   const showImmediateDeparture =
     canManageTransitions && !isTerminatedCategory;
   const showFinalizeDeparture = canManageTransitions && isTerminatedNotice;
+  const showConfirmProbation = canManageTransitions && currentStatusId === 3;
 
   return (
     <CardLayout style="cardPadding">
@@ -85,8 +86,18 @@ function EmployeeSidebar({
       {!isEditing &&
         (showBeginOffboarding ||
           showImmediateDeparture ||
-          showFinalizeDeparture) && (
+          showFinalizeDeparture ||
+          showConfirmProbation) && (
           <CardLayout style="cardLayout2 cardGapSmall">
+            {showConfirmProbation && (
+              <Button
+                name={EMPLOYEE_STATUS_TRANSITIONS.CONFIRM_PROBATION.label}
+                icon={EMPLOYEE_STATUS_TRANSITIONS.CONFIRM_PROBATION.icon}
+                style={`button buttonType4 ${EMPLOYEE_STATUS_TRANSITIONS.CONFIRM_PROBATION.style} textXS`}
+                size={16}
+                onClick={() => onRequestTransition("CONFIRM_PROBATION")}
+              />
+            )}
             {showBeginOffboarding && (
               <Button
                 name={EMPLOYEE_STATUS_TRANSITIONS.BEGIN_OFFBOARDING.label}

@@ -28,13 +28,26 @@ export async function applyEmployeeStatusTransition({
   employmentStatusId,
   terminationReasonId,
   expectedLastDay,
+  confirmationDate,
 }) {
+  const updateFields = {
+    employment_status_id: employmentStatusId,
+    termination_reason_id: terminationReasonId ?? null,
+  };
+
+  // Only CONFIRM_PROBATION passes this -- written in the SAME update as
+  // employment_status_id, atomically, so
+  // check_employee_confirmation_status_mismatches.sql can never observe a
+  // moment where status is already Active but confirmation_date is still
+  // null. Omitted entirely (not sent as null) for every other transition,
+  // so they can never accidentally clear an existing confirmation_date.
+  if (confirmationDate) {
+    updateFields.confirmation_date = confirmationDate;
+  }
+
   const { data: employee, error: updateError } = await supabase
     .from("employees")
-    .update({
-      employment_status_id: employmentStatusId,
-      termination_reason_id: terminationReasonId ?? null,
-    })
+    .update(updateFields)
     .eq("id", employeeId)
     .select("*")
     .single();

@@ -344,6 +344,20 @@ export default function EmployeeManagement() {
       });
     }
 
+    if (transition.collectsConfirmationDate) {
+      fields.push({
+        name: "confirmation_date",
+        type: "date",
+        label: "Confirmation Date",
+        required: true,
+        // An actual-event field (see check_employee_confirmation_status_
+        // mismatches.sql) -- defaults to today, since HR is confirming this
+        // right now, but stays editable to backdate an already-completed
+        // review.
+        defaultValue: new Date().toISOString().slice(0, 10),
+      });
+    }
+
     return fields;
   }
 
@@ -363,6 +377,7 @@ export default function EmployeeManagement() {
           ? parseInt(formValues.termination_reason_id, 10)
           : null,
         expectedLastDay: formValues.expected_last_day || null,
+        confirmationDate: formValues.confirmation_date || null,
       });
 
       setPendingTransition(null);

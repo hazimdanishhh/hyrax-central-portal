@@ -1,4 +1,9 @@
-import { ClockIcon, WarningIcon, CheckCircleIcon } from "@phosphor-icons/react";
+import {
+  ClockIcon,
+  WarningIcon,
+  CheckCircleIcon,
+  UserCheckIcon,
+} from "@phosphor-icons/react";
 
 // Guided employment-status transitions for Employee Management -- mirrors
 // Sales Leads' stage-change UX (LeadSidebar.jsx / leadStageTransitions.js /
@@ -8,12 +13,15 @@ import { ClockIcon, WarningIcon, CheckCircleIcon } from "@phosphor-icons/react";
 // (taskStatusMeta.js's cleaner single-source-of-truth shape), avoiding
 // leadStageTransitions.js's fragile string-matching-for-icon pattern.
 //
-// Scoped to exactly what this pass was about -- offboarding-related
-// transitions -- not an exhaustive graph for every employment_status value.
-// Suspend/Reinstate, Start/Return-from-Leave, and Probation Confirmation
-// guided actions are deliberately out of scope here; adding them would be
-// scope creep against this module's own fixed-checklist, don't-over-build
-// discipline. See docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2.
+// Scoped to offboarding-related transitions plus Probation Confirmation --
+// not an exhaustive graph for every employment_status value. Suspend/
+// Reinstate and Start/Return-from-Leave guided actions are still
+// deliberately out of scope (added 2026-09-02: Confirm was pulled in from
+// that same originally-out-of-scope list because it already has real
+// supporting infrastructure -- employees.confirmation_date,
+// check_employee_confirmation_status_mismatches.sql -- the other three
+// don't yet and need their own design pass, not a copy-paste of this
+// shape). See docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2.
 //
 // Deliberately does NOT write into employees.end_date -- reserved for
 // non-full-time/contract employment with a pre-known scheduled end (see
@@ -67,6 +75,24 @@ export const EMPLOYEE_STATUS_TRANSITIONS = {
     collectsExpectedLastDay: false,
     collectsTerminationReason: false,
     collectsFinalStatus: true,
+  },
+  // Fills the "Probation Confirmation" gap named in this file's own header.
+  // Requires a confirmation date in the same modal, not a separate raw
+  // edit afterward -- check_employee_confirmation_status_mismatches.sql
+  // already flags exactly the failure mode of moving someone off Probation
+  // while confirmation_date stays null past its due date, so the mutation
+  // (employeeStatusTransitionMutations.js) writes employment_status_id and
+  // confirmation_date in the SAME update, never one without the other.
+  CONFIRM_PROBATION: {
+    key: "CONFIRM_PROBATION",
+    label: "Confirm",
+    icon: UserCheckIcon,
+    style: "approval",
+    targetEmploymentStatusId: 1, // Active
+    modalTitle: "Confirm Probation",
+    modalDescription:
+      "Confirms this employee has passed probation and moves them to Active. Requires their confirmation date.",
+    collectsConfirmationDate: true,
   },
 };
 
