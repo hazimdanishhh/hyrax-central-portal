@@ -1,4 +1,5 @@
 .recentWorkspaceSection {
+  display: flex;
   flex-direction: column;
   justify-content: start;
   height: fit-content;
@@ -12,4 +13,5 @@
   // cards, pinning the whole panel wider than its grid track and
   // overflowing to the right.
   min-width: 0;
+  gap: 0.4rem;
 }

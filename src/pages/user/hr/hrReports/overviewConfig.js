@@ -128,7 +128,8 @@ export function getHrReportsOverviewConfig(
       metrics: [
         { label: "Employees With Overtime", value: kpis.employeesWithOvertimeCount || 0 },
       ],
-      title: "Sum of hours worked beyond 8h/day across working-day records this period.",
+      title:
+        "Sum of hours worked after 6:00 PM (18:00) across working-day records this period -- not hours above 8/day, and not affected by what time the employee arrived.",
     },
     {
       icon: CalendarXIcon,

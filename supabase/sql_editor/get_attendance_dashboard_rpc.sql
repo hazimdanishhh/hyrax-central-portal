@@ -122,10 +122,6 @@ declare
     -- then. Surfaced in the Overview page's own tile tooltip so this stays
     -- a disclosed assumption, not a silent policy decision.
     v_late_threshold_time constant time := '09:00:00';
-    -- Same assumption, symmetric end-of-day counterpart to
-    -- v_late_threshold_time above (a plain 9-to-6 company-wide shift) --
-    -- also disclosed in its own tile's tooltip, not a real policy.
-    v_early_leave_threshold_time constant time := '18:00:00';
     -- Authorization guard state -- see "0. Authorization guard" below.
     v_is_hr_or_superadmin boolean;
     v_caller_employee_id uuid;
@@ -379,16 +375,20 @@ kpi_totals as (
          from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent') and last_out is not null) as avg_check_out_time,
 
-        -- Late arrivals / early leave -- see v_late_threshold_time and
-        -- v_early_leave_threshold_time's own comments above.
+        -- Late arrivals -- see v_late_threshold_time's own comment above.
         (select count(*) from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent')
          and first_in is not null
          and first_in::time > v_late_threshold_time) as late_arrivals_count,
+        -- Early leave: before 5PM, computed once in unified_daily_attendance
+        -- (is_early_leave) rather than re-deriving the threshold here --
+        -- see that view's own comment for why (sets up the future
+        -- per-work-location threshold as a one-view change, not a rewrite
+        -- of every consumer).
         (select count(*) from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent')
-         and last_out is not null
-         and last_out::time < v_early_leave_threshold_time) as early_leave_count,
+         and not is_on_leave
+         and is_early_leave) as early_leave_count,
 
         -- `and not is_on_leave` added (HR2000 leave ledger integration) --
         -- real dilution-bug fix: once 'On Leave (...)' exists as an hr_flag
@@ -398,17 +398,20 @@ kpi_totals as (
         (select round(avg(hours_worked)::numeric, 2) from period_rows where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave) as avg_hours_worked,
         (select round(avg(hours_worked)::numeric, 2) from prev_period_rows where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave) as prev_avg_hours_worked,
 
-        -- Overtime (doc-02 KPI): total hours above 8/day, this period.
+        -- Overtime (doc-02 KPI): time worked after 6PM, this period --
+        -- NOT hours above 8/day. Reads overtime_hours from
+        -- unified_daily_attendance (same reasoning as early_leave_count
+        -- above -- computed once in the view, not re-derived here).
         -- `and not is_on_leave` costs nothing here (a pure-leave zero-scan
-        -- day already contributes 0 to the sum and fails the >8 filter
+        -- day already computes overtime_hours = 0 and fails the >0 filter
         -- regardless) but keeps this block consistent with its neighbors and
         -- guards against a future change silently reintroducing the bug.
-        (select round(sum(greatest(hours_worked - 8, 0))::numeric, 2) from period_rows
+        (select round(sum(overtime_hours)::numeric, 2) from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave) as overtime_hours_total,
-        (select round(sum(greatest(hours_worked - 8, 0))::numeric, 2) from prev_period_rows
+        (select round(sum(overtime_hours)::numeric, 2) from prev_period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave) as prev_overtime_hours_total,
         (select count(distinct employee_uuid) from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave and hours_worked > 8) as employees_with_overtime_count,
+         where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave and overtime_hours > 0) as employees_with_overtime_count,
 
         (select count(*) from period_rows where hr_flag = 'Absent') as absent_days_count,
         (select count(*) from prev_period_rows where hr_flag = 'Absent') as prev_absent_days_count,
@@ -597,11 +600,11 @@ select json_build_object(
     'topOvertimeData', (
         select coalesce(json_agg(x), '[]'::json)
         from (
-            select full_name as name, round(sum(greatest(hours_worked - 8, 0))::numeric, 2) as value
+            select full_name as name, round(sum(overtime_hours)::numeric, 2) as value
             from period_rows
             where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave
             group by full_name
-            having sum(greatest(hours_worked - 8, 0)) > 0
+            having sum(overtime_hours) > 0
             order by value desc
             limit 10
         ) x

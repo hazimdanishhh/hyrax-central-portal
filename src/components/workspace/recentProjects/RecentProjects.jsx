@@ -18,11 +18,11 @@ import RouterButton from "../../buttons/routerButton/RouterButton";
  */
 export default function RecentProjects() {
   const navigate = useNavigate();
-  const { projects, isLoading } = useRecentProjects(5);
+  const { projects, isLoading } = useRecentProjects(3);
   const { categories } = useProjectCategories();
 
   return (
-    <CardLayout style="generalCard recentWorkspaceSection cardPaddingSmall cardGapSmall">
+    <CardLayout style="recentWorkspaceSection cardPaddingSmall cardGapSmall">
       <PageHeader>
         <SectionHeader icon={FolderIcon} title="Recent Projects" />
 

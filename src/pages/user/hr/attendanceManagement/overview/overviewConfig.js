@@ -356,7 +356,7 @@ export function getAttendanceOverviewConfig(
         },
       ],
       title:
-        "Average last_out time-of-day across working-day records in the selected period (Weekend/Rest-Day and Absent records excluded). Early Leave is a fixed 18:00 company-wide assumption, symmetric to Average Check-In's 09:00 -- same caveat: not a real per-employee/department shift, revisit once shift data exists.",
+        "Average last_out time-of-day across working-day records in the selected period (Weekend/Rest-Day and Absent records excluded). Early Leave means leaving before 5:00 PM (17:00), a fixed company-wide assumption for now -- will become per-work-location once employees carry a work location assignment (see docs/WORK-LOCATIONS-ARCHITECTURE.md).",
     },
 
     // ==========================================
@@ -409,7 +409,7 @@ export function getAttendanceOverviewConfig(
         },
       ],
       title:
-        "Sum of hours worked beyond 8h/day across working-day records in the selected period. Employees With Overtime is a distinct-employee count, while its link shows one row per qualifying day -- an employee with overtime on 3 different days appears 3 times in the list but counts once here.",
+        "Sum of hours worked after 6:00 PM (18:00) across working-day records in the selected period -- not hours above 8/day, and not affected by what time the employee arrived. Employees With Overtime is a distinct-employee count, while its link shows one row per qualifying day -- an employee with overtime on 3 different days appears 3 times in the list but counts once here.",
     },
 
     // ==========================================

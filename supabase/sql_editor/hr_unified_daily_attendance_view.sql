@@ -188,7 +188,35 @@ SELECT
     -- integration comment on the CASE expression.
     (dl.leave_type_codes IS NOT NULL) AS is_on_leave,
     dl.leave_type_codes,
-    dl.leave_day_fraction_total AS leave_day_fraction
+    dl.leave_day_fraction_total AS leave_day_fraction,
+
+    -- Overtime: time worked strictly after 6PM, regardless of arrival time
+    -- -- company policy is NOT "hours_worked > 8". GREATEST/EXTRACT are
+    -- null-safe: a day with no checkout (last_out_time_of_day null)
+    -- naturally computes to 0 here (GREATEST ignores NULL args), matching
+    -- how such days are already excluded downstream via hr_flag/is_on_leave
+    -- filters rather than needing a separate null-guard. Repeats the same
+    -- MAX(...) expression last_out/last_out_time_of_day above already use
+    -- -- a SELECT list can't reference a sibling output column's alias, and
+    -- restructuring this view into a wrapping CTE is a bigger change than
+    -- this fix warrants.
+    GREATEST(
+        EXTRACT(EPOCH FROM (
+            (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time - TIME '18:00:00'
+        )) / 3600.0,
+        0
+    ) AS overtime_hours,
+
+    -- Early leave: before 5PM, flat company-wide for now. Deliberately
+    -- COALESCE-guarded (not a bare boolean expression) so a future
+    -- per-work-location threshold (see docs/WORK-LOCATIONS-ARCHITECTURE.md)
+    -- only needs its TIME '17:00:00' literal swapped for a joined
+    -- work_locations.early_leave_time column -- this column's shape/name
+    -- doesn't need to change when that lands.
+    COALESCE(
+        (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time < TIME '17:00:00',
+        false
+    ) AS is_early_leave
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date

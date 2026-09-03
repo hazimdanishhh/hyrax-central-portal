@@ -418,9 +418,9 @@ export default function LeadsManagement() {
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
         <PageActions
-          layout={layout}
-          setLayout={setLayout}
-          options={layoutOptions}
+          // layout={layout}
+          // setLayout={setLayout}
+          // options={layoutOptions}
           actionButtons={[
             {
               icon: PlusCircleIcon,

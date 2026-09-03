@@ -63,7 +63,7 @@ export function getAttendanceActivitiesFilterConfig({
     {
       key: "overtimeOnly",
       label: "Overtime",
-      options: [{ label: "Overtime Only (>8h)", value: "true" }],
+      options: [{ label: "Overtime Only (After 6:00 PM)", value: "true" }],
     },
     {
       key: "lateArrival",
@@ -73,7 +73,7 @@ export function getAttendanceActivitiesFilterConfig({
     {
       key: "earlyLeave",
       label: "Early Leave",
-      options: [{ label: "Last Out Before 6:00 PM", value: "true" }],
+      options: [{ label: "Last Out Before 5:00 PM", value: "true" }],
     },
   ];
 }

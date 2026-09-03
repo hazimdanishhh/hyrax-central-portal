@@ -170,11 +170,15 @@ kpi_attendance_totals as (
     select
         count(*) filter (where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave) as present_count,
         count(*) filter (where hr_flag <> 'Weekend / Rest Day' and not is_on_leave) as roster_count,
-        round(sum(greatest(hours_worked - 8, 0)) filter (
+        -- Overtime: time worked after 6PM, not hours above 8/day -- reads
+        -- overtime_hours from unified_daily_attendance directly (computed
+        -- once there, see that view's own comment), mirrors the identical
+        -- fix in get_attendance_dashboard_rpc.sql this same pass.
+        round(sum(overtime_hours) filter (
             where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave
         )::numeric, 2) as overtime_hours_total,
         count(distinct employee_uuid) filter (
-            where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave and hours_worked > 8
+            where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave and overtime_hours > 0
         ) as employees_with_overtime_count
     from period_attendance
 ),

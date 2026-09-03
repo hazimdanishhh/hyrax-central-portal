@@ -260,9 +260,15 @@ export const departmentLinkCardData = [
     icon: AddressBookIcon,
 
     links: [
-      // "Reports" intentionally omitted — hr/reports has no matching route
-      // in HRRoutes.jsx (confirmed dead link), even though it still exists
-      // in sideNavLinkData.js.
+      {
+        label: "Reports",
+        description: "Employee lifecycle, attendance and leave.",
+        icon: ChartBarIcon,
+        path: "hr/reports",
+
+        departments: ["HR", "MGM"],
+        roles: ["manager"],
+      },
       {
         label: "Employee Management",
         description: "Manage employee records and org structure.",

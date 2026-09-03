@@ -67,9 +67,12 @@ export async function fetchUnifiedAttendance({ date, search, filters, sortBy, so
 }
 
 // Shared by both fetchers below -- named business-window filters mirroring
-// get_attendance_dashboard_rpc.sql's own thresholds exactly (09:00/18:00 for
-// late/early, >8h for overtime, hr_flag exclusions for working-day/present),
-// so a drill-through link's row count always matches the KPI it came from.
+// get_attendance_dashboard_rpc.sql's own thresholds exactly (09:00 late
+// arrival, overtime/early-leave read from unified_daily_attendance's
+// overtime_hours/is_early_leave columns -- after 6PM / before 5PM,
+// respectively, not hours_worked-based), hr_flag exclusions for
+// working-day/present, so a drill-through link's row count always matches
+// the KPI it came from.
 function applyAttendanceFilter(query, key, value) {
   switch (key) {
     case "employee":
@@ -96,8 +99,10 @@ function applyAttendanceFilter(query, key, value) {
       return query.eq("is_on_leave", true);
 
     case "overtimeOnly":
+      // Overtime is time worked after 6PM (unified_daily_attendance's
+      // overtime_hours column), not hours_worked > 8.
       return query
-        .gt("hours_worked", 8)
+        .gt("overtime_hours", 0)
         .neq("hr_flag", "Weekend / Rest Day")
         .neq("hr_flag", "Absent");
 
@@ -109,9 +114,10 @@ function applyAttendanceFilter(query, key, value) {
         .neq("hr_flag", "Absent");
 
     case "earlyLeave":
+      // Early leave is before 5PM (unified_daily_attendance's
+      // is_early_leave column, company-wide flat threshold for now).
       return query
-        .not("last_out_time_of_day", "is", null)
-        .lt("last_out_time_of_day", "18:00:00")
+        .eq("is_early_leave", true)
         .neq("hr_flag", "Weekend / Rest Day")
         .neq("hr_flag", "Absent");
 
