@@ -112,6 +112,7 @@ export default function EmployeeManagement() {
     employmentTypes,
     terminationReasons,
     employmentStatuses,
+    workLocations,
     isLoading: metadataLoading,
     isFetching: metadataFetching,
     error: metadataError,
@@ -146,6 +147,7 @@ export default function EmployeeManagement() {
     employmentTypes,
     terminationReasons,
     employmentStatuses,
+    workLocations,
     isSuperAdmin,
   });
   const filterConfig = getEmployeesFilterConfig({

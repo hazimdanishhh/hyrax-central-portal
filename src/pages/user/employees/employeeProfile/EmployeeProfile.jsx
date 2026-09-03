@@ -181,7 +181,26 @@ export default function EmployeeProfile() {
                             Address (Work)
                           </strong>
                           <p className="profileData textRegular textXXS">
-                            {employee.address_work || "null"}
+                            {employee.work_location_name || "null"}
+                          </p>
+                        </div>
+                      </CardLayout>
+                      <CardLayout style="cardLayout1">
+                        <div className="profileDetails">
+                          <strong className="profileLabel textXXS">
+                            Address (Home)
+                          </strong>
+                          <p className="profileData textRegular textXXS">
+                            {[
+                              employee.personal_address_line1,
+                              employee.personal_address_line2,
+                              employee.personal_address_city,
+                              employee.personal_address_state,
+                              employee.personal_address_postcode,
+                              employee.personal_address_country,
+                            ]
+                              .filter(Boolean)
+                              .join(", ") || "null"}
                           </p>
                         </div>
                       </CardLayout>

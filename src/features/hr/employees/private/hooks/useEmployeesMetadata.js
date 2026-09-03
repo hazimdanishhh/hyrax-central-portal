@@ -18,5 +18,6 @@ export function useEmployeesMetadata() {
     employmentTypes: query.data?.employmentTypes || [],
     terminationReasons: query.data?.terminationReasons || [],
     employmentStatuses: query.data?.employmentStatuses || [],
+    workLocations: query.data?.workLocations || [],
   };
 }

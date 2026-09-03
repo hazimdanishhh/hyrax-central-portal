@@ -13,5 +13,6 @@ export function useAttendanceActivitiesMetadata() {
     employees: query.data?.employees || [],
     departments: query.data?.departments || [],
     attendanceTypes: query.data?.attendanceTypes || [],
+    workLocations: query.data?.workLocations || [],
   };
 }

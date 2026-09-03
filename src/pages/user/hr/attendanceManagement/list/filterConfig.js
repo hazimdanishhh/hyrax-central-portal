@@ -9,6 +9,7 @@
 export function getAttendanceActivitiesFilterConfig({
   employees,
   departments,
+  workLocations,
 }) {
   return [
     {
@@ -20,6 +21,14 @@ export function getAttendanceActivitiesFilterConfig({
       key: "department",
       label: "Department",
       options: departments.map((e) => ({ label: e.name, value: e.id })),
+    },
+    {
+      key: "workLocation",
+      label: "Work Location",
+      options: (workLocations || []).map((w) => ({
+        label: w.name,
+        value: w.id,
+      })),
     },
     {
       key: "manager",

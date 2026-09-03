@@ -15,6 +15,7 @@ export function buildAttendanceDashboardParams(filters) {
     p_end_date: null,
     p_department_id: null,
     p_employee_id: null,
+    p_work_location_id: null,
   };
 
   Object.entries(filters || {}).forEach(([key, value]) => {
@@ -35,6 +36,10 @@ export function buildAttendanceDashboardParams(filters) {
 
       case "employee":
         rpcParams.p_employee_id = value;
+        break;
+
+      case "workLocation":
+        rpcParams.p_work_location_id = value;
         break;
 
       default:

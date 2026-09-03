@@ -27,6 +27,7 @@ expected_shifts AS (
         e.position,
         e.manager_id,
         e.employment_status_id,
+        e.work_location_id,
         d.work_date
     FROM public.employees e
     JOIN public.employment_status es ON es.id = e.employment_status_id AND es.category = 'active'
@@ -207,16 +208,22 @@ SELECT
         0
     ) AS overtime_hours,
 
-    -- Early leave: before 5PM, flat company-wide for now. Deliberately
-    -- COALESCE-guarded (not a bare boolean expression) so a future
-    -- per-work-location threshold (see docs/WORK-LOCATIONS-ARCHITECTURE.md)
-    -- only needs its TIME '17:00:00' literal swapped for a joined
-    -- work_locations.early_leave_time column -- this column's shape/name
-    -- doesn't need to change when that lands.
+    -- Early leave: before this employee's assigned work location's cutoff
+    -- (work_locations.early_leave_time), falling back to the flat 5PM
+    -- default for employees not yet assigned one -- see
+    -- docs/WORK-LOCATIONS-ARCHITECTURE.md. This COALESCE is the exact seam
+    -- the prior pass's design left for this change: only the threshold
+    -- expression changed, the column's shape/name/callers didn't.
     COALESCE(
-        (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time < TIME '17:00:00',
+        (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time < COALESCE(wl.early_leave_time, TIME '17:00:00'),
         false
-    ) AS is_early_leave
+    ) AS is_early_leave,
+
+    -- Work location -- appended at the end, per this view's own
+    -- append-only constraint. Drives the "Work Location" filter on
+    -- Attendance List/Overview/Reports/Team Attendance.
+    u.work_location_id,
+    wl.name AS work_location_name
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date
@@ -224,4 +231,5 @@ LEFT JOIN daily_app a ON u.employee_uuid = a.app_emp_uuid AND u.work_date = a.wo
 LEFT JOIN daily_leave dl ON u.employee_uuid = dl.leave_emp_uuid AND u.work_date = dl.work_date
 LEFT JOIN public.departments d ON u.department_id = d.id
 LEFT JOIN public.employees m ON u.manager_id = m.id
-LEFT JOIN public.profiles p ON u.profile_id = p.id;
+LEFT JOIN public.profiles p ON u.profile_id = p.id
+LEFT JOIN public.work_locations wl ON wl.id = u.work_location_id;

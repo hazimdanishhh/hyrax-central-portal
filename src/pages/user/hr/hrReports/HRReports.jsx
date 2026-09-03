@@ -85,11 +85,12 @@ export default function HRReports() {
   // itself already uses.
   const {
     departments,
+    workLocations,
     isLoading: metadataLoading,
     error: metadataError,
   } = useEmployeesMetadata();
 
-  const filterConfig = getHrReportsFilterConfig({ departments });
+  const filterConfig = getHrReportsFilterConfig({ departments, workLocations });
 
   const isLoading = dashboardLoading || metadataLoading;
   const isFetching = dashboardFetching;

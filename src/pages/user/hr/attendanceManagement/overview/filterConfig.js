@@ -1,4 +1,8 @@
-export function getAttendanceOverviewFilterConfig({ departments, employees }) {
+export function getAttendanceOverviewFilterConfig({
+  departments,
+  employees,
+  workLocations,
+}) {
   return [
     {
       key: "department",
@@ -6,6 +10,14 @@ export function getAttendanceOverviewFilterConfig({ departments, employees }) {
       options: (departments || []).map((d) => ({
         label: d.name,
         value: d.id,
+      })),
+    },
+    {
+      key: "workLocation",
+      label: "Work Location",
+      options: (workLocations || []).map((w) => ({
+        label: w.name,
+        value: w.id,
       })),
     },
     {

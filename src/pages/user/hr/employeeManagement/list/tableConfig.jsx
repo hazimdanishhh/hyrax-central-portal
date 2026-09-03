@@ -46,6 +46,7 @@ export const employeesTableConfig = ({
   employmentTypes,
   terminationReasons,
   employmentStatuses,
+  workLocations,
   isSuperAdmin = false,
 }) => [
   {
@@ -403,7 +404,7 @@ export const employeesTableConfig = ({
   },
   {
     key: "resignation_date",
-    label: "Resignation Date",
+    label: "Termination Date",
     getValue: (employee) => employee.resignation_date,
     editable: isSuperAdmin,
     editor: "date",
@@ -440,21 +441,78 @@ export const employeesTableConfig = ({
     section: "Reporting Manager",
   },
 
-  // ADDRESS INFORMATION
+  // ADDRESS INFORMATION -- see docs/WORK-LOCATIONS-ARCHITECTURE.md.
+  // work_location_id replaces the old free-text address_work (a real "pick
+  // from a small set of sites" field, same select-editor shape as
+  // department_id above). personal_address_* replaces address_personal --
+  // structured, created/updated inline as one linked `addresses` row by
+  // employeeMutations.js's resolvePersonalAddressFields, not picked from a
+  // list (there's nothing to pick -- every employee has their own unique
+  // address).
   {
-    key: "address_work",
-    label: "Address (Work)",
-    getValue: (employee) => employee.address_work,
+    key: "work_location_id",
+    label: "Work Location",
+    getValue: (employee) => employee.work_location?.id,
+    displayValue: (employee) => employee.work_location?.name,
+    editable: true,
+    editor: "select",
+    options: workLocations.map((w) => ({
+      label: w.name,
+      value: w.id,
+    })),
+    isSearchable: false,
+    section: "Address Information",
+  },
+  {
+    key: "personal_address_line1",
+    label: "Address Line 1",
+    getValue: (employee) => employee.personal_address?.line1,
     editable: true,
     editor: "text",
     section: "Address Information",
   },
   {
-    key: "address_personal",
-    label: "Address (Personal)",
-    getValue: (employee) => employee.address_personal,
+    key: "personal_address_line2",
+    label: "Address Line 2",
+    getValue: (employee) => employee.personal_address?.line2,
     editable: true,
     editor: "text",
     section: "Address Information",
+  },
+  {
+    key: "personal_address_city",
+    label: "City",
+    getValue: (employee) => employee.personal_address?.city,
+    editable: true,
+    editor: "text",
+    section: "Address Information",
+    half: true,
+  },
+  {
+    key: "personal_address_state",
+    label: "State",
+    getValue: (employee) => employee.personal_address?.state,
+    editable: true,
+    editor: "text",
+    section: "Address Information",
+    half: true,
+  },
+  {
+    key: "personal_address_postcode",
+    label: "Postcode",
+    getValue: (employee) => employee.personal_address?.postcode,
+    editable: true,
+    editor: "text",
+    section: "Address Information",
+    half: true,
+  },
+  {
+    key: "personal_address_country",
+    label: "Country",
+    getValue: (employee) => employee.personal_address?.country,
+    editable: true,
+    editor: "text",
+    section: "Address Information",
+    half: true,
   },
 ];

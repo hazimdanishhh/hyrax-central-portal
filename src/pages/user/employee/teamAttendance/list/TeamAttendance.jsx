@@ -27,6 +27,7 @@ import { useMessage } from "@/context/MessageContext";
 import { useEmployee } from "@/context/EmployeeContext";
 import { supabase } from "@/lib/supabaseClient";
 import useSubordinatesPublic from "@/features/hr/employees/public/hooks/useSubordinatesPublic";
+import { useAttendanceActivitiesMetadata } from "@/features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import { attendanceDailySummaryTableConfig } from "@/pages/user/hr/attendanceManagement/list/tableConfig";
 import { getAttendanceActivitiesSortConfig } from "@/pages/user/hr/attendanceManagement/list/sortConfig";
 import { getAttendanceActivitiesLayoutConfig } from "@/pages/user/hr/attendanceManagement/list/layoutConfig";
@@ -131,6 +132,10 @@ export default function TeamAttendance() {
   // ==============
   const { data: subordinates = [], isLoading: subordinatesLoading } =
     useSubordinatesPublic(employee?.id);
+  // Only workLocations is needed from this hook here -- reused rather than
+  // adding a second, narrower fetch just for one filter dropdown, same
+  // technique this app's other Overview/List pages already use.
+  const { workLocations } = useAttendanceActivitiesMetadata();
 
   // ==============
   // CONFIG
@@ -138,7 +143,10 @@ export default function TeamAttendance() {
   const layoutOptions = getAttendanceActivitiesLayoutConfig();
   const sortOptions = getAttendanceActivitiesSortConfig();
   const columns = attendanceDailySummaryTableConfig();
-  const filterConfig = getTeamAttendanceFilterConfig({ subordinates });
+  const filterConfig = getTeamAttendanceFilterConfig({
+    subordinates,
+    workLocations,
+  });
 
   // ==============
   // DATA LOADING

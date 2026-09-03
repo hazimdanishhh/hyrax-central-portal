@@ -178,6 +178,7 @@ export default function AttendanceManagement() {
     employees,
     departments,
     attendanceTypes,
+    workLocations,
     isLoading: metadataLoading,
   } = useAttendanceActivitiesMetadata();
 
@@ -210,6 +211,7 @@ export default function AttendanceManagement() {
   const filterConfig = getAttendanceActivitiesFilterConfig({
     employees,
     departments,
+    workLocations,
   });
 
   // ==============

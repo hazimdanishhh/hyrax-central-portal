@@ -59,6 +59,7 @@ export default function AttendanceOverview() {
   const {
     employees,
     departments,
+    workLocations,
     isLoading: metadataLoading,
     error: metadataError,
   } = useAttendanceActivitiesMetadata();
@@ -66,6 +67,7 @@ export default function AttendanceOverview() {
   const filterConfig = getAttendanceOverviewFilterConfig({
     departments,
     employees,
+    workLocations,
   });
 
   const isLoading = dashboardLoading || metadataLoading;

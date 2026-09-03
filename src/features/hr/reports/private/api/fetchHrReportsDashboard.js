@@ -11,6 +11,7 @@ export function buildHrReportsDashboardParams(filters) {
     p_start_date: null,
     p_end_date: null,
     p_department_id: null,
+    p_work_location_id: null,
   };
 
   Object.entries(filters || {}).forEach(([key, value]) => {
@@ -27,6 +28,10 @@ export function buildHrReportsDashboardParams(filters) {
 
       case "department":
         rpcParams.p_department_id = value;
+        break;
+
+      case "workLocation":
+        rpcParams.p_work_location_id = value;
         break;
 
       default:

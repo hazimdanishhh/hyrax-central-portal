@@ -3,12 +3,20 @@
 // "employee" options come from the caller's direct-reports list
 // (useSubordinatesPublic), never the company-wide employee roster --
 // a manager should never see the full company in this dropdown.
-export function getTeamAttendanceFilterConfig({ subordinates = [] }) {
+export function getTeamAttendanceFilterConfig({
+  subordinates = [],
+  workLocations = [],
+}) {
   return [
     {
       key: "employee",
       label: "Employee",
       options: subordinates.map((e) => ({ label: e.full_name, value: e.id })),
+    },
+    {
+      key: "workLocation",
+      label: "Work Location",
+      options: workLocations.map((w) => ({ label: w.name, value: w.id })),
     },
     {
       key: "hrFlag",

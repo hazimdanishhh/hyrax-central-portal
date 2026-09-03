@@ -1,4 +1,4 @@
-create view public.employees_public as
+create or replace view public.employees_public as
 select
   e.id,
   e.full_name,
@@ -11,6 +11,13 @@ select
   d.name as department_name,
   e.employee_id,
   e.profile_id,
+  -- Confirmed live 2026-09: CREATE OR REPLACE VIEW rejects renaming an
+  -- existing output column even in place with a compatible type (42P16) --
+  -- it requires the exact same name, not just the same position/type. Left
+  -- as-is (still the raw employees.address_work text, not dropped from the
+  -- table per the migration plan) -- the real replacement is
+  -- work_location_name, appended at the end below with the other new
+  -- columns.
   e.address_work,
   e.nationality_id,
   n.name as nationality_name,
@@ -25,7 +32,13 @@ select
   m."position" as manager_position,
   m.phone_work as manager_phone,
   m.email_work as manager_email,
-  m.address_work as manager_address_work,
+  -- Confirmed dead (zero frontend consumers) -- nulled out rather than
+  -- physically removed: CREATE OR REPLACE VIEW only allows appending new
+  -- columns at the end or renaming one in place, never removing a column
+  -- from the middle of the list (manager_avatar_url etc. follow this one),
+  -- so a true drop would need DROP VIEW + CREATE VIEW, which isn't done
+  -- here without a live DB session to verify nothing else depends on it.
+  null::text as manager_address_work,
   mp.avatar_url as manager_avatar_url,
   md.name as manager_department_name,
   es.name as employment_status_name,
@@ -72,7 +85,20 @@ select
   -- positionally, so inserting mid-list looks like renaming an existing
   -- column and fails with error 42P16).
   (lv.leave_type_codes is not null) as is_on_leave_today,
-  lv.leave_type_codes as leave_type_codes_today
+  lv.leave_type_codes as leave_type_codes_today,
+  -- Work location + structured personal address -- appended at the end,
+  -- not inserted earlier, for the same positional reason as the leave
+  -- columns above. Net-new: address_personal was never exposed on this
+  -- view at all, unlike address_work. work_location_name is the real
+  -- replacement for the now-frozen address_work column above.
+  wl.name as work_location_name,
+  wl.sub as work_location_code,
+  pa.line1 as personal_address_line1,
+  pa.line2 as personal_address_line2,
+  pa.city as personal_address_city,
+  pa.state as personal_address_state,
+  pa.postcode as personal_address_postcode,
+  pa.country as personal_address_country
 from
   employees e
   left join profiles p on p.id = e.profile_id
@@ -84,6 +110,8 @@ from
   left join employment_status mes on mes.id = m.employment_status_id
   left join nationalities n on n.id = e.nationality_id
   left join employment_type et on et.id = e.employment_type_id
+  left join work_locations wl on wl.id = e.work_location_id
+  left join addresses pa on pa.id = e.personal_address_id
   left join lateral (
     select
       a.id,

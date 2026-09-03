@@ -116,6 +116,8 @@ export async function fetchEmployees({
         identification_type:identification_type_id (id,name),
         nationality:nationality_id (id,name),
         department:departments (id,name,sub),
+        work_location:work_locations (id,name,sub),
+        personal_address:addresses (id,line1,line2,city,state,postcode,country),
         manager:manager_id (id,employee_id,full_name,preferred_name,email_work,phone_work,position,
           department:departments (id,name,sub)),
         employment_status:employment_status_id!inner (id,name,category),

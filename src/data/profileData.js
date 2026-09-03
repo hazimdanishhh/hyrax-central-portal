@@ -119,8 +119,25 @@ export const profileData = [
     icon: MapPinIcon,
     source: "employee",
     fields: [
-      { label: "Address (Work)", value: (d) => d?.address_work },
-      { label: "Address (Home)", value: (d) => d?.address_personal },
+      // work_location_name/personal_address_* replace the old free-text
+      // address_work/address_personal -- see
+      // docs/WORK-LOCATIONS-ARCHITECTURE.md. "Address (Home)" is net-new:
+      // address_personal was never exposed on employees_public before this.
+      { label: "Address (Work)", value: (d) => d?.work_location_name },
+      {
+        label: "Address (Home)",
+        value: (d) =>
+          [
+            d?.personal_address_line1,
+            d?.personal_address_line2,
+            d?.personal_address_city,
+            d?.personal_address_state,
+            d?.personal_address_postcode,
+            d?.personal_address_country,
+          ]
+            .filter(Boolean)
+            .join(", ") || null,
+      },
     ],
   },
 ];

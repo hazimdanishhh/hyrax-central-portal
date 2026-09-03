@@ -81,6 +81,9 @@ function applyAttendanceFilter(query, key, value) {
     case "department":
       return query.eq("department_id", value);
 
+    case "workLocation":
+      return query.eq("work_location_id", value);
+
     case "manager":
       return query.eq("manager_id", value);
 

@@ -21,11 +21,15 @@
 --
 -- No self/manager scoping (p_employee_id/p_manager_id) -- unlike Attendance,
 -- this page has no "My"/"Team" variant. Matches get_hr_employees_dashboard's
--- own 3-param shape exactly.
+-- own 3-param shape, plus p_work_location_id (added for the work_locations
+-- rollout, see docs/WORK-LOCATIONS-ARCHITECTURE.md). OVERLOAD WARNING
+-- applies here too: run DROP FUNCTION on the prior 3-param signature before
+-- redeploying this 4-param one.
 create or replace function get_hr_reports_dashboard(
     p_start_date    date default null,
     p_end_date      date default null,
-    p_department_id bigint default null
+    p_department_id bigint default null,
+    p_work_location_id bigint default null
 )
 returns json
 language plpgsql
@@ -88,6 +92,7 @@ base_employees as (
     from employees e
     left join employment_status es on es.id = e.employment_status_id
     where (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
 ),
 
 employees_kpi_totals as (
@@ -162,6 +167,7 @@ period_attendance as (
     select uda.*
     from unified_daily_attendance uda
     where (p_department_id is null or uda.department_id = p_department_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
     and uda.work_date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
     and uda.work_date <= coalesce(p_end_date, current_date)
 ),
@@ -197,6 +203,7 @@ period_leave as (
     join leave_ledger_types lt on lt.id = le.leave_type_id
     join employees e on e.id = le.employee_id
     where (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and le.leave_date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
     and le.leave_date <= coalesce(p_end_date, current_date)
 ),
@@ -222,6 +229,7 @@ period_lifecycle as (
     from employee_lifecycle_cases c
     join employees e on e.id = c.employee_id
     where (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
 ),
 
 kpi_lifecycle_totals as (
@@ -393,6 +401,7 @@ select json_build_object(
             left join employment_type et on et.id = e.employment_type_id
             left join employment_status es on es.id = e.employment_status_id
             where (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
             and coalesce(es.category, 'inactive') = 'active'
             group by coalesce(et.name, 'Unspecified')
         ) x

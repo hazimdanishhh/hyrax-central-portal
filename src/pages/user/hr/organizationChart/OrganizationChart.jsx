@@ -74,6 +74,7 @@ function OrganizationChart() {
     employmentTypes,
     terminationReasons,
     employmentStatuses,
+    workLocations,
   } = useEmployeesMetadata();
 
   const { updateEmployee, updating } = useEmployeeMutations();
@@ -89,6 +90,7 @@ function OrganizationChart() {
         employmentTypes,
         terminationReasons,
         employmentStatuses,
+        workLocations,
       }),
     [
       allManagers,
@@ -97,6 +99,7 @@ function OrganizationChart() {
       nationalities,
       identificationTypes,
       employmentTypes,
+      workLocations,
       terminationReasons,
       employmentStatuses,
     ],

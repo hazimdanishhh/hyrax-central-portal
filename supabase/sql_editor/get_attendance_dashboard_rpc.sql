@@ -98,7 +98,13 @@ create or replace function get_attendance_dashboard(
     -- raw already join employees e, so e.manager_id is available there too.
     -- Null (every existing HR/My-Attendance caller) leaves behavior
     -- unchanged.
-    p_manager_id    uuid default null
+    p_manager_id    uuid default null,
+    -- Work Location filter (added for the work_locations rollout, see
+    -- docs/WORK-LOCATIONS-ARCHITECTURE.md) -- mirrors p_department_id's
+    -- exact null-passthrough shape in every CTE below. OVERLOAD WARNING
+    -- applies here too: run DROP FUNCTION on the prior 5-param signature
+    -- before redeploying this 6-param one.
+    p_work_location_id bigint default null
 )
 returns json
 language plpgsql
@@ -192,6 +198,7 @@ with active_employees as (
     from employees e
     join employment_status es on es.id = e.employment_status_id and es.category = 'active'
     where (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or e.id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
 ),
@@ -209,6 +216,7 @@ period_rows as (
     select uda.*
     from unified_daily_attendance uda
     where (p_department_id is null or uda.department_id = p_department_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
     and (p_manager_id is null or uda.manager_id = p_manager_id)
     and uda.work_date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
@@ -220,6 +228,7 @@ prev_period_rows as (
     from unified_daily_attendance uda
     where p_start_date is not null and p_end_date is not null
     and (p_department_id is null or uda.department_id = p_department_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
     and (p_manager_id is null or uda.manager_id = p_manager_id)
     and uda.work_date >= v_prev_start_date
@@ -240,6 +249,7 @@ employee_leave_rows as (
     join leave_ledger_types lt on lt.id = le.leave_type_id
     join employees e on e.id = le.employee_id
     where (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or le.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
     and le.leave_date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
@@ -255,6 +265,7 @@ prev_employee_leave_rows as (
     join employees e on e.id = le.employee_id
     where p_start_date is not null and p_end_date is not null
     and (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or le.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
     and le.leave_date >= v_prev_start_date
@@ -266,6 +277,7 @@ today_rows as (
     from unified_daily_attendance uda
     where uda.work_date = current_date
     and (p_department_id is null or uda.department_id = p_department_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
     and (p_manager_id is null or uda.manager_id = p_manager_id)
 ),
@@ -279,6 +291,7 @@ approved_activity_rows as (
     where aa.approval_status in ('Approved', 'Rejected')
     and aa.approved_at is not null
     and (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
     and aa.clocked_in_at::date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
@@ -295,6 +308,7 @@ pending_activity_rows as (
     join employees e on e.id = aa.employee_id
     where aa.approval_status = 'Pending'
     and (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
 ),
@@ -310,6 +324,7 @@ open_session_rows as (
     where aa.clocked_out_at is null
     and aa.approval_status <> 'Rejected'
     and (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
 ),

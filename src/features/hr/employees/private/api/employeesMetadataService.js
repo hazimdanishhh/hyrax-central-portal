@@ -10,6 +10,7 @@ export async function fetchEmployeesMetadata() {
     employmentTypes,
     terminationReasons,
     employmentStatuses,
+    workLocations,
   ] = await Promise.all([
     supabase
       .from("employees")
@@ -22,6 +23,7 @@ export async function fetchEmployeesMetadata() {
     supabase.from("employment_type").select("*").order("name"),
     supabase.from("termination_reason").select("*").order("name"),
     supabase.from("employment_status").select("*").order("name"),
+    supabase.from("work_locations").select("*").order("name"),
   ]);
 
   return {
@@ -33,5 +35,6 @@ export async function fetchEmployeesMetadata() {
     employmentTypes: employmentTypes.data || [],
     terminationReasons: terminationReasons.data || [],
     employmentStatuses: employmentStatuses.data || [],
+    workLocations: workLocations.data || [],
   };
 }
