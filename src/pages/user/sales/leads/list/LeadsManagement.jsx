@@ -33,6 +33,7 @@ import { getLayoutConfig } from "./constants/layoutConfig";
 import { getSortConfig } from "./constants/sortConfig";
 import { stageTabsConfig } from "./constants/tabConfig";
 import { leadsTableConfig } from "./constants/tableConfig";
+import { leadsExportColumns } from "./constants/exportConfig";
 import "./LeadsManagement.scss";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
 
@@ -401,6 +402,12 @@ export default function LeadsManagement() {
         filterConfig={filterConfig}
         placeholder="Search leads..."
         enableDateRange
+        enableExport
+        exportFetchFn={fetchLeads}
+        exportColumns={leadsExportColumns}
+        exportFileNamePrefix="Sales_Leads_Export"
+        sortBy={sortBy}
+        sortOrder={sortOrder}
       />
 
       {/* ACTIVE FILTERS */}

@@ -18,7 +18,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Select from "react-select";
 import CardLayout from "../cardLayout/CardLayout";
 import AsyncSelectEditor from "../dataTable/editors/AsyncSelectEditor";
-import ExportData from "../exportActions/ExportData";
+import CsvExportButton from "../exportActions/CsvExportButton";
 import ExportFullReport from "../exportActions/ExportFullReport";
 import { DATE_RANGE_PRESETS } from "../../functions/dateRangePresets";
 
@@ -104,6 +104,11 @@ export default function SearchFilterBar({
 
   // NEW
   enableExport,
+  exportFetchFn,
+  exportColumns,
+  exportFileNamePrefix,
+  sortBy,
+  sortOrder,
   isLoading,
   isError,
   dashboardRef,
@@ -196,12 +201,12 @@ export default function SearchFilterBar({
 
         {/* EXPORT BUTTON */}
         {enableExport && (
-          <div>
+          <div className="exportSectionContainer">
             <Button
               name="Export"
               icon={exportIsOpen === true ? CaretUpIcon : CaretDownIcon}
               icon2={DownloadSimpleIcon}
-              style="textXXS button buttonType5 approval"
+              style="textXXS button buttonType5 blue"
               size={20}
               onClick={() => setExportIsOpen(!exportIsOpen)}
             />
@@ -213,20 +218,32 @@ export default function SearchFilterBar({
                     : "sectionLight exportSection"
                 }
               >
-                <ExportData search={search} filters={filters} />
-                <ExportFullReport
-                  targetRef={dashboardRef}
-                  search={search}
-                  filters={filters}
-                  fileName="Sales_Leads_Report"
-                  reportTitle="Sales Leads Report"
-                  logoUrl="/logos/logo.png"
-                  subtitle={`Filters Applied: ${
-                    filters.startDate && filters.endDate
-                      ? `${filters.startDate} to ${filters.endDate}`
-                      : "All Time"
-                  }`}
-                />
+                {exportFetchFn && exportColumns && (
+                  <CsvExportButton
+                    fetchFn={exportFetchFn}
+                    columns={exportColumns}
+                    fileNamePrefix={exportFileNamePrefix}
+                    search={search}
+                    filters={filters}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                  />
+                )}
+                {dashboardRef && (
+                  <ExportFullReport
+                    targetRef={dashboardRef}
+                    search={search}
+                    filters={filters}
+                    fileName="Sales_Leads_Report"
+                    reportTitle="Sales Leads Report"
+                    logoUrl="/logos/logo.png"
+                    subtitle={`Filters Applied: ${
+                      filters.startDate && filters.endDate
+                        ? `${filters.startDate} to ${filters.endDate}`
+                        : "All Time"
+                    }`}
+                  />
+                )}
               </div>
             )}
           </div>

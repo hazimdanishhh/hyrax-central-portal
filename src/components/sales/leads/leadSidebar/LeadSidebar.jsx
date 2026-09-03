@@ -309,7 +309,7 @@ export default function LeadSidebar({
                     key={order.doc_entry}
                     order={order}
                     onClick={
-                      canAccess({ departments: ["SAL"] })
+                      canAccess({ departments: ["SAL", "MGM"] })
                         ? () =>
                             navigate(
                               `/app/sales/orders/all/${order.doc_entry}?search=${order.so_number}`,

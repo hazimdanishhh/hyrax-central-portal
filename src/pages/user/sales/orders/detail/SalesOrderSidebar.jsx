@@ -70,7 +70,7 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
     <div className="salesOrderSidebar">
       <SalesOrderCard order={selectedRow} onClick={() => {}} />
 
-      {matchedLead && canAccess({ departments: ["SAL"] }) && (
+      {matchedLead && canAccess({ departments: ["SAL", "MGM"] }) && (
         <RouterButton
           to={`/app/sales/leads/list/${matchedLead.id}`}
           name="View Matching Lead"

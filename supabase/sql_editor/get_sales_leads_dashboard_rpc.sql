@@ -19,7 +19,27 @@ declare
     v_interval integer;
     v_prev_start_date date;
     v_prev_end_date date;
+    v_caller_role text;
+    v_caller_department text;
 begin
+
+-- 0. Authorization guard (2026-09) -- this RPC previously had none at all;
+-- added now that MGM legitimately calls it via the Leads Overview page too,
+-- mirroring get_sales_reports_dashboard_rpc.sql's existing SAL/MGM guard.
+select r.name, d.sub
+  into v_caller_role, v_caller_department
+from profiles p
+join roles r on r.id = p.role_id
+join departments d on d.id = p.department_id
+where p.id = auth.uid();
+
+if v_caller_role is null then
+    raise exception 'Access denied';
+end if;
+
+if v_caller_role <> 'superadmin' and v_caller_department not in ('SAL', 'MGM') then
+    raise exception 'Access denied';
+end if;
 
 -- 1. Calculate the Previous Period for Deltas
 if p_start_date is not null and p_end_date is not null then

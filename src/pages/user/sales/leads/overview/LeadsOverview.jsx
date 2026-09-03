@@ -18,13 +18,13 @@ import OverviewCards from "../../../../../components/crud/overviewCards/Overview
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import { fetchLeadsDashboard } from "../../../../../features/sales/leads/private/api/fetchLeadsDashboard";
+import { fetchLeads } from "../../../../../features/sales/leads/private/api/leadsService";
 import { useLeadsMetadata } from "../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
 import useDashboardQuery from "../../../../../hooks/useDashboardQuery";
 import { getFilterConfig } from "./config/filterConfig";
 import { getLeadsOverviewConfig } from "./config/overviewConfig";
+import { leadsExportColumns } from "../list/constants/exportConfig";
 import ExportActions from "../../../../../components/exportActions/ExportActions";
-import ExportData from "../../../../../components/exportActions/ExportData";
-import ExportFullReport from "../../../../../components/exportActions/ExportFullReport";
 import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
 import HorizontalDualBarRenderer from "../../../../../components/chartCard/HorizontalDualBarRenderer";
 import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
@@ -226,6 +226,9 @@ export default function LeadsOverview() {
         enableDateRange
         disableSearch={true}
         enableExport={true}
+        exportFetchFn={fetchLeads}
+        exportColumns={leadsExportColumns}
+        exportFileNamePrefix="Sales_Leads_Export"
         isLoading={isLoading}
         isError={isError}
         dashboardRef={dashboardRef}

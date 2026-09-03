@@ -35,7 +35,7 @@ export default (
     <Route
       path="clients"
       element={
-        <AccessRoute departments={["SAL"]}>
+        <AccessRoute departments={["SAL", "MGM"]}>
           <ClientsPageLayout />
         </AccessRoute>
       }
@@ -45,7 +45,7 @@ export default (
       <Route
         path="prospects"
         element={
-          <AccessRoute departments={["SAL"]}>
+          <AccessRoute departments={["SAL", "MGM"]}>
             <ClientsManagement />
           </AccessRoute>
         }
@@ -56,7 +56,7 @@ export default (
       <Route
         path="sap"
         element={
-          <AccessRoute departments={["SAL"]}>
+          <AccessRoute departments={["SAL", "MGM"]}>
             <SapClients />
           </AccessRoute>
         }
@@ -69,7 +69,7 @@ export default (
     <Route
       path="leads"
       element={
-        <AccessRoute departments={["SAL"]}>
+        <AccessRoute departments={["SAL", "MGM"]}>
           <LeadsPageLayout />
         </AccessRoute>
       }
@@ -78,7 +78,7 @@ export default (
       <Route
         path="overview"
         element={
-          <AccessRoute departments={["SAL"]}>
+          <AccessRoute departments={["SAL", "MGM"]}>
             <LeadsOverview />
           </AccessRoute>
         }
@@ -87,7 +87,7 @@ export default (
       <Route
         path="list"
         element={
-          <AccessRoute departments={["SAL"]}>
+          <AccessRoute departments={["SAL", "MGM"]}>
             <LeadsManagement />
           </AccessRoute>
         }
@@ -99,7 +99,7 @@ export default (
       <Route
         path="targets"
         element={
-          <AccessRoute departments={["SAL"]} roles={["manager"]}>
+          <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
             <SalesTargetsManagement />
           </AccessRoute>
         }
@@ -114,7 +114,7 @@ export default (
     <Route
       path="orders"
       element={
-        <AccessRoute departments={["SAL"]}>
+        <AccessRoute departments={["SAL", "MGM"]}>
           <OrdersPageLayout />
         </AccessRoute>
       }
@@ -123,7 +123,7 @@ export default (
       <Route
         path="all"
         element={
-          <AccessRoute departments={["SAL"]}>
+          <AccessRoute departments={["SAL", "MGM"]}>
             <Orders />
           </AccessRoute>
         }
@@ -137,7 +137,7 @@ export default (
       <Route
         path="budgets"
         element={
-          <AccessRoute departments={["SAL"]} roles={["manager"]}>
+          <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
             <SalesBudgetsManagement />
           </AccessRoute>
         }
@@ -149,7 +149,7 @@ export default (
     <Route
       path="rep-mapping"
       element={
-        <AccessRoute departments={["SAL"]} roles={["manager"]}>
+        <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
           <SalesRepMapping />
         </AccessRoute>
       }
@@ -170,7 +170,7 @@ export default (
     <Route
       path="guides"
       element={
-        <AccessRoute departments={["SAL"]}>
+        <AccessRoute departments={["SAL", "MGM"]}>
           <SalesGuides />
         </AccessRoute>
       }
@@ -178,7 +178,7 @@ export default (
     <Route
       path="guides/:topicId"
       element={
-        <AccessRoute departments={["SAL"]}>
+        <AccessRoute departments={["SAL", "MGM"]}>
           <SalesGuideTopic />
         </AccessRoute>
       }

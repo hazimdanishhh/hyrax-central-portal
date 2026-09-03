@@ -235,7 +235,7 @@ export default function ExportFullReport({
     <button
       onClick={handleExportFullPDF}
       disabled={isExporting}
-      className="button buttonType4 approval textXXS"
+      className="button buttonType4 blue textXXS"
     >
       {isExporting ? (
         <Spinner className="animate-spin" />

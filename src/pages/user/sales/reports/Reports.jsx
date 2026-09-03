@@ -54,7 +54,7 @@ function Reports() {
   // for them today -- kept computed from the target route's real gate
   // anyway, per this file's own stated convention, not hardcoded true.
   const canAccessOrders = canAccess({
-    departments: ["SAL"],
+    departments: ["SAL", "MGM"],
   });
 
   // finance/invoices and finance/payments are FIN-only, while this page is

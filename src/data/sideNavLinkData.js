@@ -204,7 +204,7 @@ export const sideNavLinkData = [
         icon: UsersIcon,
         path: "sales/clients",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
       },
 
       {
@@ -212,7 +212,7 @@ export const sideNavLinkData = [
         icon: HandshakeIcon,
         path: "sales/leads",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
       },
 
       {
@@ -220,7 +220,7 @@ export const sideNavLinkData = [
         icon: ReceiptIcon,
         path: "sales/orders",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
       },
 
       {
@@ -228,7 +228,7 @@ export const sideNavLinkData = [
         icon: LinkIcon,
         path: "sales/rep-mapping",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
         roles: ["manager"],
       },
 
@@ -237,11 +237,11 @@ export const sideNavLinkData = [
         icon: BookOpenIcon,
         path: "sales/guides",
 
-        // No role restriction -- every SAL staff member can read every
+        // No role restriction -- every SAL/MGM staff member can read every
         // topic, including ones documenting manager-only pages
         // (Reports/Rep Mapping/Targets/Budgets). Reading about a page isn't
         // the same as having access to it.
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
       },
 
       // Quotations: intentional placeholder, not an orphan (confirmed

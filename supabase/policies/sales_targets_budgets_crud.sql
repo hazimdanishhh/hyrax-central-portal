@@ -10,6 +10,11 @@
 -- Verify before relying on this: confirm RLS is actually enabled on both
 -- tables (uncomment the ENABLE lines below if not already on), and that no
 -- broader existing policy already covers them.
+--
+-- 2026-09: MGM managers now get the same access as SAL managers here (Sales
+-- module access-parity change). If these policies were already deployed with
+-- the old SAL-only clause, `create policy` won't update them in place -- drop
+-- the 4 existing policies first, then re-run this whole file.
 
 -- alter table public.sales_targets enable row level security;
 -- alter table public.sales_budgets enable row level security;
@@ -21,14 +26,14 @@ using (
     select 1 from profiles p
     join roles r on r.id = p.role_id
     join departments d on d.id = p.department_id
-    where p.id = auth.uid() and r.name = 'manager' and d.sub = 'SAL'
+    where p.id = auth.uid() and r.name = 'manager' and d.sub in ('SAL', 'MGM')
   )
 ) with check (
   exists (
     select 1 from profiles p
     join roles r on r.id = p.role_id
     join departments d on d.id = p.department_id
-    where p.id = auth.uid() and r.name = 'manager' and d.sub = 'SAL'
+    where p.id = auth.uid() and r.name = 'manager' and d.sub in ('SAL', 'MGM')
   )
 );
 
@@ -47,14 +52,14 @@ using (
     select 1 from profiles p
     join roles r on r.id = p.role_id
     join departments d on d.id = p.department_id
-    where p.id = auth.uid() and r.name = 'manager' and d.sub = 'SAL'
+    where p.id = auth.uid() and r.name = 'manager' and d.sub in ('SAL', 'MGM')
   )
 ) with check (
   exists (
     select 1 from profiles p
     join roles r on r.id = p.role_id
     join departments d on d.id = p.department_id
-    where p.id = auth.uid() and r.name = 'manager' and d.sub = 'SAL'
+    where p.id = auth.uid() and r.name = 'manager' and d.sub in ('SAL', 'MGM')
   )
 );
 

@@ -59,7 +59,7 @@ export const departmentLinkCardData = [
         icon: UsersIcon,
         path: "sales/clients",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
       },
 
       {
@@ -68,7 +68,7 @@ export const departmentLinkCardData = [
         icon: HandshakeIcon,
         path: "sales/leads",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
       },
 
       {
@@ -77,7 +77,7 @@ export const departmentLinkCardData = [
         icon: ReceiptIcon,
         path: "sales/orders",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
       },
 
       {
@@ -86,7 +86,7 @@ export const departmentLinkCardData = [
         icon: BookOpenIcon,
         path: "sales/guides",
 
-        departments: ["SAL"],
+        departments: ["SAL", "MGM"],
       },
     ],
   },
