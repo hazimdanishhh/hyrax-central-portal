@@ -186,6 +186,45 @@ prev_period_rows as (
     and uda.work_date <= v_prev_end_date
 ),
 
+-- HR2000 leave ledger integration -- period-filtered leave rows joined
+-- directly to leave_ledger_types/employees (not through
+-- unified_daily_attendance's per-day collapsed leave_type_codes string), so
+-- per-type totals stay accurate even on a multi-leave-type day. Mirrors
+-- period_rows' own filter set/default-to-month-to-date behavior exactly.
+employee_leave_rows as (
+    select
+        le.employee_id as leave_emp_uuid,
+        e.full_name,
+        coalesce(d.name, 'Unassigned') as department_name,
+        lt.code as leave_type_code,
+        lt.label as leave_type_label,
+        le.day_fraction
+    from leave_ledger_entries le
+    join leave_ledger_types lt on lt.id = le.leave_type_id
+    join employees e on e.id = le.employee_id
+    left join departments d on d.id = e.department_id
+    where (p_department_id is null or e.department_id = p_department_id)
+    and (p_employee_id is null or le.employee_id = p_employee_id)
+    and (p_manager_id is null or e.manager_id = p_manager_id)
+    and le.leave_date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
+    and le.leave_date <= coalesce(p_end_date, current_date)
+),
+
+-- Same shape, previous-period window -- mirrors prev_period_rows, feeds
+-- leaveDaysCount's delta via the same calcDelta convention every other tile
+-- on this page already uses.
+prev_employee_leave_rows as (
+    select le.day_fraction, le.employee_id as leave_emp_uuid
+    from leave_ledger_entries le
+    join employees e on e.id = le.employee_id
+    where p_start_date is not null and p_end_date is not null
+    and (p_department_id is null or e.department_id = p_department_id)
+    and (p_employee_id is null or le.employee_id = p_employee_id)
+    and (p_manager_id is null or e.manager_id = p_manager_id)
+    and le.leave_date >= v_prev_start_date
+    and le.leave_date <= v_prev_end_date
+),
+
 today_rows as (
     select uda.*
     from unified_daily_attendance uda
@@ -237,6 +276,41 @@ open_session_rows as (
     and (p_department_id is null or e.department_id = p_department_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
+),
+
+-- Per-employee, period-scoped reconciliation summary -- one row per employee
+-- with any working-day record this period, backing the Overview page's new
+-- "Leave Reconciliation" per-employee table. Reuses period_rows' already-
+-- proven hr_flag/hours_worked filter conditions, grouped by employee instead
+-- of summed company-wide.
+employee_reconciliation as (
+    select
+        pr.employee_uuid,
+        pr.full_name,
+        coalesce(pr.department_name, 'Unassigned') as department_name,
+        count(*) filter (where pr.hr_flag not in ('Absent', 'Weekend / Rest Day') and not pr.is_on_leave) as present_days,
+        count(*) filter (where pr.hr_flag = 'Absent') as absent_days,
+        round(sum(greatest(pr.hours_worked - 8, 0)) filter (where pr.hr_flag not in ('Weekend / Rest Day', 'Absent') and not pr.is_on_leave)::numeric, 2) as overtime_hours,
+        count(*) filter (where pr.hr_flag not in ('Weekend / Rest Day', 'Absent') and pr.first_in is not null and pr.first_in::time > v_late_threshold_time) as late_arrivals,
+        count(*) filter (where pr.hr_flag not in ('Weekend / Rest Day', 'Absent') and pr.last_out is not null and pr.last_out::time < v_early_leave_threshold_time) as early_leaves,
+        count(*) filter (where pr.hr_flag in ('Missing App Check-Out', 'Incomplete Card Scans')) as anomalies
+    from period_rows pr
+    group by pr.employee_uuid, pr.full_name, pr.department_name
+),
+
+-- Per-employee leave summary, folded from employee_leave_rows -- total days
+-- plus a compact "AL: 2, MC: 1"-style breakdown string for the table cell.
+employee_leave_summary as (
+    select
+        leave_emp_uuid,
+        sum(type_total) as leave_days_total,
+        string_agg(leave_type_code || ': ' || trim(to_char(type_total, 'FM990.0')), ', ' order by leave_type_code) as leave_breakdown
+    from (
+        select leave_emp_uuid, leave_type_code, sum(day_fraction) as type_total
+        from employee_leave_rows
+        group by leave_emp_uuid, leave_type_code
+    ) per_type
+    group by leave_emp_uuid
 ),
 
 kpi_totals as (
@@ -339,7 +413,15 @@ kpi_totals as (
         -- (HR2000 leave ledger integration) On Leave rows, the same way
         -- Weekend already is -- otherwise attendance/absenteeism rates get
         -- artificially dragged down by days nobody was expected to attend.
-        (select count(*) from period_rows where hr_flag <> 'Weekend / Rest Day' and not is_on_leave) as working_day_records_count
+        (select count(*) from period_rows where hr_flag <> 'Weekend / Rest Day' and not is_on_leave) as working_day_records_count,
+
+        -- HR2000 leave ledger integration -- leave days this period, its
+        -- prior-period sibling (same calcDelta convention as avg_hours_worked/
+        -- overtime_hours_total above), and a distinct-employee count for the
+        -- KPI tile's sub-metric.
+        (select coalesce(sum(day_fraction), 0) from employee_leave_rows) as leave_days_count,
+        (select coalesce(sum(day_fraction), 0) from prev_employee_leave_rows) as prev_leave_days_count,
+        (select count(distinct leave_emp_uuid) from employee_leave_rows) as employees_on_leave_count
 )
 
 select json_build_object(
@@ -386,7 +468,10 @@ select json_build_object(
             'prevAbsentDaysCount', prev_absent_days_count,
             'absenteeismRatePct', case when working_day_records_count > 0
                 then round((absent_days_count::numeric / working_day_records_count) * 100, 1)
-                else 0 end
+                else 0 end,
+            'leaveDaysCount', leave_days_count,
+            'prevLeaveDaysCount', prev_leave_days_count,
+            'employeesOnLeaveCount', employees_on_leave_count
         )
         from kpi_totals
     ),
@@ -394,13 +479,21 @@ select json_build_object(
     -- Anomaly/status composition over the period. Weekend/Rest-Day rows are
     -- excluded -- they'd dominate this chart with a huge, uninteresting
     -- bucket on an anomaly-focused view.
+    -- HR2000 leave ledger integration -- every dynamic "On Leave (AL)"/
+    -- "On Leave (AL+MC)" value is bucketed into one flat "On Leave" category
+    -- before grouping, otherwise each distinct leave-type combination would
+    -- render as its own ungrouped, uncolored (grey) slice -- chartColors.js's
+    -- ATTENDANCE_FLAG_COLORS only maps the single "On Leave" bucket, not
+    -- every possible type-code combination.
     'hrFlagBreakdownData', (
         select coalesce(json_agg(x order by x.value desc), '[]'::json)
         from (
-            select hr_flag as name, count(*) as value
+            select
+                case when hr_flag like 'On Leave%' then 'On Leave' else hr_flag end as name,
+                count(*) as value
             from period_rows
             where hr_flag <> 'Weekend / Rest Day'
-            group by hr_flag
+            group by 1
         ) x
     ),
 
@@ -506,6 +599,42 @@ select json_build_object(
             having sum(greatest(hours_worked - 8, 0)) > 0
             order by value desc
             limit 10
+        ) x
+    ),
+
+    -- HR2000 leave ledger integration -- leave days by type, this period.
+    -- Sourced from employee_leave_rows directly (joined straight to
+    -- leave_ledger_types), not unified_daily_attendance's per-day collapsed
+    -- leave_type_codes string, so a multi-type day's totals split correctly.
+    'leaveTypeBreakdownData', (
+        select coalesce(json_agg(x order by x.value desc), '[]'::json)
+        from (
+            select leave_type_label as name, sum(day_fraction) as value
+            from employee_leave_rows
+            group by leave_type_label
+        ) x
+    ),
+
+    -- Per-employee payroll-cycle reconciliation: present/absent/leave/
+    -- overtime/anomalies, one row per employee, this period -- backs the
+    -- Overview page's new "Leave Reconciliation" per-employee table.
+    'employeeReconciliationData', (
+        select coalesce(json_agg(x order by x.full_name), '[]'::json)
+        from (
+            select
+                er.employee_uuid,
+                er.full_name,
+                er.department_name,
+                er.present_days,
+                er.absent_days,
+                coalesce(els.leave_days_total, 0) as leave_days_total,
+                els.leave_breakdown,
+                coalesce(er.overtime_hours, 0) as overtime_hours,
+                er.late_arrivals,
+                er.early_leaves,
+                er.anomalies
+            from employee_reconciliation er
+            left join employee_leave_summary els on els.leave_emp_uuid = er.employee_uuid
         ) x
     )
 

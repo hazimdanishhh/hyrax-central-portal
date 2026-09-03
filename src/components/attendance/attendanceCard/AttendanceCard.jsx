@@ -37,6 +37,15 @@ function AttendanceCard({ activity, onClick }) {
         {activity.daily_activities && (
           <AttendanceType attendanceType={activity.daily_activities} />
         )}
+        {/* HR2000 leave ledger integration -- shown independently of
+            daily_activities/hr_flag so a mixed day (half-day leave + half-day
+            worked, where hr_flag reads "OK") still visibly surfaces the
+            leave fact, not just a pure leave day. */}
+        {activity.is_on_leave && (
+          <AttendanceType
+            attendanceType={`On Leave (${activity.leave_type_codes})`}
+          />
+        )}
       </div>
       <div className="attendanceCardSegment">
         <div className="attendanceCardClockWrapper">
@@ -51,11 +60,13 @@ function AttendanceCard({ activity, onClick }) {
         <StatusBox
           status={activity.hr_flag}
           type={
-            activity.hr_flag === "Review Required"
-              ? "yellow"
-              : activity.hr_flag === "Approved" || activity.hr_flag === "OK"
-                ? "green"
-                : "red"
+            activity.hr_flag?.startsWith("On Leave")
+              ? "purple"
+              : activity.hr_flag === "Review Required"
+                ? "yellow"
+                : activity.hr_flag === "Approved" || activity.hr_flag === "OK"
+                  ? "green"
+                  : "red"
           }
         />
       </div>

@@ -52,6 +52,15 @@ export function getAttendanceActivitiesFilterConfig({
       options: [{ label: "Present Only (Exclude Absent/Weekend)", value: "true" }],
     },
     {
+      // hrFlag's fixed enum can't target "On Leave (AL)"/"On Leave (AL+MC)"
+      // -- the real value carries a dynamic leave-type suffix. A boolean
+      // toggle against is_on_leave (same pattern as presentOnly/overtimeOnly)
+      // works regardless of which type(s) fired that day.
+      key: "onLeave",
+      label: "Leave",
+      options: [{ label: "On Leave Only", value: "true" }],
+    },
+    {
       key: "overtimeOnly",
       label: "Overtime",
       options: [{ label: "Overtime Only (>8h)", value: "true" }],

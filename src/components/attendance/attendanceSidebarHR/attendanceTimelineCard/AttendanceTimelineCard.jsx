@@ -52,6 +52,26 @@ export default function AttendanceTimelineCard({
   const clockOutColumns = attendanceActivitiesChangeClockOutTimeConfig();
 
   // ==============
+  // LEAVE (HR2000 ledger) -- a leave day has no punch times/approval
+  // workflow/edit actions, so it gets its own simple render instead of
+  // falling through to the App/Hardware JSX below (which would otherwise
+  // show a misleading "0h worked / 8h remaining" bar and null clock chips).
+  // ==============
+  if (activity.event_source === "Leave") {
+    return (
+      <div className="generalCard cardPaddingSmall cardGapSmall">
+        <div className="attendanceCardSidebarHeader">
+          <AttendanceType attendanceType={activity.attendance_type} />
+          <StatusBox status={`${activity.day_fraction} Day`} type="purple" />
+        </div>
+        {activity.remarks && (
+          <p className="textRegular textXS textLight">{activity.remarks}</p>
+        )}
+      </div>
+    );
+  }
+
+  // ==============
   // SAVE + UPDATE
   // ==============
   async function handleRequestSave(data) {

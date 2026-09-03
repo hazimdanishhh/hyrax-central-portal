@@ -88,6 +88,20 @@ export const attendanceDailySummaryTableConfig = () => [
     editor: "text",
   },
   {
+    // HR2000 leave ledger integration -- surfaces leave_type_codes +
+    // leave_day_fraction (the 0.5/1.0-day indicator) independently of
+    // hr_flag, since a half-day-leave + half-day-worked record still reads
+    // "OK" under hr_flag but must not lose the leave context.
+    key: "leave",
+    label: "Leave",
+    getValue: (activity) =>
+      activity.is_on_leave
+        ? `${activity.leave_type_codes} (${activity.leave_day_fraction}d)`
+        : "—",
+    editable: false,
+    editor: "text",
+  },
+  {
     key: "total_hw_scans",
     label: "Scanner Scans",
     getValue: (activity) => activity.total_hw_scans,

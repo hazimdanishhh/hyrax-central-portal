@@ -92,6 +92,9 @@ function applyAttendanceFilter(query, key, value) {
         .neq("hr_flag", "Weekend / Rest Day")
         .neq("hr_flag", "Absent");
 
+    case "onLeave":
+      return query.eq("is_on_leave", true);
+
     case "overtimeOnly":
       return query
         .gt("hours_worked", 8)

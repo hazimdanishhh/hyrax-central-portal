@@ -40,6 +40,15 @@
     background-color: rgb($error600, 0.2);
   }
 
+  // HR2000 leave ledger integration -- mirrors AttendanceType.scss's
+  // existing .purple class (same $secondary600 token) so an "On Leave"
+  // status reads consistently wherever it appears.
+  &.purple {
+    border: 1px solid $secondary600;
+    color: $secondary600;
+    background-color: rgba($secondary600, 0.2);
+  }
+
   &.primary {
     border: 1px solid $primary;
     color: $primary;

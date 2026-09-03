@@ -1,5 +1,6 @@
 import {
   AlarmIcon,
+  CalendarXIcon,
   ClockUserIcon,
   GaugeIcon,
   HourglassHighIcon,
@@ -87,6 +88,7 @@ export function getAttendanceOverviewConfig(
     kpis.overtimeHoursTotal,
     kpis.prevOvertimeHoursTotal,
   );
+  const leaveDaysDelta = calcDelta(kpis.leaveDaysCount, kpis.prevLeaveDaysCount);
 
   // Carried into every link below -- the Overview's own department/employee
   // narrowing, so a tile click never silently resets it.
@@ -441,6 +443,38 @@ export function getAttendanceOverviewConfig(
       ],
       title:
         "Absent-flagged records divided by all working-day records (Weekend/Rest-Day excluded) in the selected period.",
+    },
+
+    // ==========================================
+    // LEAVE (period-bound) -- HR2000 leave ledger integration. Grouped next
+    // to Absenteeism Rate since both measure workforce availability; unlike
+    // absenteeism this is never a "problem" figure, so it never gets a
+    // status-variant color -- a plain neutral tile, matching how Pending
+    // Approvals' own turnaround sub-metrics are unstatused too.
+    // ==========================================
+    {
+      icon: CalendarXIcon,
+      label: "Leave Days",
+      sublabel: "Total, This Period",
+      value: kpis.leaveDaysCount || 0,
+      variant: "blueCard",
+      to: "../list",
+      filter: { ...baseFilter, onLeave: "true", ...periodFilter },
+      metrics: [
+        {
+          label: "Employees on Leave",
+          value: kpis.employeesOnLeaveCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, onLeave: "true", ...periodFilter },
+        },
+        {
+          label: "Prev. Period",
+          value: deltaText(leaveDaysDelta),
+          icon: deltaIcon(leaveDaysDelta),
+        },
+      ],
+      title:
+        "Sum of day_fraction across all HR2000 leave-ledger entries falling in the selected period (0.5/1.0 per entry), regardless of whether the employee also had real check-in data that same day. Employees on Leave is a distinct-employee count for the same period.",
     },
   ];
 }

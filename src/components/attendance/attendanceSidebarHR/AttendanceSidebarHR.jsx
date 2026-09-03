@@ -61,11 +61,19 @@ export default function AttendanceSidebarHR({
           <EmployeeImage employee={selectedRow} />
           <p className="textBold textM">{selectedRow?.full_name}</p>
           <p className="textRegular textS">{selectedRow?.work_date}</p>
+          {/* HR2000 leave ledger integration -- shown independently of
+              hr_flag so a mixed day (half-day leave + half-day worked, where
+              hr_flag reads "OK") still visibly surfaces the leave fact. */}
+          {selectedRow?.is_on_leave && (
+            <AttendanceType
+              attendanceType={`On Leave (${selectedRow.leave_type_codes})`}
+            />
+          )}
         </div>
         {/* Show the Daily Macro Flag */}
         <StatusBox
           status={selectedRow?.hr_flag}
-          type={`${selectedRow?.hr_flag === "Review Required" ? "yellow" : selectedRow?.hr_flag === "Approved" || selectedRow?.hr_flag === "OK" ? "green" : "red"}`}
+          type={`${selectedRow?.hr_flag?.startsWith("On Leave") ? "purple" : selectedRow?.hr_flag === "Review Required" ? "yellow" : selectedRow?.hr_flag === "Approved" || selectedRow?.hr_flag === "OK" ? "green" : "red"}`}
         />
       </div>
 

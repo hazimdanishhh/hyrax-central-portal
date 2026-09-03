@@ -115,6 +115,12 @@ export const ATTENDANCE_FLAG_COLORS = {
   "Incomplete Card Scans": "#d76363",
   Absent: "#d76363",
   "Weekend / Rest Day": "#9CA3AF",
+  // HR2000 leave ledger integration -- get_attendance_dashboard_rpc.sql's
+  // hrFlagBreakdownData buckets every dynamic "On Leave (AL)"/"On Leave
+  // (AL+MC)" value into this one flat "On Leave" category before grouping,
+  // so it always resolves here instead of falling back to PieChartRenderer's
+  // unmapped grey. Matches AttendanceType.jsx/StatusBox's own purple.
+  "On Leave": PURPLE_COLOR,
 };
 
 // ATTENDANCE WORK CHANNEL MIX (unified_daily_attendance's hw_check_in vs

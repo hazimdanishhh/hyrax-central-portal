@@ -1,0 +1,19 @@
+.payrollCycleFilterWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-items: center;
+
+  @media screen and (max-width: 768px) {
+    flex-wrap: wrap;
+  }
+
+  .payrollCycleFilterLabel {
+    width: 40%;
+    text-align: start;
+  }
+
+  .selectContainer {
+    width: 100%;
+  }
+}
