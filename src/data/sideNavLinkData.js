@@ -413,7 +413,12 @@ export const sideNavLinkData = [
         label: "Reports",
         icon: ChartBarIcon,
         path: "hr/reports",
-        departments: ["HR"],
+        // Was department-only (no role restriction) while the route itself
+        // was a dead link -- updated to match the route's real gate now
+        // that HRReports.jsx exists (HR/MGM manager or superadmin, same R5
+        // pattern as Sales/Finance/Operations Reports).
+        departments: ["HR", "MGM"],
+        roles: ["manager"],
       },
 
       {

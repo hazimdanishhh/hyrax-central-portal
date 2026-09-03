@@ -34,6 +34,26 @@ declare
     v_prev_end_date date;
 begin
 
+-- 0. Authorization guard (added for HR Reports hardening pass): this RPC
+-- queries `employees` directly with no RLS-transparent view in between, and
+-- had no in-body auth check at all -- any authenticated user could call it
+-- directly (bypassing the frontend's hr/employees/overview AccessRoute
+-- gate) and get back every active employee's name/tenure/age/department
+-- company-wide. Tier-2 Overview page, open to any HR staff (no manager
+-- restriction, R3 convention) -- simpler guard than the Tier-3 Reports RPCs
+-- (get_finance_dashboard/get_hr_reports_dashboard), which additionally
+-- require manager role. Mirrors sync_leave_ledger_from_snapshot's exact
+-- department-only pattern instead.
+if not (
+    public.is_superadmin()
+    or exists (
+        select 1 from public.profiles
+        where profiles.id = auth.uid() and profiles.department_id = 7
+    )
+) then
+    raise exception 'Unauthorized: get_hr_employees_dashboard requires HR department or superadmin' using errcode = '42501';
+end if;
+
 -- 1. Calculate the Previous Period for Deltas (mirrors get_sales_leads_dashboard)
 if p_start_date is not null and p_end_date is not null then
     v_interval := p_end_date - p_start_date;

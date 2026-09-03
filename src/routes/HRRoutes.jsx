@@ -12,6 +12,7 @@ import AttendanceOverview from "../pages/user/hr/attendanceManagement/overview/A
 import AttendanceManagement from "../pages/user/hr/attendanceManagement/list/AttendanceManagement";
 import LifecycleCaseList from "../pages/user/employeeLifecycle/list/LifecycleCaseList";
 import LifecycleCaseDetail from "../pages/user/employeeLifecycle/detail/LifecycleCaseDetail";
+import HRReports from "../pages/user/hr/hrReports/HRReports";
 import AccessRoute from "./AccessRoute";
 
 export default (
@@ -80,6 +81,20 @@ export default (
         <Route path=":attendanceId" element={<AttendanceManagement />} />
       </Route>
     </Route>
+
+    {/* HR REPORTS -- Tier-3 cross-submodule dashboard (Employees +
+        Attendance + Leave + Lifecycle). Gated stricter than every other HR
+        route: HR/MGM manager or superadmin only, matching the target gate
+        already recorded in supabase/access-control/route_access_matrix.csv
+        and get_hr_reports_dashboard_rpc.sql's own in-body guard. */}
+    <Route
+      path="reports"
+      element={
+        <AccessRoute departments={["HR", "MGM"]} roles={["manager"]}>
+          <HRReports />
+        </AccessRoute>
+      }
+    />
 
     {/* DEPARTMENT MANAGEMENT */}
     <Route
