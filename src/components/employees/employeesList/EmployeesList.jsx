@@ -41,21 +41,29 @@ export default function EmployeesList({
             onSelect();
           }}
         /> */}
-        <div className="employeeCardPhoto">
-          <img
-            src={employee.profile?.avatar_url || "/profilePhoto/default.webp"}
-            alt={employee.full_name}
-          />
-        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+          }}
+        >
+          <div className="employeeCardPhoto">
+            <img
+              src={employee.profile?.avatar_url || "/profilePhoto/default.webp"}
+              alt={employee.full_name}
+            />
+          </div>
 
-        <div className="employeeCardHeaderDetails">
-          <p className="textBold textXXS">{employee.full_name}</p>
-          <p className="textRegular textXXXS employeeListMobile">
-            {employee.department?.name}
-          </p>
-          <p className="textLight textXXXS employeeListMobile">
-            {employee.position}
-          </p>
+          <div className="employeeCardHeaderDetails">
+            <p className="textBold textXXS">{employee.full_name}</p>
+            <p className="textRegular textXXXS employeeListMobile">
+              {employee.department?.name}
+            </p>
+            <p className="textLight textXXXS employeeListMobile">
+              {employee.position}
+            </p>
+          </div>
         </div>
         <div className="employeeCardStatusContainer">
           <StatusBadge status={employee.employment_status?.name} />
