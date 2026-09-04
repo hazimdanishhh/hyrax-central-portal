@@ -110,7 +110,7 @@ export default function Orders() {
         subtitle="View and manage your sales orders, details and status"
       />
 
-      <OverviewCards items={overviewItems} />
+      <OverviewCards items={overviewItems} style="overviewCard2" />
 
       <SearchFilterBar
         search={search}

@@ -17,9 +17,9 @@ function resolveLinkTo(to, filter, defaultTo) {
   return `${base}${query}`;
 }
 
-export default function OverviewCards({ items = [] }) {
+export default function OverviewCards({ items = [], style }) {
   return (
-    <CardLayout style="overviewCard4">
+    <CardLayout style={`overviewCard4 ${style || ""}`}>
       {items.map((item) => {
         const Icon = item.icon;
         const linkTo = resolveLinkTo(item.to, item.filter, "../list");

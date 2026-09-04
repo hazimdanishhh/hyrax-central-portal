@@ -1,4 +1,8 @@
-import { ReceiptIcon, ClockIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import {
+  ReceiptIcon,
+  ClockIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../functions/formatNumber";
 
 /**
@@ -19,7 +23,6 @@ export function getSalesOrdersOverviewConfig(kpis) {
     {
       icon: ReceiptIcon,
       label: "Open Orders",
-      sublabel: "Total Value, Open Orders",
       value: compactCurrency(kpis.openValue),
       variant: "blueCardFill",
       to: ".",
@@ -31,27 +34,35 @@ export function getSalesOrdersOverviewConfig(kpis) {
     },
     {
       icon: ClockIcon,
-      label: "Due for Delivery Soon",
-      sublabel: "Next 7 Days",
+      label: "Due Soon",
       value: compactCurrency(kpis.dueSoonValue),
       variant: kpis.dueSoonCount > 0 ? "yellowCard" : "greenCard",
       to: ".",
       filter: dueSoonFilter,
       metrics: [
-        { label: "Orders", value: kpis.dueSoonCount, to: ".", filter: dueSoonFilter },
+        {
+          label: "Orders",
+          value: kpis.dueSoonCount,
+          to: ".",
+          filter: dueSoonFilter,
+        },
       ],
       title: `Open orders due for delivery in the next 7 days — ${compactCurrency(kpis.dueSoonValue)}`,
     },
     {
       icon: WarningCircleIcon,
-      label: "Overdue for Delivery",
-      sublabel: "Past Requested Delivery Date",
+      label: "Overdue",
       value: compactCurrency(kpis.overdueValue),
       variant: kpis.overdueCount > 0 ? "redCard" : "greenCard",
       to: ".",
       filter: overdueFilter,
       metrics: [
-        { label: "Orders", value: kpis.overdueCount, to: ".", filter: overdueFilter },
+        {
+          label: "Orders",
+          value: kpis.overdueCount,
+          to: ".",
+          filter: overdueFilter,
+        },
       ],
       title: `Open orders past their requested delivery date — ${compactCurrency(kpis.overdueValue)}`,
     },

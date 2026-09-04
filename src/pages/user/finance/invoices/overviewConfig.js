@@ -1,4 +1,8 @@
-import { FileTextIcon, ClockIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import {
+  FileTextIcon,
+  ClockIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../functions/formatNumber";
 
 /**
@@ -17,39 +21,51 @@ export function getInvoicesOverviewConfig(kpis) {
     {
       icon: FileTextIcon,
       label: "Outstanding Invoices",
-      sublabel: "Unpaid Balance, Open Invoices",
       value: compactCurrency(kpis.outstandingValue),
       variant: "blueCardFill",
       to: ".",
       filter: baseFilter,
       metrics: [
-        { label: "Invoices", value: kpis.outstandingCount, to: ".", filter: baseFilter },
+        {
+          label: "Invoices",
+          value: kpis.outstandingCount,
+          to: ".",
+          filter: baseFilter,
+        },
       ],
       title: `Outstanding balance across open invoices, as of today — ${compactCurrency(kpis.outstandingValue)}`,
     },
     {
       icon: ClockIcon,
       label: "Due Soon",
-      sublabel: "Next 7 Days",
       value: compactCurrency(kpis.dueSoonValue),
       variant: kpis.dueSoonCount > 0 ? "yellowCard" : "greenCard",
       to: ".",
       filter: dueSoonFilter,
       metrics: [
-        { label: "Invoices", value: kpis.dueSoonCount, to: ".", filter: dueSoonFilter },
+        {
+          label: "Invoices",
+          value: kpis.dueSoonCount,
+          to: ".",
+          filter: dueSoonFilter,
+        },
       ],
       title: `Open invoices due within the next 7 days — ${compactCurrency(kpis.dueSoonValue)}`,
     },
     {
       icon: WarningCircleIcon,
       label: "Overdue",
-      sublabel: "Past Due Date",
       value: compactCurrency(kpis.overdueValue),
       variant: kpis.overdueCount > 0 ? "redCard" : "greenCard",
       to: ".",
       filter: overdueFilter,
       metrics: [
-        { label: "Invoices", value: kpis.overdueCount, to: ".", filter: overdueFilter },
+        {
+          label: "Invoices",
+          value: kpis.overdueCount,
+          to: ".",
+          filter: overdueFilter,
+        },
       ],
       title: `Open invoices past their due date, as of today — ${compactCurrency(kpis.overdueValue)}`,
     },

@@ -108,7 +108,7 @@ export default function Invoices() {
           <Breadcrumbs icon={FileTextIcon} current="Invoices" />
 
           <CardWrapper>
-            <OverviewCards items={overviewItems} />
+            <OverviewCards items={overviewItems} style="overviewCard2" />
 
             <SearchFilterBar
               search={search}
