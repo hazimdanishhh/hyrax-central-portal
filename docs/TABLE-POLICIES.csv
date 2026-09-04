@@ -471,6 +471,27 @@ public,sap_invoices,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_item_groups,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_item_groups,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sap_item_groups,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'OPS'::text))))",null
+public,sap_item_groups,table,true,false,Sales Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'SAL'::text))))",null
+public,sap_item_groups,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
 public,sap_item_warehouse_stock,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1

@@ -230,11 +230,13 @@ select json_build_object(
             select
                 bol.item_code,
                 coalesce(it.item_name, bol.item_code) as item_name,
+                ig.group_name as item_group_name,
                 sum(bol.open_qty) as open_qty
             from base_order_lines bol
             left join sap_items it on it.item_code = bol.item_code
+            left join sap_item_groups ig on ig.group_code = it.item_group_code
             where bol.open_qty > 0
-            group by bol.item_code, coalesce(it.item_name, bol.item_code)
+            group by bol.item_code, coalesce(it.item_name, bol.item_code), ig.group_name
             order by open_qty desc
             limit 10
         ) x
@@ -248,16 +250,37 @@ select json_build_object(
             select
                 it.item_code,
                 it.item_name,
+                ig.group_name as item_group_name,
                 it.stock_on_hand,
                 it.committed_stock,
                 it.on_order,
                 (it.stock_on_hand - it.committed_stock) as available_qty,
                 (it.committed_stock > it.stock_on_hand) as is_over_committed
             from sap_items it
+            left join sap_item_groups ig on ig.group_code = it.item_group_code
             where it.is_active = 'Y'
               and (it.stock_on_hand > 0 or it.committed_stock > 0)
             order by is_over_committed desc, it.stock_on_hand asc
             limit 10
+        ) x
+    ),
+
+    -- Stock by product group (added 2026-09, Item Grouping) -- company-wide
+    -- stock aggregated across ALL active items per SAP item group (OITB),
+    -- not just the top-10 individual items stockPositionData already shows.
+    -- See docs/sap-data-architecture-plans/09-item-grouping-execution-plan.md.
+    'stockByProductGroupData', (
+        select coalesce(json_agg(x order by x.stock_on_hand desc), '[]'::json)
+        from (
+            select
+                coalesce(ig.group_name, 'Ungrouped') as item_group_name,
+                sum(it.stock_on_hand) as stock_on_hand,
+                sum(it.committed_stock) as committed_stock,
+                sum(it.on_order) as on_order
+            from sap_items it
+            left join sap_item_groups ig on ig.group_code = it.item_group_code
+            where it.is_active = 'Y'
+            group by coalesce(ig.group_name, 'Ungrouped')
         ) x
     )
 

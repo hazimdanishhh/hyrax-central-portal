@@ -277,9 +277,10 @@ export default function LeadSidebar({
           Leads' own :leadId URL pattern -- see Orders.jsx/SalesRoutes.jsx),
           gated the same as the "View in Sales Orders" link below, which is
           only shown to users who'd actually pass that route's own access
-          check (SalesRoutes.jsx: departments=["SAL"], no role restriction
-          since 2026-08 -- everyone else still sees the inline match
-          summary, just without a way to click through to the raw order). */}
+          check (SalesRoutes.jsx: departments=["SAL","MGM"], no role
+          restriction since 2026-08/09 -- everyone else still sees the inline
+          match summary, just without a way to click through to the raw
+          order). */}
       {selectedRow.po_number && (
         <CardLayout style="generalCard cardPaddingSmall">
           <IconCard

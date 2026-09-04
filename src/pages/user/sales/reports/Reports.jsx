@@ -20,6 +20,7 @@ import {
   BLUE_COLOR,
   GREEN_COLOR,
   YELLOW_COLOR,
+  PURPLE_COLOR,
 } from "../../../../components/chartCard/chartColors";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../components/crud/noResult/NoResult";
@@ -247,6 +248,17 @@ function Reports() {
   const topProductsData =
     dashboard?.topProductsData?.map((d) => ({
       name: d.item_name,
+      value: d.revenue_myr,
+    })) ?? [];
+
+  // Revenue by Product Group (added 2026-09, Item Grouping) -- same
+  // base_invoice_lines source as topProductsData above, but aggregated
+  // across ALL products per SAP item group (OITB), not just the top 10
+  // individual products. See
+  // hyrax-data-platform/docs/sap-data-architecture-plans/09-item-grouping-execution-plan.md.
+  const revenueByProductGroupData =
+    dashboard?.revenueByProductGroupData?.map((d) => ({
+      name: d.item_group_name,
       value: d.revenue_myr,
     })) ?? [];
 
@@ -815,6 +827,17 @@ function Reports() {
                           <HorizontalBarChartRenderer
                             data={topProductsData}
                             colorMap={GREEN_COLOR}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Revenue by Product Group"
+                          subtitle="SAP Invoiced (RM) — all products, not just the top 10"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={revenueByProductGroupData}
+                            colorMap={PURPLE_COLOR}
                           />
                         </ChartCard>
                       </CardLayout>

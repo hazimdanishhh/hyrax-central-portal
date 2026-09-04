@@ -1020,13 +1020,34 @@ select json_build_object(
             select
                 bil.item_code,
                 coalesce(it.item_name, bil.item_code) as item_name,
+                ig.group_name as item_group_name,
                 sum(bil.quantity) as quantity_sold,
                 sum(bil.line_total * bil.doc_myr_ratio) as revenue_myr
             from base_invoice_lines bil
             left join sap_items it on it.item_code = bil.item_code
-            group by bil.item_code, coalesce(it.item_name, bil.item_code)
+            left join sap_item_groups ig on ig.group_code = it.item_group_code
+            group by bil.item_code, coalesce(it.item_name, bil.item_code), ig.group_name
             order by revenue_myr desc
             limit 10
+        ) x
+    ),
+
+    -- Revenue by product group (added 2026-09, Item Grouping) -- same
+    -- base_invoice_lines source as topProductsData above (billed/invoiced,
+    -- v_sales_rep_code-scoped for free), aggregated across ALL products per
+    -- SAP item group (OITB) rather than just the top-10 individual products.
+    -- See docs/sap-data-architecture-plans/09-item-grouping-execution-plan.md.
+    'revenueByProductGroupData', (
+        select coalesce(json_agg(x order by x.revenue_myr desc), '[]'::json)
+        from (
+            select
+                coalesce(ig.group_name, 'Ungrouped') as item_group_name,
+                sum(bil.quantity) as quantity_sold,
+                sum(bil.line_total * bil.doc_myr_ratio) as revenue_myr
+            from base_invoice_lines bil
+            left join sap_items it on it.item_code = bil.item_code
+            left join sap_item_groups ig on ig.group_code = it.item_group_code
+            group by coalesce(ig.group_name, 'Ungrouped')
         ) x
     )
 

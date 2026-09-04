@@ -59,7 +59,8 @@ export default function InvoiceSidebar({ selectedRow }) {
           matched card deep-links straight to that order's own detail page
           (/app/sales/orders/all/:docEntry), gated the same as any other
           Sales Orders link -- only shown to users who'd actually pass that
-          route's own access check (SalesRoutes.jsx: departments=["SAL"]). */}
+          route's own access check (SalesRoutes.jsx:
+          departments=["SAL","MGM"]). */}
       <MatchConnector label="Matched Sales Order(s)" icon={ReceiptIcon} />
       <CardLayout style="generalCard matchedSection cardPaddingSmall">
         {matchedOrdersLoading ? (

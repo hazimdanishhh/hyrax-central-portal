@@ -94,6 +94,18 @@ export default function OperationsReports() {
       committed_stock: d.committed_stock,
     })) ?? [];
 
+  // Stock by Product Group (added 2026-09, Item Grouping) -- same On
+  // Hand/Committed pair as Stock Position above, aggregated across ALL
+  // active items per SAP item group (OITB), not just the top 10 individual
+  // items. See
+  // hyrax-data-platform/docs/sap-data-architecture-plans/09-item-grouping-execution-plan.md.
+  const stockByProductGroupData =
+    dashboard?.stockByProductGroupData?.map((d) => ({
+      name: d.item_group_name,
+      stock_on_hand: d.stock_on_hand,
+      committed_stock: d.committed_stock,
+    })) ?? [];
+
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
       <div className="sectionWrapper">
@@ -328,6 +340,28 @@ export default function OperationsReports() {
                         >
                           <HorizontalMultiBarRenderer
                             data={stockPositionData}
+                            bars={[
+                              {
+                                dataKey: "stock_on_hand",
+                                name: "On Hand",
+                                color: BLUE_COLOR,
+                              },
+                              {
+                                dataKey: "committed_stock",
+                                name: "Committed",
+                                color: "#ef4444",
+                              },
+                            ]}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Stock by Product Group"
+                          subtitle="On hand vs committed — all active items, by SAP item group"
+                          style="cardGapSmall"
+                        >
+                          <HorizontalMultiBarRenderer
+                            data={stockByProductGroupData}
                             bars={[
                               {
                                 dataKey: "stock_on_hand",

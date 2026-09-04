@@ -68,6 +68,15 @@ export default function FinancialReports() {
   // "View All" link below -- an MGM viewer never sees a dead link to a page
   // they can't open.
   const canAccessFinanceOps = canAccess({ departments: ["FIN"] });
+  // cash-flow/balance-sheet/income-statement are a DIFFERENT gate --
+  // FIN;MGM manager (FinanceRoutes.jsx), not FIN-only -- reusing
+  // canAccessFinanceOps here (fixed 2026-09) hid all 3 chart links from MGM
+  // managers even though get_finance_dashboard's own guard already lets them
+  // through if they navigate there directly.
+  const canAccessFinanceStatements = canAccess({
+    departments: ["FIN", "MGM"],
+    roles: ["manager"],
+  });
 
   const handleAiComplete = () => {
     queryClient.invalidateQueries(["ai_summary", "finance"]);
@@ -481,7 +490,7 @@ export default function FinancialReports() {
                           subtitle="Revenue through Net Profit (RM), this period — General Ledger postings"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps
+                            canAccessFinanceStatements
                               ? "../income-statement"
                               : undefined
                           }
@@ -498,7 +507,7 @@ export default function FinancialReports() {
                           subtitle="As of today — General Ledger postings, not affected by date filter"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../balance-sheet" : undefined
+                            canAccessFinanceStatements ? "../balance-sheet" : undefined
                           }
                         >
                           <HorizontalBarChartRenderer
@@ -606,7 +615,7 @@ export default function FinancialReports() {
                           subtitle="Operating → Investing → Financing → Net Change in Cash (RM), this period — General Ledger postings, indirect method"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../cash-flow" : undefined
+                            canAccessFinanceStatements ? "../cash-flow" : undefined
                           }
                           viewAllFilter={chartPeriodFilter}
                         >
