@@ -269,7 +269,7 @@ export default function SearchFilterBar({
       {/* DATE RANGE */}
       {enableDateRange && (
         <div className="dateRangeWrapper">
-          <p className="textBold textXXS">Date Range</p>
+          <p className="textBold textXXS dateRangeLable">Date Range</p>
 
           <div className="dateRangeInputContainer">
             <Button

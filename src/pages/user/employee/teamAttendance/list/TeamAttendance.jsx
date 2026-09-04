@@ -237,7 +237,7 @@ export default function TeamAttendance() {
         enableDateRange
       />
 
-      <PageHeader>
+      {/* <PageHeader>
         <PageActions
           layout={layout}
           setLayout={setLayout}
@@ -251,7 +251,7 @@ export default function TeamAttendance() {
           sortOrder={sortOrder}
           setSortOrder={setSortOrder}
         />
-      </PageHeader>
+      </PageHeader> */}
 
       {hasActiveFilters && (
         <ActiveFiltersBar

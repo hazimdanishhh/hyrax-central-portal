@@ -81,7 +81,8 @@ export default function ProjectsManagement() {
     queryKey: "projects",
     queryFn: fetchProjects,
     pageSize: 20,
-    defaultSortBy: "name",
+    defaultSortBy: "created_at",
+    defaultSortOrder: "descending",
   });
 
   const { categories, isLoading: categoriesLoading } = useProjectCategories();

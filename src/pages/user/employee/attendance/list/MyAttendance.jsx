@@ -176,7 +176,7 @@ export default function MyAttendance() {
         enableDateRange
       />
 
-      <PageHeader>
+      {/* <PageHeader>
         <PageActions
           layout={layout}
           setLayout={setLayout}
@@ -190,7 +190,7 @@ export default function MyAttendance() {
           sortOrder={sortOrder}
           setSortOrder={setSortOrder}
         />
-      </PageHeader>
+      </PageHeader> */}
 
       {hasActiveFilters && (
         <ActiveFiltersBar

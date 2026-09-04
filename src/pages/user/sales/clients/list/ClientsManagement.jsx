@@ -266,9 +266,9 @@ export default function ClientsManagement() {
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
         <PageActions
-          layout={layout}
-          setLayout={setLayout}
-          options={layoutOptions}
+          // layout={layout}
+          // setLayout={setLayout}
+          // options={layoutOptions}
           actionButtons={[
             {
               name: "Add Prospect",

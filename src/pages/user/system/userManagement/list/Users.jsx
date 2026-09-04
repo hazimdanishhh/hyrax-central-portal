@@ -199,24 +199,6 @@ export default function Users() {
               placeholder="Search users..."
             />
 
-            <PageHeader>
-              {/* LAYOUT UI */}
-              <PageActions
-                layout={layout}
-                setLayout={setLayout}
-                options={layoutOptions}
-              />
-
-              {/* SORTING ACTIONS */}
-              <SortBar
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortOptions={sortOptions}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-              />
-            </PageHeader>
-
             {/* ACTIVE FILTERS */}
             {hasActiveFilters && (
               <ActiveFiltersBar

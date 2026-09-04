@@ -5,7 +5,7 @@ import "./SortBar.scss";
 
 function SortBar({ sortBy, setSortBy, sortOptions, sortOrder, setSortOrder }) {
   return (
-    <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding">
+    <CardLayout style="cardLayoutFlex cardGapMedium cardLayoutNoPadding sortBarContainer">
       {/* SORT DROPDOWN */}
       <select
         value={sortBy}

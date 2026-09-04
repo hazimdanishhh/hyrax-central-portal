@@ -36,9 +36,7 @@ export default function PayrollCycleFilterBar({ filters, onFilterChange }) {
 
   return (
     <div className="payrollCycleFilterWrapper">
-      <p className="textBold textXXS payrollCycleFilterLabel">
-        Payroll Cycle
-      </p>
+      <p className="textBold textXXS payrollCycleFilterLabel">Payroll Cycle</p>
       <Select
         unstyled
         className="selectContainer"

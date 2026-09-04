@@ -128,11 +128,6 @@ export default function SalesRepMapping() {
 
             <PageHeader>
               {/* LAYOUT UI */}
-              <PageActions
-                layout={layout}
-                setLayout={setLayout}
-                options={layoutOptions}
-              />
 
               {/* SORTING ACTIONS */}
               <SortBar

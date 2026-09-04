@@ -227,9 +227,9 @@ export default function ITAssetManagement() {
         <PageHeader>
           {/* LAYOUT UI + ACTION BUTTONS */}
           <PageActions
-            layout={layout}
-            setLayout={setLayout}
-            options={layoutOptions}
+            // layout={layout}
+            // setLayout={setLayout}
+            // options={layoutOptions}
             actionButtons={[
               {
                 name: "Add Asset",
@@ -238,6 +238,7 @@ export default function ITAssetManagement() {
                   setSelectedRow({});
                   setSidebarOpen(true);
                 },
+                style: "button buttonType5 approval",
               },
             ]}
           />

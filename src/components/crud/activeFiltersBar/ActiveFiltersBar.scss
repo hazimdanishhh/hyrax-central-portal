@@ -10,6 +10,9 @@
   padding: 4px 10px;
   border: 1px solid $neutral500;
   background-color: rgba($neutral300, 0.5);
+  white-space: normal;
+  word-break: break-all;
+  text-align: start;
 
   &:hover {
     background-color: $error600;

@@ -1,3 +1,9 @@
+.sortBarContainer {
+  @media screen and (max-width: 768px) {
+    display: none;
+  }
+}
+
 .sortDropdown {
   padding: 6px;
   border-radius: 6px;
