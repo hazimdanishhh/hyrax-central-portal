@@ -16,6 +16,9 @@ export async function fetchInvoices({
   const to = from + pageSize - 1;
   const FILTER_NULL = "__null__";
   const today = new Date().toISOString().split("T")[0];
+  const dueSoonCutoff = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
 
   let query = supabase
     .from("sap_invoices")
@@ -71,6 +74,15 @@ export async function fetchInvoices({
       case "overdueOnly":
         if (value === "true") {
           query = query.eq("status_code", "O").lt("due_date", today);
+        }
+        break;
+
+      case "dueSoonOnly":
+        if (value === "true") {
+          query = query
+            .eq("status_code", "O")
+            .gte("due_date", today)
+            .lte("due_date", dueSoonCutoff);
         }
         break;
 
@@ -188,4 +200,17 @@ export async function fetchInvoicesForSalesOrder(soDocEntry) {
   if (invoicesError) throw invoicesError;
 
   return invoices || [];
+}
+
+/**
+ * Backs the Invoices list page's OverviewCards -- see
+ * get_invoices_overview_rpc.sql's own comment for why this is a plain (not
+ * security definer) RPC.
+ */
+export async function fetchInvoicesOverview() {
+  const { data, error } = await supabase.rpc("get_invoices_overview");
+
+  if (error) throw error;
+
+  return data;
 }

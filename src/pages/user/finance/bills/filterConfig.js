@@ -40,5 +40,13 @@ export function getBillsFilterConfig() {
         { label: "Overdue Only", value: "true" },
       ],
     },
+    {
+      key: "dueSoonOnly",
+      label: "Due Soon Only",
+      options: [
+        { label: "All Open/Closed", value: "false" },
+        { label: "Due Soon Only", value: "true" },
+      ],
+    },
   ];
 }

@@ -14,12 +14,14 @@ import { formatDate } from "../../../../../functions/formatDate";
 import { useSalesOrderLines } from "../../../../../features/sales/orders/private/hooks/useSalesOrderLines";
 import { useLeadByPoNumber } from "../../../../../features/sales/leads/private/hooks/useLeadByPoNumber";
 import { useInvoicesForSalesOrder } from "../../../../../features/finance/invoices/private/hooks/useInvoicesForSalesOrder";
+import { usePaymentsForSalesOrder } from "../../../../../features/finance/payments/private/hooks/usePaymentsForSalesOrder";
 import { useAccessControl } from "../../../../../context/AccessControlContext";
 import { salesOrderLinesTableConfig } from "./salesOrderLinesTableConfig";
 import "./SalesOrderSidebar.scss";
 import SalesOrderCard from "../../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
 import SalesOrderLineCard from "../../../../../components/sales/orders/salesOrderLineCard/SalesOrderLineCard";
 import InvoiceCard from "../../../../../components/finance/invoiceCard/InvoiceCard";
+import PaymentCard from "../../../../../components/finance/paymentCard/PaymentCard";
 import RouterButton from "../../../../../components/buttons/routerButton/RouterButton";
 
 /**
@@ -50,6 +52,17 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
     isLoading: matchedInvoicesLoading,
     error: matchedInvoicesError,
   } = useInvoicesForSalesOrder(selectedRow?.doc_entry);
+
+  // Transitive SO -> matched invoice(s) -> payment(s) join -- SAP has no
+  // direct SO->Payment link. Reverse of InvoiceSidebar.jsx's own "MATCHED
+  // PAYMENT(S)" block, generalized across every matched invoice. Flat list,
+  // not grouped by invoice -- a payment's own detail page already shows
+  // which invoice(s) it applied to for anyone who needs that detail.
+  const {
+    data: matchedPayments = [],
+    isLoading: matchedPaymentsLoading,
+    error: matchedPaymentsError,
+  } = usePaymentsForSalesOrder(selectedRow?.doc_entry);
 
   const columns = salesOrderLinesTableConfig();
   const hasData = lines?.length > 0;
@@ -101,6 +114,39 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
                 to={
                   canAccess({ departments: ["FIN"] })
                     ? `/app/finance/invoices/${invoice.doc_entry}?search=${invoice.invoice_number}`
+                    : undefined
+                }
+              />
+            ))}
+          </CardLayout>
+        )}
+      </CardLayout>
+
+      {/* MATCHED PAYMENT(S) -- transitive live lookup: SO -> matched
+          invoice(s) above -> payment(s) applied to those invoices (SAP has
+          no direct SO->Payment link). Flat across every matched invoice.
+          FIN-gated -- unlike InvoiceSidebar.jsx's own unconditional Matched
+          Payment(s) block (both sides share the FIN gate there), this
+          sidebar is reached via Sales/MGM routes, so a viewer isn't
+          guaranteed FIN access -- same conditional the Matched Invoice(s)
+          block above already uses. */}
+      <MatchConnector label="Matched Payment(s)" icon={FileTextIcon} />
+      <CardLayout style="generalCard matchedSection cardPaddingSmall">
+        {matchedPaymentsLoading ? (
+          <LoadingIcon />
+        ) : matchedPaymentsError ? (
+          <NoResult title="Error checking for a matching payment" />
+        ) : matchedPayments.length === 0 ? (
+          <NoResult title="No matching payment found" />
+        ) : (
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+            {matchedPayments.map((payment) => (
+              <PaymentCard
+                key={payment.doc_entry}
+                payment={payment}
+                to={
+                  canAccess({ departments: ["FIN"] })
+                    ? `/app/finance/payments/${payment.doc_entry}?search=${payment.receipt_number}`
                     : undefined
                 }
               />

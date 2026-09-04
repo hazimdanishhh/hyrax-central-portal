@@ -40,5 +40,21 @@ export function getSalesOrdersFilterConfig({ salesReps }) {
         { label: "Cancelled", value: "Y" },
       ],
     },
+    {
+      key: "overdueOnly",
+      label: "Overdue Only",
+      options: [
+        { label: "All Open/Closed", value: "false" },
+        { label: "Overdue Only", value: "true" },
+      ],
+    },
+    {
+      key: "dueSoonOnly",
+      label: "Due Soon Only",
+      options: [
+        { label: "All Open/Closed", value: "false" },
+        { label: "Due Soon Only", value: "true" },
+      ],
+    },
   ];
 }

@@ -17,6 +17,9 @@ export async function fetchBills({
   const to = from + pageSize - 1;
   const FILTER_NULL = "__null__";
   const today = new Date().toISOString().split("T")[0];
+  const dueSoonCutoff = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
 
   let query = supabase
     .from("sap_vendor_bills")
@@ -60,6 +63,15 @@ export async function fetchBills({
       case "overdueOnly":
         if (value === "true") {
           query = query.eq("status_code", "O").lt("due_date", today);
+        }
+        break;
+
+      case "dueSoonOnly":
+        if (value === "true") {
+          query = query
+            .eq("status_code", "O")
+            .gte("due_date", today)
+            .lte("due_date", dueSoonCutoff);
         }
         break;
 
@@ -107,4 +119,17 @@ export async function fetchBillByDocEntry(docEntry) {
   if (error) throw error;
 
   return data || null;
+}
+
+/**
+ * Backs the Bills list page's OverviewCards -- see
+ * get_bills_overview_rpc.sql's own comment for why this is a plain (not
+ * security definer) RPC.
+ */
+export async function fetchBillsOverview() {
+  const { data, error } = await supabase.rpc("get_bills_overview");
+
+  if (error) throw error;
+
+  return data;
 }

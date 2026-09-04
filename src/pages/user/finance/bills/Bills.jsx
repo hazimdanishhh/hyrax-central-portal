@@ -17,8 +17,11 @@ import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchBills } from "../../../../features/finance/bills/private/api/billsService";
 import { useBill } from "../../../../features/finance/bills/private/hooks/useBill";
 import { getBillsFilterConfig } from "./filterConfig";
+import { getBillsOverviewConfig } from "./overviewConfig";
+import { useBillsOverview } from "../../../../features/finance/bills/private/hooks/useBillsOverview";
 import BillSidebar from "./detail/BillSidebar";
 import BillCard from "../../../../components/finance/billCard/BillCard";
+import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 
 /**
  * Read-only vendor bills list -- SAP is the system of record, so there's no
@@ -76,6 +79,9 @@ export default function Bills() {
 
   const sidebarOpen = !!selectedRow;
 
+  const { kpis } = useBillsOverview();
+  const overviewItems = getBillsOverviewConfig(kpis);
+
   const filterConfig = getBillsFilterConfig();
   const hasData = bills.length > 0;
 
@@ -90,6 +96,8 @@ export default function Bills() {
           <Breadcrumbs icon={InvoiceIcon} current="Bills" />
 
           <CardWrapper>
+            <OverviewCards items={overviewItems} />
+
             <SearchFilterBar
               search={search}
               onSearchChange={setSearch}

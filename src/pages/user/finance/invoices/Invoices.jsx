@@ -18,8 +18,11 @@ import { fetchInvoices } from "../../../../features/finance/invoices/private/api
 import { useInvoice } from "../../../../features/finance/invoices/private/hooks/useInvoice";
 import { useFinanceMetadata } from "../../../../features/finance/reports/private/hooks/useFinanceMetadata";
 import { getInvoicesFilterConfig } from "./filterConfig";
+import { getInvoicesOverviewConfig } from "./overviewConfig";
+import { useInvoicesOverview } from "../../../../features/finance/invoices/private/hooks/useInvoicesOverview";
 import InvoiceSidebar from "./detail/InvoiceSidebar";
 import InvoiceCard from "../../../../components/finance/invoiceCard/InvoiceCard";
+import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 
 /**
  * Read-only invoices list -- SAP is the system of record, so there's no
@@ -84,6 +87,9 @@ export default function Invoices() {
 
   const sidebarOpen = !!selectedRow;
 
+  const { kpis } = useInvoicesOverview();
+  const overviewItems = getInvoicesOverviewConfig(kpis);
+
   const filterConfig = getInvoicesFilterConfig({ salesReps });
 
   const isLoading = invoicesLoading || metadataLoading;
@@ -102,6 +108,8 @@ export default function Invoices() {
           <Breadcrumbs icon={FileTextIcon} current="Invoices" />
 
           <CardWrapper>
+            <OverviewCards items={overviewItems} />
+
             <SearchFilterBar
               search={search}
               onSearchChange={setSearch}

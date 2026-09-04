@@ -48,6 +48,10 @@ export async function fetchSalesOrders({
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   const FILTER_NULL = "__null__";
+  const today = new Date().toISOString().split("T")[0];
+  const dueSoonCutoff = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
 
   let query = supabase
     .from("sap_sales_orders")
@@ -94,6 +98,24 @@ export async function fetchSalesOrders({
 
       case "isCancelled":
         if (value !== FILTER_NULL) query = query.eq("is_cancelled", value);
+        break;
+
+      // Mirrors invoicesService.js/billsService.js's own overdueOnly branch,
+      // just scoped to delivery_date -- sap_sales_orders has no due_date of
+      // its own, and delivery_date (SAP's DocDueDate) plays that same role.
+      case "overdueOnly":
+        if (value === "true") {
+          query = query.eq("status_code", "O").lt("delivery_date", today);
+        }
+        break;
+
+      case "dueSoonOnly":
+        if (value === "true") {
+          query = query
+            .eq("status_code", "O")
+            .gte("delivery_date", today)
+            .lte("delivery_date", dueSoonCutoff);
+        }
         break;
 
       case "startDate":
@@ -207,4 +229,17 @@ export async function fetchSalesOrdersForInvoice(invoiceDocEntry) {
   if (ordersError) throw ordersError;
 
   return (orders || []).map((order) => attachRep(order, repsByCode));
+}
+
+/**
+ * Backs the Sales Orders list page's OverviewCards -- see
+ * get_sales_orders_overview_rpc.sql's own comment for why this is a plain
+ * (not security definer) RPC.
+ */
+export async function fetchSalesOrdersOverview() {
+  const { data, error } = await supabase.rpc("get_sales_orders_overview");
+
+  if (error) throw error;
+
+  return data;
 }

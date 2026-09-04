@@ -15,9 +15,12 @@ import { fetchSalesOrders } from "../../../../features/sales/orders/private/api/
 import { useSalesOrder } from "../../../../features/sales/orders/private/hooks/useSalesOrder";
 import { useSalesOrdersMetadata } from "../../../../features/sales/orders/private/hooks/useSalesOrdersMetadata";
 import { getSalesOrdersFilterConfig } from "./filterConfig";
+import { getSalesOrdersOverviewConfig } from "./overviewConfig";
+import { useSalesOrdersOverview } from "../../../../features/sales/orders/private/hooks/useSalesOrdersOverview";
 import SalesOrderCard from "../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
 import SalesOrderSidebar from "./detail/SalesOrderSidebar";
 import PageTitle from "../../../../components/pageTitle/PageTitle";
+import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 
 /**
  * Read-only sales orders list -- SAP is the system of record, so there's no
@@ -86,6 +89,9 @@ export default function Orders() {
 
   const sidebarOpen = !!selectedRow;
 
+  const { kpis } = useSalesOrdersOverview();
+  const overviewItems = getSalesOrdersOverviewConfig(kpis);
+
   const filterConfig = getSalesOrdersFilterConfig({ salesReps });
 
   const isLoading = ordersLoading || metadataLoading;
@@ -103,6 +109,8 @@ export default function Orders() {
         title="Sales Orders"
         subtitle="View and manage your sales orders, details and status"
       />
+
+      <OverviewCards items={overviewItems} />
 
       <SearchFilterBar
         search={search}
