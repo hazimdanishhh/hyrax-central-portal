@@ -1,4 +1,5 @@
 import { ClockIcon } from "@phosphor-icons/react";
+import { Link } from "react-router";
 import { formatDate } from "../../../functions/formatDate";
 import StatusBox from "../../status/statusBox/StatusBox";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
@@ -9,14 +10,18 @@ import IconCard from "../../iconCard/IconCard";
 // NumAtCard) is the AP mirror of Invoice/Order's customer_ref, shown the
 // same way as a "PO: ..." badge for parity, even though it isn't surfaced
 // in billsTableConfig.jsx.
-export default function BillCard({ bill, onClick }) {
+export default function BillCard({ bill, to }) {
   const isOpen = bill.status_code === "O";
   const total = bill.total_amount_myr || 0;
   const paid = bill.paid_to_date || 0;
   const outstanding = total - paid;
+  const Wrapper = to ? Link : "div";
+  const wrapperProps = to
+    ? { to, className: "generalCard salesOrderCard" }
+    : { className: "generalCard salesOrderCard" };
 
   return (
-    <button className="generalCard salesOrderCard" onClick={onClick}>
+    <Wrapper {...wrapperProps}>
       <div className="salesOrderCardHeader">
         <div className="salesOrderCardHeaderLeft">
           <div className="salesOrderStatus">
@@ -79,6 +84,6 @@ export default function BillCard({ bill, onClick }) {
           </div>
         </div>
       </div>
-    </button>
+    </Wrapper>
   );
 }

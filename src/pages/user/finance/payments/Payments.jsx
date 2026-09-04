@@ -78,10 +78,6 @@ export default function Payments() {
   const filterConfig = getPaymentsFilterConfig();
   const hasData = payments.length > 0;
 
-  function handleOpenSidebar(row) {
-    navigate(`${row.doc_entry}?${searchParams.toString()}`);
-  }
-
   function handleCloseSidebar() {
     navigate(`/app/finance/payments?${searchParams.toString()}`);
   }
@@ -143,7 +139,7 @@ export default function Payments() {
                     <PaymentCard
                       key={payment.doc_entry}
                       payment={payment}
-                      onClick={() => handleOpenSidebar(payment)}
+                      to={`${payment.doc_entry}?${searchParams.toString()}`}
                     />
                   ))}
                 </CardLayout>

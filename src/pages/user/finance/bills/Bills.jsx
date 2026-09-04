@@ -79,10 +79,6 @@ export default function Bills() {
   const filterConfig = getBillsFilterConfig();
   const hasData = bills.length > 0;
 
-  function handleOpenSidebar(row) {
-    navigate(`${row.doc_entry}?${searchParams.toString()}`);
-  }
-
   function handleCloseSidebar() {
     navigate(`/app/finance/bills?${searchParams.toString()}`);
   }
@@ -144,7 +140,7 @@ export default function Bills() {
                     <BillCard
                       key={bill.doc_entry}
                       bill={bill}
-                      onClick={() => handleOpenSidebar(bill)}
+                      to={`${bill.doc_entry}?${searchParams.toString()}`}
                     />
                   ))}
                 </CardLayout>

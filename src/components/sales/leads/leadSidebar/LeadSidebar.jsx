@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import StatusBox from "../../../status/statusBox/StatusBox";
 import "./LeadSidebar.scss";
@@ -50,7 +49,6 @@ export default function LeadSidebar({
 }) {
   const [showName, setShowName] = useState(false);
   const { canAccess, isManager, isSuperAdmin } = useAccessControl();
-  const navigate = useNavigate();
 
   // Account identity (2026-08): a lead references exactly one of a real SAP
   // customer or a native Prospect client, never both -- see
@@ -309,12 +307,9 @@ export default function LeadSidebar({
                   <SalesOrderCard
                     key={order.doc_entry}
                     order={order}
-                    onClick={
+                    to={
                       canAccess({ departments: ["SAL", "MGM"] })
-                        ? () =>
-                            navigate(
-                              `/app/sales/orders/all/${order.doc_entry}?search=${order.so_number}`,
-                            )
+                        ? `/app/sales/orders/all/${order.doc_entry}?search=${order.so_number}`
                         : undefined
                     }
                   />

@@ -8,6 +8,9 @@ import StatusBadge from "../../../status/statusBadge/StatusBadge";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router";
+
+const MotionLink = motion.create(Link);
 
 // Read-only card for a sap_sales_orders row -- SAP is the system of record,
 // so this only ever displays. status_code/gross_profit carry the same
@@ -24,7 +27,7 @@ import { motion } from "framer-motion";
 // interactive markup. Same fallback path (default.webp) as
 // EmployeeCard.jsx/ProjectMemberAvatarStack.jsx use for the identical
 // "avatar inside an already-clickable card" situation.
-function SalesOrderCard({ order, onClick }) {
+function SalesOrderCard({ order, to }) {
   const isOpen = order.status_code === "O";
   const total = order.total_amount_myr || 0;
   const gp = order.gross_profit;
@@ -34,13 +37,18 @@ function SalesOrderCard({ order, onClick }) {
       : `RM ${Math.round(gp).toLocaleString()}`;
   const rep = order.rep;
   const repAvatarUrl = rep?.avatar_url || "/profilePhoto/default.webp";
+  const Wrapper = to ? MotionLink : motion.div;
+  const wrapperProps = to
+    ? {
+        to,
+        className: "generalCard salesOrderCard",
+        initial: { y: 0 },
+        whileHover: { y: -3 },
+        transition: { type: "spring", stiffness: 300, damping: 20 },
+      }
+    : { className: "generalCard salesOrderCard", initial: { y: 0 } };
   return (
-    <motion.button
-      className="generalCard salesOrderCard"
-      onClick={onClick}
-      initial={{ y: 0 }}
-      whileHover={{ y: -3 }}
-    >
+    <Wrapper {...wrapperProps}>
       <div className="salesOrderCardHeader">
         <div className="salesOrderCardHeaderLeft">
           <div className="salesOrderStatus">
@@ -121,7 +129,7 @@ function SalesOrderCard({ order, onClick }) {
           </div>
         </div>
       </div>
-    </motion.button>
+    </Wrapper>
   );
 }
 

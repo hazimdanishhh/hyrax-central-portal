@@ -1,5 +1,4 @@
 import { InvoiceIcon } from "@phosphor-icons/react";
-import { useNavigate } from "react-router";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import MatchConnector from "../../../../../components/matchConnector/MatchConnector";
@@ -17,7 +16,6 @@ import BillCard from "../../../../../components/finance/billCard/BillCard";
  * permanently in its read-only (children-only) mode for this entity.
  */
 export default function BillSidebar({ selectedRow }) {
-  const navigate = useNavigate();
   const {
     data: lines,
     isLoading,
@@ -39,7 +37,7 @@ export default function BillSidebar({ selectedRow }) {
 
   return (
     <div className="salesOrderSidebar">
-      <BillCard bill={selectedRow} onClick={() => {}} />
+      <BillCard bill={selectedRow} />
 
       {/* MATCHED VENDOR PAYMENT(S) -- live lookup via SAP's real document
           trail (sap_vendor_payment_applications.doc_entry/doc_type), not a
@@ -59,11 +57,7 @@ export default function BillSidebar({ selectedRow }) {
               <VendorPaymentCard
                 key={vendorPayment.doc_entry}
                 vendorPayment={vendorPayment}
-                onClick={() =>
-                  navigate(
-                    `/app/finance/vendor-payments/${vendorPayment.doc_entry}?search=${vendorPayment.payment_number}`,
-                  )
-                }
+                to={`/app/finance/vendor-payments/${vendorPayment.doc_entry}?search=${vendorPayment.payment_number}`}
               />
             ))}
           </CardLayout>

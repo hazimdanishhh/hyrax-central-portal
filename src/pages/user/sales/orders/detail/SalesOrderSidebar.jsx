@@ -3,7 +3,6 @@ import {
   HandshakeIcon,
   ReceiptIcon,
 } from "@phosphor-icons/react";
-import { useNavigate } from "react-router";
 import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
@@ -29,7 +28,6 @@ import RouterButton from "../../../../../components/buttons/routerButton/RouterB
  * permanently in its read-only (children-only) mode for this entity.
  */
 export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
-  const navigate = useNavigate();
   const { canAccess } = useAccessControl();
   const {
     data: lines,
@@ -68,7 +66,7 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
       : `RM ${Math.round(gp).toLocaleString()}`;
   return (
     <div className="salesOrderSidebar">
-      <SalesOrderCard order={selectedRow} onClick={() => {}} />
+      <SalesOrderCard order={selectedRow} />
 
       {matchedLead && canAccess({ departments: ["SAL", "MGM"] }) && (
         <RouterButton
@@ -100,12 +98,9 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
               <InvoiceCard
                 key={invoice.doc_entry}
                 invoice={invoice}
-                onClick={
+                to={
                   canAccess({ departments: ["FIN"] })
-                    ? () =>
-                        navigate(
-                          `/app/finance/invoices/${invoice.doc_entry}?search=${invoice.invoice_number}`,
-                        )
+                    ? `/app/finance/invoices/${invoice.doc_entry}?search=${invoice.invoice_number}`
                     : undefined
                 }
               />

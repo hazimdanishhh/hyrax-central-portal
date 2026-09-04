@@ -93,10 +93,6 @@ export default function Orders() {
   const error = ordersError || metadataError;
   const hasData = salesOrders.length > 0;
 
-  function handleOpenSidebar(order) {
-    navigate(`${order.doc_entry}?${searchParams.toString()}`);
-  }
-
   function handleCloseSidebar() {
     navigate(`/app/sales/orders/all?${searchParams.toString()}`);
   }
@@ -155,7 +151,7 @@ export default function Orders() {
               <SalesOrderCard
                 key={order.doc_entry}
                 order={order}
-                onClick={() => handleOpenSidebar(order)}
+                to={`${order.doc_entry}?${searchParams.toString()}`}
               />
             ))}
           </CardLayout>

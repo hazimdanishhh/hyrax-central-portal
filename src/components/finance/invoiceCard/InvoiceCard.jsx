@@ -6,10 +6,13 @@ import StatusBadge from "../../status/statusBadge/StatusBadge";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { Link } from "react-router";
 import StatusBox from "../../status/statusBox/StatusBox";
 import CardLayout from "../../cardLayout/CardLayout";
 
-export default function InvoiceCard({ invoice, onClick }) {
+const MotionLink = motion.create(Link);
+
+export default function InvoiceCard({ invoice, to }) {
   const isOpen = invoice.status_code === "O";
   const total = invoice.total_amount_myr || 0;
   const paid = invoice.paid_to_date || 0;
@@ -20,13 +23,17 @@ export default function InvoiceCard({ invoice, onClick }) {
       : `RM ${Math.round(gp).toLocaleString()}`;
   const rep = invoice.sales_rep_code;
   const repAvatarUrl = rep?.avatar_url || "/profilePhoto/default.webp";
+  const Wrapper = to ? MotionLink : motion.div;
+  const wrapperProps = to
+    ? {
+        to,
+        className: "generalCard salesOrderCard",
+        initial: { y: 0 },
+        whileHover: { y: -3 },
+      }
+    : { className: "generalCard salesOrderCard", initial: { y: 0 } };
   return (
-    <motion.button
-      className="generalCard salesOrderCard"
-      onClick={onClick}
-      initial={{ y: 0 }}
-      whileHover={{ y: -3 }}
-    >
+    <Wrapper {...wrapperProps}>
       <div className="salesOrderCardHeader">
         <div className="salesOrderCardHeaderLeft">
           <div className="salesOrderStatus">
@@ -113,6 +120,6 @@ export default function InvoiceCard({ invoice, onClick }) {
           </div>
         </div>
       </div>
-    </motion.button>
+    </Wrapper>
   );
 }

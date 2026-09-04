@@ -1,5 +1,4 @@
 import { FileTextIcon } from "@phosphor-icons/react";
-import { useNavigate } from "react-router";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
@@ -14,7 +13,6 @@ import VendorPaymentCard from "../../../../../components/finance/vendorPaymentCa
  * permanently in its read-only (children-only) mode for this entity.
  */
 export default function VendorPaymentSidebar({ selectedRow }) {
-  const navigate = useNavigate();
   const {
     data: applications,
     isLoading,
@@ -25,7 +23,7 @@ export default function VendorPaymentSidebar({ selectedRow }) {
 
   return (
     <div className="salesOrderSidebar">
-      <VendorPaymentCard vendorPayment={selectedRow} onClick={() => {}} />
+      <VendorPaymentCard vendorPayment={selectedRow} />
 
       <CardLayout style="generalCard cardPaddingSmall">
         <SectionHeader icon={FileTextIcon} title="Payment Applications" />
@@ -42,12 +40,9 @@ export default function VendorPaymentSidebar({ selectedRow }) {
               <VendorPaymentApplicationCard
                 key={application.doc_line}
                 application={application}
-                onClick={
+                to={
                   application.bill
-                    ? () =>
-                        navigate(
-                          `/app/finance/bills/${application.bill.doc_entry}?search=${application.bill.bill_number}`,
-                        )
+                    ? `/app/finance/bills/${application.bill.doc_entry}?search=${application.bill.bill_number}`
                     : undefined
                 }
               />

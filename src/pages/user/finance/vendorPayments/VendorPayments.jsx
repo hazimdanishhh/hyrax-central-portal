@@ -79,10 +79,6 @@ export default function VendorPayments() {
   const filterConfig = getVendorPaymentsFilterConfig();
   const hasData = vendorPayments.length > 0;
 
-  function handleOpenSidebar(row) {
-    navigate(`${row.doc_entry}?${searchParams.toString()}`);
-  }
-
   function handleCloseSidebar() {
     navigate(`/app/finance/vendor-payments?${searchParams.toString()}`);
   }
@@ -144,7 +140,7 @@ export default function VendorPayments() {
                     <VendorPaymentCard
                       key={vendorPayment.doc_entry}
                       vendorPayment={vendorPayment}
-                      onClick={() => handleOpenSidebar(vendorPayment)}
+                      to={`${vendorPayment.doc_entry}?${searchParams.toString()}`}
                     />
                   ))}
                 </CardLayout>

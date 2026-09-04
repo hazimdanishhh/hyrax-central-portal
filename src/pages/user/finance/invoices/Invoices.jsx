@@ -91,10 +91,6 @@ export default function Invoices() {
   const error = invoicesError || metadataError;
   const hasData = invoices.length > 0;
 
-  function handleOpenSidebar(row) {
-    navigate(`${row.doc_entry}?${searchParams.toString()}`);
-  }
-
   function handleCloseSidebar() {
     navigate(`/app/finance/invoices?${searchParams.toString()}`);
   }
@@ -156,7 +152,7 @@ export default function Invoices() {
                     <InvoiceCard
                       key={invoice.doc_entry}
                       invoice={invoice}
-                      onClick={() => handleOpenSidebar(invoice)}
+                      to={`${invoice.doc_entry}?${searchParams.toString()}`}
                     />
                   ))}
                 </CardLayout>

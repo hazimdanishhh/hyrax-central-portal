@@ -1,13 +1,11 @@
+import { Link } from "react-router";
 import StatusBox from "../../status/statusBox/StatusBox";
 
 // Read-only card for one sap_vendor_payment_applications row -- AP mirror of
 // PaymentApplicationCard. Resolved via fetchVendorPaymentApplications.js's
 // enrichment (doc_type=18 -> sap_vendor_bills). Falls back to the raw
 // Entry #/On Account display for anything that didn't resolve.
-export default function VendorPaymentApplicationCard({
-  application,
-  onClick,
-}) {
+export default function VendorPaymentApplicationCard({ application, to }) {
   const amount = application.amount_applied_myr || 0;
   const bill = application.bill;
 
@@ -17,11 +15,14 @@ export default function VendorPaymentApplicationCard({
       ? "On Account"
       : `Entry #${application.inv_entry}`;
 
+  const linkTo = bill ? to : undefined;
+  const Wrapper = linkTo ? Link : "div";
+  const wrapperProps = linkTo
+    ? { to: linkTo, className: "generalCard salesOrderCard" }
+    : { className: "generalCard salesOrderCard" };
+
   return (
-    <button
-      className="generalCard salesOrderCard"
-      onClick={bill ? onClick : undefined}
-    >
+    <Wrapper {...wrapperProps}>
       <div className="salesOrderCardHeader">
         <div className="salesOrderCardHeaderLeft">
           <div className="salesOrderCardHeaderDetails">
@@ -40,6 +41,6 @@ export default function VendorPaymentApplicationCard({
           </div>
         </div>
       </div>
-    </button>
+    </Wrapper>
   );
 }

@@ -1,5 +1,4 @@
 import { FileTextIcon, ReceiptIcon } from "@phosphor-icons/react";
-import { useNavigate } from "react-router";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import MatchConnector from "../../../../../components/matchConnector/MatchConnector";
@@ -20,7 +19,6 @@ import PaymentCard from "../../../../../components/finance/paymentCard/PaymentCa
  * permanently in its read-only (children-only) mode for this entity.
  */
 export default function InvoiceSidebar({ selectedRow }) {
-  const navigate = useNavigate();
   const { canAccess } = useAccessControl();
   const {
     data: lines,
@@ -51,7 +49,7 @@ export default function InvoiceSidebar({ selectedRow }) {
 
   return (
     <div className="salesOrderSidebar">
-      <InvoiceCard invoice={selectedRow} onClick={() => {}} />
+      <InvoiceCard invoice={selectedRow} />
 
       {/* MATCHED SALES ORDER(S) -- live lookup via SAP's real document trail
           (sap_invoice_lines.base_entry/base_type), not a persisted bridge.
@@ -75,12 +73,9 @@ export default function InvoiceSidebar({ selectedRow }) {
               <SalesOrderCard
                 key={order.doc_entry}
                 order={order}
-                onClick={
+                to={
                   canAccess({ departments: ["SAL", "MGM"] })
-                    ? () =>
-                        navigate(
-                          `/app/sales/orders/all/${order.doc_entry}?search=${order.so_number}`,
-                        )
+                    ? `/app/sales/orders/all/${order.doc_entry}?search=${order.so_number}`
                     : undefined
                 }
               />
@@ -109,11 +104,7 @@ export default function InvoiceSidebar({ selectedRow }) {
               <PaymentCard
                 key={payment.doc_entry}
                 payment={payment}
-                onClick={() =>
-                  navigate(
-                    `/app/finance/payments/${payment.doc_entry}?search=${payment.receipt_number}`,
-                  )
-                }
+                to={`/app/finance/payments/${payment.doc_entry}?search=${payment.receipt_number}`}
               />
             ))}
           </CardLayout>

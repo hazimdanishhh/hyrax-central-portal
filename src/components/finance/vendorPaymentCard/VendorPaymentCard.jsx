@@ -1,17 +1,22 @@
 import { ClockIcon } from "@phosphor-icons/react";
+import { Link } from "react-router";
 import { formatDate } from "../../../functions/formatDate";
 import StatusBox from "../../status/statusBox/StatusBox";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import IconCard from "../../iconCard/IconCard";
 
 // Read-only card for a sap_vendor_payments row -- AP mirror of PaymentCard.
-export default function VendorPaymentCard({ vendorPayment, onClick }) {
+export default function VendorPaymentCard({ vendorPayment, to }) {
   const isActive = vendorPayment.is_cancelled !== "Y";
   const total = vendorPayment.total_amount_myr || 0;
   const unallocated = vendorPayment.unallocated_amount || 0;
+  const Wrapper = to ? Link : "div";
+  const wrapperProps = to
+    ? { to, className: "generalCard salesOrderCard" }
+    : { className: "generalCard salesOrderCard" };
 
   return (
-    <button className="generalCard salesOrderCard" onClick={onClick}>
+    <Wrapper {...wrapperProps}>
       <div className="salesOrderCardHeader">
         <div className="salesOrderCardHeaderLeft">
           <div className="salesOrderStatus">
@@ -73,6 +78,6 @@ export default function VendorPaymentCard({ vendorPayment, onClick }) {
           </div>
         </div>
       </div>
-    </button>
+    </Wrapper>
   );
 }
