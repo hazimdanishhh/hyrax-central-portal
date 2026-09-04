@@ -8,7 +8,34 @@ as
 $$
 declare
     result json;
+    v_caller_role text;
+    v_caller_department text;
 begin
+
+-- 0. Authorization guard (2026-09) -- this RPC previously had none at all.
+-- The frontend route (OperationsRoutes.jsx) already gates this page to
+-- departments=["OPS","MGM"] roles=["manager"], but that's a UI convenience
+-- only -- without a guard here, any authenticated caller who could invoke
+-- this RPC directly (bypassing the frontend) would get real company-wide
+-- Operations figures back, regardless of department/role, the moment the
+-- underlying tables grant OPS/MGM anything (see
+-- operations_department_access_fix.sql). Mirrors
+-- get_finance_dashboard_rpc.sql's existing FIN/MGM manager guard.
+select r.name, d.sub
+  into v_caller_role, v_caller_department
+from profiles p
+join roles r on r.id = p.role_id
+join departments d on d.id = p.department_id
+where p.id = auth.uid();
+
+if v_caller_role is null then
+    raise exception 'Access denied';
+end if;
+
+if v_caller_role <> 'superadmin'
+   and not (v_caller_role = 'manager' and v_caller_department in ('OPS', 'MGM')) then
+    raise exception 'Access denied';
+end if;
 
 -- Operations & Fulfilment Reports (Tier 3).
 -- Buildable entirely from the 11 already-extracted SAP tables -- no new

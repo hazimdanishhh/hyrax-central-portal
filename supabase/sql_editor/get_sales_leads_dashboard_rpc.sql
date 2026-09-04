@@ -401,7 +401,7 @@ select json_build_object(
                     and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
                 ), 0) as lost_revenue
             from base_leads fl
-            join employees e on e.id = fl.lead_owner_id
+            join employees_public e on e.id = fl.lead_owner_id
             where not fl.is_cancelled
             and (
                 (p_start_date is null or fl.closed_date is null or fl.closed_date >= p_start_date)
@@ -423,7 +423,7 @@ select json_build_object(
                 p.avatar_url,
                 coalesce(sum(fl.actual_revenue), 0) as actual_revenue
             from base_leads fl
-            join employees e on e.id = fl.lead_owner_id
+            join employees_public e on e.id = fl.lead_owner_id
             left join profiles p on p.id = e.profile_id
             where fl.stage = 'WON'
             and (p_start_date is null or fl.closed_date >= p_start_date)
@@ -465,7 +465,7 @@ select json_build_object(
         ), '[]'::json)
         from rep_actuals a
         full outer join target_math t on t.lead_owner_id = a.lead_owner_id
-        left join employees e on e.id = coalesce(a.lead_owner_id, t.lead_owner_id)
+        left join employees_public e on e.id = coalesce(a.lead_owner_id, t.lead_owner_id)
         left join profiles p on p.id = e.profile_id
         where coalesce(a.actual_revenue, 0) > 0 or coalesce(t.prorated_target, 0) > 0
     ),

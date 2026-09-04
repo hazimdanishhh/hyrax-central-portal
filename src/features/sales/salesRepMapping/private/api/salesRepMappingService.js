@@ -8,6 +8,12 @@ import { supabase } from "../../../../../lib/supabaseClient";
  * embedded-filter syntax for a table this size. employee_id is the only
  * editable field -- sales_rep_code/sap_sales_persons fields are
  * pipeline-owned, read-only. See DASHBOARD-ROADMAP.md §1.1.
+ *
+ * employee embeds employees_public, not employees -- matches
+ * leadsService.js's `employees_public!lead_owner_id(*)` pattern. The raw
+ * `employees` table's RLS is HR-scoped (self/manager/HR/superadmin), and
+ * this page is opened by Sales/MGM managers, so every already-mapped rep
+ * was resolving to null and displaying as "Unmapped".
  */
 export async function fetchSalesRepMappings({
   page,
@@ -20,7 +26,7 @@ export async function fetchSalesRepMappings({
   let query = supabase
     .from("employee_sales_rep_mapping")
     .select(
-      "*, sap_sales_person:sap_sales_persons!sales_rep_code(*), employee:employees!employee_id(*)",
+      "*, sap_sales_person:sap_sales_persons!sales_rep_code(*), employee:employees_public!employee_id(*)",
     );
 
   // --- FILTERS (base-table column) ---

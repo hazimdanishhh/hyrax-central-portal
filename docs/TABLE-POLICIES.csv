@@ -1,0 +1,679 @@
+schema_name,table_name,object_type,rls_enabled,rls_forced,policy_name,policy_command,permissive,applies_to_roles,using_expression,with_check_expression
+private,mv_gl_monthly_account_summary,materialized_view,false,false,null,null,null,null,null,null
+private,mv_gl_monthly_balance_sheet_snapshot,materialized_view,false,false,null,null,null,null,null,null
+public,addresses,table,true,false,Enable users to view their own data only,SELECT,true,{authenticated},"(id IN ( SELECT employees.personal_address_id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid())))",null
+public,addresses,table,true,false,HR CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'HR'::text))))","(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'HR'::text))))"
+public,addresses,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,ai_dashboard_summaries,table,true,false,Allow authenticated read access,SELECT,true,{authenticated},true,null
+public,attendance_activities,table,true,false,Enable users to insert their own data only,INSERT,true,{authenticated},null,"(employee_id = ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid())))"
+public,attendance_activities,table,true,false,Enable users to update their own data only,UPDATE,true,{authenticated},"(employee_id = ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid())))","(employee_id = ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid())))"
+public,attendance_activities,table,true,false,Enable users to view their own data only,SELECT,true,{authenticated},"(employee_id IN ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid())))",null
+public,attendance_activities,table,true,false,HR CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))"
+public,attendance_activities,table,true,false,Only Managers can CRUD Team Attendance,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM employees e
+  WHERE ((e.id = attendance_activities.employee_id) AND (e.manager_id = ( SELECT employees.id
+           FROM employees
+          WHERE (employees.profile_id = auth.uid()))))))","(EXISTS ( SELECT 1
+   FROM employees e
+  WHERE ((e.id = attendance_activities.employee_id) AND (e.manager_id = ( SELECT employees.id
+           FROM employees
+          WHERE (employees.profile_id = auth.uid()))))))"
+public,attendance_activities,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,attendance_logs,table,true,false,null,null,null,null,null,null
+public,attendance_types,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,clients,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,clients,table,true,false,MGM Department CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))","(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))"
+public,clients,table,true,false,Sales Manager CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))"
+public,clients,table,true,false,Sales Staff CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))"
+public,clients,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,departments,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,documents,table,true,false,Project members can view documents,SELECT,true,{authenticated},is_project_member(project_id),null
+public,documents,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,documents,table,true,false,Uploader or elevated members can remove documents,DELETE,true,{authenticated},((attached_by = current_employee_id()) OR is_elevated_project_member(project_id)),null
+public,documents,table,true,false,Working members can attach documents,INSERT,true,{authenticated},null,(is_working_project_member(project_id) AND (attached_by = current_employee_id()))
+public,email_log,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,email_queue,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,employee_lifecycle_case_items,table,true,false,Employee can view own visible items,SELECT,true,{authenticated},"((employee_visible = true) AND (EXISTS ( SELECT 1
+   FROM employee_lifecycle_cases c
+  WHERE ((c.id = employee_lifecycle_case_items.case_id) AND (c.employee_id = current_employee_id()) AND (c.employee_can_view = true)))))",null
+public,employee_lifecycle_case_items,table,true,false,HR and IT can view all lifecycle case items,SELECT,true,{authenticated},(is_department('HR'::text) OR is_department('IT'::text)),null
+public,employee_lifecycle_case_items,table,true,false,Owning department can update their items,UPDATE,true,{authenticated},((owning_department_sub IS NOT NULL) AND is_department(owning_department_sub)),((owning_department_sub IS NOT NULL) AND is_department(owning_department_sub))
+public,employee_lifecycle_case_items,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,employee_lifecycle_cases,table,true,false,Employee can view own visible case,SELECT,true,{authenticated},((employee_id = current_employee_id()) AND (employee_can_view = true)),null
+public,employee_lifecycle_cases,table,true,false,HR and IT can view all lifecycle cases,SELECT,true,{authenticated},(is_department('HR'::text) OR is_department('IT'::text)),null
+public,employee_lifecycle_cases,table,true,false,HR can update lifecycle cases,UPDATE,true,{authenticated},is_department('HR'::text),is_department('HR'::text)
+public,employee_lifecycle_cases,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,employee_sales_rep_mapping,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,employee_sales_rep_mapping,table,true,false,Sales Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 3))))",null
+public,employee_sales_rep_mapping,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,employees,table,true,false,Enable users to view their own data only,SELECT,true,{authenticated},(profile_id = auth.uid()),null
+public,employees,table,true,false,HR CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))"
+public,employees,table,true,false,Only Superadmin can CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,employment_status,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,employment_type,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,identification_type,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,industries,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,it_asset_category,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,it_asset_condition,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,it_asset_manufacturer,table,true,false,Enable read access for authenticated users,SELECT,true,{authenticated},true,null
+public,it_asset_operating_system,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,it_asset_status,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,it_asset_subcategory,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,it_assets,table,true,false,Only IT can CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 8))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 8))))"
+public,it_assets,table,true,false,Only Superadmin can CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,it_assets,table,true,false,Users can VIEW OWN data,SELECT,true,{authenticated},(( SELECT auth.uid() AS uid) = asset_user_id),null
+public,lead_source_types,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,leave_balances,table,true,false,Enable users to view their own data only,SELECT,true,{authenticated},"(employee_id IN ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid())))",null
+public,leave_holidays,table,true,false,null,null,null,null,null,null
+public,leave_ledger_entries,table,true,false,Employees can view own leave records,SELECT,true,{authenticated},(employee_id = current_employee_id()),null
+public,leave_ledger_entries,table,true,false,HR can view all leave records,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))",null
+public,leave_ledger_entries,table,true,false,Managers can view subordinates' leave records,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM employees sub
+  WHERE ((sub.id = leave_ledger_entries.employee_id) AND (sub.manager_id = current_employee_id()))))",null
+public,leave_ledger_entries,table,true,false,Superadmin can view all leave records,SELECT,true,{authenticated},is_superadmin(),null
+public,leave_ledger_sync_runs,table,true,false,null,null,null,null,null,null
+public,leave_ledger_types,table,true,false,Authenticated users can view leave types,SELECT,true,{authenticated},true,null
+public,leave_requests,table,true,false,null,null,null,null,null,null
+public,leave_types,table,true,false,null,null,null,null,null,null
+public,nationalities,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,notification_events,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,notification_rules,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,notifications,table,true,false,Users mark own notifications read,UPDATE,true,{authenticated},((user_id = auth.uid()) OR is_superadmin()),((user_id = auth.uid()) OR is_superadmin())
+public,notifications,table,true,false,Users read own notifications,SELECT,true,{authenticated},((user_id = auth.uid()) OR is_superadmin()),null
+public,pipeline_run_log,table,true,false,All VIEW,SELECT,true,{authenticated},true,null
+public,pipeline_run_log,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,product_brands,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,products,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,profiles,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,profiles,table,true,false,INSERT Policy (profiles),INSERT,true,{authenticated},null,(auth.uid() = id)
+public,profiles,table,true,false,SELECT policy (profiles),SELECT,true,{authenticated},(auth.uid() = id),null
+public,profiles,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,profiles,table,true,false,UPDATE policy (profiles),UPDATE,true,{authenticated},(auth.uid() = id),(auth.uid() = id)
+public,project_categories,table,true,false,Anyone can add categories,INSERT,true,{authenticated},null,true
+public,project_categories,table,true,false,Anyone can view categories,SELECT,true,{authenticated},true,null
+public,project_categories,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,project_members,table,true,false,Elevated members can add project members,INSERT,true,{authenticated},null,(is_elevated_project_member(project_id) AND (role <> 'owner'::text))
+public,project_members,table,true,false,Elevated members can update project membership,UPDATE,true,{authenticated},(is_elevated_project_member(project_id) AND (role <> 'owner'::text)),(is_elevated_project_member(project_id) AND (role <> 'owner'::text))
+public,project_members,table,true,false,Elevated members or self can remove project members,DELETE,true,{authenticated},(is_elevated_project_member(project_id) OR (employee_id = current_employee_id())),null
+public,project_members,table,true,false,Members can view project membership,SELECT,true,{authenticated},is_project_member(project_id),null
+public,project_members,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,projects,table,true,false,Elevated members can update their projects,UPDATE,true,{authenticated},is_elevated_project_member(id),is_elevated_project_member(id)
+public,projects,table,true,false,Linked employees can create projects,INSERT,true,{authenticated},null,(created_by = current_employee_id())
+public,projects,table,true,false,Members can view their projects,SELECT,true,{authenticated},is_project_member(id),null
+public,projects,table,true,false,Owners can delete their projects,DELETE,true,{authenticated},is_project_owner(id),null
+public,projects,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,roles,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,sales_attainment_snapshots,table,true,false,null,null,null,null,null,null
+public,sales_budgets,table,true,false,MGM Manager CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'manager'::text) AND (d.sub = 'MGM'::text))))","(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'manager'::text) AND (d.sub = 'MGM'::text))))"
+public,sales_budgets,table,true,false,Sales Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'SAL'::text))))",null
+public,sales_budgets,table,true,false,Sales Manager CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'manager'::text) AND (d.sub = 'SAL'::text))))","(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'manager'::text) AND (d.sub = 'SAL'::text))))"
+public,sales_budgets,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sales_leads,table,true,false,MGM Department CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))","(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))"
+public,sales_leads,table,true,false,Sales Manager CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))"
+public,sales_leads,table,true,false,Sales Staff Self CRUD,ALL,true,{authenticated},"((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3)))) AND (lead_owner_id = ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid()))))","((EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3)))) AND (lead_owner_id = ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid()))))"
+public,sales_leads,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sales_leads_lose_reasons,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,sales_leads_stage_history,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sales_leads_stage_history,table,true,false,Sales Manager CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))"
+public,sales_leads_stage_history,table,true,false,Sales Staff CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))"
+public,sales_leads_stage_history,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sales_orders,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sales_quotation_items,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sales_quotations,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sales_targets,table,true,false,MGM Manager CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'manager'::text) AND (d.sub = 'MGM'::text))))","(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'manager'::text) AND (d.sub = 'MGM'::text))))"
+public,sales_targets,table,true,false,Sales Manager CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'manager'::text) AND (d.sub = 'SAL'::text))))","(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'manager'::text) AND (d.sub = 'SAL'::text))))"
+public,sales_targets,table,true,false,Sales Staff Self CRUD,ALL,true,{authenticated},"((EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'staff'::text) AND (d.sub = 'SAL'::text)))) AND (lead_owner_id = ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid()))))","((EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (r.name = 'staff'::text) AND (d.sub = 'SAL'::text)))) AND (lead_owner_id = ( SELECT employees.id
+   FROM employees
+  WHERE (employees.profile_id = auth.uid()))))"
+public,sales_targets,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_bank_account_details,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_bank_account_details,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_bank_account_details,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_bank_account_movements,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_bank_account_movements,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_bank_account_movements,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_bank_codes,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_bank_codes,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_bank_codes,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_customers,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_customers,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sap_customers,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_customers,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
+public,sap_customers,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_deliveries,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sap_deliveries,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'OPS'::text))))",null
+public,sap_deliveries,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_deliveries,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_delivery_lines,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sap_delivery_lines,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'OPS'::text))))",null
+public,sap_delivery_lines,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_delivery_lines,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_gl_accounts,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_gl_accounts,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_gl_accounts,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_gl_journal_entries,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_gl_journal_entries,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_gl_journal_entries,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_gl_journal_lines,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_gl_journal_lines,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_gl_journal_lines,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_invoice_lines,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_invoice_lines,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_invoice_lines,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'OPS'::text))))",null
+public,sap_invoice_lines,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_invoice_lines,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_invoices,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_invoices,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_invoices,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'OPS'::text))))",null
+public,sap_invoices,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_invoices,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_item_warehouse_stock,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_items,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sap_items,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'OPS'::text))))",null
+public,sap_items,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_items,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
+public,sap_items,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_payment_applications,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_payment_applications,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_payment_applications,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_payment_applications,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_payments,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_payments,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_payments,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_payments,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_pipeline_state,table,true,false,All VIEW,SELECT,true,{authenticated},true,null
+public,sap_pipeline_state,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_sales_order_lines,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sap_sales_order_lines,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'OPS'::text))))",null
+public,sap_sales_order_lines,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_sales_order_lines,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
+public,sap_sales_order_lines,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_sales_orders,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sap_sales_orders,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'OPS'::text))))",null
+public,sap_sales_orders,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_sales_orders,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
+public,sap_sales_orders,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_sales_persons,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_sales_persons,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
+public,sap_sales_persons,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_sales_persons,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
+public,sap_sales_persons,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_vendor_bill_lines,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_vendor_bill_lines,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_vendor_bill_lines,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_vendor_bills,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_vendor_bills,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_vendor_bills,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_vendor_payment_applications,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_vendor_payment_applications,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_vendor_payment_applications,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,sap_vendor_payments,table,true,false,Finance Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
+public,sap_vendor_payments,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_vendor_payments,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,task_assignees,table,true,false,Project members can view task assignees,SELECT,true,{authenticated},"is_project_member(( SELECT tasks.project_id
+   FROM tasks
+  WHERE (tasks.id = task_assignees.task_id)))",null
+public,task_assignees,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,task_assignees,table,true,false,Working members can assign tasks,INSERT,true,{authenticated},null,"(is_working_project_member(( SELECT t.project_id
+   FROM tasks t
+  WHERE (t.id = task_assignees.task_id))) AND (project_member_role(( SELECT t.project_id
+   FROM tasks t
+  WHERE (t.id = task_assignees.task_id)), employee_id) = ANY (ARRAY['owner'::text, 'lead'::text, 'member'::text])))"
+public,task_assignees,table,true,false,Working members can unassign tasks,DELETE,true,{authenticated},"is_working_project_member(( SELECT t.project_id
+   FROM tasks t
+  WHERE (t.id = task_assignees.task_id)))",null
+public,task_documents,table,true,false,Project members can view task document links,SELECT,true,{authenticated},"is_project_member(( SELECT tasks.project_id
+   FROM tasks
+  WHERE (tasks.id = task_documents.task_id)))",null
+public,task_documents,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,task_documents,table,true,false,Working members can link documents to tasks,INSERT,true,{authenticated},null,"is_working_project_member(( SELECT tasks.project_id
+   FROM tasks
+  WHERE (tasks.id = task_documents.task_id)))"
+public,task_documents,table,true,false,Working members can unlink documents from tasks,DELETE,true,{authenticated},"is_working_project_member(( SELECT tasks.project_id
+   FROM tasks
+  WHERE (tasks.id = task_documents.task_id)))",null
+public,tasks,table,true,false,Assignees can update their tasks,UPDATE,true,{authenticated},is_task_assignee(id),is_task_assignee(id)
+public,tasks,table,true,false,Elevated members can delete tasks,DELETE,true,{authenticated},is_elevated_project_member(project_id),null
+public,tasks,table,true,false,Project members can view all tasks,SELECT,true,{authenticated},is_project_member(project_id),null
+public,tasks,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,tasks,table,true,false,Working members can create tasks,INSERT,true,{authenticated},null,is_working_project_member(project_id)
+public,termination_reason,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+public,work_locations,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
+storage,buckets,table,true,false,null,null,null,null,null,null
+storage,buckets_analytics,table,true,false,null,null,null,null,null,null
+storage,buckets_vectors,table,true,false,null,null,null,null,null,null
+storage,migrations,table,true,false,null,null,null,null,null,null
+storage,objects,table,true,false,Avatars: own file or superadmin,ALL,true,{authenticated},((bucket_id = 'avatars'::text) AND (((storage.foldername(name))[1] = 'profiles'::text) AND ((storage.filename(name) = (auth.uid())::text) OR is_superadmin()))),((bucket_id = 'avatars'::text) AND (((storage.foldername(name))[1] = 'profiles'::text) AND ((storage.filename(name) = (auth.uid())::text) OR is_superadmin())))
+storage,objects,table,true,false,Give users authenticated access to folder vdno4p_0,SELECT,true,null,((bucket_id = 'attendance'::text) AND ((storage.foldername(name))[1] = 'photos'::text) AND (auth.role() = 'authenticated'::text)),null
+storage,objects,table,true,false,Give users authenticated access to folder vdno4p_1,INSERT,true,null,null,((bucket_id = 'attendance'::text) AND ((storage.foldername(name))[1] = 'photos'::text) AND (auth.role() = 'authenticated'::text))
+storage,objects,table,true,false,Give users authenticated access to folder vdno4p_2,UPDATE,true,null,((bucket_id = 'attendance'::text) AND ((storage.foldername(name))[1] = 'photos'::text) AND (auth.role() = 'authenticated'::text)),null
+storage,objects,table,true,false,Give users authenticated access to folder vdno4p_3,DELETE,true,null,((bucket_id = 'attendance'::text) AND ((storage.foldername(name))[1] = 'photos'::text) AND (auth.role() = 'authenticated'::text)),null
+storage,s3_multipart_uploads,table,true,false,null,null,null,null,null,null
+storage,s3_multipart_uploads_parts,table,true,false,null,null,null,null,null,null
+storage,vector_indexes,table,true,false,null,null,null,null,null,null

@@ -2,10 +2,16 @@ import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
  * Search employees for async select -- mirrors clientSearch.js.
+ *
+ * Queries employees_public, not employees: the raw table's RLS is HR-scoped
+ * (self/manager/HR/superadmin), but this picker is used by Sales/MGM
+ * managers (salesRepMapping, salesTargets), who'd get zero rows back
+ * against the raw table. See fetchEmployeesPublicByIds.js for the same
+ * fix applied to embedded joins elsewhere in the app.
  */
 export async function searchEmployees(search = "") {
   let query = supabase
-    .from("employees")
+    .from("employees_public")
     .select("id, full_name")
     .order("full_name")
     .limit(20);
@@ -31,7 +37,7 @@ export async function getEmployeeById(id) {
   if (!id) return null;
 
   const { data, error } = await supabase
-    .from("employees")
+    .from("employees_public")
     .select("id, full_name")
     .eq("id", id)
     .single();
