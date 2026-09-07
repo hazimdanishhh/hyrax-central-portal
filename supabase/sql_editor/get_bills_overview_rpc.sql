@@ -45,6 +45,19 @@ begin
         'overdueValue', coalesce(sum(total_amount_myr - paid_to_date) filter (
             where status_code = 'O' and (total_amount_myr - paid_to_date) > 0.01
               and due_date::date < current_date
+        ), 0),
+
+        -- Added 2026-09: escalating-risk tile, AP mirror of
+        -- get_invoices_overview's own criticallyOverdue -- vendor-
+        -- relationship/interest-penalty risk compounds the same way past 90
+        -- days.
+        'criticallyOverdueCount', count(*) filter (
+            where status_code = 'O' and (total_amount_myr - paid_to_date) > 0.01
+              and due_date::date < current_date - 90
+        ),
+        'criticallyOverdueValue', coalesce(sum(total_amount_myr - paid_to_date) filter (
+            where status_code = 'O' and (total_amount_myr - paid_to_date) > 0.01
+              and due_date::date < current_date - 90
         ), 0)
     )
     into result

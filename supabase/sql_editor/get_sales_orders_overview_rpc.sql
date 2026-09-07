@@ -43,6 +43,17 @@ begin
         ),
         'overdueValue', coalesce(sum(total_amount_myr) filter (
             where status_code = 'O' and delivery_date::date < current_date
+        ), 0),
+
+        -- Added 2026-09: activity/volume pulse, distinct from the three
+        -- backlog-urgency figures above -- counts ALL orders placed in the
+        -- trailing 7 days regardless of status_code (a "new this week"
+        -- figure describes inflow, not what's still open).
+        'newThisWeekCount', count(*) filter (
+            where order_date::date >= current_date - 7
+        ),
+        'newThisWeekValue', coalesce(sum(total_amount_myr) filter (
+            where order_date::date >= current_date - 7
         ), 0)
     )
     into result

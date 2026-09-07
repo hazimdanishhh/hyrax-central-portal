@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
 
 /**
  * Read-only vendor payment list, backed directly by the sap_vendor_payments
@@ -64,7 +65,7 @@ export async function fetchVendorPayments({
         break;
 
       case "endDate":
-        query = query.lte("payment_date", value);
+        query = query.lt("payment_date", exclusiveUpperBound(value));
         break;
 
       default:
@@ -83,6 +84,19 @@ export async function fetchVendorPayments({
     data: data || [],
     totalCount: count || 0,
   };
+}
+
+/**
+ * Backs the Vendor Payments list page's OverviewCards -- see
+ * get_vendor_payments_overview_rpc.sql's own comment for why this is a plain
+ * (not security definer) RPC.
+ */
+export async function fetchVendorPaymentsOverview() {
+  const { data, error } = await supabase.rpc("get_vendor_payments_overview");
+
+  if (error) throw error;
+
+  return data;
 }
 
 /**

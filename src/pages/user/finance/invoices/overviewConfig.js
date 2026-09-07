@@ -2,20 +2,26 @@ import {
   FileTextIcon,
   ClockIcon,
   WarningCircleIcon,
+  WarningOctagonIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../functions/formatNumber";
 
 /**
- * Three tiles (Outstanding / Due Soon / Overdue), same two-tier RM+count
- * shape as FinancialReports.jsx's own "Overdue Risk"/"Outstanding AR" tiles
- * -- this is the same underlying figure, just scoped to this list page
- * instead of the full dashboard. `to: "."` on every tile/metric, not
- * omitted -- see getSalesOrdersOverviewConfig's own comment for why.
+ * Four tiles (Outstanding / Due Soon / Overdue / Critically Overdue), same
+ * two-tier RM+count shape as FinancialReports.jsx's own "Overdue Risk"/
+ * "Outstanding AR" tiles -- this is the same underlying figure, just scoped
+ * to this list page instead of the full dashboard. `to: "."` on every
+ * tile/metric, not omitted -- see getSalesOrdersOverviewConfig's own comment
+ * for why.
  */
 export function getInvoicesOverviewConfig(kpis) {
   const baseFilter = { statusCode: "O", isCancelled: "N" };
   const dueSoonFilter = { ...baseFilter, dueSoonOnly: "true" };
   const overdueFilter = { ...baseFilter, overdueOnly: "true" };
+  const criticallyOverdueFilter = {
+    ...baseFilter,
+    criticallyOverdueOnly: "true",
+  };
 
   return [
     {
@@ -68,6 +74,23 @@ export function getInvoicesOverviewConfig(kpis) {
         },
       ],
       title: `Open invoices past their due date, as of today — ${compactCurrency(kpis.overdueValue)}`,
+    },
+    {
+      icon: WarningOctagonIcon,
+      label: "Critically Overdue",
+      value: compactCurrency(kpis.criticallyOverdueValue),
+      variant: kpis.criticallyOverdueCount > 0 ? "redCard" : "greenCard",
+      to: ".",
+      filter: criticallyOverdueFilter,
+      metrics: [
+        {
+          label: "Invoices",
+          value: kpis.criticallyOverdueCount,
+          to: ".",
+          filter: criticallyOverdueFilter,
+        },
+      ],
+      title: `Open invoices 90+ days past due, as of today — ${compactCurrency(kpis.criticallyOverdueValue)}`,
     },
   ];
 }

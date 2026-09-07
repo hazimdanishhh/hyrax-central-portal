@@ -17,8 +17,11 @@ import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchPayments } from "../../../../features/finance/payments/private/api/paymentsService";
 import { usePayment } from "../../../../features/finance/payments/private/hooks/usePayment";
 import { getPaymentsFilterConfig } from "./filterConfig";
+import { getPaymentsOverviewConfig } from "./overviewConfig";
+import { usePaymentsOverview } from "../../../../features/finance/payments/private/hooks/usePaymentsOverview";
 import PaymentSidebar from "./detail/PaymentSidebar";
 import PaymentCard from "../../../../components/finance/paymentCard/PaymentCard";
+import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 
 /**
  * Read-only payments list -- SAP is the system of record, so there's no
@@ -75,6 +78,9 @@ export default function Payments() {
 
   const sidebarOpen = !!selectedRow;
 
+  const { kpis } = usePaymentsOverview();
+  const overviewItems = getPaymentsOverviewConfig(kpis);
+
   const filterConfig = getPaymentsFilterConfig();
   const hasData = payments.length > 0;
 
@@ -89,6 +95,8 @@ export default function Payments() {
           <Breadcrumbs icon={CoinsIcon} current="Payments" />
 
           <CardWrapper>
+            <OverviewCards items={overviewItems} />
+
             <SearchFilterBar
               search={search}
               onSearchChange={setSearch}

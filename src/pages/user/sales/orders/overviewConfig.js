@@ -2,12 +2,13 @@ import {
   ReceiptIcon,
   ClockIcon,
   WarningCircleIcon,
+  TrendUpIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../functions/formatNumber";
 
 /**
- * Three tiles (Open / Due Soon / Overdue), each RM headline + count
- * sub-metric -- same two-tier shape as FinancialReports.jsx's own
+ * Four tiles (Open / Due Soon / Overdue / New This Week), each RM headline +
+ * count sub-metric -- same two-tier shape as FinancialReports.jsx's own
  * "Overdue Risk" tile, not the flatter counts-only style Projects/Users use,
  * since here both the RM value and the count matter equally. `to: "."` on
  * every tile/metric, not omitted -- OverviewCards' own resolveLinkTo
@@ -18,6 +19,16 @@ export function getSalesOrdersOverviewConfig(kpis) {
   const baseFilter = { statusCode: "O", isCancelled: "N" };
   const dueSoonFilter = { ...baseFilter, dueSoonOnly: "true" };
   const overdueFilter = { ...baseFilter, overdueOnly: "true" };
+  // isCancelled only, no statusCode -- matches get_sales_orders_overview_
+  // rpc.sql's newThisWeekCount, which counts orders regardless of open/
+  // closed status (only excluding cancelled ones via base_orders).
+  const newThisWeekFilter = {
+    isCancelled: "N",
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0],
+    endDate: new Date().toISOString().split("T")[0],
+  };
 
   return [
     {
@@ -65,6 +76,23 @@ export function getSalesOrdersOverviewConfig(kpis) {
         },
       ],
       title: `Open orders past their requested delivery date — ${compactCurrency(kpis.overdueValue)}`,
+    },
+    {
+      icon: TrendUpIcon,
+      label: "New This Week",
+      value: compactCurrency(kpis.newThisWeekValue),
+      variant: "blueCard",
+      to: ".",
+      filter: newThisWeekFilter,
+      metrics: [
+        {
+          label: "Orders",
+          value: kpis.newThisWeekCount,
+          to: ".",
+          filter: newThisWeekFilter,
+        },
+      ],
+      title: `Orders placed in the last 7 days — ${compactCurrency(kpis.newThisWeekValue)}`,
     },
   ];
 }

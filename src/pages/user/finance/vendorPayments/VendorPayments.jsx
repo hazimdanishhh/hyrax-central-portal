@@ -17,8 +17,11 @@ import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchVendorPayments } from "../../../../features/finance/vendorPayments/private/api/vendorPaymentsService";
 import { useVendorPayment } from "../../../../features/finance/vendorPayments/private/hooks/useVendorPayment";
 import { getVendorPaymentsFilterConfig } from "./filterConfig";
+import { getVendorPaymentsOverviewConfig } from "./overviewConfig";
+import { useVendorPaymentsOverview } from "../../../../features/finance/vendorPayments/private/hooks/useVendorPaymentsOverview";
 import VendorPaymentSidebar from "./detail/VendorPaymentSidebar";
 import VendorPaymentCard from "../../../../components/finance/vendorPaymentCard/VendorPaymentCard";
+import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 
 /**
  * Read-only vendor payments list -- SAP is the system of record, so there's
@@ -76,6 +79,9 @@ export default function VendorPayments() {
 
   const sidebarOpen = !!selectedRow;
 
+  const { kpis } = useVendorPaymentsOverview();
+  const overviewItems = getVendorPaymentsOverviewConfig(kpis);
+
   const filterConfig = getVendorPaymentsFilterConfig();
   const hasData = vendorPayments.length > 0;
 
@@ -90,6 +96,8 @@ export default function VendorPayments() {
           <Breadcrumbs icon={HandCoinsIcon} current="Vendor Payments" />
 
           <CardWrapper>
+            <OverviewCards items={overviewItems} />
+
             <SearchFilterBar
               search={search}
               onSearchChange={setSearch}

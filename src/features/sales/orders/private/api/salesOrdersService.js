@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
 
 /**
  * Resolves a sap_* row's sales_rep_code -> the owning employee. Exported --
@@ -143,7 +144,7 @@ export async function fetchSalesOrders({
           query = query
             .eq("status_code", "O")
             .gte("delivery_date", today)
-            .lte("delivery_date", dueSoonCutoff);
+            .lt("delivery_date", exclusiveUpperBound(dueSoonCutoff));
         }
         break;
 
@@ -152,7 +153,7 @@ export async function fetchSalesOrders({
         break;
 
       case "endDate":
-        query = query.lte("order_date", value);
+        query = query.lt("order_date", exclusiveUpperBound(value));
         break;
 
       default:

@@ -1,5 +1,6 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 import { fetchInvoicesForSalesOrder } from "../../../invoices/private/api/invoicesService";
+import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
 
 /**
  * Read-only payment list, backed directly by the sap_payments mirror table
@@ -65,7 +66,7 @@ export async function fetchPayments({
         break;
 
       case "endDate":
-        query = query.lte("payment_date", value);
+        query = query.lt("payment_date", exclusiveUpperBound(value));
         break;
 
       default:
@@ -84,6 +85,19 @@ export async function fetchPayments({
     data: data || [],
     totalCount: count || 0,
   };
+}
+
+/**
+ * Backs the Payments list page's OverviewCards -- see
+ * get_payments_overview_rpc.sql's own comment for why this is a plain (not
+ * security definer) RPC.
+ */
+export async function fetchPaymentsOverview() {
+  const { data, error } = await supabase.rpc("get_payments_overview");
+
+  if (error) throw error;
+
+  return data;
 }
 
 /**

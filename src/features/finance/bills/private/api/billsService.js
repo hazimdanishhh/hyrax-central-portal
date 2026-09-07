@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
 
 /**
  * Read-only vendor bill list, backed directly by the sap_vendor_bills mirror
@@ -18,6 +19,11 @@ export async function fetchBills({
   const FILTER_NULL = "__null__";
   const today = new Date().toISOString().split("T")[0];
   const dueSoonCutoff = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const criticallyOverdueCutoff = new Date(
+    Date.now() - 90 * 24 * 60 * 60 * 1000,
+  )
     .toISOString()
     .split("T")[0];
 
@@ -71,7 +77,17 @@ export async function fetchBills({
           query = query
             .eq("status_code", "O")
             .gte("due_date", today)
-            .lte("due_date", dueSoonCutoff);
+            .lt("due_date", exclusiveUpperBound(dueSoonCutoff));
+        }
+        break;
+
+      // Matches get_bills_overview_rpc.sql's own criticallyOverdue tile --
+      // 90+ days past due, distinct from the plain overdueOnly filter above.
+      case "criticallyOverdueOnly":
+        if (value === "true") {
+          query = query
+            .eq("status_code", "O")
+            .lt("due_date", criticallyOverdueCutoff);
         }
         break;
 
@@ -80,7 +96,7 @@ export async function fetchBills({
         break;
 
       case "endDate":
-        query = query.lte("bill_date", value);
+        query = query.lt("bill_date", exclusiveUpperBound(value));
         break;
 
       default:

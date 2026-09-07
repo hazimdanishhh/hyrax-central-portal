@@ -4,6 +4,7 @@ import {
   fetchRepNamesByCode,
   attachRep,
 } from "../../../../sales/orders/private/api/salesOrdersService";
+import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
 
 /**
  * Read-only invoice list, backed directly by the sap_invoices mirror table.
@@ -22,6 +23,11 @@ export async function fetchInvoices({
   const FILTER_NULL = "__null__";
   const today = new Date().toISOString().split("T")[0];
   const dueSoonCutoff = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const criticallyOverdueCutoff = new Date(
+    Date.now() - 90 * 24 * 60 * 60 * 1000,
+  )
     .toISOString()
     .split("T")[0];
 
@@ -87,7 +93,18 @@ export async function fetchInvoices({
           query = query
             .eq("status_code", "O")
             .gte("due_date", today)
-            .lte("due_date", dueSoonCutoff);
+            .lt("due_date", exclusiveUpperBound(dueSoonCutoff));
+        }
+        break;
+
+      // Matches get_invoices_overview_rpc.sql's own criticallyOverdue
+      // tile -- 90+ days past due, distinct from the plain overdueOnly
+      // filter above.
+      case "criticallyOverdueOnly":
+        if (value === "true") {
+          query = query
+            .eq("status_code", "O")
+            .lt("due_date", criticallyOverdueCutoff);
         }
         break;
 
@@ -96,7 +113,7 @@ export async function fetchInvoices({
         break;
 
       case "endDate":
-        query = query.lte("invoice_date", value);
+        query = query.lt("invoice_date", exclusiveUpperBound(value));
         break;
 
       default:

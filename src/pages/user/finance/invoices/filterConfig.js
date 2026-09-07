@@ -56,5 +56,13 @@ export function getInvoicesFilterConfig({ salesReps }) {
         { label: "Due Soon Only", value: "true" },
       ],
     },
+    {
+      key: "criticallyOverdueOnly",
+      label: "Critically Overdue Only",
+      options: [
+        { label: "All Open/Closed", value: "false" },
+        { label: "Critically Overdue Only (90+ Days)", value: "true" },
+      ],
+    },
   ];
 }

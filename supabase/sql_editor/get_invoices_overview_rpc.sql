@@ -48,6 +48,19 @@ begin
         'overdueValue', coalesce(sum(total_amount_myr - paid_to_date) filter (
             where status_code = 'O' and (total_amount_myr - paid_to_date) > 0.01
               and due_date::date < current_date
+        ), 0),
+
+        -- Added 2026-09: escalating-risk tile, distinct from the plain
+        -- Overdue figure above -- 1 day late and 120 days late are currently
+        -- treated identically by that tile. 90-day threshold matches
+        -- get_finance_dashboard_rpc.sql's own AR-aging "90+" bucket.
+        'criticallyOverdueCount', count(*) filter (
+            where status_code = 'O' and (total_amount_myr - paid_to_date) > 0.01
+              and due_date::date < current_date - 90
+        ),
+        'criticallyOverdueValue', coalesce(sum(total_amount_myr - paid_to_date) filter (
+            where status_code = 'O' and (total_amount_myr - paid_to_date) > 0.01
+              and due_date::date < current_date - 90
         ), 0)
     )
     into result
