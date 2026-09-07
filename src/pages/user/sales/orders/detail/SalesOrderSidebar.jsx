@@ -3,7 +3,6 @@ import {
   HandshakeIcon,
   ReceiptIcon,
 } from "@phosphor-icons/react";
-import DetailFieldGrid from "../../../../../components/dataSidebar/DetailFieldGrid";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import MatchConnector from "../../../../../components/matchConnector/MatchConnector";
@@ -29,7 +28,7 @@ import RouterButton from "../../../../../components/buttons/routerButton/RouterB
  * isEditing/setIsEditing received, which is what keeps DataSidebar
  * permanently in its read-only (children-only) mode for this entity.
  */
-export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
+export default function SalesOrderSidebar({ selectedRow }) {
   const { canAccess } = useAccessControl();
   const {
     data: lines,
@@ -66,10 +65,6 @@ export default function SalesOrderSidebar({ selectedRow, salesReps = [] }) {
 
   const columns = salesOrderLinesTableConfig();
   const hasData = lines?.length > 0;
-
-  const salesRep = salesReps.find(
-    (rep) => rep.sales_rep_code === selectedRow.sales_rep_code,
-  );
 
   const gp = selectedRow.gross_profit;
   const total = selectedRow.total_amount_myr || 0;

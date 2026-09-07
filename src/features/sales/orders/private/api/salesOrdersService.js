@@ -1,19 +1,18 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
- * Resolves sap_sales_orders.sales_rep_code -> the owning employee (for
- * SalesOrderCard's avatar). Done as a separate, small full-table fetch --
- * NOT a PostgREST embedded select -- because sap_sales_orders.sales_rep_code
- * has no real FK constraint (only employee_sales_rep_mapping.sales_rep_code
- * -> sap_sales_persons.sales_rep_code does), and PostgREST's `!` embed
- * syntax requires an actual FK to resolve a relationship. Same "small
- * outrigger table, fetch it whole" reasoning as
- * salesRepMappingService.js/salesOrdersMetadataService.js's own
- * sap_sales_persons fetch. employees_public (not the raw employees table)
- * is used so avatar_url comes pre-joined from profiles, same as
+ * Resolves a sap_* row's sales_rep_code -> the owning employee. Exported --
+ * also used by invoicesService.js (sap_invoices carries the same
+ * sales_rep_code column) rather than duplicating this join a second time.
+ * Done as a separate, small full-table fetch -- NOT a PostgREST embedded
+ * select -- because sales_rep_code has no real FK constraint on either table
+ * (only employee_sales_rep_mapping.sales_rep_code -> sap_sales_persons.
+ * sales_rep_code does), and PostgREST's `!` embed syntax requires an actual
+ * FK to resolve a relationship. employees_public (not the raw employees
+ * table) is used so avatar_url comes pre-joined from profiles, same as
  * leadsService.js's lead_owner:employees_public!lead_owner_id(*) precedent.
  */
-async function fetchRepsByCode() {
+export async function fetchRepsByCode() {
   const { data, error } = await supabase
     .from("employee_sales_rep_mapping")
     .select("sales_rep_code, employee:employees_public!employee_id(*)");
@@ -28,8 +27,38 @@ async function fetchRepsByCode() {
   return repsByCode;
 }
 
-function attachRep(order, repsByCode) {
-  return { ...order, rep: repsByCode[order.sales_rep_code] || null };
+/**
+ * Resolves a sap_* row's sales_rep_code -> the real SAP sales-person name
+ * (sap_sales_persons, OSLP-sourced), independent of whether that code has
+ * ever been linked to a portal employee via employee_sales_rep_mapping.
+ * Backs attachRep's unmapped-fallback case below -- an order/invoice whose
+ * rep code has no employee_sales_rep_mapping row still has a real human
+ * name, since the code came from SAP in the first place; only the portal-
+ * side employee link is what's missing, not the identity itself.
+ */
+export async function fetchRepNamesByCode() {
+  const { data, error } = await supabase
+    .from("sap_sales_persons")
+    .select("sales_rep_code, sales_rep_name");
+
+  if (error) throw error;
+
+  const namesByCode = {};
+  (data || []).forEach((row) => {
+    namesByCode[row.sales_rep_code] = row.sales_rep_name;
+  });
+
+  return namesByCode;
+}
+
+export function attachRep(row, repsByCode, namesByCode = {}) {
+  const mappedEmployee = repsByCode[row.sales_rep_code] || null;
+  const rep = mappedEmployee
+    ? mappedEmployee
+    : row.sales_rep_code != null && namesByCode[row.sales_rep_code]
+      ? { id: null, full_name: namesByCode[row.sales_rep_code], avatar_url: null }
+      : null;
+  return { ...row, rep };
 }
 
 /**
@@ -134,15 +163,18 @@ export async function fetchSalesOrders({
   // paginate LAST
   query = query.range(from, to);
 
-  const [{ data, count, error }, repsByCode] = await Promise.all([
+  const [{ data, count, error }, repsByCode, namesByCode] = await Promise.all([
     query,
     fetchRepsByCode(),
+    fetchRepNamesByCode(),
   ]);
 
   if (error) throw error;
 
   return {
-    data: (data || []).map((order) => attachRep(order, repsByCode)),
+    data: (data || []).map((order) =>
+      attachRep(order, repsByCode, namesByCode),
+    ),
     totalCount: count || 0,
   };
 }
@@ -155,19 +187,20 @@ export async function fetchSalesOrders({
 export async function fetchSalesOrderByDocEntry(docEntry) {
   if (!docEntry) return null;
 
-  const [{ data, error }, repsByCode] = await Promise.all([
+  const [{ data, error }, repsByCode, namesByCode] = await Promise.all([
     supabase
       .from("sap_sales_orders")
       .select("*")
       .eq("doc_entry", Number(docEntry))
       .maybeSingle(),
     fetchRepsByCode(),
+    fetchRepNamesByCode(),
   ]);
 
   if (error) throw error;
   if (!data) return null;
 
-  return attachRep(data, repsByCode);
+  return attachRep(data, repsByCode, namesByCode);
 }
 
 /**
@@ -221,14 +254,18 @@ export async function fetchSalesOrdersForInvoice(invoiceDocEntry) {
   const soIds = [...new Set([...directSoIds, ...soIdsViaDelivery])];
   if (soIds.length === 0) return [];
 
-  const [{ data: orders, error: ordersError }, repsByCode] = await Promise.all([
-    supabase.from("sap_sales_orders").select("*").in("doc_entry", soIds),
-    fetchRepsByCode(),
-  ]);
+  const [{ data: orders, error: ordersError }, repsByCode, namesByCode] =
+    await Promise.all([
+      supabase.from("sap_sales_orders").select("*").in("doc_entry", soIds),
+      fetchRepsByCode(),
+      fetchRepNamesByCode(),
+    ]);
 
   if (ordersError) throw ordersError;
 
-  return (orders || []).map((order) => attachRep(order, repsByCode));
+  return (orders || []).map((order) =>
+    attachRep(order, repsByCode, namesByCode),
+  );
 }
 
 /**

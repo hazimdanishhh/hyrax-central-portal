@@ -5,10 +5,10 @@ import "./SalesOrderCard.scss";
 import IconCard from "../../../iconCard/IconCard";
 import { ClockIcon } from "@phosphor-icons/react";
 import StatusBadge from "../../../status/statusBadge/StatusBadge";
-import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router";
+import SalesRepBadge from "../../../employees/salesRepBadge/SalesRepBadge";
 
 const MotionLink = motion.create(Link);
 
@@ -21,12 +21,10 @@ const MotionLink = motion.create(Link);
 //
 // order.rep (sales_rep_code resolved to an employees_public row -- see
 // salesOrdersService.js's fetchRepsByCode/attachRep) shows who owns this
-// order. A plain <img>, not the EmployeeImage component -- EmployeeImage
-// renders its own <Link>, and this whole card is already a single <button>,
-// so nesting a Link inside it would be invalid interactive-inside-
-// interactive markup. Same fallback path (default.webp) as
-// EmployeeCard.jsx/ProjectMemberAvatarStack.jsx use for the identical
-// "avatar inside an already-clickable card" situation.
+// order, rendered via the shared SalesRepBadge -- not EmployeeImage, which
+// renders its own <Link>; this whole card is itself a <Link> when `to` is
+// set, so nesting one inside it would be a real <a>-inside-<a> (invalid
+// HTML, React Router hydration warning), not just a markup nicety.
 function SalesOrderCard({ order, to }) {
   const isOpen = order.status_code === "O";
   const total = order.total_amount_myr || 0;
@@ -36,7 +34,6 @@ function SalesOrderCard({ order, to }) {
       ? "—"
       : `RM ${Math.round(gp).toLocaleString()}`;
   const rep = order.rep;
-  const repAvatarUrl = rep?.avatar_url || "/profilePhoto/default.webp";
   const Wrapper = to ? MotionLink : motion.div;
   const wrapperProps = to
     ? {
@@ -116,16 +113,7 @@ function SalesOrderCard({ order, to }) {
               <strong className="textBold">Gross Profit (RM):</strong>{" "}
               {grossProfitDisplay}
             </p>
-            <div>
-              <EmployeeImage
-                showName={false}
-                setShowName={() => {}}
-                employee={rep}
-                position="right"
-                employeeId={order.rep?.id || "/"}
-                displayName={order.rep?.full_name}
-              />
-            </div>
+            <SalesRepBadge rep={rep} repCode={order.sales_rep_code} />
           </div>
         </div>
       </div>

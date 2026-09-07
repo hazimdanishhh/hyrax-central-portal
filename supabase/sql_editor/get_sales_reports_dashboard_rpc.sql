@@ -691,10 +691,10 @@ select json_build_object(
         select coalesce(json_agg(x), '[]'::json)
         from (
             select
-                sp.sales_rep_name as name,
+                coalesce(sp.sales_rep_name, 'Unknown') as name,
                 o.order_value as order_value_myr
             from rep_order_actuals o
-            join sap_sales_persons sp on sp.sales_rep_code = o.sales_rep_code
+            left join sap_sales_persons sp on sp.sales_rep_code = o.sales_rep_code
             order by order_value_myr desc
             limit 15
         ) x
@@ -841,7 +841,7 @@ select json_build_object(
         select coalesce(json_agg(x), '[]'::json)
         from (
             select
-                sp.sales_rep_name as name,
+                coalesce(sp.sales_rep_name, 'Unknown') as name,
                 coalesce(sum(oi.total_amount_myr), 0) as revenue_myr,
                 -- Same GrosProfit outlier guard as get_finance_dashboard --
                 -- SAP's own GP field carries a known item-cost master-data
@@ -854,7 +854,7 @@ select json_build_object(
                     end
                 ), 0) as gross_profit_myr
             from base_invoices oi
-            join sap_sales_persons sp on sp.sales_rep_code = oi.sales_rep_code
+            left join sap_sales_persons sp on sp.sales_rep_code = oi.sales_rep_code
             where (p_start_date is null or oi."invoice_date"::date >= p_start_date)
               and (p_end_date is null or oi."invoice_date"::date <= p_end_date)
             group by sp.sales_rep_name

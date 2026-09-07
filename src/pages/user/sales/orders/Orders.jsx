@@ -176,10 +176,7 @@ export default function Orders() {
             isEditing={false}
             // fullPage
           >
-            <SalesOrderSidebar
-              selectedRow={selectedRow}
-              salesReps={salesReps}
-            />
+            <SalesOrderSidebar selectedRow={selectedRow} />
           </DataSidebar>
         )}
       </AnimatePresence>

@@ -35,14 +35,6 @@
         align-items: center;
         gap: 0.4rem;
         flex-wrap: wrap;
-
-        .salesOrderRepAvatar {
-          width: 1.5rem;
-          height: 1.5rem;
-          border-radius: 50%;
-          object-fit: cover;
-          flex-shrink: 0;
-        }
       }
     }
 
@@ -107,5 +99,13 @@
 
   p {
     text-align: start;
+  }
+
+  .salesOrderRepAvatar {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
   }
 }

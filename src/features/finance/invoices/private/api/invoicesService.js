@@ -1,4 +1,9 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import {
+  fetchRepsByCode,
+  fetchRepNamesByCode,
+  attachRep,
+} from "../../../../sales/orders/private/api/salesOrdersService";
 
 /**
  * Read-only invoice list, backed directly by the sap_invoices mirror table.
@@ -102,12 +107,18 @@ export async function fetchInvoices({
   // paginate LAST
   query = query.range(from, to);
 
-  const { data, count, error } = await query;
+  const [{ data, count, error }, repsByCode, namesByCode] = await Promise.all([
+    query,
+    fetchRepsByCode(),
+    fetchRepNamesByCode(),
+  ]);
 
   if (error) throw error;
 
   return {
-    data: data || [],
+    data: (data || []).map((invoice) =>
+      attachRep(invoice, repsByCode, namesByCode),
+    ),
     totalCount: count || 0,
   };
 }
@@ -116,21 +127,25 @@ export async function fetchInvoices({
  * Fetch-by-id fallback for the /app/finance/invoices/:docEntry detail route
  * -- covers a direct/shared URL where the invoice isn't already in the
  * in-memory paginated list. Mirrors salesOrdersService.js's
- * fetchSalesOrderByDocEntry, minus the sales-rep enrichment join (fetchInvoices
- * doesn't join one either).
+ * fetchSalesOrderByDocEntry, including the same sales-rep enrichment join.
  */
 export async function fetchInvoiceByDocEntry(docEntry) {
   if (!docEntry) return null;
 
-  const { data, error } = await supabase
-    .from("sap_invoices")
-    .select("*")
-    .eq("doc_entry", Number(docEntry))
-    .maybeSingle();
+  const [{ data, error }, repsByCode, namesByCode] = await Promise.all([
+    supabase
+      .from("sap_invoices")
+      .select("*")
+      .eq("doc_entry", Number(docEntry))
+      .maybeSingle(),
+    fetchRepsByCode(),
+    fetchRepNamesByCode(),
+  ]);
 
   if (error) throw error;
+  if (!data) return null;
 
-  return data || null;
+  return attachRep(data, repsByCode, namesByCode);
 }
 
 /**

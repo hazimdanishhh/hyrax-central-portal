@@ -3,12 +3,12 @@ import "./InvoiceCard.scss";
 import IconCard from "../../iconCard/IconCard";
 import { ClockIcon } from "@phosphor-icons/react";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
-import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router";
 import StatusBox from "../../status/statusBox/StatusBox";
 import CardLayout from "../../cardLayout/CardLayout";
+import SalesRepBadge from "../../employees/salesRepBadge/SalesRepBadge";
 
 const MotionLink = motion.create(Link);
 
@@ -21,8 +21,11 @@ export default function InvoiceCard({ invoice, to }) {
     gp == null || Math.abs(gp) > Math.abs(total) * 5
       ? "—"
       : `RM ${Math.round(gp).toLocaleString()}`;
-  const rep = invoice.sales_rep_code;
-  const repAvatarUrl = rep?.avatar_url || "/profilePhoto/default.webp";
+  // invoice.rep is resolved server-side (see invoicesService.js's
+  // fetchRepsByCode/attachRep, mirroring salesOrdersService.js's own) --
+  // invoice.sales_rep_code itself is just the bare SAP code, never an
+  // employee object.
+  const rep = invoice.rep;
   const Wrapper = to ? MotionLink : motion.div;
   const wrapperProps = to
     ? {
@@ -32,6 +35,7 @@ export default function InvoiceCard({ invoice, to }) {
         whileHover: { y: -3 },
       }
     : { className: "generalCard salesOrderCard", initial: { y: 0 } };
+
   return (
     <Wrapper {...wrapperProps}>
       <div className="salesOrderCardHeader">
@@ -107,16 +111,7 @@ export default function InvoiceCard({ invoice, to }) {
               status={`Tax: RM ${invoice.tax_amount ? invoice.tax_amount : "-"}`}
               type="yellow"
             />
-            <div>
-              <EmployeeImage
-                showName={false}
-                setShowName={() => {}}
-                employee={rep}
-                position="right"
-                employeeId={invoice.sales_rep_code?.id || "/"}
-                displayName={invoice.sales_rep_code?.full_name}
-              />
-            </div>
+            <SalesRepBadge rep={rep} repCode={invoice.sales_rep_code} />
           </div>
         </div>
       </div>
