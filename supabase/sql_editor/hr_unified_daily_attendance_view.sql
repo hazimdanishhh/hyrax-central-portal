@@ -34,17 +34,71 @@ expected_shifts AS (
     CROSS JOIN active_company_dates d
 ),
 
--- 3. Hardware Logs (Remains unchanged)
+-- 3. Hardware Logs. hw_hours is a naive first-scan-to-last-scan span --
+-- correct for a simple one-visit day, but on its own it silently counts any
+-- away-gap (a remote stint via the app, even just a long lunch) as if it
+-- were on-site time. daily_hw_remote_overlap below corrects for the part of
+-- that gap that a real, separately-tracked remote session already accounts
+-- for, so hours_worked (in the final SELECT) doesn't double-count it.
+-- hw_check_in_ts/hw_check_out_ts are the raw (non-localized) bounds, kept
+-- only for that overlap math -- comparing against attendance_activities'
+-- own timestamptz columns needs the real instant, not the display-oriented
+-- localized hw_check_in/hw_check_out above.
 daily_hardware AS (
-    SELECT 
+    SELECT
         employee_id AS scanner_emp_id,
         DATE(scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date,
         MIN(scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS hw_check_in,
         MAX(scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS hw_check_out,
         COUNT(*) AS total_hw_scans,
-        ROUND((EXTRACT(EPOCH FROM (MAX(scanned_at) - MIN(scanned_at))) / 3600)::numeric, 2) AS hw_hours
+        ROUND((EXTRACT(EPOCH FROM (MAX(scanned_at) - MIN(scanned_at))) / 3600)::numeric, 2) AS hw_hours,
+        MIN(scanned_at) AS hw_check_in_ts,
+        MAX(scanned_at) AS hw_check_out_ts
     FROM public.attendance_logs
     GROUP BY employee_id, DATE(scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur')
+),
+
+-- 3b. How much of each day's naive hardware span is actually accounted for
+-- by a real, separately-tracked remote session rather than genuine on-site
+-- presence -- subtracted from hw_hours in the final SELECT so an
+-- office-remote-office (or office-remote-blending-plant, etc. -- this is
+-- location-agnostic, since daily_hardware above already merges every
+-- scanner location into one combined span) day doesn't double-count the
+-- remote middle segment. Deliberately NOT solved by pairing individual
+-- scans into in/out sessions by position (rejected -- employees routinely
+-- forget to scan in or out, which would shift every later pairing that day
+-- and produce worse errors than this bug); this only needs each day's outer
+-- scan bounds, which stay valid no matter how many intermediate scans were
+-- missed or extra. Mirrors daily_app's own existing "ignore a still-open
+-- session" treatment (no COALESCE-to-now()) -- an incomplete row already
+-- contributes nothing to app_hours below, so it shouldn't contribute a
+-- spurious overlap here either. Does NOT attempt to account for a travel/
+-- absence gap with no corroborating attendance_activities row at all (e.g.
+-- a pure lunch break, or physically moving between two on-site locations
+-- with nothing logged in between) -- that remains counted as on-site time,
+-- unchanged from prior behavior, and is only fixable with a real per-scan
+-- in/out type, not a calculation change.
+daily_hw_remote_overlap AS (
+    SELECT
+        e.id AS app_emp_uuid,
+        DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date,
+        SUM(
+            CASE
+                WHEN aa.clocked_out_at IS NOT NULL THEN
+                    GREATEST(0, EXTRACT(EPOCH FROM (
+                        LEAST(aa.clocked_out_at, h.hw_check_out_ts)
+                        - GREATEST(aa.clocked_in_at, h.hw_check_in_ts)
+                    )))
+                ELSE 0
+            END
+        ) / 3600 AS overlap_hours
+    FROM public.attendance_activities aa
+    JOIN public.employees e ON e.id = aa.employee_id
+    JOIN daily_hardware h
+        ON h.scanner_emp_id = e.employee_id
+       AND h.work_date = DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur')
+    WHERE aa.approval_status::text != 'Rejected'
+    GROUP BY e.id, DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur')
 ),
 
 -- 4. App Logs: EXCLUDES REJECTED HOURS & CATCHES PENDING STATUSES
@@ -120,8 +174,10 @@ SELECT
     a.app_check_out,
     a.daily_activities,
 
-    -- 🕒 TRUE HOURS WORKED (Hardware Hours + NON-REJECTED App Hours)
-    COALESCE(h.hw_hours, 0) + COALESCE(a.app_hours, 0) AS hours_worked,
+    -- 🕒 TRUE HOURS WORKED (Hardware Hours, minus whatever a known remote
+    -- session already accounts for so it isn't double-counted, + NON-
+    -- REJECTED App Hours). See daily_hw_remote_overlap above.
+    GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) AS hours_worked,
 
     -- 🚨 HYBRID DISCREPANCY & ABSENCE DETECTION 🚨
     CASE
@@ -227,6 +283,7 @@ SELECT
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date
+LEFT JOIN daily_hw_remote_overlap ro ON u.employee_uuid = ro.app_emp_uuid AND u.work_date = ro.work_date
 LEFT JOIN daily_app a ON u.employee_uuid = a.app_emp_uuid AND u.work_date = a.work_date
 LEFT JOIN daily_leave dl ON u.employee_uuid = dl.leave_emp_uuid AND u.work_date = dl.work_date
 LEFT JOIN public.departments d ON u.department_id = d.id
