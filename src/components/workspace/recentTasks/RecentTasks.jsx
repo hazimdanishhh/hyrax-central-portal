@@ -22,7 +22,7 @@ export default function RecentTasks() {
   const { tasks, isLoading } = useRecentTasks(5);
 
   return (
-    <CardLayout style="recentWorkspaceSection cardPaddingSmall cardGapSmall">
+    <CardLayout style="recentWorkspaceSection generalCard cardPaddingSmall cardGapSmall">
       <PageHeader>
         <SectionHeader icon={ListChecksIcon} title="Recent Tasks" />
 
@@ -54,6 +54,7 @@ export default function RecentTasks() {
             canEdit={false}
             showProject
             onClick={() => navigate(`/app/workspace/tasks/${task.id}`)}
+            showDescription={false}
           />
         ))
       )}

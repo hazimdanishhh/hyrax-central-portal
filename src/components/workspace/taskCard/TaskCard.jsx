@@ -51,6 +51,7 @@ export default function TaskCard({
   showProject = false,
   onClick,
   onRequestStatusChange,
+  showDescription = true,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [hoveredAssigneeId, setHoveredAssigneeId] = useState(null);
@@ -85,7 +86,7 @@ export default function TaskCard({
             </Link>
           )}
 
-          {task.description && (
+          {showDescription && task.description && (
             <p className="textLight textXXS taskCardDescription">
               {task.description}
             </p>

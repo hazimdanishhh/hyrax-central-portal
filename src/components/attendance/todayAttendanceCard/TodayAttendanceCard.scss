@@ -1,0 +1,45 @@
+.todayAttendanceCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.todayAttendanceChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.todayCompletionBar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+}
+
+.todayCompletionBarTrack {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background-color: $neutral300;
+  overflow: hidden;
+}
+
+.todayCompletionBarFill {
+  height: 100%;
+  border-radius: 3px;
+  background-color: $success600;
+  transition: width 0.3s ease;
+}
+
+.todayCompletionBarLabels {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}

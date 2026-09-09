@@ -36,7 +36,12 @@ import StatusBadge from "../../status/statusBadge/StatusBadge";
  * quick view -- editing membership stays exclusive to the project's own
  * Members tab.
  */
-export default function ProjectCard({ project, category, onClick }) {
+export default function ProjectCard({
+  project,
+  category,
+  onClick,
+  showDescription = true,
+}) {
   const [rosterOpen, setRosterOpen] = useState(false);
   const [hoveredEmployeeId, setHoveredEmployeeId] = useState(null);
   const statusLabel =
@@ -76,7 +81,7 @@ export default function ProjectCard({ project, category, onClick }) {
           </div>
         </div>
 
-        {project.description && (
+        {showDescription && project.description && (
           <p className="textLight textXXS projectCardDescription">
             {project.description}
           </p>

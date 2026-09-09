@@ -1,77 +1,29 @@
-// components/attendanceActivityClockin/AttendanceActivityClockin.jsx
+// components/attendanceActivityClockin/clockinMini/ClockinMini.jsx
 
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  BuildingOfficeIcon,
-  CalendarDotsIcon,
-  ClockUserIcon,
-  FactoryIcon,
-  FingerprintSimpleIcon,
-  HouseIcon,
-  SignOutIcon,
-} from "@phosphor-icons/react";
-import { useState } from "react";
-import { useTheme } from "../../../context/ThemeContext";
+import { AnimatePresence } from "framer-motion";
+import { CalendarDotsIcon, ClockUserIcon } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
 import DataSidebar from "../../dataSidebar/DataSidebar";
-import useAttendanceTypes from "../../../hooks/useAttendanceTypes";
-import { attendanceActivityConfig } from "../../../data/attendanceActivityConfig";
 import LoadingIcon from "../../loadingIcon/LoadingIcon";
 import CardLayout from "../../cardLayout/CardLayout";
-import { useMessage } from "../../../context/MessageContext";
-import { useAttendance } from "../../../context/AttendanceProvider";
 import AttendanceType from "../../attendance/attendanceType/AttendanceType";
 import AttendanceClock from "../../attendance/attendanceClock/AttendanceClock";
-import { useEmployee } from "../../../context/EmployeeContext";
-import useAttendanceActivityMutations from "../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
+import useMyCurrentStatus from "../../../features/employee/attendance/private/hooks/useMyCurrentStatus";
+import useClockInOutAction from "../../../features/employee/attendance/private/hooks/useClockInOutAction";
 
 export default function ClockinMini({ navIsOpen }) {
-  const { darkMode, toggleMode } = useTheme();
-  const { showMessage } = useMessage();
+  const { currentStatus, lastStatusTime } = useMyCurrentStatus();
 
-  const [selectedAttendanceActivity, setSelectedAttendanceActivity] =
-    useState(null);
-  const [attendanceSidebarOpen, setAttendanceSidebarOpen] = useState(false);
-  const [selectedAttendanceType, setSelectedAttendanceType] = useState(null);
-  const [creatingAttendanceActivity, setCreatingAttendanceActivity] =
-    useState(false);
-
-  // Fetch Data
-  const { employee, loading: employeeLoading } = useEmployee();
-  const { attendanceTypes, loading: attendanceTypesLoading } =
-    useAttendanceTypes();
-
-  const { currentActivity, refetchCurrent } = useAttendance();
-
-  // Attendance Activity Config
-  const columns = attendanceActivityConfig({
-    attendanceTypes,
-  });
-
-  // IT Asset Update and Delete Hook Function
   const {
-    clockInAttendanceActivity,
-    clockOutAttendanceActivity,
-    saving,
-    deleting,
-    error,
-  } = useAttendanceActivityMutations();
-
-  async function handleSaveSidebar(data) {
-    if (!employee?.id) {
-      showMessage("Employee not found", "error");
-      return;
-    }
-
-    // Attach employee_id here
-    await clockInAttendanceActivity({
-      ...data,
-      employee_id: employee.id, // <-- attach current employee
-    });
-
-    setAttendanceSidebarOpen(false);
-    refetchCurrent();
-  }
+    currentActivity,
+    columns,
+    attendanceTypesLoading,
+    sidebarOpen,
+    openClockIn,
+    closeClockIn,
+    handleClockIn,
+    handleClockOut,
+  } = useClockInOutAction();
 
   return (
     <>
@@ -81,27 +33,25 @@ export default function ClockinMini({ navIsOpen }) {
           style="button buttonType2Clockout textBold textXXS"
           icon={ClockUserIcon}
           name={navIsOpen ? "Clock Out" : null}
-          onClick={async () => {
-            if (!currentActivity?.id) return;
-            await clockOutAttendanceActivity(currentActivity.id);
-            await refetchCurrent();
-          }}
+          onClick={handleClockOut}
         />
       ) : (
         <Button
           style="button buttonType2Clockin textBold textXXS"
           icon={ClockUserIcon}
           name={navIsOpen ? "Clock In" : null}
-          onClick={() => {
-            setSelectedAttendanceActivity({});
-            setAttendanceSidebarOpen(true);
-            setCreatingAttendanceActivity(true);
-          }}
+          onClick={openClockIn}
         />
       )}
 
-      {/* CURRENT ACTIVITY */}
-      {currentActivity && navIsOpen ? (
+      {/* CURRENT STATUS -- an open app session is the most authoritative
+          "right now" signal, shown as before. Otherwise, currentStatus
+          (employees_public.current_status) already combines whichever of
+          {open app session, most recent biometric scan, approved leave}
+          happened most recently today -- the same hybrid signal the
+          Dashboard's TodayAttendanceCard shows, so nav and dashboard never
+          disagree. */}
+      {navIsOpen && currentActivity ? (
         <CardLayout key={currentActivity.id} style="cardLayout1">
           <CardLayout style="cardLayoutFlexFull generalCard">
             <AttendanceType
@@ -113,26 +63,32 @@ export default function ClockinMini({ navIsOpen }) {
             />
           </CardLayout>
         </CardLayout>
+      ) : navIsOpen && currentStatus ? (
+        <CardLayout style="cardLayout1">
+          <CardLayout style="cardLayoutFlexFull generalCard">
+            <AttendanceType attendanceType={currentStatus} />
+            {lastStatusTime && (
+              <AttendanceClock time={lastStatusTime} type="clockin" />
+            )}
+          </CardLayout>
+        </CardLayout>
       ) : null}
 
       {/* DATASIDEBAR */}
       <AnimatePresence>
-        {attendanceSidebarOpen &&
+        {sidebarOpen &&
           (attendanceTypesLoading ? (
             <LoadingIcon />
           ) : (
             <DataSidebar
               title="Attendance Activity"
               icon={CalendarDotsIcon}
-              open={attendanceSidebarOpen}
-              onClose={() => {
-                setAttendanceSidebarOpen(false);
-                setSelectedAttendanceType(null);
-              }}
-              rowData={selectedAttendanceType}
+              open={sidebarOpen}
+              onClose={closeClockIn}
+              rowData={{}}
               columns={columns}
-              onSave={handleSaveSidebar}
-              creating={creatingAttendanceActivity}
+              onSave={handleClockIn}
+              creating
             />
           ))}
       </AnimatePresence>

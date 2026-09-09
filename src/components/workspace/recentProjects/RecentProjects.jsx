@@ -22,7 +22,7 @@ export default function RecentProjects() {
   const { categories } = useProjectCategories();
 
   return (
-    <CardLayout style="recentWorkspaceSection cardPaddingSmall cardGapSmall">
+    <CardLayout style="recentWorkspaceSection generalCard cardPaddingSmall cardGapSmall">
       <PageHeader>
         <SectionHeader icon={FolderIcon} title="Recent Projects" />
 
@@ -45,6 +45,7 @@ export default function RecentProjects() {
             project={project}
             category={categories.find((c) => c.id === project.category_id)}
             onClick={() => navigate(`/app/workspace/projects/${project.id}`)}
+            showDescription={false}
           />
         ))
       )}

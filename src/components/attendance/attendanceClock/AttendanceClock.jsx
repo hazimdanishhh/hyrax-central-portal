@@ -19,7 +19,10 @@ function AttendanceClock({ time, type }) {
               : "attendanceCardClock green"
       }
     >
-      <p className="textBold textXXS">{time}</p>
+      <p className="textBold textXXS">
+        {type === "clockin" ? "First In: " : "Last Seen: "}
+        {time}
+      </p>
       <div className="attendanceCardIcon">
         {type === "clockin" || type === "late" ? (
           <SignInIcon weight="bold" size={12} />

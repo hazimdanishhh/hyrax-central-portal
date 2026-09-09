@@ -67,6 +67,12 @@ export function AttendanceProvider({ children }) {
               })
             : null,
 
+          // Raw ISO timestamp, kept alongside the formatted clocked_in_at
+          // below (which overwrites the raw value under the same key) --
+          // consumers doing elapsed-time math (e.g. useElapsedSince) need
+          // an actually-parseable value, not a locale-formatted string.
+          clocked_in_at_raw: data.clocked_in_at,
+
           clocked_in_at: data.clocked_in_at
             ? new Date(data.clocked_in_at).toLocaleString("en-MY", {
                 dateStyle: "medium",
@@ -89,6 +95,28 @@ export function AttendanceProvider({ children }) {
 
   useEffect(() => {
     fetchCurrent();
+  }, [employeeId]);
+
+  // A biometric door scan auto-closes any open app session server-side
+  // (supabase/triggers/trigger_auto_clock_out.sql), without this context
+  // knowing until something refetches -- self-heal on window focus and on a
+  // slow interval, rather than only on employeeId change/remount, so the
+  // Clock In/Out button (and anything else reading currentActivity) doesn't
+  // sit stale for an entire session.
+  useEffect(() => {
+    if (!employeeId) return;
+
+    function handleFocus() {
+      fetchCurrent();
+    }
+
+    window.addEventListener("focus", handleFocus);
+    const interval = setInterval(fetchCurrent, 5 * 60 * 1000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      clearInterval(interval);
+    };
   }, [employeeId]);
 
   return (

@@ -1,8 +1,8 @@
 // pages/user/dashboard/Dashboard.jsx
 
-import { FolderIcon, HouseIcon } from "@phosphor-icons/react";
+import { ClockUserIcon, FolderIcon, HouseIcon } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
-import AttendanceActivityClockin from "../../../components/attendanceActivityClockin/AttendanceActivityClockin";
+import TodayAttendanceCard from "../../../components/attendance/todayAttendanceCard/TodayAttendanceCard";
 import Breadcrumbs from "../../../components/breadcrumbs/Breadcrumbs";
 import CardLayout from "../../../components/cardLayout/CardLayout";
 import CardWrapper from "../../../components/cardWrapper/CardWrapper";
@@ -63,6 +63,8 @@ function Dashboard() {
                 title="Web Services"
               />
 
+              <TodayAttendanceCard />
+
               <div>
                 <SectionHeader icon={FolderIcon} title="WORKSPACE" />
                 <CardLayout style="cardLayout2">
@@ -90,11 +92,6 @@ function Dashboard() {
                   </CardLayout>
                 </div>
               ))}
-
-              {/* ATTENDANCE SYSTEM */}
-              {/* <CardLayout style="cardLayout1">
-                <AttendanceActivityClockin />
-              </CardLayout> */}
             </CardWrapper>
           </div>
         </div>
