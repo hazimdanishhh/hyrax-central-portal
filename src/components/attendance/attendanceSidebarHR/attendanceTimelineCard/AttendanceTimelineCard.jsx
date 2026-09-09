@@ -78,6 +78,11 @@ export default function AttendanceTimelineCard({
   // show a misleading "0h worked / 8h remaining" bar and null clock chips).
   // ==============
   if (activity.event_source === "Leave") {
+    const hasConflict =
+      activity.is_leave_attendance_conflict ||
+      activity.is_insufficient_half_day_hours ||
+      activity.has_leave_fraction_error;
+
     return (
       <div className="generalCard cardPaddingSmall cardGapSmall">
         <div className="attendanceCardSidebarHeader">
@@ -86,6 +91,23 @@ export default function AttendanceTimelineCard({
         </div>
         {activity.remarks && (
           <p className="textRegular textXS textLight">{activity.remarks}</p>
+        )}
+        {/* HR2000 leave/attendance conflict detection -- day-level facts
+          reused from unified_daily_attendance (joined onto every audit row
+          by employee_uuid + work_date), shown only here since the Leave row
+          is what a reviewer would actually open to act on. */}
+        {hasConflict && (
+          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+            {activity.is_leave_attendance_conflict && (
+              <StatusBox status="Attendance Conflict" type="red" />
+            )}
+            {activity.is_insufficient_half_day_hours && (
+              <StatusBox status="Insufficient Hours" type="red" />
+            )}
+            {activity.has_leave_fraction_error && (
+              <StatusBox status="Fraction Error" type="red" />
+            )}
+          </div>
         )}
       </div>
     );

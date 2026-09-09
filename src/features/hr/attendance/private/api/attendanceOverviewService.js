@@ -128,6 +128,19 @@ function applyAttendanceFilter(query, key, value) {
         .neq("hr_flag", "Weekend / Rest Day")
         .neq("hr_flag", "Absent");
 
+    // HR2000 leave/attendance conflict detection -- all three already
+    // tightly scoped by daily_leave's leave_day_fraction_total in the view
+    // itself, unlike overtimeOnly/lateArrival/earlyLeave above, so no
+    // Weekend/Absent hr_flag exclusion is needed here.
+    case "leaveAttendanceConflict":
+      return query.eq("is_leave_attendance_conflict", true);
+
+    case "insufficientHalfDayHours":
+      return query.eq("is_insufficient_half_day_hours", true);
+
+    case "leaveFractionError":
+      return query.eq("has_leave_fraction_error", true);
+
     default:
       return query;
   }

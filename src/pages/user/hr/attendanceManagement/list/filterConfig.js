@@ -84,5 +84,22 @@ export function getAttendanceActivitiesFilterConfig({
       label: "Early Leave",
       options: [{ label: "Last Out Before 5:00 PM", value: "true" }],
     },
+    {
+      // HR2000 leave/attendance conflict detection -- see
+      // hr_unified_daily_attendance_view.sql's is_leave_attendance_conflict.
+      key: "leaveAttendanceConflict",
+      label: "Leave Conflict",
+      options: [{ label: "Full-Day Leave But Attended", value: "true" }],
+    },
+    {
+      key: "insufficientHalfDayHours",
+      label: "Insufficient Half-Day Hours",
+      options: [{ label: "Half-Day Leave, <4h Worked", value: "true" }],
+    },
+    {
+      key: "leaveFractionError",
+      label: "Leave Data Error",
+      options: [{ label: "Leave Fraction Sum > 1 Day", value: "true" }],
+    },
   ];
 }

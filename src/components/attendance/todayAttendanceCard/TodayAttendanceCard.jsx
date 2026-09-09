@@ -181,6 +181,13 @@ export default function TodayAttendanceCard() {
                     overtimeHours={today?.overtime_hours}
                     isEarlyLeave={today?.is_early_leave}
                     isLateArrival={today?.is_late_arrival}
+                    isLeaveAttendanceConflict={
+                      today?.is_leave_attendance_conflict
+                    }
+                    isInsufficientHalfDayHours={
+                      today?.is_insufficient_half_day_hours
+                    }
+                    hasLeaveFractionError={today?.has_leave_fraction_error}
                   />
 
                   {firstInMs && (

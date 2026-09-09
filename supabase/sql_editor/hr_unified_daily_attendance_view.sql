@@ -305,7 +305,47 @@ SELECT
     COALESCE(
         (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time > TIME '09:00:00',
         false
-    ) AS is_late_arrival
+    ) AS is_late_arrival,
+
+    -- HR2000 leave/attendance conflict detection -- three ways
+    -- leave_ledger_entries and real attendance activity can disagree for the
+    -- same employee/day. All three are populated regardless of which
+    -- hr_flag branch fired above, same precedent is_on_leave/
+    -- leave_type_codes/leave_day_fraction already established -- the
+    -- conflict is itself the finding, so it shouldn't be hidden behind
+    -- whichever work-based hr_flag branch happened to fire.
+
+    -- 1. A FULL day's leave was recorded (one 1.0 entry, or two summed 0.5
+    -- entries), yet real attendance exists that day -- either the leave
+    -- should not have been approved/should be revoked, or it was entered
+    -- against the wrong date in HR2000.
+    COALESCE(
+        dl.leave_day_fraction_total >= 1
+        AND (h.hw_check_in IS NOT NULL OR a.app_check_in IS NOT NULL),
+        false
+    ) AS is_leave_attendance_conflict,
+
+    -- 2. A HALF day's leave was recorded, but the other (working) half
+    -- wasn't adequately covered -- less than 4 hours (half of the
+    -- company's implicit 8-hour day) worked. Catches both a partial-but-
+    -- short attendance AND a half-day leave with no attendance logged at
+    -- all that day (hours_worked computes to 0, which is < 4). Repeats
+    -- hours_worked's own expression rather than referencing that alias --
+    -- a SELECT list can't reference a sibling output column's alias (same
+    -- constraint overtime_hours/is_late_arrival's own comments already
+    -- document).
+    COALESCE(
+        dl.leave_day_fraction_total = 0.5
+        AND GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) < 4,
+        false
+    ) AS is_insufficient_half_day_hours,
+
+    -- 3. HR2000 data-integrity error: this employee/day's leave entries sum
+    -- to MORE than one full day (e.g. a duplicate entry, or a half-day and
+    -- a full-day both logged against the same date) -- physically
+    -- impossible, always a data entry mistake worth a review, regardless
+    -- of attendance.
+    COALESCE(dl.leave_day_fraction_total > 1, false) AS has_leave_fraction_error
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date

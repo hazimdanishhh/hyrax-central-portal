@@ -109,6 +109,11 @@ export default function AttendanceSidebarHR({
           overtimeHours={selectedRow.overtime_hours}
           isEarlyLeave={selectedRow.is_early_leave}
           isLateArrival={selectedRow.is_late_arrival}
+          isLeaveAttendanceConflict={selectedRow.is_leave_attendance_conflict}
+          isInsufficientHalfDayHours={
+            selectedRow.is_insufficient_half_day_hours
+          }
+          hasLeaveFractionError={selectedRow.has_leave_fraction_error}
         />
       </div>
 

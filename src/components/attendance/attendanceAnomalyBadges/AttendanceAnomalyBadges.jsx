@@ -20,8 +20,17 @@ export default function AttendanceAnomalyBadges({
   overtimeHours,
   isEarlyLeave,
   isLateArrival,
+  isLeaveAttendanceConflict,
+  isInsufficientHalfDayHours,
+  hasLeaveFractionError,
 }) {
-  const hasAny = Number(overtimeHours) > 0 || isEarlyLeave || isLateArrival;
+  const hasAny =
+    Number(overtimeHours) > 0 ||
+    isEarlyLeave ||
+    isLateArrival ||
+    isLeaveAttendanceConflict ||
+    isInsufficientHalfDayHours ||
+    hasLeaveFractionError;
 
   if (!hasAny) return null;
 
@@ -41,6 +50,18 @@ export default function AttendanceAnomalyBadges({
       )}
       {/* {isEarlyLeave && <StatusBox status="Early Leave" type="red" />} */}
       {/* {isLateArrival && <StatusBox status="Late Arrival" type="red" />} */}
+
+      {/* HR2000 leave/attendance conflict detection -- see
+        hr_unified_daily_attendance_view.sql. */}
+      {isLeaveAttendanceConflict && (
+        <StatusBox status="Leave Conflict" type="red" />
+      )}
+      {isInsufficientHalfDayHours && (
+        <StatusBox status="Insufficient Half-Day Hours" type="red" />
+      )}
+      {hasLeaveFractionError && (
+        <StatusBox status="Leave Data Error" type="red" />
+      )}
     </div>
   );
 }

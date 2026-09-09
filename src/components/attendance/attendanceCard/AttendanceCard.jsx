@@ -59,13 +59,21 @@ function AttendanceCard({ activity, onClick }) {
             type={getHrFlagStatusType(activity.hr_flag)}
           />
 
-          {activity.overtime_hours > 0 && (
-            <AttendanceAnomalyBadges
-              overtimeHours={activity.overtime_hours}
-              isEarlyLeave={activity.is_early_leave}
-              isLateArrival={activity.is_late_arrival}
-            />
-          )}
+          {/* AttendanceAnomalyBadges already self-guards (renders nothing
+            when none of its inputs apply) -- no outer gate needed here, and
+            gating on overtime_hours specifically would hide every other
+            badge (leave conflict, early leave, etc.) on a day with no
+            overtime. */}
+          <AttendanceAnomalyBadges
+            overtimeHours={activity.overtime_hours}
+            isEarlyLeave={activity.is_early_leave}
+            isLateArrival={activity.is_late_arrival}
+            isLeaveAttendanceConflict={activity.is_leave_attendance_conflict}
+            isInsufficientHalfDayHours={
+              activity.is_insufficient_half_day_hours
+            }
+            hasLeaveFractionError={activity.has_leave_fraction_error}
+          />
         </div>
       </div>
 

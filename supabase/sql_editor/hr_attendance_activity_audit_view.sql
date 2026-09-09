@@ -104,11 +104,32 @@ leave_events AS (
     FROM public.leave_ledger_entries le
     JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
     JOIN public.employees e ON e.id = le.employee_id
+),
+
+-- 4. Stack them together
+all_events AS (
+    SELECT * FROM app_events
+    UNION ALL
+    SELECT * FROM hw_events
+    UNION ALL
+    SELECT * FROM leave_events
 )
 
--- 4. Stack them together and order chronologically
-SELECT * FROM app_events
-UNION ALL
-SELECT * FROM hw_events
-UNION ALL
-SELECT * FROM leave_events;
+-- 5. Annotate every row with unified_daily_attendance's day-level leave/
+-- attendance conflict flags -- a single event row can't compute these
+-- itself (they're day-wide aggregates: total hours worked, summed leave
+-- fraction across possibly several entries), so this reuses that view's
+-- single source of truth instead of duplicating the hours_worked/leave-sum
+-- logic a second time here. Callers only ever query this view scoped to
+-- one employee + one day (fetchEmployeeDayDetails), so the join stays
+-- cheap. Frontend only surfaces these on the Leave row
+-- (AttendanceTimelineCard.jsx) -- App/Hardware rows carry them too since
+-- they're the same day-level fact, just unused there.
+SELECT
+    ae.*,
+    uda.is_leave_attendance_conflict,
+    uda.is_insufficient_half_day_hours,
+    uda.has_leave_fraction_error
+FROM all_events ae
+LEFT JOIN public.unified_daily_attendance uda
+    ON uda.employee_uuid = ae.employee_uuid AND uda.work_date = ae.work_date;

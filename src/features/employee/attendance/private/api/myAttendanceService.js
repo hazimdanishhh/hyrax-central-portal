@@ -55,7 +55,7 @@ export const fetchMyAttendanceThisWeek =
     const { data, error } = await supabase
       .from("unified_daily_attendance")
       .select(
-        "employee_uuid, work_date, hr_flag, first_in, last_out, hours_worked, overtime_hours, is_early_leave, is_late_arrival, daily_activities, is_on_leave, leave_type_codes",
+        "employee_uuid, work_date, hr_flag, first_in, last_out, hours_worked, overtime_hours, is_early_leave, is_late_arrival, daily_activities, is_on_leave, leave_type_codes, is_leave_attendance_conflict, is_insufficient_half_day_hours, has_leave_fraction_error",
       )
       .eq("employee_uuid", employeeId)
       .gte("work_date", weekStartISO)
