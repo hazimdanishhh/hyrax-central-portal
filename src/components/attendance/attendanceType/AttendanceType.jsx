@@ -1,75 +1,12 @@
 import React from "react";
 import "./AttendanceType.scss";
 
-import {
-  BuildingOfficeIcon,
-  FactoryIcon,
-  MapPinIcon,
-  BriefcaseIcon,
-  HouseIcon,
-  GraduationCapIcon,
-  AlarmIcon,
-  SignOutIcon,
-  UserCircleDashedIcon,
-  CalendarXIcon,
-} from "@phosphor-icons/react";
+import { CalendarXIcon, BuildingOfficeIcon } from "@phosphor-icons/react";
+import { ATTENDANCE_TYPE_CONFIG } from "./attendanceTypeConfig";
 
 // ATTENDANCE TYPE COMPONENT WITH ICONS
 function AttendanceType({ attendanceType = "" }) {
   const type = attendanceType.toLowerCase().trim();
-
-  const config = {
-    office: {
-      icon: BuildingOfficeIcon,
-      label: "Office",
-      className: "green",
-    },
-    "offline / not arrived": {
-      icon: UserCircleDashedIcon,
-      label: "Absent",
-      className: "grey",
-    },
-    offline: {
-      icon: UserCircleDashedIcon,
-      label: "Offline",
-      className: "red",
-    },
-    "blending plant": {
-      icon: FactoryIcon,
-      label: "Blending Plant",
-      className: "green",
-    },
-    "site visit": {
-      icon: MapPinIcon,
-      label: "Site Visit",
-      className: "blue",
-    },
-    "business meeting": {
-      icon: BriefcaseIcon,
-      label: "Business Meeting",
-      className: "blue",
-    },
-    "work from home": {
-      icon: HouseIcon,
-      label: "Work From Home",
-      className: "yellow",
-    },
-    training: {
-      icon: GraduationCapIcon,
-      label: "Training",
-      className: "yellow",
-    },
-    overtime: {
-      icon: AlarmIcon,
-      label: "Overtime",
-      className: "red",
-    },
-    "not in office": {
-      icon: SignOutIcon,
-      label: "Not In Office",
-      className: "red",
-    },
-  };
 
   // HR2000 leave ledger integration -- current_status/hr_flag values like
   // "On Leave (AL)" carry a dynamic type suffix, so they can't be matched by
@@ -78,7 +15,7 @@ function AttendanceType({ attendanceType = "" }) {
   // type visible in the label.
   const selected = type.startsWith("on leave")
     ? { icon: CalendarXIcon, label: attendanceType, className: "purple" }
-    : config[type] || {
+    : ATTENDANCE_TYPE_CONFIG[type] || {
         icon: BuildingOfficeIcon,
         className: "default",
         label: attendanceType,

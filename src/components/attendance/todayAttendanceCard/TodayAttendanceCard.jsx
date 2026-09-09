@@ -1,6 +1,7 @@
 // components/attendance/todayAttendanceCard/TodayAttendanceCard.jsx
 
 import { AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDotsIcon,
   CaretRightIcon,
@@ -20,13 +21,23 @@ import HorizontalBarChartRenderer from "@/components/chartCard/HorizontalBarChar
 import { GREEN_COLOR } from "@/components/chartCard/chartColors";
 import AttendanceType from "@/components/attendance/attendanceType/AttendanceType";
 import AttendanceClock from "@/components/attendance/attendanceClock/AttendanceClock";
+import AttendanceTimelineCard from "@/components/attendance/attendanceSidebarHR/attendanceTimelineCard/AttendanceTimelineCard";
+import AttendanceAnomalyBadges from "@/components/attendance/attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import StatusBox from "@/components/status/statusBox/StatusBox";
 import getHrFlagStatusType from "@/functions/attendanceFlagStatus";
 import useElapsedSince from "@/functions/useElapsedSince";
+import { useEmployee } from "@/context/EmployeeContext";
+import { fetchEmployeeDayDetails } from "@/features/hr/attendance/private/api/attendanceOverviewService";
 import useMyAttendanceThisWeek from "@/features/employee/attendance/private/hooks/useMyAttendanceThisWeek";
 import useMyCurrentStatus from "@/features/employee/attendance/private/hooks/useMyCurrentStatus";
 import useClockInOutAction from "@/features/employee/attendance/private/hooks/useClockInOutAction";
 import "./TodayAttendanceCard.scss";
+
+function todayISODate() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 
 const COMPLETION_REFERENCE_HOURS = 9;
 
@@ -41,8 +52,22 @@ const COMPLETION_REFERENCE_HOURS = 9;
  * renders on Dashboard (/app), not under /app/employee/attendance/.
  */
 export default function TodayAttendanceCard() {
+  const { employee } = useEmployee();
+
   const { today, chartData, totalHoursThisWeek, isLoading } =
     useMyAttendanceThisWeek();
+
+  // "Today's Activity" -- reuses the exact same fetch AttendanceSidebarHR
+  // makes for its own per-day timeline, since unified_daily_attendance (the
+  // source for `today` above) already collapses every scanner location
+  // into one combined span before this card ever sees it -- there's no
+  // per-location breakdown to show without this separate call.
+  const todayISO = todayISODate();
+  const { data: todayDetails, isLoading: todayDetailsLoading } = useQuery({
+    queryKey: ["my_attendance_day_details", employee?.id, todayISO],
+    queryFn: () => fetchEmployeeDayDetails(employee?.id, todayISO),
+    enabled: Boolean(employee?.id),
+  });
 
   const {
     currentStatus,
@@ -62,7 +87,9 @@ export default function TodayAttendanceCard() {
     handleClockOut,
   } = useClockInOutAction();
 
-  const elapsedSinceClockIn = useElapsedSince(currentActivity?.clocked_in_at_raw);
+  const elapsedSinceClockIn = useElapsedSince(
+    currentActivity?.clocked_in_at_raw,
+  );
 
   // Completion bar -- fill proportional to elapsed time since first arrival
   // today, against a fixed reference work-day length. Sourced from
@@ -77,8 +104,8 @@ export default function TodayAttendanceCard() {
         Math.max(
           0,
           Math.round(
-            ((lastOutMs ?? Date.now()) - firstInMs) /
-              (COMPLETION_REFERENCE_HOURS * 60 * 60 * 1000) *
+            (((lastOutMs ?? Date.now()) - firstInMs) /
+              (COMPLETION_REFERENCE_HOURS * 60 * 60 * 1000)) *
               100,
           ),
         ),
@@ -124,11 +151,12 @@ export default function TodayAttendanceCard() {
                     {currentStatus && (
                       <AttendanceType attendanceType={currentStatus} />
                     )}
-                    {isOnLeaveToday && !currentStatus?.startsWith("On Leave") && (
-                      <AttendanceType
-                        attendanceType={`On Leave (${leaveTypeCodesToday})`}
-                      />
-                    )}
+                    {isOnLeaveToday &&
+                      !currentStatus?.startsWith("On Leave") && (
+                        <AttendanceType
+                          attendanceType={`On Leave (${leaveTypeCodesToday})`}
+                        />
+                      )}
                     {today?.first_in_time && (
                       <AttendanceClock
                         time={today.first_in_time}
@@ -148,6 +176,12 @@ export default function TodayAttendanceCard() {
                       />
                     )}
                   </div>
+
+                  <AttendanceAnomalyBadges
+                    overtimeHours={today?.overtime_hours}
+                    isEarlyLeave={today?.is_early_leave}
+                    isLateArrival={today?.is_late_arrival}
+                  />
 
                   {firstInMs && (
                     <div className="todayCompletionBar">
@@ -177,6 +211,30 @@ export default function TodayAttendanceCard() {
                       {elapsedSinceClockIn} ago
                     </p>
                   )}
+
+                  {/* Read-only -- mode="readonly" matches none of
+                      AttendanceTimelineCard's existing hr/self/manager
+                      gates, so no clock-out/approve/edit buttons render;
+                      the card's own fingerprint button below already
+                      handles clocking in/out. */}
+                  <div className="todayActivityTimeline">
+                    <p className="textBold textXS">Today's Activity</p>
+                    {todayDetailsLoading ? (
+                      <LoadingIcon />
+                    ) : !todayDetails || todayDetails.length === 0 ? (
+                      <p className="textLight textXXS">
+                        No activity logged yet today.
+                      </p>
+                    ) : (
+                      todayDetails.map((activity) => (
+                        <AttendanceTimelineCard
+                          key={activity.activity_id}
+                          activity={activity}
+                          mode="readonly"
+                        />
+                      ))
+                    )}
+                  </div>
                 </>
               )}
 

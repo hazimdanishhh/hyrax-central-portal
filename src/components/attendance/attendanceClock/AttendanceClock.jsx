@@ -1,39 +1,37 @@
-import {
-  BuildingOfficeIcon,
-  SignInIcon,
-  SignOutIcon,
-} from "@phosphor-icons/react";
-import React from "react";
+import { SignOutIcon, SignInIcon } from "@phosphor-icons/react";
 import "./AttendanceClock.scss";
 
-function AttendanceClock({ time, type }) {
+/**
+ * `type` is just "clockin" | "clockout" ("in"/"out" kept as harmless
+ * aliases, though no caller in this codebase currently uses them). Whether
+ * to highlight this chip as an anomaly (late arrival on a clock-in chip,
+ * early leave on a clock-out chip) is a SEPARATE explicit boolean,
+ * `isAnomaly` -- not encoded into `type` itself. Concatenating it into
+ * `type` (e.g. `clockin ${isLate ? "late" : ""}`) is a real footgun: the
+ * false branch produces "clockin " (a trailing space), which silently
+ * fails every exact-string match below -- breaking the prefix text, color,
+ * AND icon for the non-anomaly case, not just the styling.
+ */
+export default function AttendanceClock({ time, type, isAnomaly = false }) {
+  const isClockIn = type === "clockin" || type === "in";
+  const isClockOut = type === "clockout" || type === "out";
+
+  const prefix = isClockIn ? "First In: " : isClockOut ? "Last Seen: " : "";
+
+  const colorClass = isAnomaly ? "red" : isClockOut ? "yellow" : "green";
+
+  const IconComponent = isClockOut ? SignOutIcon : SignInIcon;
+
   return (
-    <div
-      className={
-        type === "clockin" || type === "in"
-          ? "attendanceCardClock green"
-          : type === "out" || type === "clockout"
-            ? "attendanceCardClock yellow"
-            : type === "late"
-              ? "attendanceCardClock red"
-              : "attendanceCardClock green"
-      }
-    >
+    <div className={`attendanceCardClock ${colorClass}`}>
       <p className="textBold textXXS">
-        {type === "clockin" ? "First In: " : "Last Seen: "}
+        {prefix}
         {time}
       </p>
+
       <div className="attendanceCardIcon">
-        {type === "clockin" || type === "late" ? (
-          <SignInIcon weight="bold" size={12} />
-        ) : type === "out" || type === "in" ? (
-          <BuildingOfficeIcon weight="bold" size={12} />
-        ) : (
-          <SignOutIcon weight="bold" size={12} />
-        )}
+        <IconComponent weight="bold" size={12} />
       </div>
     </div>
   );
 }
-
-export default AttendanceClock;

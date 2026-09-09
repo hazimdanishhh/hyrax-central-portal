@@ -16,8 +16,9 @@ import { fetchEmployeeDayDetails } from "../../../features/hr/attendance/private
 import StatusBox from "../../status/statusBox/StatusBox";
 import AttendanceClock from "../attendanceClock/AttendanceClock";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
-import StackedBarRenderer from "../../chartCard/StackedBarRenderer";
 import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineCard";
+import AttendanceDayTimelineBar from "../attendanceDayTimelineBar/AttendanceDayTimelineBar";
+import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
 
 export default function AttendanceSidebarHR({
   selectedRow, // This is now the Daily Summary Row
@@ -42,25 +43,20 @@ export default function AttendanceSidebarHR({
     enabled: !!selectedRow?.employee_uuid && !!selectedRow?.work_date,
   });
 
-  const workDayData = [
-    {
-      name: "Worked",
-      value: selectedRow.hours_worked,
-    },
-    {
-      name: "Remaining",
-      value: Math.max(0, 8 - selectedRow.hours_worked).toFixed(2),
-    },
-  ];
-
   return (
     <div className="attendanceCardSidebarContainer">
       {/* HEADER: EMPLOYEE & OVERALL DAY STATUS */}
       <div className="attendanceCardSidebarHeader">
-        <div>
-          <EmployeeImage employee={selectedRow} />
-          <p className="textBold textM">{selectedRow?.full_name}</p>
-          <p className="textRegular textS">{selectedRow?.work_date}</p>
+        <p className="textRegular textS">{selectedRow?.work_date}</p>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            flexWrap: "wrap",
+          }}
+        >
           {/* HR2000 leave ledger integration -- shown independently of
               hr_flag so a mixed day (half-day leave + half-day worked, where
               hr_flag reads "OK") still visibly surfaces the leave fact. */}
@@ -69,32 +65,51 @@ export default function AttendanceSidebarHR({
               attendanceType={`On Leave (${selectedRow.leave_type_codes})`}
             />
           )}
+
+          {/* Show the Daily Macro Flag */}
+          <StatusBox
+            status={selectedRow?.hr_flag}
+            type={`${selectedRow?.hr_flag?.startsWith("On Leave") ? "purple" : selectedRow?.hr_flag === "Review Required" ? "yellow" : selectedRow?.hr_flag === "Approved" || selectedRow?.hr_flag === "OK" ? "green" : "red"}`}
+          />
         </div>
-        {/* Show the Daily Macro Flag */}
-        <StatusBox
-          status={selectedRow?.hr_flag}
-          type={`${selectedRow?.hr_flag?.startsWith("On Leave") ? "purple" : selectedRow?.hr_flag === "Review Required" ? "yellow" : selectedRow?.hr_flag === "Approved" || selectedRow?.hr_flag === "OK" ? "green" : "red"}`}
+      </div>
+
+      <div className="attendanceCardSidebarHeader">
+        <EmployeeImage
+          employee={selectedRow}
+          displayName={true}
+          showName={false}
+          setShowName={() => {}}
         />
       </div>
 
-      <StackedBarRenderer
-        data={workDayData}
-        colorMap={{
-          Worked: "#22c55e",
-          Remaining: "#a1a1a1",
+      <AttendanceDayTimelineBar timelineData={timelineData || []} />
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "start",
+          justifyContent: "space-between",
+          gap: "0.6rem",
+          flexWrap: "wrap",
+          width: "100%",
         }}
-        height={30}
-      />
-
-      <p className="textBold textS">{selectedRow.hours_worked}h worked</p>
-
-      <div className="attendanceCardClockWrapper">
+      >
         {selectedRow.first_in_time && (
           <AttendanceClock time={selectedRow.first_in_time} type="clockin" />
         )}
         {selectedRow.last_out_time && (
           <AttendanceClock time={selectedRow.last_out_time} type="clockout" />
         )}
+      </div>
+
+      <div className="attendanceCardSidebarHeader">
+        <p className="textBold textS">{selectedRow.hours_worked}h worked</p>
+        <AttendanceAnomalyBadges
+          overtimeHours={selectedRow.overtime_hours}
+          isEarlyLeave={selectedRow.is_early_leave}
+          isLateArrival={selectedRow.is_late_arrival}
+        />
       </div>
 
       <div className="divider"></div>

@@ -1,8 +1,8 @@
 .attendanceCard {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   justify-content: space-between;
-  align-items: center;
+  align-items: start;
   text-align: start;
 
   @media screen and (max-width: 768px) {
@@ -34,12 +34,25 @@
       width: 100%;
     }
   }
+
+  .attendanceCardContent {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    width: 100%;
+
+    @media screen and (max-width: 768px) {
+      width: 100%;
+    }
+  }
 }
 
 .attendanceCardClockWrapper {
   display: flex;
-  justify-content: center;
+  justify-content: end;
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
+  width: 100%;
 }

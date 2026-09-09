@@ -43,3 +43,10 @@
   justify-content: space-between;
   width: 100%;
 }
+
+.todayActivityTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}

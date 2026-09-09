@@ -107,9 +107,14 @@ daily_app AS (
         aa.employee_id AS app_emp_uuid,
         DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date,
         
-        -- Ignore Rejected timestamps for first_in / last_out calculations
+        -- Ignore Rejected timestamps for first_in / last_out calculations.
+        -- app_check_out falls back to clocked_in_at when a session is still
+        -- open (clocked_out_at is null) -- mirrors employees_public.
+        -- current_status's own app.latest_event_time fallback for the same
+        -- concept, so an ongoing remote session still counts as "last seen"
+        -- instead of contributing nothing to last_out below.
         MIN(CASE WHEN aa.approval_status::text != 'Rejected' THEN aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_in,
-        MAX(CASE WHEN aa.approval_status::text != 'Rejected' THEN aa.clocked_out_at AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_out,
+        MAX(CASE WHEN aa.approval_status::text != 'Rejected' THEN COALESCE(aa.clocked_out_at, aa.clocked_in_at) AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_out,
         
         -- Create a string that shows the activity AND its status (e.g., "Site Visit (Rejected)")
         STRING_AGG(at.name || ' (' || aa.approval_status::text || ')', ', ' ORDER BY aa.clocked_in_at) AS daily_activities,
@@ -279,7 +284,28 @@ SELECT
     -- append-only constraint. Drives the "Work Location" filter on
     -- Attendance List/Overview/Reports/Team Attendance.
     u.work_location_id,
-    wl.name AS work_location_name
+    wl.name AS work_location_name,
+
+    -- Late arrival -- mirrors is_early_leave's exact shape/threshold
+    -- convention. ASSUMPTION, not a real company policy (same caveat
+    -- get_attendance_dashboard_rpc.sql's now-removed v_late_threshold_time
+    -- used to carry): no shift/schedule table exists anywhere in this
+    -- schema (no expected start time per employee/department), so "late"
+    -- has no real threshold to compute against -- fixed at 09:00
+    -- company-wide until real shift data exists, revisit then. 09:00 was
+    -- previously duplicated as a literal in that RPC and in
+    -- attendanceOverviewService.js's applyAttendanceFilter "lateArrival"
+    -- case -- both now read this column instead, so the two can never
+    -- silently disagree. Repeats first_in_time_of_day's own expression
+    -- rather than referencing that alias -- a SELECT list can't reference
+    -- a sibling output column's alias (same constraint overtime_hours'
+    -- own comment above already documents for last_out_time_of_day).
+    -- Appended last, per this view's own append-only constraint (CREATE OR
+    -- REPLACE VIEW only allows new columns after every existing one).
+    COALESCE(
+        (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time > TIME '09:00:00',
+        false
+    ) AS is_late_arrival
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date

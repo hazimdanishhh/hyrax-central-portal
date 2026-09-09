@@ -121,13 +121,6 @@ declare
     -- ("Pass 4" -- see header comment). Same test already used for
     -- prev_period_rows/v_trend_bucket, reused here as the single switch.
     v_has_period boolean;
-    -- ASSUMPTION, not a real company policy: no shift/schedule table exists
-    -- anywhere in this schema (no expected start time per employee/
-    -- department), so "late" has no real threshold to compute against.
-    -- Fixed at 09:00 company-wide until real shift data exists -- revisit
-    -- then. Surfaced in the Overview page's own tile tooltip so this stays
-    -- a disclosed assumption, not a silent policy decision.
-    v_late_threshold_time constant time := '09:00:00';
     -- Authorization guard state -- see "0. Authorization guard" below.
     v_is_hr_or_superadmin boolean;
     v_caller_employee_id uuid;
@@ -390,11 +383,19 @@ kpi_totals as (
          from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent') and last_out is not null) as avg_check_out_time,
 
-        -- Late arrivals -- see v_late_threshold_time's own comment above.
+        -- Late arrivals: computed once in unified_daily_attendance
+        -- (is_late_arrival -- see that view's own comment for the 09:00
+        -- threshold disclosure) rather than re-deriving the threshold
+        -- here -- mirrors early_leave_count's own established pattern
+        -- below, so the KPI here and the List page's "lateArrival" filter
+        -- (attendanceOverviewService.js) can never silently disagree.
+        -- is_late_arrival is already false (not null) whenever
+        -- first_in_time_of_day is null, so no separate "first_in is not
+        -- null" guard is needed.
         (select count(*) from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent')
-         and first_in is not null
-         and first_in::time > v_late_threshold_time) as late_arrivals_count,
+         and not is_on_leave
+         and is_late_arrival) as late_arrivals_count,
         -- Early leave: before 5PM, computed once in unified_daily_attendance
         -- (is_early_leave) rather than re-deriving the threshold here --
         -- see that view's own comment for why (sets up the future

@@ -4,6 +4,7 @@
   align-items: center;
   text-align: start;
   padding: 0.8rem;
+  padding-top: 0;
   gap: 0.8rem;
 
   .attendanceCardSidebarHeader {
@@ -12,6 +13,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 0.8rem;
+    flex-wrap: wrap;
   }
 
   .attendanceCardSidebarSegment {

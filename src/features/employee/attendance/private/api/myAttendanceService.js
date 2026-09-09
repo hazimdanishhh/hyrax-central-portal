@@ -55,7 +55,7 @@ export const fetchMyAttendanceThisWeek =
     const { data, error } = await supabase
       .from("unified_daily_attendance")
       .select(
-        "employee_uuid, work_date, hr_flag, first_in, last_out, hours_worked, overtime_hours, daily_activities, is_on_leave, leave_type_codes",
+        "employee_uuid, work_date, hr_flag, first_in, last_out, hours_worked, overtime_hours, is_early_leave, is_late_arrival, daily_activities, is_on_leave, leave_type_codes",
       )
       .eq("employee_uuid", employeeId)
       .gte("work_date", weekStartISO)

@@ -2,7 +2,11 @@ import "./CustomLegend.scss";
 import { preciseNumber } from "../../../functions/formatNumber";
 
 export default function CustomLegend({ data, colorMap }) {
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+  // Number(d.value) -- a caller passing a pre-formatted string (e.g. from
+  // .toFixed(2)) would otherwise turn this into string concatenation
+  // instead of addition, producing an unparseable "total" and NaN% for
+  // every entry.
+  const total = data.reduce((sum, d) => sum + Number(d.value), 0);
 
   return (
     <div className="stackedLegend">

@@ -110,9 +110,13 @@ function applyAttendanceFilter(query, key, value) {
         .neq("hr_flag", "Absent");
 
     case "lateArrival":
+      // Late arrival is now computed once in unified_daily_attendance
+      // (is_late_arrival, same 09:00 threshold), matching earlyLeave's own
+      // is_early_leave pattern below -- so this filter and
+      // get_attendance_dashboard_rpc.sql's lateArrivalsCount KPI can never
+      // silently disagree.
       return query
-        .not("first_in_time_of_day", "is", null)
-        .gt("first_in_time_of_day", "09:00:00")
+        .eq("is_late_arrival", true)
         .neq("hr_flag", "Weekend / Rest Day")
         .neq("hr_flag", "Absent");
 

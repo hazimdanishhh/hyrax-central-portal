@@ -1,0 +1,53 @@
+.attendanceDayTimelineBar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+}
+
+.attendanceDayTimelineBarTrack {
+  display: flex;
+  width: 100%;
+  height: 20px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.attendanceDayTimelineBarSegment {
+  height: 100%;
+  min-width: 2px;
+
+  &.grey {
+    background-color: $neutral300;
+  }
+
+  &.red {
+    background-color: $error600;
+  }
+
+  &.green {
+    background-color: $success600;
+  }
+
+  &.blue {
+    background-color: $info600;
+  }
+
+  &.yellow {
+    background-color: $warning600;
+  }
+
+  &.purple {
+    background-color: $secondary600;
+  }
+
+  &.default {
+    background-color: $neutral500;
+  }
+}
+
+.attendanceDayTimelineBarLabels {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
