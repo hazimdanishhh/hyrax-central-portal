@@ -53,7 +53,14 @@ function AttendanceCard({ activity, onClick }) {
           )}
         </div>
 
-        <div className="attendanceCardSegment">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "end",
+            gap: "0.4rem",
+          }}
+        >
           <StatusBox
             status={activity.hr_flag}
             type={getHrFlagStatusType(activity.hr_flag)}
@@ -69,9 +76,7 @@ function AttendanceCard({ activity, onClick }) {
             isEarlyLeave={activity.is_early_leave}
             isLateArrival={activity.is_late_arrival}
             isLeaveAttendanceConflict={activity.is_leave_attendance_conflict}
-            isInsufficientHalfDayHours={
-              activity.is_insufficient_half_day_hours
-            }
+            isInsufficientHalfDayHours={activity.is_insufficient_half_day_hours}
             hasLeaveFractionError={activity.has_leave_fraction_error}
           />
         </div>

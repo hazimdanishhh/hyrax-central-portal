@@ -149,7 +149,17 @@ daily_leave AS (
         CASE
             WHEN COUNT(DISTINCT le.leave_type_id) = 1 THEN MAX(lt.code)
             ELSE STRING_AGG(DISTINCT lt.code, '+' ORDER BY lt.code)
-        END AS leave_type_codes
+        END AS leave_type_codes,
+        -- Paid vs. unpaid split, for payroll prep -- CAVEAT: lt.is_paid is
+        -- an unconfirmed guess for nearly every leave type today
+        -- (leave_ledger_types.needs_hr_confirmation), pending real HR/
+        -- payroll sign-off (see hyrax-data-platform's
+        -- leave_ledger_migration.sql). Surfaced at face value, not flagged
+        -- in the UI, per the user's explicit decision -- same "disclose in
+        -- code comments only" treatment this view already gives
+        -- is_late_arrival's 09:00 threshold assumption.
+        SUM(le.day_fraction) FILTER (WHERE lt.is_paid) AS paid_leave_day_fraction,
+        SUM(le.day_fraction) FILTER (WHERE NOT lt.is_paid) AS unpaid_leave_day_fraction
     FROM public.leave_ledger_entries le
     JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
     GROUP BY le.employee_id, le.leave_date
@@ -345,7 +355,14 @@ SELECT
     -- a full-day both logged against the same date) -- physically
     -- impossible, always a data entry mistake worth a review, regardless
     -- of attendance.
-    COALESCE(dl.leave_day_fraction_total > 1, false) AS has_leave_fraction_error
+    COALESCE(dl.leave_day_fraction_total > 1, false) AS has_leave_fraction_error,
+
+    -- Paid vs. unpaid leave, for payroll prep -- see daily_leave's own
+    -- comment for the is_paid confirmation caveat. Left nullable when no
+    -- leave that day, matching leave_day_fraction's own existing
+    -- (uncoalesced) convention exactly.
+    dl.paid_leave_day_fraction,
+    dl.unpaid_leave_day_fraction
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date

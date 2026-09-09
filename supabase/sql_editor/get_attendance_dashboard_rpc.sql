@@ -237,7 +237,17 @@ employee_leave_rows as (
     select
         le.employee_id as leave_emp_uuid,
         lt.label as leave_type_label,
-        le.day_fraction
+        le.day_fraction,
+        -- Paid vs. unpaid leave, for payroll prep -- see kpi_totals'
+        -- paid_leave_days_count/unpaid_leave_days_count below. CAVEAT:
+        -- is_paid is an unconfirmed guess for nearly every leave type today
+        -- (leave_ledger_types.needs_hr_confirmation), pending real HR/
+        -- payroll sign-off (hyrax-data-platform's leave_ledger_migration.sql)
+        -- -- surfaced here at face value per the user's explicit choice, not
+        -- flagged in the UI, matching this codebase's existing convention of
+        -- disclosing this kind of assumption only in code comments (same
+        -- treatment as is_late_arrival's 09:00 threshold).
+        lt.is_paid
     from leave_ledger_entries le
     join leave_ledger_types lt on lt.id = le.leave_type_id
     join employees e on e.id = le.employee_id
@@ -251,10 +261,12 @@ employee_leave_rows as (
 
 -- Same shape, previous-period window -- mirrors prev_period_rows, feeds
 -- leaveDaysCount's delta via the same calcDelta convention every other tile
--- on this page already uses.
+-- on this page already uses. Now joins leave_ledger_types too (previously
+-- didn't need to), so unpaidLeaveDaysCount can have a delta too.
 prev_employee_leave_rows as (
-    select le.day_fraction, le.employee_id as leave_emp_uuid
+    select le.day_fraction, le.employee_id as leave_emp_uuid, lt.is_paid
     from leave_ledger_entries le
+    join leave_ledger_types lt on lt.id = le.leave_type_id
     join employees e on e.id = le.employee_id
     where p_start_date is not null and p_end_date is not null
     and (p_department_id is null or e.department_id = p_department_id)
@@ -411,8 +423,15 @@ kpi_totals as (
         -- value it would newly pass this filter with hours_worked = 0,
         -- silently dragging the average down with legitimate zero-hour
         -- leave days.
-        (select round(avg(hours_worked)::numeric, 2) from period_rows where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave) as avg_hours_worked,
-        (select round(avg(hours_worked)::numeric, 2) from prev_period_rows where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave) as prev_avg_hours_worked,
+        --
+        -- `and hr_flag <> 'Incomplete Card Scans'` added for the same
+        -- reason: a single-scan day computes hw_hours = MIN-MAX = 0 purely
+        -- because there's no second scan to diff against, not because 0
+        -- hours were actually worked -- the true figure is UNKNOWN, not
+        -- zero. Without this exclusion it silently dragged the average down
+        -- exactly like the on-leave dilution bug above.
+        (select round(avg(hours_worked)::numeric, 2) from period_rows where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave) as avg_hours_worked,
+        (select round(avg(hours_worked)::numeric, 2) from prev_period_rows where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave) as prev_avg_hours_worked,
 
         -- Overtime (doc-02 KPI): time worked after 6PM, this period --
         -- NOT hours above 8/day. Reads overtime_hours from
@@ -422,12 +441,16 @@ kpi_totals as (
         -- day already computes overtime_hours = 0 and fails the >0 filter
         -- regardless) but keeps this block consistent with its neighbors and
         -- guards against a future change silently reintroducing the bug.
+        -- `Incomplete Card Scans` excluded for the same unknown-vs-zero
+        -- reason as avg_hours_worked above -- last_out for a single-scan day
+        -- is that same lone scan's own time, which may or may not be a real
+        -- departure, so any overtime_hours it produces isn't trustworthy.
         (select round(sum(overtime_hours)::numeric, 2) from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave) as overtime_hours_total,
+         where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave) as overtime_hours_total,
         (select round(sum(overtime_hours)::numeric, 2) from prev_period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave) as prev_overtime_hours_total,
+         where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave) as prev_overtime_hours_total,
         (select count(distinct employee_uuid) from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave and overtime_hours > 0) as employees_with_overtime_count,
+         where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave and overtime_hours > 0) as employees_with_overtime_count,
 
         (select count(*) from period_rows where hr_flag = 'Absent') as absent_days_count,
         (select count(*) from prev_period_rows where hr_flag = 'Absent') as prev_absent_days_count,
@@ -445,7 +468,14 @@ kpi_totals as (
         -- KPI tile's sub-metric.
         (select coalesce(sum(day_fraction), 0) from employee_leave_rows) as leave_days_count,
         (select coalesce(sum(day_fraction), 0) from prev_employee_leave_rows) as prev_leave_days_count,
-        (select count(distinct leave_emp_uuid) from employee_leave_rows) as employees_on_leave_count
+        (select count(distinct leave_emp_uuid) from employee_leave_rows) as employees_on_leave_count,
+
+        -- Paid vs. unpaid split of leave_days_count -- see
+        -- employee_leave_rows' own comment for the is_paid confirmation
+        -- caveat.
+        (select coalesce(sum(day_fraction) filter (where is_paid), 0) from employee_leave_rows) as paid_leave_days_count,
+        (select coalesce(sum(day_fraction) filter (where not is_paid), 0) from employee_leave_rows) as unpaid_leave_days_count,
+        (select coalesce(sum(day_fraction) filter (where not is_paid), 0) from prev_employee_leave_rows) as prev_unpaid_leave_days_count
 )
 
 select json_build_object(
@@ -495,7 +525,10 @@ select json_build_object(
                 else 0 end,
             'leaveDaysCount', leave_days_count,
             'prevLeaveDaysCount', prev_leave_days_count,
-            'employeesOnLeaveCount', employees_on_leave_count
+            'employeesOnLeaveCount', employees_on_leave_count,
+            'paidLeaveDaysCount', paid_leave_days_count,
+            'unpaidLeaveDaysCount', unpaid_leave_days_count,
+            'prevUnpaidLeaveDaysCount', prev_unpaid_leave_days_count
         )
         from kpi_totals
     ),
@@ -549,7 +582,9 @@ select json_build_object(
             select
                 to_char(date_trunc(v_trend_bucket, work_date), 'YYYY-MM-DD') as period,
                 date_trunc(v_trend_bucket, work_date) as bucket_start,
-                round(avg(hours_worked) filter (where hr_flag not in ('Weekend / Rest Day', 'Absent'))::numeric, 2) as avg_hours
+                -- Incomplete Card Scans excluded -- same unknown-vs-zero
+                -- reasoning as kpi_totals.avg_hours_worked above.
+                round(avg(hours_worked) filter (where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans'))::numeric, 2) as avg_hours
             from period_rows
             group by date_trunc(v_trend_bucket, work_date)
         ) x
@@ -618,7 +653,7 @@ select json_build_object(
         from (
             select full_name as name, round(sum(overtime_hours)::numeric, 2) as value
             from period_rows
-            where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave
+            where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave
             group by full_name
             having sum(overtime_hours) > 0
             order by value desc

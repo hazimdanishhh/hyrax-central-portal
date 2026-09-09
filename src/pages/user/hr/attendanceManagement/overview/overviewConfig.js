@@ -89,6 +89,10 @@ export function getAttendanceOverviewConfig(
     kpis.prevOvertimeHoursTotal,
   );
   const leaveDaysDelta = calcDelta(kpis.leaveDaysCount, kpis.prevLeaveDaysCount);
+  const unpaidLeaveDaysDelta = calcDelta(
+    kpis.unpaidLeaveDaysCount,
+    kpis.prevUnpaidLeaveDaysCount,
+  );
 
   // Carried into every link below -- the Overview's own department/employee
   // narrowing, so a tile click never silently resets it.
@@ -467,14 +471,30 @@ export function getAttendanceOverviewConfig(
           to: "../list",
           filter: { ...baseFilter, onLeave: "true", ...periodFilter },
         },
+        // Paid vs. unpaid split, for payroll prep -- CAVEAT: sourced from
+        // leave_ledger_types.is_paid, itself an unconfirmed guess for
+        // nearly every leave type today (needs_hr_confirmation), pending
+        // real HR/payroll sign-off. Shown at face value with no warning
+        // icon here, per an explicit decision to match this codebase's
+        // existing convention of disclosing this kind of assumption only
+        // in code comments (see get_attendance_dashboard_rpc.sql).
         {
-          label: "Prev. Period",
+          label: "Unpaid Leave Days",
+          value: kpis.unpaidLeaveDaysCount || 0,
+        },
+        {
+          label: "Total vs Prev. Period",
           value: deltaText(leaveDaysDelta),
           icon: deltaIcon(leaveDaysDelta),
         },
+        {
+          label: "Unpaid vs Prev. Period",
+          value: deltaText(unpaidLeaveDaysDelta),
+          icon: deltaIcon(unpaidLeaveDaysDelta),
+        },
       ],
       title:
-        "Sum of day_fraction across all HR2000 leave-ledger entries falling in the selected period (0.5/1.0 per entry), regardless of whether the employee also had real check-in data that same day. Employees on Leave is a distinct-employee count for the same period.",
+        "Sum of day_fraction across all HR2000 leave-ledger entries falling in the selected period (0.5/1.0 per entry), regardless of whether the employee also had real check-in data that same day. Employees on Leave is a distinct-employee count for the same period. Unpaid Leave Days sums only entries whose leave type is marked unpaid (e.g. No-Pay Leave) -- this classification is not yet confirmed with HR/payroll for every leave type.",
     },
   ];
 }

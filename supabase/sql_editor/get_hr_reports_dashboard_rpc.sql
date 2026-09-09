@@ -180,11 +180,17 @@ kpi_attendance_totals as (
         -- overtime_hours from unified_daily_attendance directly (computed
         -- once there, see that view's own comment), mirrors the identical
         -- fix in get_attendance_dashboard_rpc.sql this same pass.
+        --
+        -- 'Incomplete Card Scans' excluded (mirrors the identical fix just
+        -- added to get_attendance_dashboard_rpc.sql this same pass) -- a
+        -- single-scan day's overtime_hours isn't trustworthy (its "last
+        -- out" is just that one ambiguous scan), same unknown-vs-zero
+        -- reasoning as that file's avg_hours_worked/overtime_hours_total.
         round(sum(overtime_hours) filter (
-            where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave
+            where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave
         )::numeric, 2) as overtime_hours_total,
         count(distinct employee_uuid) filter (
-            where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave and overtime_hours > 0
+            where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave and overtime_hours > 0
         ) as employees_with_overtime_count
     from period_attendance
 ),
@@ -198,7 +204,11 @@ period_leave as (
     select
         le.employee_id as leave_emp_uuid,
         lt.label as leave_type_label,
-        le.day_fraction
+        le.day_fraction,
+        -- Paid vs. unpaid leave -- see kpi_leave_totals' paid/unpaid split
+        -- below. Same is_paid confirmation caveat as
+        -- get_attendance_dashboard_rpc.sql's employee_leave_rows.
+        lt.is_paid
     from leave_ledger_entries le
     join leave_ledger_types lt on lt.id = le.leave_type_id
     join employees e on e.id = le.employee_id
@@ -211,7 +221,9 @@ period_leave as (
 kpi_leave_totals as (
     select
         coalesce(sum(day_fraction), 0) as leave_days_count,
-        count(distinct leave_emp_uuid) as employees_on_leave_count
+        count(distinct leave_emp_uuid) as employees_on_leave_count,
+        coalesce(sum(day_fraction) filter (where is_paid), 0) as paid_leave_days_count,
+        coalesce(sum(day_fraction) filter (where not is_paid), 0) as unpaid_leave_days_count
     from period_leave
 ),
 
@@ -287,6 +299,8 @@ select json_build_object(
             -- Leave
             'leaveDaysCount', kl.leave_days_count,
             'employeesOnLeaveCount', kl.employees_on_leave_count,
+            'paidLeaveDaysCount', kl.paid_leave_days_count,
+            'unpaidLeaveDaysCount', kl.unpaid_leave_days_count,
             -- Lifecycle
             'openOnboardingCount', klc.open_onboarding_count,
             'onboardingCompletedInPeriod', klc.onboarding_completed_in_period,
