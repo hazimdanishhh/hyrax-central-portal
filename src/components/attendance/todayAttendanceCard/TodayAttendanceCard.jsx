@@ -21,6 +21,7 @@ import HorizontalBarChartRenderer from "@/components/chartCard/HorizontalBarChar
 import { GREEN_COLOR } from "@/components/chartCard/chartColors";
 import AttendanceType from "@/components/attendance/attendanceType/AttendanceType";
 import AttendanceClock from "@/components/attendance/attendanceClock/AttendanceClock";
+import AttendanceDayTimelineBar from "@/components/attendance/attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceTimelineCard from "@/components/attendance/attendanceSidebarHR/attendanceTimelineCard/AttendanceTimelineCard";
 import AttendanceAnomalyBadges from "@/components/attendance/attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import StatusBox from "@/components/status/statusBox/StatusBox";
@@ -38,8 +39,6 @@ function todayISODate() {
   const pad = (n) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
-
-const COMPLETION_REFERENCE_HOURS = 9;
 
 /**
  * Home dashboard widget -- today's live status (currentStatus, from
@@ -91,27 +90,6 @@ export default function TodayAttendanceCard() {
     currentActivity?.clocked_in_at_raw,
   );
 
-  // Completion bar -- fill proportional to elapsed time since first arrival
-  // today, against a fixed reference work-day length. Sourced from
-  // unified_daily_attendance's raw first_in/last_out (already fetched by
-  // useMyAttendanceThisWeek) rather than employees_public's pre-formatted
-  // time strings, since those aren't reliably re-parseable client-side.
-  const firstInMs = today?.first_in ? new Date(today.first_in).getTime() : null;
-  const lastOutMs = today?.last_out ? new Date(today.last_out).getTime() : null;
-  const completionPct = firstInMs
-    ? Math.min(
-        100,
-        Math.max(
-          0,
-          Math.round(
-            (((lastOutMs ?? Date.now()) - firstInMs) /
-              (COMPLETION_REFERENCE_HOURS * 60 * 60 * 1000)) *
-              100,
-          ),
-        ),
-      )
-    : 0;
-
   const hasAnyStatus = Boolean(today || currentStatus);
 
   return (
@@ -147,6 +125,11 @@ export default function TodayAttendanceCard() {
                 <NoResult title="No attendance recorded yet today" />
               ) : (
                 <>
+                  {/* Mirrors AttendanceSidebarHR's layout order (status
+                      chips -> day timeline bar -> clocks -> hours worked +
+                      badges -> Activity Timeline), so the same day looks
+                      the same whether HR opens it from the List sidebar or
+                      the employee sees it here on their own Dashboard. */}
                   <div className="todayAttendanceChips">
                     {currentStatus && (
                       <AttendanceType attendanceType={currentStatus} />
@@ -157,18 +140,6 @@ export default function TodayAttendanceCard() {
                           attendanceType={`On Leave (${leaveTypeCodesToday})`}
                         />
                       )}
-                    {today?.first_in_time && (
-                      <AttendanceClock
-                        time={today.first_in_time}
-                        type="clockin"
-                      />
-                    )}
-                    {today?.last_out_time && (
-                      <AttendanceClock
-                        time={today.last_out_time}
-                        type="clockout"
-                      />
-                    )}
                     {today?.hr_flag && (
                       <StatusBox
                         status={today.hr_flag}
@@ -177,39 +148,44 @@ export default function TodayAttendanceCard() {
                     )}
                   </div>
 
-                  <AttendanceAnomalyBadges
-                    overtimeHours={today?.overtime_hours}
-                    isEarlyLeave={today?.is_early_leave}
-                    isLateArrival={today?.is_late_arrival}
-                    isLeaveAttendanceConflict={
-                      today?.is_leave_attendance_conflict
-                    }
-                    isInsufficientHalfDayHours={
-                      today?.is_insufficient_half_day_hours
-                    }
-                    hasLeaveFractionError={today?.has_leave_fraction_error}
-                    isWorkedOnHoliday={today?.is_worked_on_holiday}
-                    holidayHoursWorked={today?.holiday_hours_worked}
-                  />
+                  <AttendanceDayTimelineBar timelineData={todayDetails || []} />
 
-                  {firstInMs && (
-                    <div className="todayCompletionBar">
-                      <div className="todayCompletionBarTrack">
-                        <div
-                          className="todayCompletionBarFill"
-                          style={{ width: `${completionPct}%` }}
+                  {(today?.first_in_time || today?.last_out_time) && (
+                    <div className="todayAttendanceClockWrapper">
+                      {today?.first_in_time && (
+                        <AttendanceClock
+                          time={today.first_in_time}
+                          type="clockin"
                         />
-                      </div>
-                      <div className="todayCompletionBarLabels">
-                        <span className="textXXXS textLight">
-                          First In: {today.first_in_time}
-                        </span>
-                        <span className="textXXXS textLight">
-                          {today.last_out_time
-                            ? `Last Seen: ${today.last_out_time}`
-                            : "Ongoing"}
-                        </span>
-                      </div>
+                      )}
+                      {today?.last_out_time && (
+                        <AttendanceClock
+                          time={today.last_out_time}
+                          type="clockout"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {today?.hours_worked != null && (
+                    <div className="todayAttendanceHoursRow">
+                      <p className="textBold textS">
+                        {today.hours_worked}h worked
+                      </p>
+                      <AttendanceAnomalyBadges
+                        overtimeHours={today?.overtime_hours}
+                        isEarlyLeave={today?.is_early_leave}
+                        isLateArrival={today?.is_late_arrival}
+                        isLeaveAttendanceConflict={
+                          today?.is_leave_attendance_conflict
+                        }
+                        isInsufficientHalfDayHours={
+                          today?.is_insufficient_half_day_hours
+                        }
+                        hasLeaveFractionError={today?.has_leave_fraction_error}
+                        isWorkedOnHoliday={today?.is_worked_on_holiday}
+                        holidayHoursWorked={today?.holiday_hours_worked}
+                      />
                     </div>
                   )}
 
@@ -220,6 +196,8 @@ export default function TodayAttendanceCard() {
                       {elapsedSinceClockIn} ago
                     </p>
                   )}
+
+                  <div className="divider"></div>
 
                   {/* Read-only -- mode="readonly" matches none of
                       AttendanceTimelineCard's existing hr/self/manager

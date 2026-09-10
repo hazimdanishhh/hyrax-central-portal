@@ -19,6 +19,7 @@ import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineCard";
 import AttendanceDayTimelineBar from "../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
+import getHrFlagStatusType from "../../../functions/attendanceFlagStatus";
 
 export default function AttendanceSidebarHR({
   selectedRow, // This is now the Daily Summary Row
@@ -66,10 +67,16 @@ export default function AttendanceSidebarHR({
             />
           )}
 
-          {/* Show the Daily Macro Flag */}
+          {/* Show the Daily Macro Flag -- getHrFlagStatusType is the single
+              shared mapping every other hr_flag consumer already uses
+              (AttendanceCard.jsx, TodayAttendanceCard.jsx); this used to be
+              its own hand-duplicated ternary that only recognized
+              On Leave/Review Required/Approved/OK, silently defaulting
+              everything else -- including Weekend/Rest Day, Absent, and
+              Public Holiday -- to "red", as if they were errors. */}
           <StatusBox
             status={selectedRow?.hr_flag}
-            type={`${selectedRow?.hr_flag?.startsWith("On Leave") ? "purple" : selectedRow?.hr_flag === "Review Required" ? "yellow" : selectedRow?.hr_flag === "Approved" || selectedRow?.hr_flag === "OK" ? "green" : "red"}`}
+            type={getHrFlagStatusType(selectedRow?.hr_flag)}
           />
         </div>
       </div>

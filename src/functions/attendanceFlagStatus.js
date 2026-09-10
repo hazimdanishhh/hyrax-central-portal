@@ -6,6 +6,7 @@
 export default function getHrFlagStatusType(hrFlag) {
   if (!hrFlag) return "grey";
   if (hrFlag.startsWith("On Leave")) return "purple";
+  if (hrFlag.startsWith("Public Holiday")) return "blue";
 
   switch (hrFlag) {
     case "OK":

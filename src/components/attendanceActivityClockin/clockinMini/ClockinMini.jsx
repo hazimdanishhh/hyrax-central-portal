@@ -12,7 +12,8 @@ import useMyCurrentStatus from "../../../features/employee/attendance/private/ho
 import useClockInOutAction from "../../../features/employee/attendance/private/hooks/useClockInOutAction";
 
 export default function ClockinMini({ navIsOpen }) {
-  const { currentStatus, lastStatusTime } = useMyCurrentStatus();
+  const { currentStatus, firstArrivalTime, lastStatusTime } =
+    useMyCurrentStatus();
 
   const {
     currentActivity,
@@ -67,8 +68,18 @@ export default function ClockinMini({ navIsOpen }) {
         <CardLayout style="cardLayout1">
           <CardLayout style="cardLayoutFlexFull generalCard">
             <AttendanceType attendanceType={currentStatus} />
+            {/* Full cycle, matching AttendanceSidebarHR's First In/Last Out
+                pair -- lastStatusTime is the most recent event (possibly
+                the 3rd, 4th, ... scan of the day), not a first arrival, so
+                it must be type="clockout" ("Last Seen:"), not "clockin"
+                ("First In:") -- both used to be mislabeled "clockin" here,
+                so a day with several scans only ever showed "First In" and
+                never the actual last-seen time. */}
+            {firstArrivalTime && (
+              <AttendanceClock time={firstArrivalTime} type="clockin" />
+            )}
             {lastStatusTime && (
-              <AttendanceClock time={lastStatusTime} type="clockin" />
+              <AttendanceClock time={lastStatusTime} type="clockout" />
             )}
           </CardLayout>
         </CardLayout>

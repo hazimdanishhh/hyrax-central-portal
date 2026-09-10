@@ -16,31 +16,25 @@
   width: 100%;
 }
 
-.todayCompletionBar {
+// Replaces this card's own former ad hoc linear completion bar --
+// AttendanceDayTimelineBar (shared with AttendanceSidebarHR) now renders the
+// segmented, time-of-day bar here instead, so both surfaces show the same
+// visualization for the same day.
+.todayAttendanceClockWrapper {
   display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  width: 100%;
-}
-
-.todayCompletionBarTrack {
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  background-color: $neutral300;
-  overflow: hidden;
-}
-
-.todayCompletionBarFill {
-  height: 100%;
-  border-radius: 3px;
-  background-color: $success600;
-  transition: width 0.3s ease;
-}
-
-.todayCompletionBarLabels {
-  display: flex;
+  align-items: start;
   justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.todayAttendanceHoursRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  flex-wrap: wrap;
   width: 100%;
 }
 

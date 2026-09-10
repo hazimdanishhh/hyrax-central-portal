@@ -20,10 +20,13 @@ export async function fetchUnifiedAttendance({ date, search, filters, sortBy, so
   let query = supabase
     .from("unified_daily_attendance")
     .select("*")
-    .eq("work_date", date)
-    .order(sortBy || "full_name", {
-      ascending: sortOrder !== "descending",
-    });
+    .eq("work_date", date);
+
+  query = applyAttendanceSort(
+    query,
+    sortBy || "full_name",
+    sortOrder !== "descending",
+  );
 
   // -------------------
   // SEARCH
@@ -64,6 +67,48 @@ export async function fetchUnifiedAttendance({ date, search, filters, sortBy, so
     data: normalizeUnifiedAttendance(data || []),
     totalCount: data?.length || 0,
   };
+}
+
+// Shared by both fetchers below -- builds the FULL multi-column .order()
+// chain for whichever single field the SortBar UI's dropdown chose, rather
+// than sorting by just that one column. The chosen ascending/descending
+// toggle applies ONLY to that primary column; two fixed tie-breaks are
+// then appended in this order (skipping either one that IS already the
+// primary column, to avoid ordering by the same column twice):
+//   1. full_name ascending -- a human-friendly, deterministic secondary
+//      order. Also what makes Search mode's row-offset pagination stable
+//      across pages (see fetchUnifiedAttendanceSearch's own comment).
+//   2. work_date descending -- most recent day first. A no-op in Day mode
+//      (every row already shares one date -- see fetchUnifiedAttendance's
+//      own comment), genuinely meaningful in Search mode (rows span many
+//      dates).
+// These two tie-break directions are fixed, not user-configurable --
+// flipping "sort by Department" to descending should reverse department
+// order, not also flip "most recent date first" to oldest-first; the two
+// concerns are independent. The user asked for exactly this shape for two
+// concrete cases (Employee Name -> secondary date descending; Department ->
+// name then date) -- generalized here to every sort option (Hours Worked,
+// Status, First In, Last Out too) rather than special-casing just those
+// two, since the same "name, then most-recent-date" tie-break reads
+// sensibly regardless of the primary column chosen.
+//
+// Final tie-break: employee_uuid, always, unconditionally (it's never a
+// sort option a user can pick, so no skip-check needed). Two employees can
+// share the same full_name -- without this, their rows for the same date
+// would have no deterministic relative order, which would let Search
+// mode's row-offset pagination silently show a row twice or skip one
+// across a page boundary.
+function applyAttendanceSort(query, primaryColumn, primaryAscending) {
+  let q = query.order(primaryColumn, { ascending: primaryAscending });
+
+  if (primaryColumn !== "full_name") {
+    q = q.order("full_name", { ascending: true });
+  }
+  if (primaryColumn !== "work_date") {
+    q = q.order("work_date", { ascending: false });
+  }
+
+  return q.order("employee_uuid", { ascending: true });
 }
 
 // Shared by both fetchers below -- named business-window filters mirroring
@@ -162,10 +207,10 @@ function applyAttendanceFilter(query, key, value) {
  * one employee should show that employee's whole history, not just their
  * one row for whatever single date happened to be selected. Row-offset
  * pagination is safe here (unlike the old pre-day-mode version of this
- * page) because a secondary sort tie-break (full_name) makes results
- * deterministic across pages even when a page boundary falls mid-day --
- * that's just an ordinary paginated list now, not a bug, same as every
- * other list page in this app.
+ * page) because applyAttendanceSort's tie-break chain (full_name, then
+ * work_date) makes results deterministic across pages even when a page
+ * boundary falls mid-day -- that's just an ordinary paginated list now,
+ * not a bug, same as every other list page in this app.
  */
 export async function fetchUnifiedAttendanceSearch({
   page,
@@ -180,9 +225,13 @@ export async function fetchUnifiedAttendanceSearch({
 
   let query = supabase
     .from("unified_daily_attendance")
-    .select("*", { count: "exact" })
-    .order(sortBy || "work_date", { ascending: sortOrder === "ascending" })
-    .order("full_name", { ascending: true });
+    .select("*", { count: "exact" });
+
+  query = applyAttendanceSort(
+    query,
+    sortBy || "work_date",
+    sortOrder === "ascending",
+  );
 
   // -------------------
   // SEARCH
