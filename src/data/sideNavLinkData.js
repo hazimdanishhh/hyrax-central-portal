@@ -447,17 +447,17 @@ export const sideNavLinkData = [
       },
 
       {
-        label: "Organization Chart",
-        icon: TreeStructureIcon,
-        path: "hr/organization-chart",
+        label: "Leave Management",
+        icon: CalendarIcon,
+        path: "hr/leaves",
 
         departments: ["HR"],
       },
 
       {
-        label: "Leave Management",
-        icon: CalendarIcon,
-        path: "hr/leaves",
+        label: "Organization Chart",
+        icon: TreeStructureIcon,
+        path: "hr/organization-chart",
 
         departments: ["HR"],
       },

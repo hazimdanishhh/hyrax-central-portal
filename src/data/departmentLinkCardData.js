@@ -24,6 +24,8 @@ import {
   ArrowsClockwiseIcon,
   ScalesIcon,
   ChartLineUpIcon,
+  CalendarIcon,
+  DoorOpenIcon,
 } from "@phosphor-icons/react";
 
 // Config-driven "department link cards" shown on the Dashboard homepage.
@@ -32,6 +34,12 @@ import {
 // the same way as the sidenav (canAccess({roles, departments})), just
 // applied to this config instead. `path` is relative — no leading slash,
 // no "/app" prefix — DepartmentLinkCard prefixes it with "/app/".
+//
+// HR is the one exception to "curated subset" above: its segment below is
+// kept in the same order and with the same entries as sideNavLinkData.js's
+// own HR segment, by explicit request -- the Dashboard's HR cards should
+// always match what HR sees in the sidenav/mobile nav, not a separately
+// curated subset.
 export const departmentLinkCardData = [
   // =================================================
   // SALES
@@ -288,10 +296,37 @@ export const departmentLinkCardData = [
       },
 
       {
+        label: "Leave Management",
+        description: "Review employee leave records and balances.",
+        icon: CalendarIcon,
+        path: "hr/leaves",
+
+        departments: ["HR"],
+      },
+
+      {
         label: "Organization Chart",
         description: "Visualize reporting lines across the company.",
         icon: TreeStructureIcon,
         path: "hr/organization-chart",
+
+        departments: ["HR"],
+      },
+
+      {
+        label: "Onboarding",
+        description: "Track new hire onboarding checklists.",
+        icon: AddressBookIcon,
+        path: "hr/onboarding",
+
+        departments: ["HR"],
+      },
+
+      {
+        label: "Offboarding",
+        description: "Track employee exit checklists and final settlement.",
+        icon: DoorOpenIcon,
+        path: "hr/offboarding",
 
         departments: ["HR"],
       },

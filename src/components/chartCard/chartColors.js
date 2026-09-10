@@ -112,7 +112,7 @@ export const ATTENDANCE_FLAG_COLORS = {
   Approved: "#4bc793",
   "Pending App Approval": "#ffb74d",
   "Missing App Check-Out": "#d76363",
-  "Incomplete Card Scans": "#d76363",
+  "Incomplete Card Scans": "#dd8b48",
   Absent: "#d76363",
   "Weekend / Rest Day": "#9CA3AF",
   // HR2000 leave ledger integration -- get_attendance_dashboard_rpc.sql's
@@ -121,6 +121,7 @@ export const ATTENDANCE_FLAG_COLORS = {
   // so it always resolves here instead of falling back to PieChartRenderer's
   // unmapped grey. Matches AttendanceType.jsx/StatusBox's own purple.
   "On Leave": PURPLE_COLOR,
+  "Public Holiday": BLUE_COLOR,
 };
 
 // ATTENDANCE WORK CHANNEL MIX (unified_daily_attendance's hw_check_in vs
