@@ -115,9 +115,8 @@ function applyAttendanceSort(query, primaryColumn, primaryAscending) {
 // get_attendance_dashboard_rpc.sql's own thresholds exactly (09:00 late
 // arrival, overtime/early-leave read from unified_daily_attendance's
 // overtime_hours/is_early_leave columns -- after 6PM / before 5PM,
-// respectively, not hours_worked-based), is_weekend exclusions for
-// working-day/present, so a drill-through link's row count always matches
-// the KPI it came from.
+// respectively, not hours_worked-based), so a drill-through link's row
+// count always matches the KPI it came from.
 function applyAttendanceFilter(query, key, value) {
   switch (key) {
     case "employee":
@@ -135,20 +134,29 @@ function applyAttendanceFilter(query, key, value) {
     case "hrFlag":
       return query.eq("hr_flag", value);
 
-    case "workingDayOnly":
-      // is_weekend is a calendar-only signal (computed purely from the
-      // date, regardless of attendance activity) -- hr_flag no longer has a
-      // "Weekend / Rest Day" value at all (a genuine unworked weekend now
-      // reads hr_flag = "Absent"), so this must exclude on is_weekend, not
-      // on any hr_flag string, or every unworked weekend would silently
-      // fall through as an "Absent" working day.
-      return query.eq("is_weekend", false);
-
-    case "weekendOnly":
-      return query.eq("is_weekend", true);
+    case "dayType":
+      // Merged "Working Days Only"/"Weekend Only" into one filter -- they
+      // were previously two separate dropdown entries that were really just
+      // opposite ends of the same is_weekend boolean.
+      if (value === "working") return query.eq("is_weekend", false);
+      if (value === "weekend") return query.eq("is_weekend", true);
+      return query;
 
     case "presentOnly":
-      return query.eq("is_weekend", false).neq("hr_flag", "Absent");
+      // "Present" means hr_flag isn't Absent and isn't an unworked Public
+      // Holiday -- NOT is_weekend = false. An unworked weekend already
+      // reads hr_flag = "Absent" (hr_flag no longer has a "Weekend / Rest
+      // Day" value at all), so excluding "Absent" alone already excludes
+      // it; a separate is_weekend exclusion would ALSO wrongly exclude a
+      // worked Saturday (hr_flag = "Approved"/etc.) even though the
+      // employee clearly was present that day -- that was a real bug.
+      // hr_flag only ever reads "Public Holiday (...)" on a day with zero
+      // real attendance (a worked holiday falls through to Approved/OK/etc
+      // instead), so excluding that prefix can never wrongly exclude a
+      // worked day either, mirroring exactly how excluding "Absent" can't.
+      return query
+        .neq("hr_flag", "Absent")
+        .not("hr_flag", "ilike", "Public Holiday%");
 
     case "onLeave":
       return query.eq("is_on_leave", true);
@@ -198,6 +206,9 @@ function applyAttendanceFilter(query, key, value) {
 
     case "workedOnHoliday":
       return query.eq("is_worked_on_holiday", true);
+
+    case "workedOnWeekend":
+      return query.eq("is_worked_on_weekend", true);
 
     default:
       return query;

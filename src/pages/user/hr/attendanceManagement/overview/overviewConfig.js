@@ -1,5 +1,6 @@
 import {
   AlarmIcon,
+  CalendarDotsIcon,
   CalendarStarIcon,
   CalendarXIcon,
   ClockUserIcon,
@@ -98,6 +99,10 @@ export function getAttendanceOverviewConfig(
     kpis.holidayHoursWorkedTotal,
     kpis.prevHolidayHoursWorkedTotal,
   );
+  const weekendHoursWorkedDelta = calcDelta(
+    kpis.weekendHoursWorkedTotal,
+    kpis.prevWeekendHoursWorkedTotal,
+  );
 
   // Carried into every link below -- the Overview's own department/employee
   // narrowing, so a tile click never silently resets it.
@@ -172,6 +177,17 @@ export function getAttendanceOverviewConfig(
       thresholds: { criticalAt: 0.01 },
     },
   );
+  // Same "any nonzero total" convention as Holiday Work above -- a
+  // payroll-relevant fact worth HR's attention, not necessarily a problem.
+  const weekendWorkedStatus = getStatusVariant(
+    kpis.weekendHoursWorkedTotal || 0,
+    {
+      direction: "low-good",
+      tiers: 2,
+      badLevel: "warning",
+      thresholds: { criticalAt: 0.01 },
+    },
+  );
   const absenteeismStatus = getStatusVariant(kpis.absenteeismRatePct || 0, {
     direction: "low-good",
     thresholds: { warningAt: 3, criticalAt: 6 },
@@ -210,7 +226,7 @@ export function getAttendanceOverviewConfig(
               to: "../list",
               filter: {
                 ...baseFilter,
-                workingDayOnly: "true",
+                dayType: "working",
                 ...todaySnapshotDates,
               },
             },
@@ -349,7 +365,7 @@ export function getAttendanceOverviewConfig(
       // An average has no exact matching row-set -- links to the working-day
       // population it's averaged over, the best available "see who" target.
       to: "../list",
-      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
+      filter: { ...baseFilter, dayType: "working", ...periodFilter },
       metrics: [
         {
           label: "Late Arrivals",
@@ -368,7 +384,7 @@ export function getAttendanceOverviewConfig(
       value: formatTimeDisplay(kpis.avgCheckOutTime),
       variant: "blueCard",
       to: "../list",
-      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
+      filter: { ...baseFilter, dayType: "working", ...periodFilter },
       metrics: [
         {
           label: "Early Leave",
@@ -396,7 +412,7 @@ export function getAttendanceOverviewConfig(
         label: avgHoursWorkedStatus.statusLabel,
       },
       to: "../list",
-      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
+      filter: { ...baseFilter, dayType: "working", ...periodFilter },
       metrics: [
         {
           label: "Prev. Period",
@@ -468,6 +484,38 @@ export function getAttendanceOverviewConfig(
         "Sum of hours_worked on days flagged is_public_holiday, this period -- HR2000's public holiday calendar cross-checked against real attendance. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Holiday is a distinct-employee count.",
     },
 
+    // Weekend work -- mirrors Holiday Work above exactly. Not mutually
+    // exclusive with it -- a Saturday that's also a public holiday can
+    // contribute hours to both tiles.
+    {
+      icon: CalendarDotsIcon,
+      label: "Weekend Work",
+      sublabel: "Total Hours, This Period",
+      value: `${kpis.weekendHoursWorkedTotal || 0}h`,
+      variant: weekendWorkedStatus.variant,
+      status: {
+        icon: weekendWorkedStatus.statusIcon,
+        label: weekendWorkedStatus.statusLabel,
+      },
+      to: "../list",
+      filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
+      metrics: [
+        {
+          label: "Prev. Period",
+          value: deltaText(weekendHoursWorkedDelta),
+          icon: deltaIcon(weekendHoursWorkedDelta),
+        },
+        {
+          label: "Employees Worked on Weekend",
+          value: kpis.employeesWorkedOnWeekendCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
+        },
+      ],
+      title:
+        "Sum of hours_worked on days flagged is_weekend, this period -- a real reconciliation fact, since weekend work no longer disappears from the day's status the moment someone actually comes in. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Weekend is a distinct-employee count.",
+    },
+
     // ==========================================
     // ABSENTEEISM (period-bound)
     // ==========================================
@@ -483,7 +531,7 @@ export function getAttendanceOverviewConfig(
       // not just the absent slice -- Absent Days below is the sub-metric
       // for that.
       to: "../list",
-      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
+      filter: { ...baseFilter, dayType: "working", ...periodFilter },
       metrics: [
         {
           label: "Absent Days",

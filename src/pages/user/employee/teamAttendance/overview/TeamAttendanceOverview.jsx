@@ -255,7 +255,7 @@ export default function TeamAttendanceOverview() {
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      workingDayOnly: "true",
+                      dayType: "working",
                       ...chartPeriodFilter,
                     }}
                   >
@@ -272,7 +272,7 @@ export default function TeamAttendanceOverview() {
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      workingDayOnly: "true",
+                      dayType: "working",
                       ...chartPeriodFilter,
                     }}
                   >
@@ -290,7 +290,7 @@ export default function TeamAttendanceOverview() {
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      workingDayOnly: "true",
+                      dayType: "working",
                       ...chartPeriodFilter,
                     }}
                   >

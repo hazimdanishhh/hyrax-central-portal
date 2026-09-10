@@ -50,26 +50,25 @@ export function getAttendanceActivitiesFilterConfig({
       ],
     },
     {
-      key: "workingDayOnly",
-      label: "Working Days",
-      options: [{ label: "Exclude Weekends", value: "true" }],
+      // Merged "Working Days Only"/"Weekend Only" into one filter -- they
+      // were two separate dropdown entries that were really just opposite
+      // ends of the same is_weekend boolean (hr_unified_daily_attendance_view.sql).
+      key: "dayType",
+      label: "Day Type",
+      options: [
+        { label: "Working Days Only", value: "working" },
+        { label: "Weekend Only", value: "weekend" },
+      ],
     },
     {
-      // is_weekend is a calendar-only signal (true every Saturday/Sunday,
-      // worked or not) -- distinct from workingDayOnly above, which excludes
-      // weekends from the result rather than isolating them. See
-      // hr_unified_daily_attendance_view.sql: hr_flag no longer has a
-      // "Weekend / Rest Day" value at all (a genuine unworked weekend now
-      // reads hr_flag = "Absent"), so this boolean toggle is the only safe
-      // way to target weekends now.
-      key: "weekendOnly",
-      label: "Weekend",
-      options: [{ label: "Weekend Only", value: "true" }],
-    },
-    {
+      // "Present" excludes hr_flag = "Absent" and an unworked Public
+      // Holiday -- NOT is_weekend, since an unworked weekend already reads
+      // hr_flag = "Absent" (hr_flag no longer has a "Weekend / Rest Day"
+      // value at all), so it's already covered by the Absent exclusion
+      // alone. A worked Saturday still correctly counts as present.
       key: "presentOnly",
       label: "Presence",
-      options: [{ label: "Present Only (Exclude Absent/Weekend)", value: "true" }],
+      options: [{ label: "Present Only (Exclude Absent/Holiday)", value: "true" }],
     },
     {
       // hrFlag's fixed enum can't target "On Leave (AL)"/"On Leave (AL+MC)"
@@ -128,6 +127,13 @@ export function getAttendanceActivitiesFilterConfig({
       key: "workedOnHoliday",
       label: "Worked on Holiday",
       options: [{ label: "Worked on Holiday Only", value: "true" }],
+    },
+    {
+      // Mirrors workedOnHoliday above exactly -- the same reconciliation
+      // pull-list, for weekends instead of public holidays.
+      key: "workedOnWeekend",
+      label: "Worked on Weekend",
+      options: [{ label: "Worked on Weekend Only", value: "true" }],
     },
   ];
 }

@@ -2,8 +2,9 @@
 -- tested (as three real accounts: a plain self-service employee, a
 -- manager, and an HR/superadmin user, comparing row counts/KPIs before and
 -- after each step):
---   1. current_employee_id.sql, current_employee_manager_id.sql,
---      get_company_activity_dates.sql (functions)
+--   1. current_employee_id.sql, get_company_activity_dates.sql (functions,
+--      the latter STABLE -- see its own header comment on why that matters
+--      for query plan quality, not just correctness)
 --   2. employees_manager_view.sql (policies)
 --   3. attendance_logs' 4 policies confirmed live (attendance_logs_crud.sql
 --      -- live-verify with `select policyname, cmd from pg_policies where

@@ -111,6 +111,7 @@ public,employees,table,true,false,Only Superadmin can CRUD,ALL,true,{authenticat
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
+public,employees,table,true,false,Managers can view their direct reports,SELECT,true,{authenticated},(manager_id = current_employee_id()),null
 public,employment_status,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,employment_type,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,identification_type,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null

@@ -220,7 +220,7 @@ export default function MyAttendanceOverview() {
                     subtitle="By Record, This Period (Excludes Weekends)"
                     style="cardGapSmall"
                     viewAllTo="../list"
-                    viewAllFilter={{ workingDayOnly: "true", ...chartPeriodFilter }}
+                    viewAllFilter={{ dayType: "working", ...chartPeriodFilter }}
                   >
                     <PieChartRenderer
                       data={hrFlagBreakdownData}
@@ -234,7 +234,7 @@ export default function MyAttendanceOverview() {
                     subtitle="Office (Hardware Scan) vs Remote (App), This Period"
                     style="cardGapSmall"
                     viewAllTo="../list"
-                    viewAllFilter={{ workingDayOnly: "true", ...chartPeriodFilter }}
+                    viewAllFilter={{ dayType: "working", ...chartPeriodFilter }}
                   >
                     <PieChartRenderer
                       data={workChannelMixData}

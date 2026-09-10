@@ -422,7 +422,7 @@ export default function HRReports() {
                           viewAllTo={canAccessHrOps ? "/app/hr/attendance/list" : undefined}
                           viewAllFilter={{
                             ...chartBaseFilter,
-                            workingDayOnly: "true",
+                            dayType: "working",
                             ...chartPeriodFilter,
                           }}
                         >
@@ -458,7 +458,7 @@ export default function HRReports() {
                           viewAllTo={canAccessHrOps ? "/app/hr/attendance/list" : undefined}
                           viewAllFilter={{
                             ...chartBaseFilter,
-                            workingDayOnly: "true",
+                            dayType: "working",
                             ...chartPeriodFilter,
                           }}
                         >

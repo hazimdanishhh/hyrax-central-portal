@@ -99,7 +99,7 @@ export function getHrReportsOverviewConfig(
       value: `${kpis.attendanceRatePct || 0}%`,
       variant: "blueCard",
       to: attendanceTo,
-      filter: { ...baseFilter, workingDayOnly: "true", ...periodFilter },
+      filter: { ...baseFilter, dayType: "working", ...periodFilter },
       metrics: [],
       title:
         "Employees with any real check-in data, divided by working-day records (Weekend/Rest-Day excluded), this period -- same formula as Attendance Overview's headline rate.",

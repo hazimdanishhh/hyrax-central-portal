@@ -21,13 +21,20 @@ WITH active_company_dates AS (
     -- Weekend calendar dates -- same reasoning as public holidays above:
     -- without this, a Saturday/Sunday with zero company-wide activity never
     -- enters the spine, so is_weekend (below) would never even get a row to
-    -- appear on for anyone. Bounded to 3 years back / 1 year forward rather
-    -- than full company history to keep this cheap -- widen the window if a
-    -- report ever needs an older weekend that predates it.
+    -- appear on for anyone. Bounded to 2 years back / 1 year forward rather
+    -- than full company history to keep this cheap -- comfortably covers a
+    -- full-year report plus its year-over-year previous-period comparison
+    -- (get_attendance_dashboard_rpc.sql's prev_period_rows) without
+    -- unconditionally generating years of synthetic weekend rows nobody
+    -- asked for. Widen the window if a report ever needs an older weekend
+    -- that predates it. Reduced from 3 years back after this exact spine
+    -- addition was found to be the fixed per-call cost floor behind a real
+    -- statement-timeout regression (see daily_holiday's own comment on the
+    -- expected_shifts double-reference this was paired with fixing).
     UNION
     SELECT gs::date AS work_date
     FROM generate_series(
-        (SELECT GREATEST(MIN(join_date), CURRENT_DATE - INTERVAL '3 years') FROM public.employees),
+        (SELECT GREATEST(MIN(join_date), CURRENT_DATE - INTERVAL '2 years') FROM public.employees),
         CURRENT_DATE + INTERVAL '1 year',
         INTERVAL '1 day'
     ) AS gs
@@ -204,16 +211,36 @@ daily_leave AS (
 -- location-specific row AND a company-wide row), which would silently
 -- duplicate that employee's row in the final SELECT -- this view's whole
 -- contract is one row per employee per day.
+--
+-- Deliberately joins public.employees directly, NOT expected_shifts --
+-- this only ever needs employee_uuid/work_location_id (both already on
+-- employees) and public_holidays' own dates, never the full date spine.
+-- Critical performance reason, not just avoiding an unnecessary join:
+-- expected_shifts was previously referenced twice in this view (here, and
+-- again in the final FROM below) -- Postgres's default behavior for a
+-- non-recursive CTE referenced more than once is to materialize it in
+-- full, UNFILTERED by any caller's date range, before any outer WHERE
+-- work_date filter (from get_attendance_dashboard_rpc.sql's period_rows)
+-- can reach it. That forced every single query against this view --
+-- regardless of how narrow the requested date range was -- to pay the
+-- full cost of cross-joining every active employee against the ENTIRE
+-- multi-year date spine (a real bug this caused: full-year queries timing
+-- out, and even 3-month queries measurably slower than before the weekend
+-- date-generation was added to the spine). Reducing expected_shifts to a
+-- single reference (only in the final FROM) makes it eligible for
+-- inlining instead, so the caller's date filter can finally reach all the
+-- way back into the cross join and prune it before the expensive
+-- downstream joins (daily_hardware/daily_app/etc.) ever see the rows.
 daily_holiday AS (
-    SELECT DISTINCT ON (u.employee_uuid, u.work_date)
-        u.employee_uuid AS holiday_emp_uuid,
-        u.work_date,
+    SELECT DISTINCT ON (e.id, ph.holiday_date)
+        e.id AS holiday_emp_uuid,
+        ph.holiday_date AS work_date,
         ph.name AS holiday_name
-    FROM expected_shifts u
+    FROM public.employees e
+    JOIN public.employment_status es ON es.id = e.employment_status_id AND es.category = 'active'
     JOIN public.public_holidays ph
-        ON ph.holiday_date = u.work_date
-        AND (ph.work_location_id = u.work_location_id OR ph.work_location_id IS NULL)
-    ORDER BY u.employee_uuid, u.work_date, ph.work_location_id NULLS LAST
+        ON (ph.work_location_id = e.work_location_id OR ph.work_location_id IS NULL)
+    ORDER BY e.id, ph.holiday_date, ph.work_location_id NULLS LAST
 )
 
 -- 5. Bring it all together onto the Expected Shifts matrix
@@ -325,18 +352,30 @@ SELECT
     dl.leave_day_fraction_total AS leave_day_fraction,
 
     -- Overtime: time worked strictly after 6PM, regardless of arrival time
-    -- -- company policy is NOT "hours_worked > 8". GREATEST/EXTRACT are
-    -- null-safe: a day with no checkout (last_out_time_of_day null)
-    -- naturally computes to 0 here (GREATEST ignores NULL args), matching
-    -- how such days are already excluded downstream via hr_flag/is_on_leave
-    -- filters rather than needing a separate null-guard. Repeats the same
-    -- MAX(...) expression last_out/last_out_time_of_day above already use
-    -- -- a SELECT list can't reference a sibling output column's alias, and
-    -- restructuring this view into a wrapping CTE is a bigger change than
-    -- this fix warrants.
+    -- -- company policy is NOT "hours_worked > 8". The overtime window's
+    -- start is bounded to the LATER of (actual first arrival, 6PM) -- fixes
+    -- a real bug where someone whose entire day started after 6PM (e.g.
+    -- clocked in 9PM, out 11PM) previously showed 5h of overtime (11PM
+    -- minus a flat 6PM) instead of the real 2h, since the old formula
+    -- assumed continuous presence from 6PM regardless of when they actually
+    -- arrived. GREATEST/EXTRACT are null-safe: GREATEST ignores NULL
+    -- arguments rather than propagating them, so a day with no checkin at
+    -- all still computes to 0 here exactly as before (matching how such
+    -- days are already excluded downstream via hr_flag/is_on_leave filters
+    -- rather than needing a separate null-guard), and a normal day (arrival
+    -- before 6PM) is unaffected since GREATEST(early_arrival, 18:00) still
+    -- picks 18:00. Repeats the same MAX(...)/MIN(...) expressions
+    -- last_out/first_in_time_of_day above already use -- a SELECT list
+    -- can't reference a sibling output column's alias, and restructuring
+    -- this view into a wrapping CTE is a bigger change than this fix
+    -- warrants.
     GREATEST(
         EXTRACT(EPOCH FROM (
-            (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time - TIME '18:00:00'
+            (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time
+            - GREATEST(
+                (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time,
+                TIME '18:00:00'
+              )
         )) / 3600.0,
         0
     ) AS overtime_hours,
@@ -478,7 +517,31 @@ SELECT
     -- match against hr_flag, since hr_flag can no longer represent
     -- "weekend" at all. Appended last per this view's append-only
     -- constraint.
-    u.is_weekend
+    u.is_weekend,
+
+    -- Worked on a weekend -- mirrors is_worked_on_holiday exactly.
+    -- Existence-based (hw_check_in/app_check_in present), not
+    -- hours_worked > 0, so a data quirk that computes 0 hours despite a
+    -- real check-in still counts as "attended." Not mutually exclusive
+    -- with is_worked_on_holiday -- a Saturday that also happens to be a
+    -- public holiday can be true for both; that's intentional, same as
+    -- every other independently-populated flag on this view (is_on_leave/
+    -- is_public_holiday coexist the same way).
+    COALESCE(
+        u.is_weekend
+        AND (h.hw_check_in IS NOT NULL OR a.app_check_in IS NOT NULL),
+        false
+    ) AS is_worked_on_weekend,
+
+    -- Hours actually worked on that weekend day -- mirrors
+    -- holiday_hours_worked exactly, repeating hours_worked's own expression
+    -- rather than referencing its alias (same constraint every other
+    -- repeated expression in this view already documents).
+    CASE
+        WHEN u.is_weekend
+        THEN GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0)
+        ELSE 0
+    END AS weekend_hours_worked
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date

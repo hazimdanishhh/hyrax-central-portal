@@ -1,5 +1,5 @@
 -- Run this once in the Supabase SQL editor, AFTER current_employee_id.sql
--- and current_employee_manager_id.sql have both been deployed.
+-- has been deployed.
 --
 -- public.employees currently has exactly 3 policies (confirmed live via
 -- docs/TABLE-POLICIES.csv): self ("Enable users to view their own data
@@ -17,6 +17,15 @@
 -- Team Attendance for every non-HR/superadmin manager.
 --
 -- Deploy this BEFORE flipping security_invoker on those views, not after.
+--
+-- Only one tier is needed -- confirmed with the user: My Attendance is
+-- scoped to the viewer's own attendance only, and Team Attendance is scoped
+-- to the manager's own direct reports only. Neither page (nor either RPC)
+-- ever needs a self-service employee to see their OWN manager's employees
+-- row -- unified_daily_attendance.manager_name (the one column that join
+-- would feed) has zero frontend consumers (confirmed by repo-wide grep), so
+-- a second "Employees can view their own manager's record" policy would
+-- grant real access for no product need. Not added.
 
 -- Tier: direct manager -- lets a manager's own attendance/reporting queries
 -- see their direct reports' employees rows once RLS actually applies.
@@ -24,17 +33,4 @@ create policy "Managers can view their direct reports" on public.employees
 for select to authenticated
 using (
     manager_id = public.current_employee_id()
-);
-
--- Secondary, lower-severity fix: without this, a self-service employee's
--- own manager_id -> employees join (e.g. unified_daily_attendance's
--- manager_name column) would resolve to NULL once security_invoker is on,
--- since nothing today lets an employee see their own manager's row. Not
--- required for get_attendance_dashboard/get_hr_reports_dashboard (neither
--- RPC surfaces manager_name), but needed for the raw-view List/Card pages
--- (select("*")) to keep showing a manager's name to a self-service viewer.
-create policy "Employees can view their own manager's record" on public.employees
-for select to authenticated
-using (
-    id = public.current_employee_manager_id()
 );

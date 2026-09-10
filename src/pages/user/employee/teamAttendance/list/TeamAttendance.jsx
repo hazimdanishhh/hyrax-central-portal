@@ -43,12 +43,18 @@ const SEARCH_MODE_FILTER_KEYS = [
   "hrFlag",
   "startDate",
   "endDate",
-  "workingDayOnly",
-  "weekendOnly",
+  "dayType",
   "presentOnly",
+  "onLeave",
   "overtimeOnly",
   "lateArrival",
   "earlyLeave",
+  "leaveAttendanceConflict",
+  "insufficientHalfDayHours",
+  "leaveFractionError",
+  "publicHoliday",
+  "workedOnHoliday",
+  "workedOnWeekend",
 ];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {

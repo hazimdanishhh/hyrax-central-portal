@@ -59,12 +59,22 @@ const SEARCH_MODE_FILTER_KEYS = [
   // listing them here too avoids a silent Day-mode no-op if one is ever used
   // alone via a hand-edited URL (the same class of bug the statusBucket
   // embedded-filter fix addressed on the Employee List).
-  "workingDayOnly",
-  "weekendOnly",
+  "dayType",
   "presentOnly",
+  "onLeave",
   "overtimeOnly",
   "lateArrival",
   "earlyLeave",
+  // Previously missing here despite already being real, working
+  // filterConfig.js options with backing applyAttendanceFilter logic -- a
+  // genuine bug: using any of these six alone silently stayed in Day mode
+  // instead of promoting to Search mode.
+  "leaveAttendanceConflict",
+  "insufficientHalfDayHours",
+  "leaveFractionError",
+  "publicHoliday",
+  "workedOnHoliday",
+  "workedOnWeekend",
 ];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {

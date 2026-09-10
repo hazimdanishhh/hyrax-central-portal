@@ -319,7 +319,7 @@ export default function AttendanceOverview() {
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      workingDayOnly: "true",
+                      dayType: "working",
                       ...chartPeriodFilter,
                     }}
                   >
@@ -336,7 +336,7 @@ export default function AttendanceOverview() {
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      workingDayOnly: "true",
+                      dayType: "working",
                       ...chartPeriodFilter,
                     }}
                   >
@@ -354,7 +354,7 @@ export default function AttendanceOverview() {
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      workingDayOnly: "true",
+                      dayType: "working",
                       ...chartPeriodFilter,
                     }}
                   >

@@ -100,11 +100,17 @@ export const attendanceDailySummaryTableConfig = () => [
   {
     // Independent of the Status column above -- a calendar-only fact
     // (true every Saturday/Sunday, worked or not), whereas Status already
-    // folds "unworked weekend" into its own "Weekend" label. This column
-    // lets a worked weekend still be spotted at a glance in Table view.
+    // folds "unworked weekend" into its own "Weekend" label. Shows worked
+    // hours when applicable (mirroring the "Holiday Worked" column's own
+    // value format below), "Yes" for an unworked weekend, "—" on a weekday.
     key: "weekend",
     label: "Weekend",
-    getValue: (activity) => (activity.is_weekend ? "Yes" : "—"),
+    getValue: (activity) =>
+      activity.is_worked_on_weekend
+        ? `${activity.weekend_hours_worked}h`
+        : activity.is_weekend
+          ? "Yes"
+          : "—",
     editable: false,
     editor: "text",
   },

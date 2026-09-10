@@ -22,9 +22,22 @@
 -- sql-language functions during planning, silently dropping SECURITY
 -- DEFINER) + set search_path = '' + fully-qualified names: same hardening
 -- convention as those helpers.
+--
+-- STABLE (not the plpgsql default of VOLATILE) matters a lot here: this is
+-- called from inside unified_daily_attendance, which get_attendance_dashboard
+-- and get_hr_reports_dashboard both read from many CTEs referencing many
+-- times per call (period_rows/prev_period_rows/period_attendance). A
+-- VOLATILE function gives the planner no reliable row-count estimate to
+-- work with for the cross-join this feeds (expected_shifts), which can lead
+-- it to pick a disastrously bad join plan once a query spans a wide date
+-- range and every employee/department (the exact "canceling statement due
+-- to statement timeout" failure mode) -- this function only reads, never
+-- writes, and returns consistent results for the duration of one query, so
+-- STABLE is both correct and necessary, not just an optimization nicety.
 create or replace function public.get_company_activity_dates()
 returns table (work_date date)
 language plpgsql
+stable
 security definer
 set search_path = ''
 as $$

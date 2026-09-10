@@ -205,7 +205,15 @@ active_headcount_today as (
 -- all-time trend chart would otherwise span years of noise) -- note
 -- SearchFilterBar's own date-range presets always send an explicit range,
 -- so this default only matters on a completely unfiltered first load.
-period_rows as (
+-- MATERIALIZED: unified_daily_attendance is expensive (its own
+-- active_company_dates CTE cross-joins every active employee against a
+-- multi-year date spine). period_rows/prev_period_rows are each read by
+-- ~15-20 separate scalar subqueries below -- without this hint the planner
+-- is merely LIKELY (not guaranteed) to materialize a multiply-referenced
+-- CTE rather than re-evaluating the whole view per reference; forcing it
+-- removes that uncertainty entirely, so the view gets computed at most
+-- once per period per call regardless of planner version/heuristics.
+period_rows as materialized (
     select uda.*
     from unified_daily_attendance uda
     where (p_department_id is null or uda.department_id = p_department_id)
@@ -216,7 +224,7 @@ period_rows as (
     and uda.work_date <= coalesce(p_end_date, current_date)
 ),
 
-prev_period_rows as (
+prev_period_rows as materialized (
     select uda.*
     from unified_daily_attendance uda
     where p_start_date is not null and p_end_date is not null
@@ -471,6 +479,15 @@ kpi_totals as (
         (select round(sum(holiday_hours_worked)::numeric, 2) from prev_period_rows where is_worked_on_holiday) as prev_holiday_hours_worked_total,
         (select count(distinct employee_uuid) from period_rows where is_worked_on_holiday) as employees_worked_on_holiday_count,
 
+        -- Weekend work -- mirrors the holiday reconciliation metric above
+        -- exactly. is_worked_on_weekend already carries the "real
+        -- attendance" check, same as is_worked_on_holiday does. Not
+        -- mutually exclusive with the holiday figures above -- a Saturday
+        -- that's also a public holiday can contribute hours to both totals.
+        (select round(sum(weekend_hours_worked)::numeric, 2) from period_rows where is_worked_on_weekend) as weekend_hours_worked_total,
+        (select round(sum(weekend_hours_worked)::numeric, 2) from prev_period_rows where is_worked_on_weekend) as prev_weekend_hours_worked_total,
+        (select count(distinct employee_uuid) from period_rows where is_worked_on_weekend) as employees_worked_on_weekend_count,
+
         (select count(*) from period_rows where hr_flag = 'Absent' and not is_weekend) as absent_days_count,
         (select count(*) from prev_period_rows where hr_flag = 'Absent' and not is_weekend) as prev_absent_days_count,
 
@@ -542,6 +559,9 @@ select json_build_object(
             'holidayHoursWorkedTotal', coalesce(holiday_hours_worked_total, 0),
             'prevHolidayHoursWorkedTotal', prev_holiday_hours_worked_total,
             'employeesWorkedOnHolidayCount', employees_worked_on_holiday_count,
+            'weekendHoursWorkedTotal', coalesce(weekend_hours_worked_total, 0),
+            'prevWeekendHoursWorkedTotal', prev_weekend_hours_worked_total,
+            'employeesWorkedOnWeekendCount', employees_worked_on_weekend_count,
             'absentDaysCount', absent_days_count,
             'prevAbsentDaysCount', prev_absent_days_count,
             'absenteeismRatePct', case when working_day_records_count > 0
