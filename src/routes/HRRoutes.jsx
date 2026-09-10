@@ -10,6 +10,7 @@ import AttendancePageLayout from "../pages/user/hr/attendanceManagement/Attendan
 import Performance from "../pages/user/hr/performance/Performance";
 import AttendanceOverview from "../pages/user/hr/attendanceManagement/overview/AttendanceOverview";
 import AttendanceManagement from "../pages/user/hr/attendanceManagement/list/AttendanceManagement";
+import AttendanceSettings from "../pages/user/hr/attendanceManagement/settings/AttendanceSettings";
 import LifecycleCaseList from "../pages/user/employeeLifecycle/list/LifecycleCaseList";
 import LifecycleCaseDetail from "../pages/user/employeeLifecycle/detail/LifecycleCaseDetail";
 import HRReports from "../pages/user/hr/hrReports/HRReports";
@@ -80,6 +81,17 @@ export default (
         />
         <Route path=":attendanceId" element={<AttendanceManagement />} />
       </Route>
+
+      {/* SETTINGS -- public holiday / company off-day calendar. See
+          docs/ATTENDANCE-SELF-SERVICE-ARCHITECTURE.md. */}
+      <Route
+        path="settings"
+        element={
+          <AccessRoute departments={["HR"]}>
+            <AttendanceSettings />
+          </AccessRoute>
+        }
+      />
     </Route>
 
     {/* HR REPORTS -- Tier-3 cross-submodule dashboard (Employees +

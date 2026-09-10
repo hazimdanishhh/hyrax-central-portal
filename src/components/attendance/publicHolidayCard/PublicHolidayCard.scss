@@ -1,0 +1,41 @@
+// Root element is a <button> (fixed row-click wiring) -- resets the
+// default inline-block/centered-text button layout, same reset
+// LeaveCard.scss's own root class already does for its own button root.
+.publicHolidayCard {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  gap: 0.4rem;
+}
+
+.publicHolidayCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  flex-wrap: wrap;
+
+  .publicHolidayCardHeaderLeft {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.4rem;
+  }
+}
+
+.publicHolidayCardName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.publicHolidayCardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  flex-wrap: wrap;
+}

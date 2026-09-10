@@ -114,6 +114,8 @@ export default function AttendanceSidebarHR({
             selectedRow.is_insufficient_half_day_hours
           }
           hasLeaveFractionError={selectedRow.has_leave_fraction_error}
+          isWorkedOnHoliday={selectedRow.is_worked_on_holiday}
+          holidayHoursWorked={selectedRow.holiday_hours_worked}
         />
       </div>
 

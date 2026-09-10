@@ -78,6 +78,8 @@ function AttendanceCard({ activity, onClick }) {
             isLeaveAttendanceConflict={activity.is_leave_attendance_conflict}
             isInsufficientHalfDayHours={activity.is_insufficient_half_day_hours}
             hasLeaveFractionError={activity.has_leave_fraction_error}
+            isWorkedOnHoliday={activity.is_worked_on_holiday}
+            holidayHoursWorked={activity.holiday_hours_worked}
           />
         </div>
       </div>

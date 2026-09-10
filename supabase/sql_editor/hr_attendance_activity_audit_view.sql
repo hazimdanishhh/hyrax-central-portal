@@ -106,16 +106,58 @@ leave_events AS (
     JOIN public.employees e ON e.id = le.employee_id
 ),
 
--- 4. Stack them together
+-- 4. Public holidays / company off-days -- one synthetic row per employee
+-- per holiday that applies to their work_location_id (or a company-wide,
+-- work_location_id IS NULL, holiday), mirroring leave_events exactly so a
+-- holiday day's Activity Timeline shows a real card instead of "No app
+-- activities logged for this day." DISTINCT ON guards the same rare
+-- both-a-specific-and-a-NULL-row case hr_unified_daily_attendance_view.sql's
+-- daily_holiday CTE already guards against.
+holiday_events AS (
+    SELECT DISTINCT ON (e.id, ph.holiday_date)
+        'holiday-' || ph.id::text AS activity_id,
+        e.id AS employee_uuid,
+        e.employee_id AS company_employee_code,
+        e.full_name,
+        ph.holiday_date AS work_date,
+        'Holiday' AS event_source,
+
+        -- Matches the exact "On Leave (<code>)" shape AttendanceType.jsx's
+        -- existing type.startsWith("on leave") branch special-cases --
+        -- given a matching startsWith("public holiday") branch (added in
+        -- the same pass), this needs zero new styling work either.
+        'Public Holiday (' || ph.name || ')' AS attendance_type,
+
+        NULL::timestamptz AS check_in_time,
+        NULL::timestamptz AS check_out_time,
+        'Approved' AS approval_status,
+
+        -- Must be non-null: AttendanceTimelineCard.jsx calls .includes(...)
+        -- on this field for the App/Hardware branch, though the Holiday
+        -- branch (mirroring Leave) doesn't render it at all.
+        'Public Holiday' AS activity_audit_flag,
+
+        NULL::numeric AS day_fraction,
+        NULL::text AS remarks
+
+    FROM public.public_holidays ph
+    JOIN public.employees e
+        ON ph.work_location_id = e.work_location_id OR ph.work_location_id IS NULL
+    ORDER BY e.id, ph.holiday_date, ph.work_location_id NULLS LAST
+),
+
+-- 5. Stack them together
 all_events AS (
     SELECT * FROM app_events
     UNION ALL
     SELECT * FROM hw_events
     UNION ALL
     SELECT * FROM leave_events
+    UNION ALL
+    SELECT * FROM holiday_events
 )
 
--- 5. Annotate every row with unified_daily_attendance's day-level leave/
+-- 6. Annotate every row with unified_daily_attendance's day-level leave/
 -- attendance conflict flags -- a single event row can't compute these
 -- itself (they're day-wide aggregates: total hours worked, summed leave
 -- fraction across possibly several entries), so this reuses that view's
@@ -129,7 +171,9 @@ SELECT
     ae.*,
     uda.is_leave_attendance_conflict,
     uda.is_insufficient_half_day_hours,
-    uda.has_leave_fraction_error
+    uda.has_leave_fraction_error,
+    uda.is_worked_on_holiday,
+    uda.holiday_hours_worked
 FROM all_events ae
 LEFT JOIN public.unified_daily_attendance uda
     ON uda.employee_uuid = ae.employee_uuid AND uda.work_date = ae.work_date;

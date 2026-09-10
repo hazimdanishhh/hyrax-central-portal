@@ -345,8 +345,12 @@ kpi_totals as (
         -- (HR2000 leave ledger integration) -- an on-leave day with no scan
         -- falls into neither Absent nor Weekend once 'On Leave (...)' exists
         -- as its own hr_flag value, and must not silently count as present.
-        (select count(*) from today_rows where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave) as present_today_count,
-        (select count(*) from period_rows where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave) as present_period_count,
+        -- `and not is_public_holiday` added for the same reason -- a
+        -- company holiday with no scan is now its own hr_flag value too
+        -- ('Public Holiday (...)'), not Absent/Weekend, and must not
+        -- silently count as present either.
+        (select count(*) from today_rows where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave and not is_public_holiday) as present_today_count,
+        (select count(*) from period_rows where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave and not is_public_holiday) as present_period_count,
 
         -- Pending Approvals -- backlog (unbounded by date, the TRUE current
         -- state) vs period-scoped (originated within the selected period).
@@ -407,15 +411,20 @@ kpi_totals as (
         (select count(*) from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent')
          and not is_on_leave
+         and not is_public_holiday
          and is_late_arrival) as late_arrivals_count,
         -- Early leave: before 5PM, computed once in unified_daily_attendance
         -- (is_early_leave) rather than re-deriving the threshold here --
         -- see that view's own comment for why (sets up the future
         -- per-work-location threshold as a one-view change, not a rewrite
-        -- of every consumer).
+        -- of every consumer). `not is_public_holiday` on both -- no
+        -- expected schedule exists on a company holiday, so arriving
+        -- "late" or leaving "early" against a normal-day threshold isn't a
+        -- meaningful anomaly that day, same reasoning as not is_on_leave.
         (select count(*) from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent')
          and not is_on_leave
+         and not is_public_holiday
          and is_early_leave) as early_leave_count,
 
         -- `and not is_on_leave` added (HR2000 leave ledger integration) --
@@ -452,15 +461,27 @@ kpi_totals as (
         (select count(distinct employee_uuid) from period_rows
          where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave and overtime_hours > 0) as employees_with_overtime_count,
 
+        -- Public holidays integration -- reconciliation metric for
+        -- employees who actually attended on a day nobody was expected to
+        -- work. is_worked_on_holiday already carries the "real attendance"
+        -- check (hr_unified_daily_attendance_view.sql), so no additional
+        -- hr_flag/is_on_leave filter is needed here the way overtime_hours
+        -- above needs one.
+        (select round(sum(holiday_hours_worked)::numeric, 2) from period_rows where is_worked_on_holiday) as holiday_hours_worked_total,
+        (select round(sum(holiday_hours_worked)::numeric, 2) from prev_period_rows where is_worked_on_holiday) as prev_holiday_hours_worked_total,
+        (select count(distinct employee_uuid) from period_rows where is_worked_on_holiday) as employees_worked_on_holiday_count,
+
         (select count(*) from period_rows where hr_flag = 'Absent') as absent_days_count,
         (select count(*) from prev_period_rows where hr_flag = 'Absent') as prev_absent_days_count,
 
         -- Denominator for absenteeism/late-arrival rates -- working-day
-        -- records only, excluding the Weekend/Rest-Day placeholder rows and
-        -- (HR2000 leave ledger integration) On Leave rows, the same way
-        -- Weekend already is -- otherwise attendance/absenteeism rates get
-        -- artificially dragged down by days nobody was expected to attend.
-        (select count(*) from period_rows where hr_flag <> 'Weekend / Rest Day' and not is_on_leave) as working_day_records_count,
+        -- records only, excluding the Weekend/Rest-Day placeholder rows,
+        -- On Leave rows, and (public holidays integration) Public Holiday
+        -- rows, the same way Weekend already is -- otherwise attendance/
+        -- absenteeism rates get artificially dragged down by days nobody
+        -- was expected to attend. A company holiday isn't a working day
+        -- regardless of whether one person happened to come in that day.
+        (select count(*) from period_rows where hr_flag <> 'Weekend / Rest Day' and not is_on_leave and not is_public_holiday) as working_day_records_count,
 
         -- HR2000 leave ledger integration -- leave days this period, its
         -- prior-period sibling (same calcDelta convention as avg_hours_worked/
@@ -518,6 +539,9 @@ select json_build_object(
             'overtimeHoursTotal', coalesce(overtime_hours_total, 0),
             'prevOvertimeHoursTotal', prev_overtime_hours_total,
             'employeesWithOvertimeCount', employees_with_overtime_count,
+            'holidayHoursWorkedTotal', coalesce(holiday_hours_worked_total, 0),
+            'prevHolidayHoursWorkedTotal', prev_holiday_hours_worked_total,
+            'employeesWorkedOnHolidayCount', employees_worked_on_holiday_count,
             'absentDaysCount', absent_days_count,
             'prevAbsentDaysCount', prev_absent_days_count,
             'absenteeismRatePct', case when working_day_records_count > 0
@@ -541,12 +565,17 @@ select json_build_object(
     -- before grouping, otherwise each distinct leave-type combination would
     -- render as its own ungrouped, uncolored (grey) slice -- chartColors.js's
     -- ATTENDANCE_FLAG_COLORS only maps the single "On Leave" bucket, not
-    -- every possible type-code combination.
+    -- every possible type-code combination. Public holidays integration --
+    -- same treatment for the dynamic "Public Holiday (<name>)" value.
     'hrFlagBreakdownData', (
         select coalesce(json_agg(x order by x.value desc), '[]'::json)
         from (
             select
-                case when hr_flag like 'On Leave%' then 'On Leave' else hr_flag end as name,
+                case
+                    when hr_flag like 'On Leave%' then 'On Leave'
+                    when hr_flag like 'Public Holiday%' then 'Public Holiday'
+                    else hr_flag
+                end as name,
                 count(*) as value
             from period_rows
             where hr_flag <> 'Weekend / Rest Day'
@@ -564,11 +593,12 @@ select json_build_object(
             select
                 to_char(date_trunc(v_trend_bucket, work_date), 'YYYY-MM-DD') as period,
                 date_trunc(v_trend_bucket, work_date) as bucket_start,
-                -- `and not is_on_leave` on both (HR2000 leave ledger
-                -- integration) -- must stay reconciled with the headline
-                -- attendanceRatePct definition (same present/roster ratio).
-                count(*) filter (where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave) as present_count,
-                count(*) filter (where hr_flag <> 'Weekend / Rest Day' and not is_on_leave) as roster_count
+                -- `and not is_on_leave`/`and not is_public_holiday` on both
+                -- (HR2000 leave ledger + public holidays integration) --
+                -- must stay reconciled with the headline attendanceRatePct
+                -- definition (same present/roster ratio).
+                count(*) filter (where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave and not is_public_holiday) as present_count,
+                count(*) filter (where hr_flag <> 'Weekend / Rest Day' and not is_on_leave and not is_public_holiday) as roster_count
             from period_rows
             group by date_trunc(v_trend_bucket, work_date)
         ) x
@@ -597,12 +627,13 @@ select json_build_object(
         from (
             select
                 coalesce(department_name, 'Unassigned') as name,
-                -- `and not is_on_leave` on both (HR2000 leave ledger
-                -- integration) -- same present/roster ratio as the headline
-                -- KPI, cut by department, must stay reconciled with it.
+                -- `and not is_on_leave`/`and not is_public_holiday` on both
+                -- (HR2000 leave ledger + public holidays integration) --
+                -- same present/roster ratio as the headline KPI, cut by
+                -- department, must stay reconciled with it.
                 round(
-                    (count(*) filter (where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave)::numeric
-                    / nullif(count(*) filter (where hr_flag <> 'Weekend / Rest Day' and not is_on_leave), 0)) * 100
+                    (count(*) filter (where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave and not is_public_holiday)::numeric
+                    / nullif(count(*) filter (where hr_flag <> 'Weekend / Rest Day' and not is_on_leave and not is_public_holiday), 0)) * 100
                 , 1) as value
             from period_rows
             group by coalesce(department_name, 'Unassigned')
@@ -624,10 +655,11 @@ select json_build_object(
                 end as name,
                 count(*) as value
             from period_rows
-            -- `and not is_on_leave` (HR2000 leave ledger integration) --
-            -- otherwise a pure on-leave zero-scan day gets miscategorized as
-            -- 'Unclassified' channel instead of being excluded like Absent.
-            where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave
+            -- `and not is_on_leave`/`and not is_public_holiday` -- otherwise
+            -- a pure on-leave or holiday zero-scan day gets miscategorized
+            -- as 'Unclassified' channel instead of being excluded like
+            -- Absent.
+            where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave and not is_public_holiday
             group by 1
         ) x
     ),

@@ -23,6 +23,8 @@ export default function AttendanceAnomalyBadges({
   isLeaveAttendanceConflict,
   isInsufficientHalfDayHours,
   hasLeaveFractionError,
+  isWorkedOnHoliday,
+  holidayHoursWorked,
 }) {
   const hasAny =
     Number(overtimeHours) > 0 ||
@@ -30,7 +32,8 @@ export default function AttendanceAnomalyBadges({
     isLateArrival ||
     isLeaveAttendanceConflict ||
     isInsufficientHalfDayHours ||
-    hasLeaveFractionError;
+    hasLeaveFractionError ||
+    isWorkedOnHoliday;
 
   if (!hasAny) return null;
 
@@ -61,6 +64,16 @@ export default function AttendanceAnomalyBadges({
       )}
       {hasLeaveFractionError && (
         <StatusBox status="Leave Data Error" type="red" />
+      )}
+
+      {/* Public holidays integration -- a payroll-relevant fact, not
+        necessarily an error, so this doesn't reuse the "red" conflict
+        styling above. */}
+      {isWorkedOnHoliday && (
+        <StatusBox
+          status={`${Number(holidayHoursWorked).toFixed(1)}h on Holiday`}
+          type="blue"
+        />
       )}
     </div>
   );

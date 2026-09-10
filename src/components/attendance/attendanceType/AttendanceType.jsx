@@ -1,7 +1,11 @@
 import React from "react";
 import "./AttendanceType.scss";
 
-import { CalendarXIcon, BuildingOfficeIcon } from "@phosphor-icons/react";
+import {
+  CalendarXIcon,
+  CalendarStarIcon,
+  BuildingOfficeIcon,
+} from "@phosphor-icons/react";
 import { ATTENDANCE_TYPE_CONFIG } from "./attendanceTypeConfig";
 
 // ATTENDANCE TYPE COMPONENT WITH ICONS
@@ -12,14 +16,17 @@ function AttendanceType({ attendanceType = "" }) {
   // "On Leave (AL)" carry a dynamic type suffix, so they can't be matched by
   // the exact-string config map above. Checked before it so any leave-type
   // suffix gets consistent icon/color treatment while keeping the specific
-  // type visible in the label.
+  // type visible in the label. Public holidays integration -- "Public
+  // Holiday (<name>)" carries the same kind of dynamic suffix, same reason.
   const selected = type.startsWith("on leave")
     ? { icon: CalendarXIcon, label: attendanceType, className: "purple" }
-    : ATTENDANCE_TYPE_CONFIG[type] || {
-        icon: BuildingOfficeIcon,
-        className: "default",
-        label: attendanceType,
-      };
+    : type.startsWith("public holiday")
+      ? { icon: CalendarStarIcon, label: attendanceType, className: "blue" }
+      : ATTENDANCE_TYPE_CONFIG[type] || {
+          icon: BuildingOfficeIcon,
+          className: "default",
+          label: attendanceType,
+        };
 
   const Icon = selected.icon;
 

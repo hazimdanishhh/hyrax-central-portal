@@ -101,5 +101,22 @@ export function getAttendanceActivitiesFilterConfig({
       label: "Leave Data Error",
       options: [{ label: "Leave Fraction Sum > 1 Day", value: "true" }],
     },
+    {
+      // Public holidays integration -- hr_flag now carries a dynamic
+      // "Public Holiday (<name>)" suffix (same reason onLeave above is a
+      // boolean toggle, not a fixed hrFlag enum value): is_public_holiday
+      // is the exact-match-safe column to filter on instead.
+      key: "publicHoliday",
+      label: "Public Holiday",
+      options: [{ label: "Public Holiday Only", value: "true" }],
+    },
+    {
+      // The reconciliation pull-list: every day an employee actually
+      // attended on a day nobody was expected to work. Distinct from
+      // publicHoliday above, which includes holidays nobody worked at all.
+      key: "workedOnHoliday",
+      label: "Worked on Holiday",
+      options: [{ label: "Worked on Holiday Only", value: "true" }],
+    },
   ];
 }

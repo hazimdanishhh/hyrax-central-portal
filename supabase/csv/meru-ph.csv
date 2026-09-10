@@ -1,0 +1,25 @@
+code,description,date,day
+N01,Chinese New Year Day 1,2026-02-17,Tuesday
+N02,Chinese New Year Day 2,2026-02-18,Wednesday
+N03,Hari Raya Puasa/Aidilfitri Day 1,2026-03-21,Saturday
+N03-ADD,Additional Raya Puasa/Aidilfitri Leave,2026-03-20,Friday
+N04,Hari Raya Puasa/Aidilfitri Day 2,2026-03-22,Sunday
+N04-RPL,Replacement Hari Raya Puasa/Aidilfitri Day 2,2026-03-23,Monday
+N05,Labour Day,2026-05-01,Friday
+N06,Hari Raya Haji Day 1,2026-05-27,Wednesday
+N07,Wesak Day,2026-05-31,Sunday
+N07-RPL,Replacement Wesak Day,2026-06-02,Tuesday
+N08,Agong Birthday,2026-06-01,Monday
+N09,Awal Muharam (Maal Hijrah),2026-06-17,Wednesday
+N10,Prophet Muhammad Birthday,2026-08-25,Tuesday
+N11,National Day,2026-08-31,Monday
+N12,Malaysia Day,2026-09-16,Wednesday
+N13,Deepavali,2026-11-08,Sunday
+N13-RPL,Replacement Deepavali,2026-11-09,Monday
+N14,Christmas,2026-12-25,Friday
+S01,New Year,2026-01-01,Thursday
+S05,Thaipusam,2026-02-01,Sunday
+S05-RPL,Replacement Thaipusam,2026-02-02,Monday
+S09,Nuzul Al-Quran,2026-03-07,Saturday
+S35,Sultan of Selangor Birthday,2026-12-11,Friday
+S36,Selangor SUKMA 2026 Victory,2026-09-01,Tuesday

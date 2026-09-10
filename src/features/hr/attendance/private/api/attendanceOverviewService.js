@@ -141,6 +141,12 @@ function applyAttendanceFilter(query, key, value) {
     case "leaveFractionError":
       return query.eq("has_leave_fraction_error", true);
 
+    case "publicHoliday":
+      return query.eq("is_public_holiday", true);
+
+    case "workedOnHoliday":
+      return query.eq("is_worked_on_holiday", true);
+
     default:
       return query;
   }

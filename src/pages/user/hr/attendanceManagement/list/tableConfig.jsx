@@ -108,4 +108,18 @@ export const attendanceDailySummaryTableConfig = () => [
     editable: false,
     editor: "text",
   },
+  {
+    // Public holidays integration -- surfaces the reconciliation fact
+    // independently of hr_flag (which stays "OK"/"Approved" on a
+    // worked-holiday day, same as the "Leave" column above surfaces
+    // is_on_leave independently of hr_flag).
+    key: "holiday_worked",
+    label: "Holiday Worked",
+    getValue: (activity) =>
+      activity.is_worked_on_holiday
+        ? `${activity.holiday_hours_worked}h`
+        : "—",
+    editable: false,
+    editor: "text",
+  },
 ];

@@ -114,6 +114,30 @@ export default function AttendanceTimelineCard({
   }
 
   // ==============
+  // PUBLIC HOLIDAY -- same reasoning as Leave above: no punch times,
+  // approval workflow, or edit actions apply to a holiday, so it gets its
+  // own simple render instead of falling through to the App/Hardware JSX
+  // below.
+  // ==============
+  if (activity.event_source === "Holiday") {
+    return (
+      <div className="generalCard cardPaddingSmall cardGapSmall">
+        <div className="attendanceCardSidebarHeader">
+          <AttendanceType attendanceType={activity.attendance_type} />
+        </div>
+        {/* Reconciliation fact, joined from unified_daily_attendance --
+          real attendance on a day nobody was expected to work. */}
+        {activity.is_worked_on_holiday && (
+          <StatusBox
+            status={`Worked ${Number(activity.holiday_hours_worked).toFixed(1)}h on this holiday`}
+            type="blue"
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ==============
   // SAVE + UPDATE
   // ==============
   async function handleRequestSave(data) {

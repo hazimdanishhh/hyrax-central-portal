@@ -188,6 +188,8 @@ export default function TodayAttendanceCard() {
                       today?.is_insufficient_half_day_hours
                     }
                     hasLeaveFractionError={today?.has_leave_fraction_error}
+                    isWorkedOnHoliday={today?.is_worked_on_holiday}
+                    holidayHoursWorked={today?.holiday_hours_worked}
                   />
 
                   {firstInMs && (

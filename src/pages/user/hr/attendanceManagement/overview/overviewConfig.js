@@ -1,5 +1,6 @@
 import {
   AlarmIcon,
+  CalendarStarIcon,
   CalendarXIcon,
   ClockUserIcon,
   GaugeIcon,
@@ -93,6 +94,10 @@ export function getAttendanceOverviewConfig(
     kpis.unpaidLeaveDaysCount,
     kpis.prevUnpaidLeaveDaysCount,
   );
+  const holidayHoursWorkedDelta = calcDelta(
+    kpis.holidayHoursWorkedTotal,
+    kpis.prevHolidayHoursWorkedTotal,
+  );
 
   // Carried into every link below -- the Overview's own department/employee
   // narrowing, so a tile click never silently resets it.
@@ -154,6 +159,19 @@ export function getAttendanceOverviewConfig(
     badLevel: "warning",
     thresholds: { criticalAt: 0.01 },
   });
+  // Public holidays integration -- same "any nonzero total" convention as
+  // Overtime above (0.01 approximates "any nonzero" for a continuous hours
+  // value) -- a payroll-relevant fact worth HR's attention, not necessarily
+  // a problem, hence "warning" not "critical".
+  const holidayWorkedStatus = getStatusVariant(
+    kpis.holidayHoursWorkedTotal || 0,
+    {
+      direction: "low-good",
+      tiers: 2,
+      badLevel: "warning",
+      thresholds: { criticalAt: 0.01 },
+    },
+  );
   const absenteeismStatus = getStatusVariant(kpis.absenteeismRatePct || 0, {
     direction: "low-good",
     thresholds: { warningAt: 3, criticalAt: 6 },
@@ -414,6 +432,40 @@ export function getAttendanceOverviewConfig(
       ],
       title:
         "Sum of hours worked after 6:00 PM (18:00) across working-day records in the selected period -- not hours above 8/day, and not affected by what time the employee arrived. Employees With Overtime is a distinct-employee count, while its link shows one row per qualifying day -- an employee with overtime on 3 different days appears 3 times in the list but counts once here.",
+    },
+
+    // Public holidays integration -- reconciliation metric for employees
+    // who actually attended on a day nobody was expected to work. Distinct
+    // from Overtime above (that's about time-of-day; this is about
+    // day-type) -- an employee can appear in both if they worked overtime
+    // hours on a holiday.
+    {
+      icon: CalendarStarIcon,
+      label: "Holiday Work",
+      sublabel: "Total Hours, This Period",
+      value: `${kpis.holidayHoursWorkedTotal || 0}h`,
+      variant: holidayWorkedStatus.variant,
+      status: {
+        icon: holidayWorkedStatus.statusIcon,
+        label: holidayWorkedStatus.statusLabel,
+      },
+      to: "../list",
+      filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
+      metrics: [
+        {
+          label: "Prev. Period",
+          value: deltaText(holidayHoursWorkedDelta),
+          icon: deltaIcon(holidayHoursWorkedDelta),
+        },
+        {
+          label: "Employees Worked on Holiday",
+          value: kpis.employeesWorkedOnHolidayCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
+        },
+      ],
+      title:
+        "Sum of hours_worked on days flagged is_public_holiday, this period -- HR2000's public holiday calendar cross-checked against real attendance. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Holiday is a distinct-employee count.",
     },
 
     // ==========================================

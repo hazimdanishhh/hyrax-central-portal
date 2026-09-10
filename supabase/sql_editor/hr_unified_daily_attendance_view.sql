@@ -2,11 +2,23 @@ CREATE OR REPLACE VIEW public.unified_daily_attendance AS
 
 -- 1. Date Spine: Find all unique dates anyone worked, so we know which days the company was open
 WITH active_company_dates AS (
-    SELECT DISTINCT DATE(scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date 
+    SELECT DISTINCT DATE(scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date
     FROM public.attendance_logs
     UNION
-    SELECT DISTINCT DATE(clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date 
+    SELECT DISTINCT DATE(clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date
     FROM public.attendance_activities
+    -- Public holidays integration -- without this, a date with truly ZERO
+    -- scans/clock-ins ANYWHERE in the company (the common case on a major
+    -- holiday like Christmas, when nobody is on-call) would never enter
+    -- this spine at all, and so would never get a row for ANY employee --
+    -- silently hiding the "Public Holiday" hr_flag exactly when it matters
+    -- most. This is a pre-existing gap Weekend/Rest Day already has too
+    -- (same reasoning), not fixed here -- out of scope for this pass -- but
+    -- holidays get it fixed since it would otherwise defeat the point of
+    -- this feature.
+    UNION
+    SELECT DISTINCT holiday_date AS work_date
+    FROM public.public_holidays
 ),
 
 -- 2. Expected Shifts: Cross join active-bucket employees with the dates the
@@ -163,6 +175,27 @@ daily_leave AS (
     FROM public.leave_ledger_entries le
     JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
     GROUP BY le.employee_id, le.leave_date
+),
+
+-- 4c. Public holidays / company off-days -- resolves at most ONE holiday
+-- per employee-day, preferring a holiday scoped to that employee's own
+-- work_location_id over a company-wide (work_location_id IS NULL) one on
+-- the same date, in the rare case both exist. DISTINCT ON is needed (not
+-- just a plain LEFT JOIN) because the OR condition below can otherwise
+-- match two public_holidays rows for the same employee-day (a
+-- location-specific row AND a company-wide row), which would silently
+-- duplicate that employee's row in the final SELECT -- this view's whole
+-- contract is one row per employee per day.
+daily_holiday AS (
+    SELECT DISTINCT ON (u.employee_uuid, u.work_date)
+        u.employee_uuid AS holiday_emp_uuid,
+        u.work_date,
+        ph.name AS holiday_name
+    FROM expected_shifts u
+    JOIN public.public_holidays ph
+        ON ph.holiday_date = u.work_date
+        AND (ph.work_location_id = u.work_location_id OR ph.work_location_id IS NULL)
+    ORDER BY u.employee_uuid, u.work_date, ph.work_location_id NULLS LAST
 )
 
 -- 5. Bring it all together onto the Expected Shifts matrix
@@ -210,6 +243,12 @@ SELECT
             -- regardless, so that context isn't lost even when it's not the
             -- headline hr_flag.
             CASE
+                -- Public holiday checked first -- more specific/informative
+                -- than "Weekend / Rest Day", and most Malaysian holidays
+                -- fall on weekdays anyway (a holiday that happens to also
+                -- be a weekend still correctly reads as "Public Holiday",
+                -- not the generic weekend label).
+                WHEN dh.holiday_name IS NOT NULL THEN 'Public Holiday (' || dh.holiday_name || ')'
                 WHEN EXTRACT(ISODOW FROM u.work_date) IN (6, 7) THEN 'Weekend / Rest Day'
                 WHEN dl.leave_type_codes IS NOT NULL THEN 'On Leave (' || dl.leave_type_codes || ')'
                 ELSE 'Absent'
@@ -362,13 +401,49 @@ SELECT
     -- leave that day, matching leave_day_fraction's own existing
     -- (uncoalesced) convention exactly.
     dl.paid_leave_day_fraction,
-    dl.unpaid_leave_day_fraction
+    dl.unpaid_leave_day_fraction,
+
+    -- Public holidays / company off-days -- always populated regardless of
+    -- which hr_flag branch fired above, mirroring is_on_leave/
+    -- leave_type_codes's exact existing pattern. This matters because
+    -- someone who actually worked ON a holiday still correctly falls
+    -- through to Approved/OK (they DID work) -- but is_public_holiday
+    -- stays true on that row either way, so the fact isn't lost (feeds a
+    -- future "worked on a public holiday" OT-rate signal, not built yet --
+    -- see docs/PAYROLL-DATA-REQUIREMENTS.md).
+    (dh.holiday_name IS NOT NULL) AS is_public_holiday,
+    dh.holiday_name AS public_holiday_name,
+
+    -- Worked on a public holiday -- a genuine, payroll-relevant fact (not
+    -- necessarily an error) needing HR reconciliation before payroll: real
+    -- attendance on a day nobody was expected to work. Existence-based
+    -- (hw_check_in/app_check_in present), mirroring
+    -- is_leave_attendance_conflict's own check -- not hours_worked > 0, so
+    -- a data quirk that computes 0 hours despite a real check-in still
+    -- counts as "attended."
+    COALESCE(
+        dh.holiday_name IS NOT NULL
+        AND (h.hw_check_in IS NOT NULL OR a.app_check_in IS NOT NULL),
+        false
+    ) AS is_worked_on_holiday,
+
+    -- Hours actually worked on that holiday -- the concrete number HR
+    -- reconciles against payroll. Repeats hours_worked's own expression
+    -- rather than referencing that alias -- a SELECT list can't reference
+    -- a sibling output column's alias (same constraint this view's other
+    -- repeated expressions already document).
+    CASE
+        WHEN dh.holiday_name IS NOT NULL
+        THEN GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0)
+        ELSE 0
+    END AS holiday_hours_worked
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date
 LEFT JOIN daily_hw_remote_overlap ro ON u.employee_uuid = ro.app_emp_uuid AND u.work_date = ro.work_date
 LEFT JOIN daily_app a ON u.employee_uuid = a.app_emp_uuid AND u.work_date = a.work_date
 LEFT JOIN daily_leave dl ON u.employee_uuid = dl.leave_emp_uuid AND u.work_date = dl.work_date
+LEFT JOIN daily_holiday dh ON u.employee_uuid = dh.holiday_emp_uuid AND u.work_date = dh.work_date
 LEFT JOIN public.departments d ON u.department_id = d.id
 LEFT JOIN public.employees m ON u.manager_id = m.id
 LEFT JOIN public.profiles p ON u.profile_id = p.id
