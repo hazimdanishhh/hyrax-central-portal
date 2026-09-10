@@ -13,43 +13,43 @@ Two very different things could be meant by "build this so HR can run payroll":
 
 ## 1. Employee master data (relatively static)
 
-| Data | Status | Where |
-|---|---|---|
-| Full legal name, IC/passport number | **EXISTS** | `employees.identification_number`, `identification_type_id` |
-| Date of birth (EPF/SOCSO age-based rate eligibility) | **EXISTS** | `employees.date_of_birth` |
-| Marital status | **EXISTS** | `employees.marital_status` |
-| Nationality | **EXISTS** | `employees.nationality_id` |
-| Residency status (tax-resident vs non-resident — changes PCB treatment) | **MISSING** | — |
-| Bank name + account number | **MISSING** | — |
-| EPF number (KWSP) | **MISSING** | — |
-| SOCSO/EIS number (PERKESO) | **MISSING** | — |
-| Income tax reference number (PCB/MTD) | **MISSING** | — |
-| Dependents/children count, spouse working status (PCB relief inputs) | **MISSING** | — |
+| Data                                                                                                   | Status      | Where                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full legal name, IC/passport number                                                                    | **EXISTS**  | `employees.identification_number`, `identification_type_id`                                                                                                           |
+| Date of birth (EPF/SOCSO age-based rate eligibility)                                                   | **EXISTS**  | `employees.date_of_birth`                                                                                                                                             |
+| Marital status                                                                                         | **EXISTS**  | `employees.marital_status`                                                                                                                                            |
+| Nationality                                                                                            | **EXISTS**  | `employees.nationality_id`                                                                                                                                            |
+| Residency status (tax-resident vs non-resident — changes PCB treatment)                                | **MISSING** | —                                                                                                                                                                     |
+| Bank name + account number                                                                             | **MISSING** | —                                                                                                                                                                     |
+| EPF number (KWSP)                                                                                      | **MISSING** | —                                                                                                                                                                     |
+| SOCSO/EIS number (PERKESO)                                                                             | **MISSING** | —                                                                                                                                                                     |
+| Income tax reference number (PCB/MTD)                                                                  | **MISSING** | —                                                                                                                                                                     |
+| Dependents/children count, spouse working status (PCB relief inputs)                                   | **MISSING** | —                                                                                                                                                                     |
 | Employment type w/ statutory treatment (permanent/contract/probation — some categories are EPF-exempt) | **PARTIAL** | `employment_type` lookup table exists, no seed values or statutory flags. `employment_status.category` is an operational active/inactive/terminated bucket, not this. |
-| Basic salary, salary structure, fixed allowances, pay grade, effective-dated salary history | **MISSING** | No compensation table anywhere in either repo |
-| Department/cost center → GL account mapping | **PARTIAL** | `department_id` exists; no GL/cost-center mapping |
+| Basic salary, salary structure, fixed allowances, pay grade, effective-dated salary history            | **MISSING** | No compensation table anywhere in either repo                                                                                                                         |
+| Department/cost center → GL account mapping                                                            | **PARTIAL** | `department_id` exists; no GL/cost-center mapping                                                                                                                     |
 
 **Confirmed off-system today**: bank details/EPF/SOCSO are collected as a manual, off-system onboarding step (`EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`'s `hr_documents_collected` checklist item) — never stored in this database.
 
 ## 2. Per-cycle attendance data
 
-| Data | Status | Where |
-|---|---|---|
-| Total hours worked, days present | **EXISTS** | `unified_daily_attendance.hours_worked`, `hr_flag` |
-| Days absent (unexcused) | **EXISTS** | `hr_flag = 'Absent'` |
-| Overtime hours (raw, after 6PM) | **EXISTS** | `overtime_hours` |
-| OT classified by normal/rest-day/public-holiday (different statutory multipliers, 1.5x/2x/3x under the Employment Act) | **MISSING** | No public holiday calendar to classify against (see §6) |
-| Days requiring resolution before payroll can trust the hours (pending approval, missing checkout, incomplete scan, leave/attendance conflict) | **EXISTS** | `hr_flag`, `is_leave_attendance_conflict`, `is_insufficient_half_day_hours`, `has_leave_fraction_error` — just fixed this session to stop polluting hour averages |
-| Late arrival / early leave | **EXISTS**, informational only | `is_late_arrival`, `is_early_leave` — no policy yet for whether these should ever produce a pay deduction |
+| Data                                                                                                                                          | Status                         | Where                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Total hours worked, days present                                                                                                              | **EXISTS**                     | `unified_daily_attendance.hours_worked`, `hr_flag`                                                                                                                |
+| Days absent (unexcused)                                                                                                                       | **EXISTS**                     | `hr_flag = 'Absent'`                                                                                                                                              |
+| Overtime hours (raw, after 6PM)                                                                                                               | **EXISTS**                     | `overtime_hours`                                                                                                                                                  |
+| OT classified by normal/rest-day/public-holiday (different statutory multipliers, 1.5x/2x/3x under the Employment Act)                        | **MISSING**                    | No public holiday calendar to classify against (see §6)                                                                                                           |
+| Days requiring resolution before payroll can trust the hours (pending approval, missing checkout, incomplete scan, leave/attendance conflict) | **EXISTS**                     | `hr_flag`, `is_leave_attendance_conflict`, `is_insufficient_half_day_hours`, `has_leave_fraction_error` — just fixed this session to stop polluting hour averages |
+| Late arrival / early leave                                                                                                                    | **EXISTS**, informational only | `is_late_arrival`, `is_early_leave` — no policy yet for whether these should ever produce a pay deduction                                                         |
 
 ## 3. Per-cycle leave data
 
-| Data | Status | Where |
-|---|---|---|
-| Paid leave days by type this cycle | **EXISTS** | `leave_day_fraction`, `leave_type_codes` |
-| Unpaid (No-Pay Leave) days this cycle | **EXISTS**, unconfirmed classification | `unpaid_leave_day_fraction` — but `leave_ledger_types.is_paid` is an unconfirmed guess for nearly every type (`needs_hr_confirmation = true`) |
-| Leave balance / entitlement carry-forward (annual-leave encashment on resignation) | **PARTIAL** | Live balance can be shown from `leave_ledger_entries`; actual encashment/settlement is a manual HR confirmation, no calculation |
-| Maternity/paternity/hospitalization leave (statutory, fully paid, needs correct day counts) | **PARTIAL** | Codes exist (`MTL`, `PTL`, `HPL`), all `needs_hr_confirmation = true` |
+| Data                                                                                        | Status                                 | Where                                                                                                                                         |
+| ------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Paid leave days by type this cycle                                                          | **EXISTS**                             | `leave_day_fraction`, `leave_type_codes`                                                                                                      |
+| Unpaid (No-Pay Leave) days this cycle                                                       | **EXISTS**, unconfirmed classification | `unpaid_leave_day_fraction` — but `leave_ledger_types.is_paid` is an unconfirmed guess for nearly every type (`needs_hr_confirmation = true`) |
+| Leave balance / entitlement carry-forward (annual-leave encashment on resignation)          | **PARTIAL**                            | Live balance can be shown from `leave_ledger_entries`; actual encashment/settlement is a manual HR confirmation, no calculation               |
+| Maternity/paternity/hospitalization leave (statutory, fully paid, needs correct day counts) | **PARTIAL**                            | Codes exist (`MTL`, `PTL`, `HPL`), all `needs_hr_confirmation = true`                                                                         |
 
 ## 4. Statutory compliance data (Malaysia-specific)
 
@@ -61,13 +61,13 @@ Two very different things could be meant by "build this so HR can run payroll":
 
 ## 6. Payroll cycle administration
 
-| Data | Status | Where |
-|---|---|---|
-| Confirmed pay-period cutoff | **PARTIAL** | `payrollCyclePresets.js` implements a 26th-to-25th cycle; its own comment flags the start day as an unconfirmed placeholder pending HR confirmation |
-| Public holiday calendar (classify OT correctly, distinguish holiday from unexcused absence) | **MISSING** | `leave_holidays` table exists but is dead, never read |
-| Period lock/freeze (so payroll doesn't run on data that changes afterward) | **MISSING** | — |
-| New joiners/leavers this cycle (pro-ration, first/last month handling) | **PARTIAL** | Hire/termination dates exist on `employees`; no pro-ration logic anywhere |
-| Payslip / payroll-run / bank-disbursement-file structure | **MISSING** | — |
+| Data                                                                                        | Status      | Where                                                                                                                                               |
+| ------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Confirmed pay-period cutoff                                                                 | **PARTIAL** | `payrollCyclePresets.js` implements a 26th-to-25th cycle; its own comment flags the start day as an unconfirmed placeholder pending HR confirmation |
+| Public holiday calendar (classify OT correctly, distinguish holiday from unexcused absence) | **MISSING** | `leave_holidays` table exists but is dead, never read                                                                                               |
+| Period lock/freeze (so payroll doesn't run on data that changes afterward)                  | **MISSING** | —                                                                                                                                                   |
+| New joiners/leavers this cycle (pro-ration, first/last month handling)                      | **PARTIAL** | Hire/termination dates exist on `employees`; no pro-ration logic anywhere                                                                           |
+| Payslip / payroll-run / bank-disbursement-file structure                                    | **MISSING** | —                                                                                                                                                   |
 
 ## Recommended phasing (once design starts — not part of this doc's scope)
 
