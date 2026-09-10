@@ -14,14 +14,36 @@ import { attendanceActivitiesChangeClockInTimeConfig } from "../../../../pages/u
 import { attendanceActivitiesChangeClockOutTimeConfig } from "../../../../pages/user/hr/attendanceManagement/list/changeClockOutTimeConfig";
 import Button from "../../../buttons/button/Button";
 import LoadingIcon from "../../../loadingIcon/LoadingIcon";
-import StackedBarRenderer from "../../../chartCard/StackedBarRenderer";
 import DataForm from "../../../crud/dataForm/DataForm";
 import StatusBadge from "../../../status/statusBadge/StatusBadge";
 import StatusBox from "../../../status/statusBox/StatusBox";
 import AttendanceType from "../../attendanceType/AttendanceType";
+import AttendanceDayTimelineBar from "../../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import { attendanceActivityTableConfig } from "./tableConfig";
 import AttendanceClock from "../../attendanceClock/AttendanceClock";
+import { formatTime } from "@/functions/formatDate";
 import "./AttendanceTimelineCard.scss";
+
+// "3h 25m" / "45m" / "8h" -- shared by the per-pair duration list and the
+// two headline hour totals below it.
+function formatMinutesDuration(totalMinutes) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
+// "8:36 AM - 12:01 PM (3h 25m)" -- HR auditing needs the actual duration of
+// each inferred in/out pair spelled out, not just visible on a bar segment's
+// hover tooltip.
+function formatPairDuration(startIso, endIso) {
+  const totalMinutes = Math.max(
+    0,
+    Math.round((new Date(endIso) - new Date(startIso)) / 60000),
+  );
+  return formatMinutesDuration(totalMinutes);
+}
 
 export default function AttendanceTimelineCard({
   activity,
@@ -38,14 +60,83 @@ export default function AttendanceTimelineCard({
 
   // Scan-log verification -- unconditional across every mode (hr/self/
   // manager/readonly), purely read-only, so it isn't gated like the action
-  // buttons below. Lazy-fetched only once expanded.
+  // buttons below. Fetched eagerly for Hardware rows (not lazy-on-click
+  // anymore) -- the odd/even pair breakdown below is now this card's
+  // primary content, not a supplementary drill-down, so it can't wait for
+  // a click. `scansExpanded` still gates only the fully raw, ungrouped
+  // scan list further down.
   const [scansExpanded, setScansExpanded] = useState(false);
   const { scans, isLoading: scansLoading } = useAttendanceLogScans({
     employeeCode: activity.company_employee_code,
     scannerLocation: activity.attendance_type,
     workDate: activity.work_date,
-    enabled: scansExpanded,
+    enabled: activity.event_source === "Hardware",
   });
+
+  // Odd = in, even = out -- the actual in/out pairs a "Hardware" summary
+  // card's check_in_time/check_out_time (MIN/MAX across every scan that
+  // day) was built from. Purely a display aid for HR auditing -- NOT used
+  // anywhere for hours_worked/hr_flag, which stay computed independently in
+  // unified_daily_attendance's own daily_hardware CTE (positional pairing
+  // was deliberately rejected for that calculation earlier this session --
+  // employees routinely forget to scan in or out, which would corrupt a
+  // positional pairing there).
+  //
+  // App rows have no separate raw-scan concept -- attendance_activities
+  // already IS one real clock-in/clock-out session -- so they get the same
+  // shape as a single one-item "pair", giving every card (App or Hardware)
+  // the same bar + breakdown + two-totals treatment below from one shared
+  // code path.
+  const pairedSegments =
+    activity.event_source === "Hardware"
+      ? scans.reduce((pairs, scan, i) => {
+          if (i % 2 === 0) {
+            pairs.push({
+              attendance_type: activity.attendance_type,
+              event_source: "Hardware",
+              check_in_time: scan.scanned_at,
+              check_out_time: scans[i + 1]?.scanned_at ?? null,
+            });
+          }
+          return pairs;
+        }, [])
+      : activity.check_in_time
+        ? [
+            {
+              attendance_type: activity.attendance_type,
+              event_source: "App",
+              check_in_time: activity.check_in_time,
+              check_out_time: activity.check_out_time ?? null,
+            },
+          ]
+        : [];
+
+  // Number 1: the naive full span, first in to last seen -- what
+  // check_in_time/check_out_time already say for this activity as a whole.
+  const firstInToLastSeenMinutes =
+    activity.check_in_time && activity.check_out_time
+      ? Math.round(
+          (new Date(activity.check_out_time) -
+            new Date(activity.check_in_time)) /
+            60000,
+        )
+      : null;
+
+  // Number 2: sum of only the COMPLETE pairs (skips a trailing scan with no
+  // matching out yet -- there's nothing to compute a duration from). For
+  // Hardware this is the real audit signal: it reveals any gap between
+  // genuinely scanned pairs (e.g. a lunch break) that Number 1 silently
+  // counts as if it were continuously on-site. For App there's normally
+  // only one pair, so this equals Number 1 whenever the session has ended.
+  const scannedPairsMinutes = pairedSegments.reduce((total, seg) => {
+    if (!seg.check_out_time) return total;
+    return (
+      total +
+      Math.round(
+        (new Date(seg.check_out_time) - new Date(seg.check_in_time)) / 60000,
+      )
+    );
+  }, 0);
 
   // ==============
   // METADATA
@@ -183,48 +274,6 @@ export default function AttendanceTimelineCard({
         <StatusBadge status={activity.approval_status} />
       </div>
 
-      {/* TEST VISUAL BAR */}
-      <StackedBarRenderer
-        data={[
-          {
-            name: "Worked",
-            value:
-              activity.check_in_time && activity.check_out_time // CHANGED HERE
-                ? Number(
-                    (
-                      (new Date(activity.check_out_time) - // CHANGED HERE
-                        new Date(activity.check_in_time)) / // CHANGED HERE
-                      1000 /
-                      60 /
-                      60
-                    ).toFixed(2),
-                  )
-                : 0,
-          },
-          {
-            name: "Remaining",
-            value:
-              activity.check_in_time && activity.check_out_time // CHANGED HERE
-                ? Math.max(
-                    0,
-                    8 -
-                      (new Date(activity.check_out_time) - // CHANGED HERE
-                        new Date(activity.check_in_time)) / // CHANGED HERE
-                        1000 /
-                        60 /
-                        60,
-                  ).toFixed(2)
-                : 8,
-          },
-        ]}
-        colorMap={{
-          Worked: "#22c55e",
-          Remaining: "#a1a1a1",
-        }}
-        height={30}
-        noLegend
-      />
-
       {/* TIMING TABLE */}
       <div className="attendanceCardSidebarHeader">
         <div
@@ -254,18 +303,78 @@ export default function AttendanceTimelineCard({
         <StatusBox status={activity.activity_audit_flag} type="red" />
       )}
 
-      {/* SCAN-LOG VERIFICATION -- Hardware rows are a summary (first scan,
-          last scan, count) built from possibly several raw attendance_logs
-          rows; let HR or the employee themselves verify exactly when each
-          scan happened. Inline expand, not a second sidebar -- usually just
-          a handful of rows. */}
+      {/* ODD/EVEN IN-OUT PAIR BREAKDOWN -- for Hardware, this card's
+          check_in_time/check_out_time is a MIN/MAX summary across possibly
+          several raw attendance_logs scans that day; HR needs to see the
+          actual in-out-in-out pattern underneath it to judge whether
+          stricter scanner discipline (always scan in AND out, never skip)
+          needs enforcing. For App there's only ever one real pair
+          (attendance_activities already is a clean session), shown the
+          same way for visual consistency across every card. Reuses the
+          exact same AttendanceDayTimelineBar the sidebar's own full-day bar
+          uses, fed synthetic pair "activities" instead of real
+          attendance_activity_audit rows -- same visual language, same
+          hover tooltips, no new bar component needed. */}
+      {scansLoading ? (
+        <LoadingIcon />
+      ) : (
+        pairedSegments.length > 0 && (
+          <>
+            <AttendanceDayTimelineBar timelineData={pairedSegments} />
+            <div className="attendanceScanLogList">
+              {pairedSegments.map((seg, i) => (
+                <p
+                  key={`${seg.check_in_time}-${i}`}
+                  className="textRegular textXXS"
+                >
+                  <span className="textBold">{i + 1}.</span>{" "}
+                  {formatTime(seg.check_in_time)}
+                  {seg.check_out_time
+                    ? ` – ${formatTime(seg.check_out_time)} (${formatPairDuration(seg.check_in_time, seg.check_out_time)})`
+                    : " – no matching out scan yet"}
+                </p>
+              ))}
+            </div>
+
+            {/* Two totals, deliberately kept separate rather than reduced
+                to one number: Number 1 is the naive full span (what
+                check_in_time/check_out_time already say); Number 2 only
+                counts complete pairs, so it excludes any trailing unpaired
+                scan and reveals gaps Number 1 silently papers over (e.g. a
+                scanned-out lunch break). They agree exactly when there's
+                only one pair with no gap -- the normal App case. */}
+            <div className="attendanceCardSidebarHeader">
+              <p className="textRegular textXXS">
+                First In → Last Seen:{" "}
+                <span className="textBold">
+                  {firstInToLastSeenMinutes != null
+                    ? formatMinutesDuration(firstInToLastSeenMinutes)
+                    : "Ongoing"}
+                </span>
+              </p>
+              <p className="textRegular textXXS">
+                Total From Pairs:{" "}
+                <span className="textBold">
+                  {formatMinutesDuration(scannedPairsMinutes)}
+                </span>
+              </p>
+            </div>
+          </>
+        )
+      )}
+
+      {/* SCAN-LOG VERIFICATION -- the fully raw, ungrouped scan list this
+          card's pair breakdown above was derived from, in case HR needs to
+          double check the ground truth directly (e.g. an unexpected extra
+          scan). Inline expand, not a second sidebar -- usually just a
+          handful of rows. */}
       {activity.event_source === "Hardware" && (
         <>
           <Button
             onClick={() => setScansExpanded((prev) => !prev)}
             icon={scansExpanded ? CaretUpIcon : CaretDownIcon}
             style="button buttonType4 textBold textXXS"
-            name={scansExpanded ? "Hide Scans" : "Verify Scans"}
+            name={scansExpanded ? "Hide Raw Scan Log" : "Show Raw Scan Log"}
           />
           {scansExpanded &&
             (scansLoading ? (

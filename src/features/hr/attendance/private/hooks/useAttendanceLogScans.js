@@ -4,9 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAttendanceLogScans } from "../api/attendanceLogScansService";
 import { formatTime } from "@/functions/formatDate";
 
-// Lazy-fetch-on-expand, matching ProjectDocumentsIndicator.jsx's convention
-// -- `enabled` should be the card's own expanded state, so nothing fetches
-// until the user actually clicks to verify.
+// `enabled` is caller-controlled (matching ProjectDocumentsIndicator.jsx's
+// lazy-fetch convention for the concept in general). AttendanceTimelineCard.jsx
+// currently passes `activity.event_source === "Hardware"` -- fetched eagerly
+// for every Hardware row, not lazily, since its odd/even in-out pair
+// breakdown (built from these scans) is that card's primary content, not a
+// click-to-reveal extra. The "Show Raw Scan Log" toggle there only gates
+// whether the fully raw list is DISPLAYED, not whether this hook fetches.
 export default function useAttendanceLogScans({
   employeeCode,
   scannerLocation,

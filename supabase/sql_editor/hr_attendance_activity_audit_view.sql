@@ -31,7 +31,12 @@ WITH app_events AS (
     LEFT JOIN public.attendance_types at ON aa.attendance_type_id = at.id
 ),
 
--- 2. Grab all Hardware Sessions (Office/Plant)
+-- 2. Grab all Hardware Sessions (Office/Plant) -- one summary row per
+-- employee/location/day (kept this way per explicit request: HR wants to
+-- see 1 Office card and 1 Blending Plant card, not a card per in/out pair
+-- -- the odd/even pairing itself is instead visualized INSIDE each card,
+-- see AttendanceTimelineCard.jsx's own use of AttendanceDayTimelineBar with
+-- scan-derived pairs).
 hw_events AS (
     SELECT
         -- Generate a unique string ID for React rendering since HW logs don't have a single UUID block
