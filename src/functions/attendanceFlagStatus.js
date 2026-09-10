@@ -18,9 +18,25 @@ export default function getHrFlagStatusType(hrFlag) {
     case "Incomplete Card Scans":
     case "Absent":
       return "red";
-    case "Weekend / Rest Day":
-      return "grey";
     default:
       return "grey";
   }
+}
+
+/**
+ * Display-time override for hr_flag -- unified_daily_attendance no longer
+ * has a "Weekend / Rest Day" hr_flag value at all; a genuine unworked
+ * Saturday/Sunday now comes back as hr_flag = "Absent", with the new
+ * calendar-only is_weekend boolean carrying the weekend fact instead (see
+ * hr_unified_daily_attendance_view.sql). Without this override, every
+ * unworked weekend would render as a red "Absent" badge to every employee
+ * and HR reviewer -- every StatusBox render site for hr_flag must go
+ * through this instead of calling getHrFlagStatusType directly.
+ */
+export function getDisplayAttendanceFlag(hrFlag, isWeekend) {
+  if (isWeekend && hrFlag === "Absent") {
+    return { label: "Weekend", type: "grey" };
+  }
+
+  return { label: hrFlag, type: getHrFlagStatusType(hrFlag) };
 }

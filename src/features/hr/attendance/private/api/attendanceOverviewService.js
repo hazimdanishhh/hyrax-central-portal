@@ -115,7 +115,7 @@ function applyAttendanceSort(query, primaryColumn, primaryAscending) {
 // get_attendance_dashboard_rpc.sql's own thresholds exactly (09:00 late
 // arrival, overtime/early-leave read from unified_daily_attendance's
 // overtime_hours/is_early_leave columns -- after 6PM / before 5PM,
-// respectively, not hours_worked-based), hr_flag exclusions for
+// respectively, not hours_worked-based), is_weekend exclusions for
 // working-day/present, so a drill-through link's row count always matches
 // the KPI it came from.
 function applyAttendanceFilter(query, key, value) {
@@ -136,12 +136,19 @@ function applyAttendanceFilter(query, key, value) {
       return query.eq("hr_flag", value);
 
     case "workingDayOnly":
-      return query.neq("hr_flag", "Weekend / Rest Day");
+      // is_weekend is a calendar-only signal (computed purely from the
+      // date, regardless of attendance activity) -- hr_flag no longer has a
+      // "Weekend / Rest Day" value at all (a genuine unworked weekend now
+      // reads hr_flag = "Absent"), so this must exclude on is_weekend, not
+      // on any hr_flag string, or every unworked weekend would silently
+      // fall through as an "Absent" working day.
+      return query.eq("is_weekend", false);
+
+    case "weekendOnly":
+      return query.eq("is_weekend", true);
 
     case "presentOnly":
-      return query
-        .neq("hr_flag", "Weekend / Rest Day")
-        .neq("hr_flag", "Absent");
+      return query.eq("is_weekend", false).neq("hr_flag", "Absent");
 
     case "onLeave":
       return query.eq("is_on_leave", true);
@@ -151,7 +158,7 @@ function applyAttendanceFilter(query, key, value) {
       // overtime_hours column), not hours_worked > 8.
       return query
         .gt("overtime_hours", 0)
-        .neq("hr_flag", "Weekend / Rest Day")
+        .eq("is_weekend", false)
         .neq("hr_flag", "Absent");
 
     case "lateArrival":
@@ -162,7 +169,7 @@ function applyAttendanceFilter(query, key, value) {
       // silently disagree.
       return query
         .eq("is_late_arrival", true)
-        .neq("hr_flag", "Weekend / Rest Day")
+        .eq("is_weekend", false)
         .neq("hr_flag", "Absent");
 
     case "earlyLeave":
@@ -170,7 +177,7 @@ function applyAttendanceFilter(query, key, value) {
       // is_early_leave column, company-wide flat threshold for now).
       return query
         .eq("is_early_leave", true)
-        .neq("hr_flag", "Weekend / Rest Day")
+        .eq("is_weekend", false)
         .neq("hr_flag", "Absent");
 
     // HR2000 leave/attendance conflict detection -- all three already

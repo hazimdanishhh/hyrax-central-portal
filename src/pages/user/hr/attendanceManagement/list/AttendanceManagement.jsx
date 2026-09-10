@@ -60,6 +60,7 @@ const SEARCH_MODE_FILTER_KEYS = [
   // alone via a hand-edited URL (the same class of bug the statusBucket
   // embedded-filter fix addressed on the Employee List).
   "workingDayOnly",
+  "weekendOnly",
   "presentOnly",
   "overtimeOnly",
   "lateArrival",

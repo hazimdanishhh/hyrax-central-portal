@@ -19,7 +19,7 @@ import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineCard";
 import AttendanceDayTimelineBar from "../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
-import getHrFlagStatusType from "../../../functions/attendanceFlagStatus";
+import { getDisplayAttendanceFlag } from "../../../functions/attendanceFlagStatus";
 
 export default function AttendanceSidebarHR({
   selectedRow, // This is now the Daily Summary Row
@@ -44,6 +44,20 @@ export default function AttendanceSidebarHR({
     enabled: !!selectedRow?.employee_uuid && !!selectedRow?.work_date,
   });
 
+  // hr_flag no longer distinguishes an unworked weekend from a genuine
+  // absence (both now read "Absent") -- is_weekend is the calendar-only
+  // signal that tells them apart at display time. See
+  // getDisplayAttendanceFlag's own comment.
+  const attendanceFlagDisplay = getDisplayAttendanceFlag(
+    selectedRow?.hr_flag,
+    selectedRow?.is_weekend,
+  );
+  // Second, independent tag for a weekend actually WORKED -- the
+  // unworked-weekend case is already fully covered by the "Weekend" label
+  // above, so this only fires when hr_flag isn't "Absent".
+  const showWorkedWeekendTag =
+    selectedRow?.is_weekend && selectedRow?.hr_flag !== "Absent";
+
   return (
     <div className="attendanceCardSidebarContainer">
       {/* HEADER: EMPLOYEE & OVERALL DAY STATUS */}
@@ -67,17 +81,24 @@ export default function AttendanceSidebarHR({
             />
           )}
 
-          {/* Show the Daily Macro Flag -- getHrFlagStatusType is the single
-              shared mapping every other hr_flag consumer already uses
+          {/* Show the Daily Macro Flag -- getDisplayAttendanceFlag wraps the
+              single shared mapping every other hr_flag consumer already uses
               (AttendanceCard.jsx, TodayAttendanceCard.jsx); this used to be
               its own hand-duplicated ternary that only recognized
               On Leave/Review Required/Approved/OK, silently defaulting
               everything else -- including Weekend/Rest Day, Absent, and
               Public Holiday -- to "red", as if they were errors. */}
           <StatusBox
-            status={selectedRow?.hr_flag}
-            type={getHrFlagStatusType(selectedRow?.hr_flag)}
+            status={attendanceFlagDisplay.label}
+            type={attendanceFlagDisplay.type}
           />
+
+          {/* Worked-on-a-weekend fact, independent of hr_flag -- only shown
+              when the "Weekend" label above ISN'T already covering this day
+              (i.e. they actually attended). */}
+          {showWorkedWeekendTag && (
+            <StatusBox status="Weekend" type="grey" />
+          )}
         </div>
       </div>
 

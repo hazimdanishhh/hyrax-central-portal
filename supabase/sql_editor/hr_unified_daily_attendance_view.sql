@@ -2,23 +2,36 @@ CREATE OR REPLACE VIEW public.unified_daily_attendance AS
 
 -- 1. Date Spine: Find all unique dates anyone worked, so we know which days the company was open
 WITH active_company_dates AS (
-    SELECT DISTINCT DATE(scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date
-    FROM public.attendance_logs
-    UNION
-    SELECT DISTINCT DATE(clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date
-    FROM public.attendance_activities
+    -- Company-activity dates resolved via a SECURITY DEFINER helper (not a
+    -- plain SELECT against attendance_logs/attendance_activities) so this
+    -- spine doesn't silently shrink to "only dates I personally have a row
+    -- for" once these tables' RLS actually applies (security_invoker = on
+    -- -- see get_company_activity_dates.sql). It only ever reveals "some
+    -- date had activity somewhere," never whose.
+    SELECT work_date FROM public.get_company_activity_dates()
     -- Public holidays integration -- without this, a date with truly ZERO
     -- scans/clock-ins ANYWHERE in the company (the common case on a major
     -- holiday like Christmas, when nobody is on-call) would never enter
     -- this spine at all, and so would never get a row for ANY employee --
     -- silently hiding the "Public Holiday" hr_flag exactly when it matters
-    -- most. This is a pre-existing gap Weekend/Rest Day already has too
-    -- (same reasoning), not fixed here -- out of scope for this pass -- but
-    -- holidays get it fixed since it would otherwise defeat the point of
-    -- this feature.
+    -- most.
     UNION
     SELECT DISTINCT holiday_date AS work_date
     FROM public.public_holidays
+    -- Weekend calendar dates -- same reasoning as public holidays above:
+    -- without this, a Saturday/Sunday with zero company-wide activity never
+    -- enters the spine, so is_weekend (below) would never even get a row to
+    -- appear on for anyone. Bounded to 3 years back / 1 year forward rather
+    -- than full company history to keep this cheap -- widen the window if a
+    -- report ever needs an older weekend that predates it.
+    UNION
+    SELECT gs::date AS work_date
+    FROM generate_series(
+        (SELECT GREATEST(MIN(join_date), CURRENT_DATE - INTERVAL '3 years') FROM public.employees),
+        CURRENT_DATE + INTERVAL '1 year',
+        INTERVAL '1 day'
+    ) AS gs
+    WHERE EXTRACT(ISODOW FROM gs) IN (6, 7)
 ),
 
 -- 2. Expected Shifts: Cross join active-bucket employees with the dates the
@@ -40,7 +53,12 @@ expected_shifts AS (
         e.manager_id,
         e.employment_status_id,
         e.work_location_id,
-        d.work_date
+        d.work_date,
+        -- A pure calendar fact (Sat/Sun), computed once here regardless of
+        -- whether any activity happened that day -- unlike hr_flag below,
+        -- this never changes based on what the employee actually did.
+        -- Replaces the old 'Weekend / Rest Day' hr_flag branch entirely.
+        (EXTRACT(ISODOW FROM d.work_date) IN (6, 7)) AS is_weekend
     FROM public.employees e
     JOIN public.employment_status es ON es.id = e.employment_status_id AND es.category = 'active'
     CROSS JOIN active_company_dates d
@@ -231,25 +249,30 @@ SELECT
     CASE
         -- 1. Absence Catching: No Hardware AND No Valid App Data
         WHEN h.hw_check_in IS NULL AND a.app_check_in IS NULL THEN
-            -- Check if the date is a Saturday (6) or Sunday (7). Leave is
-            -- checked only inside this "nothing happened today" branch, and
-            -- only after the weekend check -- it can only ever replace the
-            -- Absent fallback below, never override Approved/Pending/
-            -- Missing-Checkout/Incomplete-Scans/OK further down, so it can
-            -- only fix a miscategorization, never hide a real anomaly. A
+            -- Weekend/rest-day is intentionally NOT a branch here anymore --
+            -- it's the independent, always-on is_weekend column instead
+            -- (see expected_shifts above), so it stays visible even on a
+            -- day someone actually worked, which the old hr_flag-only
+            -- encoding could never do (working a Saturday made the
+            -- 'Weekend / Rest Day' label disappear entirely). This means a
+            -- genuine rest day with zero activity now literally reads
+            -- hr_flag = 'Absent' here -- correct per the decision that
+            -- status should only reflect real attendance outcomes, but the
+            -- frontend MUST override the displayed badge to "Weekend" (not
+            -- red "Absent") whenever is_weekend is true, or every
+            -- Saturday/Sunday looks like an unexcused absence in the UI.
+            -- Leave is still checked inside this "nothing happened today"
+            -- branch -- it can only ever replace the Absent fallback below,
+            -- never override Approved/Pending/Missing-Checkout/Incomplete-
+            -- Scans/OK further down, so it can only fix a
+            -- miscategorization, never hide a real anomaly. A
             -- half-day-leave/half-day-worked day still falls through to
             -- whichever work-based branch applies -- is_on_leave/
             -- leave_type_codes/leave_day_fraction below stay populated
             -- regardless, so that context isn't lost even when it's not the
             -- headline hr_flag.
             CASE
-                -- Public holiday checked first -- more specific/informative
-                -- than "Weekend / Rest Day", and most Malaysian holidays
-                -- fall on weekdays anyway (a holiday that happens to also
-                -- be a weekend still correctly reads as "Public Holiday",
-                -- not the generic weekend label).
                 WHEN dh.holiday_name IS NOT NULL THEN 'Public Holiday (' || dh.holiday_name || ')'
-                WHEN EXTRACT(ISODOW FROM u.work_date) IN (6, 7) THEN 'Weekend / Rest Day'
                 WHEN dl.leave_type_codes IS NOT NULL THEN 'On Leave (' || dl.leave_type_codes || ')'
                 ELSE 'Absent'
             END
@@ -324,8 +347,15 @@ SELECT
     -- docs/WORK-LOCATIONS-ARCHITECTURE.md. This COALESCE is the exact seam
     -- the prior pass's design left for this change: only the threshold
     -- expression changed, the column's shape/name/callers didn't.
+    --
+    -- NOT is_weekend / holiday guard: a day nobody was expected to work has
+    -- no meaningful "leaving early" concept, regardless of what time real
+    -- attendance happened to end -- without this, someone voluntarily
+    -- working a Saturday (or a public holiday) who leaves at 4pm would get
+    -- flagged exactly like a weekday early-leave violation.
     COALESCE(
-        (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time < COALESCE(wl.early_leave_time, TIME '17:00:00'),
+        NOT u.is_weekend AND dh.holiday_name IS NULL
+        AND (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time < COALESCE(wl.early_leave_time, TIME '17:00:00'),
         false
     ) AS is_early_leave,
 
@@ -351,8 +381,12 @@ SELECT
     -- own comment above already documents for last_out_time_of_day).
     -- Appended last, per this view's own append-only constraint (CREATE OR
     -- REPLACE VIEW only allows new columns after every existing one).
+    --
+    -- NOT is_weekend / holiday guard: same reasoning as is_early_leave
+    -- above -- "late" has no meaning on a day nobody was expected to work.
     COALESCE(
-        (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time > TIME '09:00:00',
+        NOT u.is_weekend AND dh.holiday_name IS NULL
+        AND (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time > TIME '09:00:00',
         false
     ) AS is_late_arrival,
 
@@ -436,7 +470,15 @@ SELECT
         WHEN dh.holiday_name IS NOT NULL
         THEN GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0)
         ELSE 0
-    END AS holiday_hours_worked
+    END AS holiday_hours_worked,
+
+    -- Weekend / rest day -- an independent, always-on calendar fact (see
+    -- expected_shifts above). Replaces the old 'Weekend / Rest Day' hr_flag
+    -- value: filters/KPIs/UI should key off this boolean, never a string
+    -- match against hr_flag, since hr_flag can no longer represent
+    -- "weekend" at all. Appended last per this view's append-only
+    -- constraint.
+    u.is_weekend
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date

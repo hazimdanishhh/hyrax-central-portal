@@ -9,12 +9,28 @@ import AttendanceType from "../attendanceType/AttendanceType";
 import AttendanceClock from "../attendanceClock/AttendanceClock";
 import StatusBox from "../../status/statusBox/StatusBox";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
-import getHrFlagStatusType from "../../../functions/attendanceFlagStatus";
+import { getDisplayAttendanceFlag } from "../../../functions/attendanceFlagStatus";
 
 // GENERAL REUSABLE ATTENDANCE CARD
 // WITH PHOTO, ATTENDANCE TYPE ICONS, CLOCK IN/OUT AND APPROVAL STATUS
 function AttendanceCard({ activity, onClick }) {
   const [showName, setShowName] = useState(false);
+
+  // hr_flag no longer distinguishes an unworked weekend from a genuine
+  // absence (both now read "Absent") -- is_weekend is the calendar-only
+  // signal that tells them apart at display time. See
+  // getDisplayAttendanceFlag's own comment.
+  const attendanceFlagDisplay = getDisplayAttendanceFlag(
+    activity.hr_flag,
+    activity.is_weekend,
+  );
+  // Second, independent tag for a weekend actually WORKED -- the
+  // unworked-weekend case is already fully covered by the "Weekend" label
+  // above, so this only fires when hr_flag isn't "Absent" (same pattern as
+  // the is_on_leave tag below: a small fact shown alongside the main
+  // status, not folded into it).
+  const showWorkedWeekendTag =
+    activity.is_weekend && activity.hr_flag !== "Absent";
 
   return (
     <button
@@ -62,9 +78,16 @@ function AttendanceCard({ activity, onClick }) {
           }}
         >
           <StatusBox
-            status={activity.hr_flag}
-            type={getHrFlagStatusType(activity.hr_flag)}
+            status={attendanceFlagDisplay.label}
+            type={attendanceFlagDisplay.type}
           />
+
+          {/* Worked-on-a-weekend fact, independent of hr_flag -- only shown
+            when the "Weekend" label above ISN'T already covering this day
+            (i.e. they actually attended). */}
+          {showWorkedWeekendTag && (
+            <StatusBox status="Weekend" type="grey" />
+          )}
 
           {/* AttendanceAnomalyBadges already self-guards (renders nothing
             when none of its inputs apply) -- no outer gate needed here, and

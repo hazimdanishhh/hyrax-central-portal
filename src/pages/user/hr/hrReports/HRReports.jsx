@@ -417,7 +417,7 @@ export default function HRReports() {
                         </ChartCard>
                         <ChartCard
                           title="Status Breakdown"
-                          subtitle="By Record, This Period (Excludes Weekend / Rest Day)"
+                          subtitle="By Record, This Period (Excludes Weekends)"
                           style="cardGapSmall"
                           viewAllTo={canAccessHrOps ? "/app/hr/attendance/list" : undefined}
                           viewAllFilter={{

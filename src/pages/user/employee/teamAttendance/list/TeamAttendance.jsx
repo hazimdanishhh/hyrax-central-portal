@@ -44,6 +44,7 @@ const SEARCH_MODE_FILTER_KEYS = [
   "startDate",
   "endDate",
   "workingDayOnly",
+  "weekendOnly",
   "presentOnly",
   "overtimeOnly",
   "lateArrival",

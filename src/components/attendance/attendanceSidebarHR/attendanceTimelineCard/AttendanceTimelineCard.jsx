@@ -271,37 +271,33 @@ export default function AttendanceTimelineCard({
         }}
       >
         <AttendanceType attendanceType={activity.attendance_type} />
-        <StatusBadge status={activity.approval_status} />
-      </div>
-
-      {/* TIMING TABLE */}
-      <div className="attendanceCardSidebarHeader">
-        <div
-          style={{
-            display: "flex",
-            gap: "0.4rem",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-          }}
-        >
-          {/* <p className="textBold textXXS mb-1">{activity.event_source} Data</p> */}
-
-          <AttendanceClock time={activity.check_in_time_only} type="clockin" />
-          <AttendanceClock
-            time={activity.check_out_time_only}
-            type="clockout"
-          />
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          <StatusBadge status={activity.approval_status} />
+          {/* ACTIVITY AUDIT FLAG (Micro-level warning) */}
+          {activity.activity_audit_flag.includes("Valid") ? (
+            <StatusBox status={activity.activity_audit_flag} type="green" />
+          ) : (
+            <StatusBox status={activity.activity_audit_flag} type="red" />
+          )}
         </div>
       </div>
 
-      {/* ACTIVITY AUDIT FLAG (Micro-level warning) */}
-      {activity.activity_audit_flag.includes("Valid") ? (
-        <StatusBox status={activity.activity_audit_flag} type="green" />
-      ) : (
-        <StatusBox status={activity.activity_audit_flag} type="red" />
-      )}
+      {/* TIMING TABLE */}
+      <div
+        style={{
+          display: "flex",
+          gap: "0.4rem",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+        }}
+      >
+        {/* <p className="textBold textXXS mb-1">{activity.event_source} Data</p> */}
+
+        <AttendanceClock time={activity.check_in_time_only} type="clockin" />
+        <AttendanceClock time={activity.check_out_time_only} type="clockout" />
+      </div>
 
       {/* ODD/EVEN IN-OUT PAIR BREAKDOWN -- for Hardware, this card's
           check_in_time/check_out_time is a MIN/MAX summary across possibly
@@ -343,7 +339,15 @@ export default function AttendanceTimelineCard({
                 scan and reveals gaps Number 1 silently papers over (e.g. a
                 scanned-out lunch break). They agree exactly when there's
                 only one pair with no gap -- the normal App case. */}
-            <div className="attendanceCardSidebarHeader">
+            <div
+              style={{
+                display: "flex",
+                gap: "0.4rem",
+                flexWrap: "wrap",
+                width: "100%",
+                justifyContent: "space-between",
+              }}
+            >
               <p className="textRegular textXXS">
                 First In → Last Seen:{" "}
                 <span className="textBold">

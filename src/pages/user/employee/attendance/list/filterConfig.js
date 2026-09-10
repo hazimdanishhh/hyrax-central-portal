@@ -14,13 +14,21 @@ export function getMyAttendanceFilterConfig() {
         { label: "Missing App Check-Out", value: "Missing App Check-Out" },
         { label: "Incomplete Card Scans", value: "Incomplete Card Scans" },
         { label: "Absent", value: "Absent" },
-        { label: "Weekend / Rest Day", value: "Weekend / Rest Day" },
       ],
     },
     {
       key: "workingDayOnly",
       label: "Working Days",
-      options: [{ label: "Exclude Weekend / Rest Day", value: "true" }],
+      options: [{ label: "Exclude Weekends", value: "true" }],
+    },
+    {
+      // is_weekend is a calendar-only signal (true every Saturday/Sunday,
+      // worked or not) -- see the HR filter config's own comment on this
+      // same key for why it replaced the old "Weekend / Rest Day" hrFlag
+      // option above.
+      key: "weekendOnly",
+      label: "Weekend",
+      options: [{ label: "Weekend Only", value: "true" }],
     },
     {
       key: "presentOnly",

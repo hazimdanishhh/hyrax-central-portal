@@ -47,13 +47,24 @@ export function getAttendanceActivitiesFilterConfig({
         { label: "Missing App Check-Out", value: "Missing App Check-Out" },
         { label: "Incomplete Card Scans", value: "Incomplete Card Scans" },
         { label: "Absent", value: "Absent" },
-        { label: "Weekend / Rest Day", value: "Weekend / Rest Day" },
       ],
     },
     {
       key: "workingDayOnly",
       label: "Working Days",
-      options: [{ label: "Exclude Weekend / Rest Day", value: "true" }],
+      options: [{ label: "Exclude Weekends", value: "true" }],
+    },
+    {
+      // is_weekend is a calendar-only signal (true every Saturday/Sunday,
+      // worked or not) -- distinct from workingDayOnly above, which excludes
+      // weekends from the result rather than isolating them. See
+      // hr_unified_daily_attendance_view.sql: hr_flag no longer has a
+      // "Weekend / Rest Day" value at all (a genuine unworked weekend now
+      // reads hr_flag = "Absent"), so this boolean toggle is the only safe
+      // way to target weekends now.
+      key: "weekendOnly",
+      label: "Weekend",
+      options: [{ label: "Weekend Only", value: "true" }],
     },
     {
       key: "presentOnly",

@@ -217,7 +217,7 @@ export default function MyAttendanceOverview() {
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Status Breakdown"
-                    subtitle="By Record, This Period (Excludes Weekend / Rest Day)"
+                    subtitle="By Record, This Period (Excludes Weekends)"
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{ workingDayOnly: "true", ...chartPeriodFilter }}

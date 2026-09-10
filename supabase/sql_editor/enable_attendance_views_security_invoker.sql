@@ -1,0 +1,32 @@
+-- Run this LAST, only after ALL of the following are deployed and smoke-
+-- tested (as three real accounts: a plain self-service employee, a
+-- manager, and an HR/superadmin user, comparing row counts/KPIs before and
+-- after each step):
+--   1. current_employee_id.sql, current_employee_manager_id.sql,
+--      get_company_activity_dates.sql (functions)
+--   2. employees_manager_view.sql (policies)
+--   3. attendance_logs' 4 policies confirmed live (attendance_logs_crud.sql
+--      -- live-verify with `select policyname, cmd from pg_policies where
+--      tablename = 'attendance_logs';` first; docs/TABLE-POLICIES.csv may
+--      be stale)
+--   4. hr_unified_daily_attendance_view.sql (updated: is_weekend, hr_flag
+--      weekend branch removed, late/early guards, get_company_activity_dates())
+--   5. get_attendance_dashboard_rpc.sql / get_hr_reports_dashboard_rpc.sql
+--      (is_weekend-based KPI fixes)
+--
+-- unified_daily_attendance and attendance_activity_audit currently run as
+-- their owner (no security_invoker), meaning RLS on the tables they read
+-- (attendance_logs, attendance_activities, leave_ledger_entries,
+-- public_holidays, employees, ...) never actually applies through them --
+-- only the two dashboard RPCs' own hand-rolled authorization guards protect
+-- this data today, not the views themselves (still directly queryable via
+-- PostgREST by any authenticated user). This closes that gap.
+--
+-- Deliberately a plain ALTER VIEW, not a re-paste of the full
+-- CREATE OR REPLACE VIEW -- security_invoker is a reloption, not a column,
+-- so this is safe to run independently of any of the logic changes above,
+-- and just as trivial to roll back on its own if something regresses:
+--   ALTER VIEW public.unified_daily_attendance SET (security_invoker = false);
+--   ALTER VIEW public.attendance_activity_audit SET (security_invoker = false);
+alter view public.unified_daily_attendance set (security_invoker = on);
+alter view public.attendance_activity_audit set (security_invoker = on);

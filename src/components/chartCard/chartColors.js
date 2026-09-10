@@ -114,7 +114,6 @@ export const ATTENDANCE_FLAG_COLORS = {
   "Missing App Check-Out": "#d76363",
   "Incomplete Card Scans": "#dd8b48",
   Absent: "#d76363",
-  "Weekend / Rest Day": "#9CA3AF",
   // HR2000 leave ledger integration -- get_attendance_dashboard_rpc.sql's
   // hrFlagBreakdownData buckets every dynamic "On Leave (AL)"/"On Leave
   // (AL+MC)" value into this one flat "On Leave" category before grouping,

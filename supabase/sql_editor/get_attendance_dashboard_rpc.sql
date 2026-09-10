@@ -349,8 +349,8 @@ kpi_totals as (
         -- company holiday with no scan is now its own hr_flag value too
         -- ('Public Holiday (...)'), not Absent/Weekend, and must not
         -- silently count as present either.
-        (select count(*) from today_rows where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave and not is_public_holiday) as present_today_count,
-        (select count(*) from period_rows where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave and not is_public_holiday) as present_period_count,
+        (select count(*) from today_rows where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday) as present_today_count,
+        (select count(*) from period_rows where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday) as present_period_count,
 
         -- Pending Approvals -- backlog (unbounded by date, the TRUE current
         -- state) vs period-scoped (originated within the selected period).
@@ -394,10 +394,10 @@ kpi_totals as (
         -- to_char all propagate null through when there's no data.
         (select to_char(make_interval(secs => avg(extract(epoch from first_in::time))), 'HH24:MI')
          from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent') and first_in is not null) as avg_check_in_time,
+         where hr_flag <> 'Absent' and not is_weekend and first_in is not null) as avg_check_in_time,
         (select to_char(make_interval(secs => avg(extract(epoch from last_out::time))), 'HH24:MI')
          from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent') and last_out is not null) as avg_check_out_time,
+         where hr_flag <> 'Absent' and not is_weekend and last_out is not null) as avg_check_out_time,
 
         -- Late arrivals: computed once in unified_daily_attendance
         -- (is_late_arrival -- see that view's own comment for the 09:00
@@ -409,7 +409,7 @@ kpi_totals as (
         -- first_in_time_of_day is null, so no separate "first_in is not
         -- null" guard is needed.
         (select count(*) from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent')
+         where hr_flag <> 'Absent' and not is_weekend
          and not is_on_leave
          and not is_public_holiday
          and is_late_arrival) as late_arrivals_count,
@@ -422,7 +422,7 @@ kpi_totals as (
         -- "late" or leaving "early" against a normal-day threshold isn't a
         -- meaningful anomaly that day, same reasoning as not is_on_leave.
         (select count(*) from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent')
+         where hr_flag <> 'Absent' and not is_weekend
          and not is_on_leave
          and not is_public_holiday
          and is_early_leave) as early_leave_count,
@@ -439,8 +439,8 @@ kpi_totals as (
         -- hours were actually worked -- the true figure is UNKNOWN, not
         -- zero. Without this exclusion it silently dragged the average down
         -- exactly like the on-leave dilution bug above.
-        (select round(avg(hours_worked)::numeric, 2) from period_rows where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave) as avg_hours_worked,
-        (select round(avg(hours_worked)::numeric, 2) from prev_period_rows where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave) as prev_avg_hours_worked,
+        (select round(avg(hours_worked)::numeric, 2) from period_rows where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave) as avg_hours_worked,
+        (select round(avg(hours_worked)::numeric, 2) from prev_period_rows where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave) as prev_avg_hours_worked,
 
         -- Overtime (doc-02 KPI): time worked after 6PM, this period --
         -- NOT hours above 8/day. Reads overtime_hours from
@@ -455,11 +455,11 @@ kpi_totals as (
         -- is that same lone scan's own time, which may or may not be a real
         -- departure, so any overtime_hours it produces isn't trustworthy.
         (select round(sum(overtime_hours)::numeric, 2) from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave) as overtime_hours_total,
+         where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave) as overtime_hours_total,
         (select round(sum(overtime_hours)::numeric, 2) from prev_period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave) as prev_overtime_hours_total,
+         where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave) as prev_overtime_hours_total,
         (select count(distinct employee_uuid) from period_rows
-         where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave and overtime_hours > 0) as employees_with_overtime_count,
+         where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave and overtime_hours > 0) as employees_with_overtime_count,
 
         -- Public holidays integration -- reconciliation metric for
         -- employees who actually attended on a day nobody was expected to
@@ -471,8 +471,8 @@ kpi_totals as (
         (select round(sum(holiday_hours_worked)::numeric, 2) from prev_period_rows where is_worked_on_holiday) as prev_holiday_hours_worked_total,
         (select count(distinct employee_uuid) from period_rows where is_worked_on_holiday) as employees_worked_on_holiday_count,
 
-        (select count(*) from period_rows where hr_flag = 'Absent') as absent_days_count,
-        (select count(*) from prev_period_rows where hr_flag = 'Absent') as prev_absent_days_count,
+        (select count(*) from period_rows where hr_flag = 'Absent' and not is_weekend) as absent_days_count,
+        (select count(*) from prev_period_rows where hr_flag = 'Absent' and not is_weekend) as prev_absent_days_count,
 
         -- Denominator for absenteeism/late-arrival rates -- working-day
         -- records only, excluding the Weekend/Rest-Day placeholder rows,
@@ -481,7 +481,7 @@ kpi_totals as (
         -- absenteeism rates get artificially dragged down by days nobody
         -- was expected to attend. A company holiday isn't a working day
         -- regardless of whether one person happened to come in that day.
-        (select count(*) from period_rows where hr_flag <> 'Weekend / Rest Day' and not is_on_leave and not is_public_holiday) as working_day_records_count,
+        (select count(*) from period_rows where not is_weekend and not is_on_leave and not is_public_holiday) as working_day_records_count,
 
         -- HR2000 leave ledger integration -- leave days this period, its
         -- prior-period sibling (same calcDelta convention as avg_hours_worked/
@@ -578,7 +578,7 @@ select json_build_object(
                 end as name,
                 count(*) as value
             from period_rows
-            where hr_flag <> 'Weekend / Rest Day'
+            where not is_weekend
             group by 1
         ) x
     ),
@@ -597,8 +597,8 @@ select json_build_object(
                 -- (HR2000 leave ledger + public holidays integration) --
                 -- must stay reconciled with the headline attendanceRatePct
                 -- definition (same present/roster ratio).
-                count(*) filter (where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave and not is_public_holiday) as present_count,
-                count(*) filter (where hr_flag <> 'Weekend / Rest Day' and not is_on_leave and not is_public_holiday) as roster_count
+                count(*) filter (where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday) as present_count,
+                count(*) filter (where not is_weekend and not is_on_leave and not is_public_holiday) as roster_count
             from period_rows
             group by date_trunc(v_trend_bucket, work_date)
         ) x
@@ -614,7 +614,7 @@ select json_build_object(
                 date_trunc(v_trend_bucket, work_date) as bucket_start,
                 -- Incomplete Card Scans excluded -- same unknown-vs-zero
                 -- reasoning as kpi_totals.avg_hours_worked above.
-                round(avg(hours_worked) filter (where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans'))::numeric, 2) as avg_hours
+                round(avg(hours_worked) filter (where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend)::numeric, 2) as avg_hours
             from period_rows
             group by date_trunc(v_trend_bucket, work_date)
         ) x
@@ -632,8 +632,8 @@ select json_build_object(
                 -- same present/roster ratio as the headline KPI, cut by
                 -- department, must stay reconciled with it.
                 round(
-                    (count(*) filter (where hr_flag not in ('Absent', 'Weekend / Rest Day') and not is_on_leave and not is_public_holiday)::numeric
-                    / nullif(count(*) filter (where hr_flag <> 'Weekend / Rest Day' and not is_on_leave and not is_public_holiday), 0)) * 100
+                    (count(*) filter (where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday)::numeric
+                    / nullif(count(*) filter (where not is_weekend and not is_on_leave and not is_public_holiday), 0)) * 100
                 , 1) as value
             from period_rows
             group by coalesce(department_name, 'Unassigned')
@@ -659,7 +659,7 @@ select json_build_object(
             -- a pure on-leave or holiday zero-scan day gets miscategorized
             -- as 'Unclassified' channel instead of being excluded like
             -- Absent.
-            where hr_flag not in ('Weekend / Rest Day', 'Absent') and not is_on_leave and not is_public_holiday
+            where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday
             group by 1
         ) x
     ),
@@ -671,7 +671,7 @@ select json_build_object(
         from (
             select full_name as name, count(*) as value
             from period_rows
-            where hr_flag = 'Absent'
+            where hr_flag = 'Absent' and not is_weekend
             group by full_name
             order by count(*) desc
             limit 10
@@ -685,7 +685,7 @@ select json_build_object(
         from (
             select full_name as name, round(sum(overtime_hours)::numeric, 2) as value
             from period_rows
-            where hr_flag not in ('Weekend / Rest Day', 'Absent', 'Incomplete Card Scans') and not is_on_leave
+            where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave
             group by full_name
             having sum(overtime_hours) > 0
             order by value desc

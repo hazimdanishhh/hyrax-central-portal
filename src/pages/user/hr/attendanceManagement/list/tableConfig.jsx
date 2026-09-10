@@ -15,6 +15,9 @@
 // getValue = data name
 // editor = data type
 
+import StatusBox from "../../../../../components/status/statusBox/StatusBox";
+import { getDisplayAttendanceFlag } from "../../../../../functions/attendanceFlagStatus";
+
 export const attendanceDailySummaryTableConfig = () => [
   {
     key: "id",
@@ -74,9 +77,34 @@ export const attendanceDailySummaryTableConfig = () => [
     editor: "text",
   },
   {
+    // hr_flag no longer distinguishes an unworked weekend from a genuine
+    // absence (both now read "Absent") -- is_weekend is the calendar-only
+    // signal that tells them apart at display time. render (not getValue)
+    // is needed here so this reads as a colored StatusBox, same as every
+    // other hr_flag render site (AttendanceCard.jsx, AttendanceSidebarHR.jsx,
+    // TodayAttendanceCard.jsx), instead of a plain-text "Absent" for every
+    // unworked Saturday/Sunday.
     key: "hr_flag",
     label: "Status",
     getValue: (activity) => activity.hr_flag,
+    render: (_displayValue, activity) => {
+      const { label, type } = getDisplayAttendanceFlag(
+        activity.hr_flag,
+        activity.is_weekend,
+      );
+      return <StatusBox status={label} type={type} />;
+    },
+    editable: false,
+    editor: "text",
+  },
+  {
+    // Independent of the Status column above -- a calendar-only fact
+    // (true every Saturday/Sunday, worked or not), whereas Status already
+    // folds "unworked weekend" into its own "Weekend" label. This column
+    // lets a worked weekend still be spotted at a glance in Table view.
+    key: "weekend",
+    label: "Weekend",
+    getValue: (activity) => (activity.is_weekend ? "Yes" : "—"),
     editable: false,
     editor: "text",
   },
