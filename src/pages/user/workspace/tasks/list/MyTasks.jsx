@@ -158,13 +158,7 @@ export default function MyTasks() {
               subtitle="View and manage your assigned tasks across all projects."
             />
 
-            {overviewLoading ? (
-              <CardLayout style="cardLayoutFlexFull">
-                <LoadingIcon />
-              </CardLayout>
-            ) : overviewError ? null : (
-              <OverviewCards items={overviewItems} />
-            )}
+            <OverviewCards items={overviewItems} style="overviewCard2" />
 
             <SearchFilterBar
               search={search}

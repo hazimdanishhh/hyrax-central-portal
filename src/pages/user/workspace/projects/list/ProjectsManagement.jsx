@@ -169,13 +169,7 @@ export default function ProjectsManagement() {
               subtitle="Manage your projects and details."
             />
 
-            {overviewLoading ? (
-              <CardLayout style="cardLayoutFlexFull">
-                <LoadingIcon />
-              </CardLayout>
-            ) : overviewError ? null : (
-              <OverviewCards items={overviewItems} />
-            )}
+            <OverviewCards items={overviewItems} style="overviewCard2" />
 
             <SearchFilterBar
               search={search}
