@@ -21,6 +21,7 @@ export function getMyTasksFilterConfig({ projects = [] } = {}) {
       options: [
         { label: "Overdue", value: "overdue" },
         { label: "Due Soon", value: "due_soon" },
+        { label: "Completed Late", value: "completed_late" },
       ],
     },
   ];

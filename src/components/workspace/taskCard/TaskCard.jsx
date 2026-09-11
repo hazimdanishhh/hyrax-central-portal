@@ -60,7 +60,11 @@ export default function TaskCard({
     TASK_STATUSES.find((s) => s.value === task.status)?.label || task.status;
   const actions = canEdit ? TASK_STATUS_ACTIONS[task.status] || [] : [];
   const assignees = task.task_assignees ?? [];
-  const dueDateStatus = getDueDateStatus(task.due_date, task.status);
+  const dueDateStatus = getDueDateStatus(
+    task.due_date,
+    task.status,
+    task.is_completed_late,
+  );
 
   return (
     <div className="generalCard taskCard cardPaddingSmall" onClick={onClick}>
@@ -102,7 +106,11 @@ export default function TaskCard({
 
             {task.due_date && (
               <IconCard
-                icon={dueDateStatus.isOverdue ? WarningCircleIcon : ClockIcon}
+                icon={
+                  dueDateStatus.isOverdue || dueDateStatus.isCompletedLate
+                    ? WarningCircleIcon
+                    : ClockIcon
+                }
                 weight="fill"
                 name={`Due: ${formatDate(task.due_date)}`}
                 style={`${dueDateStatus.colorClass} textXXS`}

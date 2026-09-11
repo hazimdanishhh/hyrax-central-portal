@@ -174,6 +174,23 @@ export async function fetchProjectsOverview() {
 }
 
 /**
+ * Backs the per-project "Overview" tab -- a single RPC round trip
+ * (get_project_overview_rpc.sql) returning {kpis, taskStatusData,
+ * memberPerformanceData} for one project. The first per-record detail
+ * overview RPC in this app (every other get_*_overview is list-wide);
+ * relies on tasks/documents/project_members' own RLS the same way
+ * fetchProjectById does -- a non-member gets empty/zero results back, not
+ * an error.
+ */
+export async function fetchProjectOverview(projectId) {
+  const { data, error } = await supabase.rpc("get_project_overview", { p_project_id: projectId });
+
+  if (error) throw error;
+
+  return data;
+}
+
+/**
  * Departments a project touches, derived live from its members' own
  * employees.department_id (req #2 -- explicitly NOT profiles.department_id,
  * which can drift from an employee's actual current department).

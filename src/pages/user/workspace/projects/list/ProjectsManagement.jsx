@@ -113,6 +113,10 @@ export default function ProjectsManagement() {
     searchParams,
     statuses: PROJECT_STATUSES,
     statusTypeMap: PROJECT_STATUS_TYPE,
+    extraTabs: [
+      { label: "Overdue", paramKey: "dueStatus", value: "overdue", type: "red" },
+      { label: "Due Soon", paramKey: "dueStatus", value: "due_soon", type: "yellow" },
+    ],
   });
 
   function handleOpenCreate() {

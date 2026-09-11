@@ -80,6 +80,14 @@ export async function fetchMyTasks({ employeeId, page, pageSize, search, filters
     } else if (filters.dueStatus === "due_soon") {
       const cutoff = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       query = query.gte("due_date", today).lte("due_date", cutoff).not("status", "in", "(COMPLETED,CANCELLED)");
+    } else if (filters.dueStatus === "completed_late") {
+      // completed_date > due_date is a column-vs-column comparison --
+      // PostgREST's plain column=operator.value filters can't express
+      // that directly, so this reads tasks.is_completed_late (a STORED
+      // GENERATED column, tasks_add_is_completed_late_column.sql) instead
+      // of trying to. Same column get_project_overview_rpc.sql's
+      // completedLateCount now reads too -- one definition.
+      query = query.eq("is_completed_late", true);
     }
   }
 

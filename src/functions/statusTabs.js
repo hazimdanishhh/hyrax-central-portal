@@ -21,27 +21,60 @@ const STATUSBOX_TO_PILL_THEME = {
   red: "rejection",
 };
 
-export function buildStatusTabs({ searchParams, statuses, statusTypeMap = {}, paramKey = "status" }) {
+// extraTabs (added 2026-09): computed-condition tabs mixed in alongside
+// the raw-status ones -- e.g. Overdue/Due Soon/Completed Late, a
+// due_date-derived bucket, not a value of the `status` column itself.
+// Same idea as Sales Leads' own stageTabsConfig mixing stage tabs with
+// boolean-flag tabs (ON HOLD/CANCELLED) in one strip, but built generically
+// here instead of hand-written per page (see this file's own top comment
+// for why Leads stays bespoke and this one doesn't need to be) -- each
+// entry is `{ label, paramKey, value, type }`, where `type` reuses the
+// same grey/blue/yellow/green/red vocabulary `statusTypeMap` values
+// already use, translated through the same STATUSBOX_TO_PILL_THEME map.
+//
+// Selecting ANY tab -- raw-status or extra -- clears every OTHER tracked
+// param first, so exactly one tab ever reads active at a time: clicking
+// "Overdue" after "To Do" was selected drops `status` when it sets
+// `dueStatus`, and vice versa. Untouched params (search, assignee,
+// category, project, ...) are preserved exactly as buildTo already did.
+export function buildStatusTabs({
+  searchParams,
+  statuses,
+  statusTypeMap = {},
+  paramKey = "status",
+  extraTabs = [],
+}) {
   const currentValue = searchParams.get(paramKey) || "";
+  const trackedParamKeys = [paramKey, ...new Set(extraTabs.map((t) => t.paramKey))];
 
-  const buildTo = (value) => {
+  const buildTo = (key, value) => {
     const params = new URLSearchParams(searchParams);
     params.delete("page");
+    trackedParamKeys.forEach((k) => params.delete(k));
     if (value) {
-      params.set(paramKey, value);
-    } else {
-      params.delete(paramKey);
+      params.set(key, value);
     }
     return `?${params.toString()}`;
   };
 
-  return [
-    { label: "All", to: buildTo(""), themeType: "", isActive: !currentValue },
+  const isAnyExtraActive = extraTabs.some((t) => searchParams.get(t.paramKey) === t.value);
+
+  const primaryTabs = [
+    { label: "All", to: buildTo(paramKey, ""), themeType: "", isActive: !currentValue && !isAnyExtraActive },
     ...statuses.map((s) => ({
       label: s.label,
-      to: buildTo(s.value),
+      to: buildTo(paramKey, s.value),
       themeType: STATUSBOX_TO_PILL_THEME[statusTypeMap[s.value]] ?? "",
-      isActive: currentValue === s.value,
+      isActive: currentValue === s.value && !isAnyExtraActive,
     })),
   ];
+
+  const secondaryTabs = extraTabs.map((t) => ({
+    label: t.label,
+    to: buildTo(t.paramKey, t.value),
+    themeType: STATUSBOX_TO_PILL_THEME[t.type] ?? "",
+    isActive: searchParams.get(t.paramKey) === t.value,
+  }));
+
+  return [...primaryTabs, ...secondaryTabs];
 }

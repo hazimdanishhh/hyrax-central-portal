@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, NavLink, Outlet } from "react-router";
 import {
   FolderIcon,
+  ChartBarIcon,
   ListChecksIcon,
   UsersIcon,
   FileIcon,
@@ -45,10 +46,19 @@ import StatusBadge from "../../../../../components/status/statusBadge/StatusBadg
  * A "smart" per-record tab shell -- unlike the existing static
  * *PageLayout.jsx files (tabs + bare <Outlet/>, no data fetching of their
  * own), this one calls useProject(projectId) itself for the header, since
- * the URL only carries :projectId. Tabs (Tasks, Members -- Overview cut
- * per the product owner's decision) each independently re-call useProject
- * rather than reading Outlet context (unused anywhere in this codebase);
- * React Query dedupes the shared ["project", projectId] key for free.
+ * the URL only carries :projectId. Tabs (Tasks, Members, Documents,
+ * Overview) each independently re-call useProject rather than reading
+ * Outlet context (unused anywhere in this codebase); React Query dedupes
+ * the shared ["project", projectId] key for free.
+ *
+ * Overview was originally cut per a 2026-08 product-owner decision (the
+ * module's origin brief scoped v1 as "basic Kanban/list views... avoid
+ * over-engineering") and reinstated 2026-09 once the module had grown
+ * real analytical content worth a dedicated tab (KPIs, charts, a
+ * per-employee performance breakdown) beyond what the header fields
+ * above already show -- see docs/PROJECTS-TASKS-ARCHITECTURE.md. Tasks
+ * stays the default/landing tab (index redirect unchanged) -- Overview is
+ * additive, appended last, not a relitigation of that original call.
  */
 export default function ProjectDetailLayout() {
   const { darkMode } = useTheme();
@@ -292,6 +302,18 @@ export default function ProjectDetailLayout() {
                     <FileIcon size={15} />
                   </div>
                   Documents
+                </NavLink>
+
+                <NavLink
+                  to={`/app/workspace/projects/${projectId}/overview`}
+                  className={({ isActive }) =>
+                    `button buttonTypeTab textRegular textXS ${isActive ? "active" : ""}`
+                  }
+                >
+                  <div className="pageTabIcon">
+                    <ChartBarIcon size={15} />
+                  </div>
+                  Overview
                 </NavLink>
               </div>
 

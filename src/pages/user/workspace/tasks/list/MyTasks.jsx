@@ -116,6 +116,11 @@ export default function MyTasks() {
     searchParams,
     statuses: TASK_STATUSES,
     statusTypeMap: TASK_STATUS_TYPE,
+    extraTabs: [
+      { label: "Overdue", paramKey: "dueStatus", value: "overdue", type: "red" },
+      { label: "Due Soon", paramKey: "dueStatus", value: "due_soon", type: "yellow" },
+      { label: "Completed Late", paramKey: "dueStatus", value: "completed_late", type: "yellow" },
+    ],
   });
 
   function handleOpenSidebar(task) {

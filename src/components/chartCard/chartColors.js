@@ -123,6 +123,14 @@ export const ATTENDANCE_FLAG_COLORS = {
   "Public Holiday": BLUE_COLOR,
 };
 
+// WORKSPACE TASK STATUS (per-project Overview tab's "Task Breakdown" donut)
+export const TASK_STATUS_COLORS = {
+  "To Do": BLUE_COLOR,
+  "In Progress": YELLOW_COLOR,
+  Completed: GREEN_COLOR,
+  Cancelled: "#9CA3AF",
+};
+
 // ATTENDANCE WORK CHANNEL MIX (unified_daily_attendance's hw_check_in vs
 // app_check_in presence) -- doc-02's "WFH vs office split" KPI, in Hyrax's
 // actual terms (hardware badge scan vs self-service app clock-in).

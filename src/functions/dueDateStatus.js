@@ -18,14 +18,29 @@
  * it identically and each item suppresses its own overdue/due-soon state
  * for a completed/cancelled row, instead of every call site having to
  * remember that rule itself.
+ *
+ * isCompletedLate (added 2026-09) -- optional 3rd argument, defaults to
+ * false so every existing call site (ProjectCard/ProjectDetailLayout, and
+ * TaskCard before this change) is completely unaffected. Only tasks have
+ * a "completed late" concept today (tasks.is_completed_late, a STORED
+ * GENERATED column -- see tasks_add_is_completed_late_column.sql) --
+ * projects don't, so this stays an opt-in override, not a change to the
+ * terminal-status default. When true (only meaningful for status =
+ * COMPLETED), overrides the neutral "none" a plain completed/cancelled
+ * item would otherwise get, since a completed-late item is exactly the
+ * case that SHOULD keep reading as a problem despite being finished.
  */
 export const DUE_SOON_WINDOW_DAYS = 3;
 
 const TERMINAL_STATUSES = ["COMPLETED", "CANCELLED"];
 
-export function getDueDateStatus(dateValue, itemStatus) {
+export function getDueDateStatus(dateValue, itemStatus, isCompletedLate = false) {
+  if (itemStatus === "COMPLETED" && isCompletedLate) {
+    return { state: "completed_late", colorClass: "red", isOverdue: false, isDueSoon: false, isCompletedLate: true };
+  }
+
   if (!dateValue || TERMINAL_STATUSES.includes(itemStatus)) {
-    return { state: "none", colorClass: "blue", isOverdue: false, isDueSoon: false };
+    return { state: "none", colorClass: "blue", isOverdue: false, isDueSoon: false, isCompletedLate: false };
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -35,10 +50,10 @@ export function getDueDateStatus(dateValue, itemStatus) {
   const targetDate = String(dateValue).slice(0, 10);
 
   if (targetDate < today) {
-    return { state: "overdue", colorClass: "red", isOverdue: true, isDueSoon: false };
+    return { state: "overdue", colorClass: "red", isOverdue: true, isDueSoon: false, isCompletedLate: false };
   }
   if (targetDate <= cutoff) {
-    return { state: "due_soon", colorClass: "yellow", isOverdue: false, isDueSoon: true };
+    return { state: "due_soon", colorClass: "yellow", isOverdue: false, isDueSoon: true, isCompletedLate: false };
   }
-  return { state: "normal", colorClass: "blue", isOverdue: false, isDueSoon: false };
+  return { state: "normal", colorClass: "blue", isOverdue: false, isDueSoon: false, isCompletedLate: false };
 }

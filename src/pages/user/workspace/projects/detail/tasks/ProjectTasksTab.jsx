@@ -25,6 +25,7 @@ import useTaskAssigneeMutations from "../../../../../../features/workspace/tasks
 import useTaskDocumentMutations from "../../../../../../features/workspace/tasks/private/hooks/useTaskDocumentMutations";
 import { useTaskStatusAction } from "../../../../../../features/workspace/tasks/private/hooks/useTaskStatusAction";
 import { isTaskAssignee } from "../../../../../../features/workspace/tasks/private/taskPermissions";
+import { getDueDateStatus } from "../../../../../../functions/dueDateStatus";
 import {
   TASK_STATUSES,
   TASK_STATUS_TYPE,
@@ -105,12 +106,18 @@ export default function ProjectTasksTab() {
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "";
   const assignee = searchParams.get("assignee") || "";
-  const filters = { assignee };
+  const dueStatus = searchParams.get("dueStatus") || "";
+  const filters = { assignee, dueStatus };
   const filterConfig = getProjectTasksFilterConfig({ workingMembers });
   const statusTabs = buildStatusTabs({
     searchParams,
     statuses: TASK_STATUSES,
     statusTypeMap: TASK_STATUS_TYPE,
+    extraTabs: [
+      { label: "Overdue", paramKey: "dueStatus", value: "overdue", type: "red" },
+      { label: "Due Soon", paramKey: "dueStatus", value: "due_soon", type: "yellow" },
+      { label: "Completed Late", paramKey: "dueStatus", value: "completed_late", type: "yellow" },
+    ],
   });
 
   function updateParams(patch) {
@@ -148,6 +155,23 @@ export default function ProjectTasksTab() {
         !(t.task_assignees ?? []).some((a) => a.employee_id === assignee)
       )
         return false;
+      // Computed due_date condition, not a raw column -- client-side here
+      // (unlike My Tasks/Projects' server-side dueStatus filter) since this
+      // tab already filters its already-unpaginated `tasks` array in
+      // memory. Reuses getDueDateStatus (dueDateStatus.js) rather than
+      // reimplementing the overdue/due-soon rule a 4th time.
+      if (dueStatus) {
+        const dueDateStatus = getDueDateStatus(t.due_date, t.status);
+        if (dueStatus === "overdue" && !dueDateStatus.isOverdue) return false;
+        if (dueStatus === "due_soon" && !dueDateStatus.isDueSoon) return false;
+        // completed_date > due_date is a column-vs-column comparison --
+        // reads tasks.is_completed_late (a STORED GENERATED column,
+        // tasks_add_is_completed_late_column.sql) rather than
+        // recomputing it here, same value myTasksService.js's server-side
+        // filter and get_project_overview_rpc.sql's completedLateCount
+        // both already read.
+        if (dueStatus === "completed_late" && !t.is_completed_late) return false;
+      }
       if (
         q &&
         !`${t.title ?? ""} ${t.description ?? ""}`.toLowerCase().includes(q)
@@ -155,7 +179,7 @@ export default function ProjectTasksTab() {
         return false;
       return true;
     });
-  }, [tasks, status, assignee, search]);
+  }, [tasks, status, assignee, dueStatus, search]);
 
   function handleRowClick(task) {
     navigate(`${task.id}?${searchParams.toString()}`);

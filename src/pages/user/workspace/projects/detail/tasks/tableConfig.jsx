@@ -109,6 +109,7 @@ export const taskTableConfig = ({
       editable: canEdit,
       editor: "date",
       half: true,
+      required: true,
     },
     {
       key: "completed_date",

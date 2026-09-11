@@ -11,5 +11,18 @@ export function getProjectTasksFilterConfig({ workingMembers = [] }) {
         value: m.employee_id,
       })),
     },
+    {
+      // Computed due_date condition, not a raw column -- same shape as
+      // getMyTasksFilterConfig's own dueStatus entry. Drives the
+      // per-project Overview tab's Overdue/Due Soon/Completed Late
+      // tiles' link_to.
+      key: "dueStatus",
+      label: "Due",
+      options: [
+        { label: "Overdue", value: "overdue" },
+        { label: "Due Soon", value: "due_soon" },
+        { label: "Completed Late", value: "completed_late" },
+      ],
+    },
   ];
 }

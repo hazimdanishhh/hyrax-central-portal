@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchProjectsOverview } from "../api/projectsService";
 
-const EMPTY_KPIS = { totalCount: 0, activeCount: 0, planningCount: 0, onHoldCount: 0 };
+const EMPTY_KPIS = { totalCount: 0, activeCount: 0, overdueCount: 0, dueSoonCount: 0 };
 
 /**
  * Backs the Projects list page's OverviewCards -- same shape as

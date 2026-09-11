@@ -95,6 +95,7 @@ export const myTasksTableConfig = ({ projectDocuments = [] } = {}) => [
     editable: true,
     editor: "date",
     half: true,
+    required: true,
   },
   {
     key: "completed_date",
