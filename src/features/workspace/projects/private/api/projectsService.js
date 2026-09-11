@@ -51,6 +51,25 @@ export async function fetchProjects({ page, pageSize, search, filters, sortBy, s
     if (map[key]) query = query.eq(map[key], value);
   });
 
+  // dueStatus is a computed condition, not a raw column, so it can't go
+  // through the plain .eq() map above -- same shape as fetchMyTasks's own
+  // dueStatus handling in myTasksService.js, applied to target_end_date
+  // instead of due_date. Drives the project.deadline_approaching/
+  // project.overdue digest notifications' link_to.
+  if (filters.dueStatus) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (filters.dueStatus === "overdue") {
+      query = query.lt("target_end_date", today).not("status", "in", "(COMPLETED,CANCELLED)");
+    } else if (filters.dueStatus === "due_soon") {
+      const cutoff = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      query = query
+        .gte("target_end_date", today)
+        .lte("target_end_date", cutoff)
+        .not("status", "in", "(COMPLETED,CANCELLED)");
+    }
+  }
+
   query = query.range(from, to);
 
   const { data, count, error } = await query;

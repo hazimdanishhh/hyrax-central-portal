@@ -24,8 +24,8 @@ flowchart TD
     P6 --> P8[Member role tier changed] --> N4(["🔵 project.member_role_changed\nexcludes owner transitions"]):::building
     P6 --> P9[Ownership transferred] --> N5(["🔵 project.ownership_transferred\nnew owner only"]):::building
     P3 & P4 --> P10{target_end_date\napproaching / passed?}
-    P10 -->|~3 days out| N6(["🔵 project.deadline_approaching\nall members"]):::building
-    P10 -->|overdue, 7-day recheck| N7(["🔵 project.overdue\nall members"]):::building
+    P10 -->|~3 days out| N6(["🔵 project.deadline_approaching\ndigest per member, with count"]):::building
+    P10 -->|overdue, 7-day recheck| N7(["🔵 project.overdue\ndigest per member, with count"]):::building
     P11[target_end_date rescheduled] -.->|silently resets cooldowns, no event| P10
     P5 --> P12["Project deleted\n(CANCELLED + taskless only)"] -.-> LO1["⬛ Leave out: no active\nstakeholders left by then"]:::leaveout
 ```
@@ -52,8 +52,8 @@ flowchart TD
     T3 & T4 & T5 & T6 -->|any transition| NT3(["🟢 task.status_changed\ncurrent assignees today;\n+ CC once that ships"]):::implemented
     T3 & T4 -->|due_date edited| NT4(["🔵 task.due_date_changed\nresets due-soon/overdue cooldowns"]):::building
     T3 & T4 --> T7{due_date\napproaching / passed?}
-    T7 -->|~3 days out, per assignee| NT5(["🔵 task.due_soon"]):::building
-    T7 -->|overdue, 7-day recheck, per assignee| NT6(["🔵 task.overdue"]):::building
+    T7 -->|~3 days out| NT5(["🔵 task.due_soon\ndigest per assignee, with count"]):::building
+    T7 -->|overdue, 7-day recheck| NT6(["🔵 task.overdue\ndigest per assignee, with count"]):::building
     T3 & T4 & T5 & T6 --> T8[Task deleted] --> NT7(["🔵 task.deleted\ncurrent assignees"]):::building
     T3 & T4 --> T9[Comment posted] --> NT8(["🟣 task.comment_added\nassignees + CC + owner/lead"]):::future
 ```
@@ -84,6 +84,7 @@ flowchart TD
 - **`project.created`** was considered and explicitly dropped — every real stakeholder is already covered by `project.member_added` firing per initial member at creation time.
 - **A task created with a due date already inside the 3-day window** isn't special-cased — the very next scheduled scan run already matches it (the condition is satisfied from the moment the row exists), and `task.assigned`'s own notification message surfaces the due date immediately regardless of scan timing.
 - **Silent cooldown resets** (project deadline rescheduled, task due date rescheduled) intentionally carry no visible notification of their own — only clear the reminder state so the new date gets a fresh cycle. Adding a separate "deadline changed" notification on top was weighed and left out to avoid over-notifying.
+- **The 4 scan-driven events are digested per recipient, not per row** (added 2026-09, after review): `task.due_soon`/`task.overdue`/`project.deadline_approaching`/`project.overdue` each emit ONE notification per recipient per scan run, carrying a count ("You have 3 tasks due soon"), rather than one notification per (task, assignee) or (project, member) pair — a recipient with several qualifying items no longer gets flooded. Task-level digests link to the already-existing `dueStatus` filter on My Tasks (`/app/workspace/tasks?dueStatus=due_soon`/`?dueStatus=overdue`); project-level digests link to the matching `dueStatus` filter added to the Projects page (`/app/workspace/projects?dueStatus=due_soon`/`?dueStatus=overdue`). The other 16 events are change-triggered (one discrete real action each), not scan-driven, so there's no natural batch to aggregate within — a real burst of those is already softened by the existing email-delivery digest (`send-queued-emails.ts`), and building emission-time aggregation for them is out of scope here.
 - **Task CC and Task Comments** are new capabilities the module doesn't have yet — designed in `docs/TASK-CC-DESIGN.md` and `docs/TASK-COMMENTS-DESIGN.md`, not implemented in this pass. Once built, `task.status_changed` and `document.attached`'s recipient loops extend to include CC'd users (documented as a follow-up in the Task CC design doc).
 
 ## Fixed alongside this pass

@@ -103,8 +103,22 @@ No SQL — ships via the normal build/deploy pipeline, no ordering dependency on
 
 - [ ] `src/routes/WorkspaceRoutes.jsx` — adds the nested `:taskId` route under the project's `tasks` tab.
 - [ ] `src/pages/user/workspace/projects/detail/tasks/ProjectTasksTab.jsx` — URL-driven task sidebar (mirrors `MyTasks.jsx`), so a `link_to` pointing at the Project Tasks tab actually opens the right task.
+- [ ] `src/pages/user/workspace/projects/list/filterConfig.js` + `src/features/workspace/projects/private/api/projectsService.js` — new `dueStatus` filter on the Projects page (mirrors My Tasks' own `dueStatus` filter), needed by step 13's project-digest links.
 
 **Checkpoint: all 11 notifications are now live end to end, every task-notification link routes each recipient to the correct page, and the five original Workspace notifications no longer silently drop recipients outside HR/superadmin/direct-manager.**
+
+## 13. Digest aggregation for the 4 scan-driven events (2026-09 follow-up)
+
+Re-run these 4 (`create or replace function`, safe/idempotent — the already-scheduled `check-workspace-lifecycle-daily` cron job picks up each new body automatically, no re-scheduling needed). Depends on step 12's Projects `dueStatus` filter already being deployed, since these now emit `link_to` values pointing at it:
+
+- [ ] Re-run **`supabase/functions/check_tasks_due_soon.sql`** — now emits ONE digest notification per assignee per scan run (e.g. "You have 3 tasks due soon"), not one per task, linking to `/app/workspace/tasks?dueStatus=due_soon`.
+- [ ] Re-run **`supabase/functions/check_tasks_overdue.sql`** — same digest restructuring, links to `/app/workspace/tasks?dueStatus=overdue`.
+- [ ] Re-run **`supabase/functions/check_project_deadlines_approaching.sql`** — now emits ONE digest notification per member per scan run, linking to `/app/workspace/projects?dueStatus=due_soon`.
+- [ ] Re-run **`supabase/functions/check_projects_overdue.sql`** — same digest restructuring, links to `/app/workspace/projects?dueStatus=overdue`.
+
+No `notification_rules` reseed needed — all four keep the exact same `target_payload_keys` (`assignee_profile_id` / `recipient_profile_id`) the existing seeded rows already target.
+
+**Checkpoint: a recipient with several qualifying tasks/projects on the same scan run gets exactly one notification, not one per item.**
 
 ## Verifying it all worked
 
@@ -125,6 +139,8 @@ No SQL — ships via the normal build/deploy pipeline, no ordering dependency on
 **RLS-gap fix**: as an ordinary "member" (not HR/superadmin/that person's manager), assign a task to another ordinary member who isn't your direct report — confirm the notification now actually lands (this silently failed before step 7).
 
 **Per-recipient link routing (`task_notification_link()`)**: get assigned to a task and confirm the notification's `link_to` is `/app/workspace/tasks/:id` (My Tasks); then get unassigned from that same task and confirm the `task.unassigned` notification instead links to `/app/workspace/projects/:id/tasks/:id` (Project Tasks tab). Click a Project-Tasks-tab link as a project member who is NOT that task's assignee — confirm the sidebar still opens correctly (read-only, via `cannotUpdate`), and confirm a hard refresh on that URL works.
+
+**Digest aggregation (step 13)**: give one employee 3 tasks all due within 3 days (across different projects), manually run `select public.check_tasks_due_soon();`, confirm exactly **one** `notifications` row appears reading "You have 3 tasks due soon" and linking to `/app/workspace/tasks?dueStatus=due_soon` (confirm that filtered page actually shows those 3 tasks); run the function again immediately and confirm no duplicate. Repeat for `check_tasks_overdue()`, and again for the two project-level functions using a test employee who's a member of 2+ projects with near/past deadlines, confirming the link lands on `/app/workspace/projects?dueStatus=due_soon`/`?dueStatus=overdue` and that filter narrows correctly.
 
 **Email dispatch (all of the above)**: after a few minutes, check `email_queue`/`email_log` to confirm the `pg_cron`-scheduled sender actually dispatched the queued rows.
 
