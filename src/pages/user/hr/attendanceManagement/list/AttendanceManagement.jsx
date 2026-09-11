@@ -19,6 +19,7 @@ import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import PageActions from "../../../../../components/crud/pageActions/PageActions";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
@@ -32,6 +33,7 @@ import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { supabase } from "../../../../../lib/supabaseClient";
 import { uploadAttendancePhoto } from "../../../../../services/storage/uploadAttendancePhoto";
+import { buildStatusTabs } from "../../../../../functions/statusTabs";
 import "./AttendanceManagement.scss";
 import { createAttendanceActivityFormConfig } from "./createAttendanceActivityFormConfig";
 import { getAttendanceActivitiesFilterConfig } from "./filterConfig";
@@ -76,6 +78,26 @@ const SEARCH_MODE_FILTER_KEYS = [
   "workedOnHoliday",
   "workedOnWeekend",
 ];
+
+// Primary status-tab row -- trimmed to the 3 "problem" hr_flag states that
+// are always self-contained (each only ever exists alongside a real app/
+// hardware activity row, so none of them can spuriously fire on a day
+// nobody did anything -- unlike Absent, see the extraTabs comment below).
+// OK/Approved stay dropdown-only via the existing Status filter; they're
+// the "nothing to do" states, not worth a tab slot. Colors mirror
+// getHrFlagStatusType()'s own yellow/red assignments for these exact
+// values (src/functions/attendanceFlagStatus.js) -- not a new color
+// scheme, just the existing one reused for the tab pills.
+const HR_FLAG_TAB_STATUSES = [
+  { label: "Pending Approval", value: "Pending App Approval" },
+  { label: "Missing Check-Out", value: "Missing App Check-Out" },
+  { label: "Incomplete Scans", value: "Incomplete Card Scans" },
+];
+const HR_FLAG_TAB_TYPE = {
+  "Pending App Approval": "yellow",
+  "Missing App Check-Out": "red",
+  "Incomplete Card Scans": "red",
+};
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {
   weekday: "long",
@@ -223,6 +245,44 @@ export default function AttendanceManagement() {
     employees,
     departments,
     workLocations,
+  });
+  // Every param key used below is already in SEARCH_MODE_FILTER_KEYS --
+  // reuses existing, already-correct filter params, no new backend logic.
+  // On Leave uses "blue" rather than getHrFlagStatusType()'s "purple" --
+  // statusTabs.js's pill-theme map has no purple pill today, cosmetic
+  // simplification only.
+  const statusTabs = buildStatusTabs({
+    searchParams,
+    statuses: HR_FLAG_TAB_STATUSES,
+    statusTypeMap: HR_FLAG_TAB_TYPE,
+    paramKey: "hrFlag",
+    extraTabs: [
+      // hr_flag='Absent' alone also matches every ordinary unworked
+      // weekend (no weekend exclusion baked into that flag -- only the
+      // DISPLAY layer, getDisplayAttendanceFlag, overrides it to show
+      // "Weekend" instead). Pairing it with dayType=working is what makes
+      // this tab mean "genuinely missing on a day they were expected,"
+      // not "any day nothing happened."
+      {
+        label: "Absent",
+        type: "red",
+        conditions: [
+          { paramKey: "hrFlag", value: "Absent" },
+          { paramKey: "dayType", value: "working" },
+        ],
+      },
+      { label: "On Leave", paramKey: "onLeave", value: "true", type: "blue" },
+      // Bare "Public Holiday" deliberately omitted -- a calendar fact, not
+      // an attendance outcome, nothing for HR to act on. Worked on
+      // Holiday/Weekend are the actionable versions (real attendance on
+      // an expected day off) -- "yellow" (worth double-checking holiday/
+      // weekend pay treatment), not "red" (these aren't errors).
+      { label: "Worked on Holiday", paramKey: "workedOnHoliday", value: "true", type: "yellow" },
+      { label: "Worked on Weekend", paramKey: "workedOnWeekend", value: "true", type: "yellow" },
+      { label: "Leave Conflict", paramKey: "leaveAttendanceConflict", value: "true", type: "red" },
+      { label: "Insufficient Half-Day", paramKey: "insufficientHalfDayHours", value: "true", type: "red" },
+      { label: "Leave Data Error", paramKey: "leaveFractionError", value: "true", type: "red" },
+    ],
   });
 
   // ==============
@@ -431,6 +491,24 @@ export default function AttendanceManagement() {
           resetParams={resetParams}
         />
       )}
+
+      {/* STATUS TABS -- trimmed hr_flag lookup (self-contained flags only)
+          + Absent (paired with dayType=working so it excludes ordinary
+          unworked weekends) + On Leave/Worked on Holiday/Worked on
+          Weekend daily-use tabs + the 3 payroll-reconciliation flags, one
+          flat row (see src/functions/statusTabs.js's extraTabs support,
+          including its multi-condition tab shape). */}
+      <div className="statusTabsRow scrollbar">
+        {statusTabs.map((tab) => (
+          <StatusTab
+            key={tab.label}
+            to={tab.to}
+            label={tab.label}
+            themeType={tab.themeType}
+            isActive={tab.isActive}
+          />
+        ))}
+      </div>
 
       {/* DAY NAVIGATOR (Day mode only) -- one page = one calendar day;
           Prev/Next always move by exactly one day, the date input jumps
