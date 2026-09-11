@@ -85,10 +85,16 @@ function DataForm({
   };
 
   const onError = (errors) => {
-    // RHF handles validation, we just pop the toast for the first error
+    // RHF handles validation, we just pop the toast for the first error.
+    // errors[key]?.message is only populated when a `validate` rule
+    // returned a string (RHF's own convention) -- fall back to the
+    // generic "required" wording when it's a plain `required` failure
+    // instead, which carries no message of its own.
     const firstErrorKey = Object.keys(errors)[0];
     const column = columns.find((c) => c.key === firstErrorKey);
-    showMessage(`${column?.label || "A field"} is required`, "warning");
+    const message =
+      errors[firstErrorKey]?.message || `${column?.label || "A field"} is required`;
+    showMessage(message, "warning");
   };
 
   return (
@@ -143,7 +149,27 @@ function DataForm({
                   <Controller
                     name={col.key}
                     control={control}
-                    rules={{ required: col.required }}
+                    rules={{
+                      required: col.required,
+                      // Cross-field ordering checks (e.g. Clock In before
+                      // Clock Out, Join Date before Confirmation Date) --
+                      // `rowData` covers a comparison against a value that
+                      // isn't even part of THIS form's own columns (two
+                      // separate single-field forms editing sibling
+                      // columns on the same row); `formValues` covers a
+                      // comparison against a true sibling field's live
+                      // value within this same form. Returning a string
+                      // (RHF's own convention) becomes that field's error
+                      // message, surfaced by onError below instead of the
+                      // generic "required" wording.
+                      validate: col.validate
+                        ? (value) =>
+                            col.validate(value, {
+                              rowData,
+                              formValues: currentFormValues,
+                            })
+                        : undefined,
+                    }}
                     render={({ field }) => (
                       <Editor
                         {...field}
@@ -159,6 +185,15 @@ function DataForm({
                           typeof col.options === "function"
                             ? col.options(currentFormValues)
                             : col.options
+                        }
+                        // The date to re-attach for a "time"-editor column
+                        // (see TimeEditor.jsx) -- optional; only meaningful
+                        // to that editor, ignored (harmless) by every
+                        // other one.
+                        referenceDate={
+                          col.getReferenceDate
+                            ? col.getReferenceDate(rowData)
+                            : undefined
                         }
                         // Wrap onChange to handle your "clears" logic
                         onChange={(val) => {

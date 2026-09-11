@@ -18,9 +18,22 @@ export const attendanceActivitiesChangeClockOutTimeConfig = () => [
   },
   {
     key: "clocked_out_at",
-    label: "Clock Out Date",
+    label: "Clock Out Time",
     getValue: (activity) => activity.clocked_out_at,
     editable: true,
-    editor: "dateTime",
+    editor: "time",
+    // Keeps the same calendar date as the activity itself -- only the
+    // time-of-day is ever meant to change here (also the anchor date used
+    // when setting a clock-out for the first time, since clocked_out_at
+    // itself may still be null).
+    getReferenceDate: (activity) => activity.work_date,
+    // rowData.check_in_time -- not one of this form's own columns (Clock
+    // In and Clock Out are two separate single-field forms) -- see
+    // DataForm.jsx's validate wiring.
+    validate: (value, { rowData }) =>
+      !value ||
+      !rowData.check_in_time ||
+      new Date(value) > new Date(rowData.check_in_time) ||
+      "Clock Out must be after Clock In",
   },
 ];

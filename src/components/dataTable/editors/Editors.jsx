@@ -6,6 +6,7 @@ import TextareaEditor from "./TextareaEditor";
 import LinkEditor from "./LinkEditor";
 import "./Editors.scss";
 import DateTimeEditor from "./DateTimeEditor";
+import TimeEditor from "./TimeEditor";
 import ImageUploadEditor from "./ImageUploadEditor";
 import AsyncSelectEditor from "./AsyncSelectEditor";
 import GoogleDriveEditor from "./GoogleDriveEditor";
@@ -23,6 +24,7 @@ export const editors = {
   textarea: TextareaEditor,
   link: LinkEditor,
   dateTime: DateTimeEditor,
+  time: TimeEditor,
   image: ImageUploadEditor,
   asyncSelect: AsyncSelectEditor,
   drivePicker: GoogleDriveEditor,

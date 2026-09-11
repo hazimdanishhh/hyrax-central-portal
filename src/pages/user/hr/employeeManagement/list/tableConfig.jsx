@@ -392,6 +392,14 @@ export const employeesTableConfig = ({
     editor: "date",
     section: "Employment Details",
     half: true,
+    // join_date is a sibling field in this SAME form (unlike attendance's
+    // separate Clock In/Out forms, which need rowData instead) -- see
+    // DataForm.jsx's validate wiring.
+    validate: (value, { formValues }) =>
+      !value ||
+      !formValues.join_date ||
+      new Date(value) > new Date(formValues.join_date) ||
+      "Confirmation Date must be after Join Date",
   },
   {
     key: "end_date",
@@ -401,6 +409,11 @@ export const employeesTableConfig = ({
     editor: "date",
     section: "Termination/Resignation Details",
     half: true,
+    validate: (value, { formValues }) =>
+      !value ||
+      !formValues.join_date ||
+      new Date(value) > new Date(formValues.join_date) ||
+      "Contract End Date must be after Join Date",
   },
   {
     key: "resignation_date",
@@ -410,6 +423,11 @@ export const employeesTableConfig = ({
     editor: "date",
     section: "Termination/Resignation Details",
     half: true,
+    validate: (value, { formValues }) =>
+      !value ||
+      !formValues.join_date ||
+      new Date(value) > new Date(formValues.join_date) ||
+      "Termination Date must be after Join Date",
   },
   {
     key: "termination_reason_id",

@@ -4,6 +4,8 @@ import {
   CheckIcon,
   ClockUserIcon,
   XIcon,
+  SignInIcon,
+  SignOutIcon,
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -467,14 +469,16 @@ export default function AttendanceTimelineCard({
                     setIsEditing("clockIn");
                   }}
                   style="button buttonType4 textBold textXXS mt-2"
-                  name="Edit Clock In"
+                  name="Edit Clock In Time"
+                  icon={SignInIcon}
                 />
                 <Button
                   onClick={() => {
                     setIsEditing("clockOut");
                   }}
                   style="button buttonType4 textBold textXXS mt-2"
-                  name="Edit Clock Out"
+                  name="Edit Clock Out Time"
+                  icon={SignOutIcon}
                 />
               </div>
             </>
