@@ -3,6 +3,7 @@ import { useTheme } from "../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import {
   ChartLineIcon,
+  CurrencyCircleDollarIcon,
   DesktopIcon,
   GearIcon,
   ListIcon,
@@ -63,6 +64,20 @@ export default function AttendancePageLayout() {
                     <GearIcon size={15} />
                   </div>
                   Settings
+                </NavLink>
+
+                <NavLink
+                  to="/app/hr/attendance/payroll-export"
+                  className={({ isActive }) =>
+                    `button buttonTypeTab textRegular textXS ${
+                      isActive ? "active" : ""
+                    }`
+                  }
+                >
+                  <div className="pageTabIcon">
+                    <CurrencyCircleDollarIcon size={15} />
+                  </div>
+                  Payroll Export
                 </NavLink>
               </div>
               <Outlet />

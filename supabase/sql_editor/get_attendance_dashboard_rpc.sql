@@ -478,6 +478,13 @@ kpi_totals as (
         (select round(sum(holiday_hours_worked)::numeric, 2) from period_rows where is_worked_on_holiday) as holiday_hours_worked_total,
         (select round(sum(holiday_hours_worked)::numeric, 2) from prev_period_rows where is_worked_on_holiday) as prev_holiday_hours_worked_total,
         (select count(distinct employee_uuid) from period_rows where is_worked_on_holiday) as employees_worked_on_holiday_count,
+        -- Day-count companion to the hours total above -- "how many
+        -- holiday days were worked", not "how many distinct employees
+        -- worked one". Deliberately count(*), not count(distinct ...):
+        -- one employee working 3 holidays in the period should count as
+        -- 3 here, same as the hours total already does.
+        (select count(*) from period_rows where is_worked_on_holiday) as holiday_days_worked_count,
+        (select count(*) from prev_period_rows where is_worked_on_holiday) as prev_holiday_days_worked_count,
 
         -- Weekend work -- mirrors the holiday reconciliation metric above
         -- exactly. is_worked_on_weekend already carries the "real
@@ -487,6 +494,8 @@ kpi_totals as (
         (select round(sum(weekend_hours_worked)::numeric, 2) from period_rows where is_worked_on_weekend) as weekend_hours_worked_total,
         (select round(sum(weekend_hours_worked)::numeric, 2) from prev_period_rows where is_worked_on_weekend) as prev_weekend_hours_worked_total,
         (select count(distinct employee_uuid) from period_rows where is_worked_on_weekend) as employees_worked_on_weekend_count,
+        (select count(*) from period_rows where is_worked_on_weekend) as weekend_days_worked_count,
+        (select count(*) from prev_period_rows where is_worked_on_weekend) as prev_weekend_days_worked_count,
 
         (select count(*) from period_rows where hr_flag = 'Absent' and not is_weekend) as absent_days_count,
         (select count(*) from prev_period_rows where hr_flag = 'Absent' and not is_weekend) as prev_absent_days_count,
@@ -559,9 +568,13 @@ select json_build_object(
             'holidayHoursWorkedTotal', coalesce(holiday_hours_worked_total, 0),
             'prevHolidayHoursWorkedTotal', prev_holiday_hours_worked_total,
             'employeesWorkedOnHolidayCount', employees_worked_on_holiday_count,
+            'holidayDaysWorkedCount', holiday_days_worked_count,
+            'prevHolidayDaysWorkedCount', prev_holiday_days_worked_count,
             'weekendHoursWorkedTotal', coalesce(weekend_hours_worked_total, 0),
             'prevWeekendHoursWorkedTotal', prev_weekend_hours_worked_total,
             'employeesWorkedOnWeekendCount', employees_worked_on_weekend_count,
+            'weekendDaysWorkedCount', weekend_days_worked_count,
+            'prevWeekendDaysWorkedCount', prev_weekend_days_worked_count,
             'absentDaysCount', absent_days_count,
             'prevAbsentDaysCount', prev_absent_days_count,
             'absenteeismRatePct', case when working_day_records_count > 0

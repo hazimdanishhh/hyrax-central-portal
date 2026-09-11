@@ -485,9 +485,15 @@ export function getAttendanceOverviewConfig(
           to: "../list",
           filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
         },
+        {
+          label: "Days Worked on Holiday",
+          value: kpis.holidayDaysWorkedCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
+        },
       ],
       title:
-        "Sum of hours_worked on days flagged is_public_holiday, this period -- HR2000's public holiday calendar cross-checked against real attendance. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Holiday is a distinct-employee count.",
+        "Sum of hours_worked on days flagged is_public_holiday, this period -- HR2000's public holiday calendar cross-checked against real attendance. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Holiday is a distinct-employee count; Days Worked on Holiday counts every qualifying day, so one employee working 3 holidays counts as 3.",
     },
 
     // Weekend work -- mirrors Holiday Work above exactly. Not mutually
@@ -517,9 +523,15 @@ export function getAttendanceOverviewConfig(
           to: "../list",
           filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
         },
+        {
+          label: "Days Worked on Weekend",
+          value: kpis.weekendDaysWorkedCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
+        },
       ],
       title:
-        "Sum of hours_worked on days flagged is_weekend, this period -- a real reconciliation fact, since weekend work no longer disappears from the day's status the moment someone actually comes in. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Weekend is a distinct-employee count.",
+        "Sum of hours_worked on days flagged is_weekend, this period -- a real reconciliation fact, since weekend work no longer disappears from the day's status the moment someone actually comes in. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Weekend is a distinct-employee count; Days Worked on Weekend counts every qualifying day, so one employee working 3 weekends counts as 3.",
     },
 
     // ==========================================

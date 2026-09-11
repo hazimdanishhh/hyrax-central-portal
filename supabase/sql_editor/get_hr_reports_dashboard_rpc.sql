@@ -210,11 +210,13 @@ kpi_attendance_totals as (
         -- here either.
         round(sum(holiday_hours_worked) filter (where is_worked_on_holiday)::numeric, 2) as holiday_hours_worked_total,
         count(distinct employee_uuid) filter (where is_worked_on_holiday) as employees_worked_on_holiday_count,
+        count(*) filter (where is_worked_on_holiday) as holiday_days_worked_count,
 
         -- Weekend work -- mirrors the holiday reconciliation metric above
         -- exactly, same no-prev-period reasoning.
         round(sum(weekend_hours_worked) filter (where is_worked_on_weekend)::numeric, 2) as weekend_hours_worked_total,
-        count(distinct employee_uuid) filter (where is_worked_on_weekend) as employees_worked_on_weekend_count
+        count(distinct employee_uuid) filter (where is_worked_on_weekend) as employees_worked_on_weekend_count,
+        count(*) filter (where is_worked_on_weekend) as weekend_days_worked_count
     from period_attendance
 ),
 
@@ -321,8 +323,10 @@ select json_build_object(
             'employeesWithOvertimeCount', ka.employees_with_overtime_count,
             'holidayHoursWorkedTotal', coalesce(ka.holiday_hours_worked_total, 0),
             'employeesWorkedOnHolidayCount', ka.employees_worked_on_holiday_count,
+            'holidayDaysWorkedCount', ka.holiday_days_worked_count,
             'weekendHoursWorkedTotal', coalesce(ka.weekend_hours_worked_total, 0),
             'employeesWorkedOnWeekendCount', ka.employees_worked_on_weekend_count,
+            'weekendDaysWorkedCount', ka.weekend_days_worked_count,
             -- Leave
             'leaveDaysCount', kl.leave_days_count,
             'employeesOnLeaveCount', kl.employees_on_leave_count,

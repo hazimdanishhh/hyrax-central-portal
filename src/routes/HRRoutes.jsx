@@ -11,6 +11,7 @@ import Performance from "../pages/user/hr/performance/Performance";
 import AttendanceOverview from "../pages/user/hr/attendanceManagement/overview/AttendanceOverview";
 import AttendanceManagement from "../pages/user/hr/attendanceManagement/list/AttendanceManagement";
 import AttendanceSettings from "../pages/user/hr/attendanceManagement/settings/AttendanceSettings";
+import PayrollExport from "../pages/user/hr/attendanceManagement/payrollExport/PayrollExport";
 import LifecycleCaseList from "../pages/user/employeeLifecycle/list/LifecycleCaseList";
 import LifecycleCaseDetail from "../pages/user/employeeLifecycle/detail/LifecycleCaseDetail";
 import HRReports from "../pages/user/hr/hrReports/HRReports";
@@ -89,6 +90,17 @@ export default (
         element={
           <AccessRoute departments={["HR"]}>
             <AttendanceSettings />
+          </AccessRoute>
+        }
+      />
+
+      {/* PAYROLL EXPORT -- the Payroll Period Summary from
+          docs/PAYROLL-DATA-REQUIREMENTS.md's phasing section. */}
+      <Route
+        path="payroll-export"
+        element={
+          <AccessRoute departments={["HR"]}>
+            <PayrollExport />
           </AccessRoute>
         }
       />
