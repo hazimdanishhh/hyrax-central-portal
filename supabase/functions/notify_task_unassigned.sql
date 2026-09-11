@@ -56,7 +56,7 @@ begin
                 'unassigned_by', public.current_employee_id(),
                 'title', 'Removed from a Task',
                 'message', format('You were unassigned from "%s".', coalesce(v_task_title, 'a task')),
-                'link_to', '/app/workspace/tasks/' || old.task_id
+                'link_to', public.task_notification_link(old.task_id, v_project_id, old.employee_id)
             )
         );
     exception when others then

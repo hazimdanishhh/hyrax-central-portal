@@ -34,7 +34,7 @@ begin
     v_actor_employee_id := public.current_employee_id();
 
     for v_recipient in
-        select e.profile_id
+        select ta.employee_id, e.profile_id
         from public.task_assignees ta
         join public.employees e on e.id = ta.employee_id
         where ta.task_id = new.id
@@ -55,7 +55,7 @@ begin
                         when new.due_date is null then format('Task "%s" no longer has a due date.', new.title)
                         else format('Task "%s" is now due on %s.', new.title, new.due_date)
                     end,
-                    'link_to', '/app/workspace/tasks/' || new.id
+                    'link_to', public.task_notification_link(new.id, new.project_id, v_recipient.employee_id)
                 )
             );
         exception when others then

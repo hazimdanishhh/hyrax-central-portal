@@ -58,7 +58,7 @@ begin
                 'assigned_by', new.assigned_by,
                 'title', 'You Were Assigned a Task',
                 'message', format('You were assigned to "%s".', coalesce(v_task_title, 'a task')),
-                'link_to', '/app/workspace/tasks/' || new.task_id
+                'link_to', public.task_notification_link(new.task_id, v_project_id, new.employee_id)
             )
         );
     exception when others then

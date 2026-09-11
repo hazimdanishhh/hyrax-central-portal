@@ -20,7 +20,7 @@ declare
     v_pair record;
 begin
     for v_task in
-        select id, title, due_date
+        select id, title, due_date, project_id
         from public.tasks
         where due_date < current_date
           and status not in ('COMPLETED', 'CANCELLED')
@@ -42,7 +42,7 @@ begin
                         'assignee_profile_id', v_pair.profile_id,
                         'title', 'Task Overdue',
                         'message', format('Task "%s" was due on %s and is now overdue.', v_task.title, v_task.due_date),
-                        'link_to', '/app/workspace/tasks/' || v_task.id
+                        'link_to', public.task_notification_link(v_task.id, v_task.project_id, v_pair.employee_id)
                     )
                 );
 

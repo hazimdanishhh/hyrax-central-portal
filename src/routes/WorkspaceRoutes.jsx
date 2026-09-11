@@ -23,7 +23,9 @@ export default (
       <Route index element={<ProjectsManagement />} />
       <Route path=":projectId" element={<ProjectDetailLayout />}>
         <Route index element={<Navigate to="tasks" replace />} />
-        <Route path="tasks" element={<ProjectTasksTab />} />
+        <Route path="tasks" element={<ProjectTasksTab />}>
+          <Route path=":taskId" element={null} />
+        </Route>
         <Route path="members" element={<ProjectMembersTab />} />
         <Route path="documents" element={<ProjectDocumentsTab />} />
       </Route>

@@ -56,9 +56,9 @@ No UPDATE policy — same as `task_assignees`: a CC row has nothing to edit, onl
 
 Both single-recipient (`target_payload_keys`), same shape as `task.assigned` — no dynamic-loop engine work needed here.
 
-**`task.cc_added`** — mirrors `notify_task_assigned.sql` exactly (`security definer set search_path=''`). `AFTER INSERT ON task_ccs`, skip self-cc (`new.ccd_by is not distinct from new.employee_id`), resolve the target's `profiles.id`, emit once with `cc_profile_id`.
+**`task.cc_added`** — mirrors `notify_task_assigned.sql` exactly (`security definer set search_path=''`). `AFTER INSERT ON task_ccs`, skip self-cc (`new.ccd_by is not distinct from new.employee_id`), resolve the target's `profiles.id`, emit once with `cc_profile_id`. `link_to` is built via `public.task_notification_link(new.task_id, v_project_id, new.employee_id)` (see `supabase/functions/task_notification_link.sql`), not a hardcoded path — since a task-CC'd employee is, by the mutual-exclusion constraint above, never simultaneously a `task_assignees` row, this will always resolve to the Project Tasks tab (`/app/workspace/projects/:projectId/tasks/:taskId`), never My Tasks.
 
-**`task.cc_removed`** — mirrors `notify_task_unassigned.sql` exactly (built in the sibling notification-implementation pass, see `docs/WORKSPACE-NOTIFICATIONS-LIFECYCLE.md`): `AFTER DELETE ON task_ccs`, actor read live via `current_employee_id()` (no `removed_by`/`ccd_by`-at-delete-time column exists), self-removal skipped by comparing to `old.employee_id`. **If `task.unassigned`'s shipped shape ever changes, update this to match** — the two are meant to stay twins.
+**`task.cc_removed`** — mirrors `notify_task_unassigned.sql` exactly (built in the sibling notification-implementation pass, see `docs/WORKSPACE-NOTIFICATIONS-LIFECYCLE.md`): `AFTER DELETE ON task_ccs`, actor read live via `current_employee_id()` (no `removed_by`/`ccd_by`-at-delete-time column exists), self-removal skipped by comparing to `old.employee_id`. Same `task_notification_link()` call as above (always resolves to the Project Tasks tab). **If `task.unassigned`'s shipped shape ever changes, update this to match** — the two are meant to stay twins.
 
 Seed rule (`seed_task_cc_notification_rules.sql`, once built):
 ```sql

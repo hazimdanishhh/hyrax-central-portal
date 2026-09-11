@@ -49,7 +49,7 @@ begin
     v_actor_employee_id := public.current_employee_id();
 
     for v_recipient in
-        select e.profile_id
+        select ta.employee_id, e.profile_id
         from public.task_assignees ta
         join public.employees e on e.id = ta.employee_id
         where ta.task_id = new.task_id
@@ -68,7 +68,7 @@ begin
                     'title', 'Document Attached to Task',
                     'message', format('"%s" was attached to task "%s".',
                         coalesce(v_document_name, 'A document'), coalesce(v_task_title, 'a task')),
-                    'link_to', '/app/workspace/tasks/' || new.task_id
+                    'link_to', public.task_notification_link(new.task_id, v_project_id, v_recipient.employee_id)
                 )
             );
         exception when others then

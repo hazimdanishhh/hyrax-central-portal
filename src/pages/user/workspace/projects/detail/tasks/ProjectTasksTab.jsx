@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { PlusIcon, PencilSimpleLineIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 import CardLayout from "../../../../../../components/cardLayout/CardLayout";
@@ -18,6 +18,7 @@ import { useEmployee } from "../../../../../../context/EmployeeContext";
 import { useProject } from "../../../../../../features/workspace/projects/private/hooks/useProject";
 import { useProjectPermissions } from "../../../../../../features/workspace/projects/private/hooks/useProjectPermissions";
 import { useTasksByProject } from "../../../../../../features/workspace/tasks/private/hooks/useTasksByProject";
+import { useTaskById } from "../../../../../../features/workspace/tasks/private/hooks/useTaskById";
 import { useProjectDocuments } from "../../../../../../features/workspace/tasks/private/hooks/useProjectDocuments";
 import useTaskMutations from "../../../../../../features/workspace/tasks/private/hooks/useTaskMutations";
 import useTaskAssigneeMutations from "../../../../../../features/workspace/tasks/private/hooks/useTaskAssigneeMutations";
@@ -52,7 +53,8 @@ import { getProjectTasksFilterConfig } from "./filterConfig";
  * adopting its page-splitting machinery.
  */
 export default function ProjectTasksTab() {
-  const { projectId } = useParams();
+  const { projectId, taskId } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { employee } = useEmployee();
   const { members } = useProject(projectId);
@@ -72,8 +74,23 @@ export default function ProjectTasksTab() {
   } = useTaskStatusAction(updateTask);
 
   const [addingOpen, setAddingOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [editingOpen, setEditingOpen] = useState(false);
+  // URL-driven, mirroring MyTasks.jsx's exact recipe -- required so a
+  // notification's link_to (task_notification_link.sql) can open this
+  // specific task's sidebar for anyone with visibility into it, not just
+  // whoever happens to click a row locally. Checks the already-loaded
+  // unpaginated `tasks` array first (instant UI for a normal in-app
+  // click), falls back to useTaskById for a direct/notification link.
+  const { data: fetchedTask } = useTaskById(taskId);
+  const selectedTask = useMemo(() => {
+    if (!taskId) return null;
+    const taskInList = tasks.find((t) => t.id === taskId);
+    if (taskInList) return taskInList;
+    // Guards against a tampered URL naming a task from a different
+    // project than the one currently open -- `tasks` itself can never
+    // mismatch since it's already scoped by useTasksByProject(projectId).
+    return fetchedTask?.project_id === projectId ? fetchedTask : null;
+  }, [taskId, tasks, fetchedTask, projectId]);
+  const sidebarOpen = !!selectedTask;
 
   const workingMembers = members.filter(
     (m) => m.role === "owner" || m.role === "lead" || m.role === "member",
@@ -141,13 +158,11 @@ export default function ProjectTasksTab() {
   }, [tasks, status, assignee, search]);
 
   function handleRowClick(task) {
-    setSelectedTask(task);
-    setEditingOpen(true);
+    navigate(`${task.id}?${searchParams.toString()}`);
   }
 
   function handleCloseEdit() {
-    setEditingOpen(false);
-    setSelectedTask(null);
+    navigate(`/app/workspace/projects/${projectId}/tasks?${searchParams.toString()}`);
   }
 
   async function handleAddTask(formData) {
@@ -314,11 +329,11 @@ export default function ProjectTasksTab() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {editingOpen && selectedTask && (
+        {sidebarOpen && (
           <DataSidebar
             title={canEditSelectedTask ? "Edit Task" : "Task Details"}
             icon={PencilSimpleLineIcon}
-            open={editingOpen}
+            open={sidebarOpen}
             onClose={handleCloseEdit}
             rowData={selectedTask}
             columns={editColumns}

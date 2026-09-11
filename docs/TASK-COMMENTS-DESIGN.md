@@ -90,7 +90,7 @@ begin
     from public.tasks t where t.id = new.task_id;
 
     for v_recipient in
-        select distinct e.profile_id
+        select distinct recipients.employee_id, e.profile_id
         from (
             select ta.employee_id from public.task_assignees ta where ta.task_id = new.task_id
             union
@@ -114,7 +114,7 @@ begin
                     'recipient_profile_id', v_recipient.profile_id,
                     'title', 'New Comment on Task',
                     'message', format('New comment on "%s".', coalesce(v_task_title, 'a task')),
-                    'link_to', '/app/workspace/tasks/' || new.task_id
+                    'link_to', public.task_notification_link(new.task_id, v_project_id, v_recipient.employee_id)
                 )
             );
         exception when others then
@@ -127,6 +127,8 @@ begin
 end;
 $$;
 ```
+
+`link_to` is built via `public.task_notification_link(task_id, project_id, employee_id)` (see `supabase/functions/task_notification_link.sql`, shipped in the sibling notification-implementation pass), not a hardcoded path — an assignee-recipient resolves to My Tasks (`/app/workspace/tasks/:taskId`), a task-CC'd or non-assigned owner/lead recipient resolves to the Project Tasks tab (`/app/workspace/projects/:projectId/tasks/:taskId`), computed once per recipient from the same UNION query above.
 
 Until Task CC ships, the `task_ccs` subquery is a harmless empty-set union — no error, just no CC recipients yet.
 
