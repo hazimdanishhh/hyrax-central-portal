@@ -31,6 +31,7 @@ import { getLeaveRecordsSortConfig } from "./sortConfig";
 import { getLeaveCsvImportConfig } from "./leaveCsvImportConfig";
 import "./LeaveManagement.scss";
 import LeaveCard from "../../../../components/hr/leaveCard/LeaveCard";
+import DetailRow from "../../../../components/crud/detailRow/DetailRow";
 
 /**
  * HR Leave Management page. Read-only: leave_ledger_entries is populated
@@ -241,14 +242,5 @@ export default function LeaveManagement() {
         config={importConfig}
       />
     </section>
-  );
-}
-
-function DetailRow({ label, value }) {
-  return (
-    <div className="leaveDetailRow">
-      <p className="textBold textXXS">{label}</p>
-      <p className="textRegular textXS">{value}</p>
-    </div>
   );
 }
