@@ -11,9 +11,18 @@
 -- applies here). No WHEN clause on the trigger itself -- old.status IS
 -- DISTINCT FROM new.status is checked in the body instead, matching every
 -- other trigger function in this codebase.
+--
+-- SECURITY DEFINER + set search_path = '' (added alongside the
+-- Workspace lifecycle notifications pass, see
+-- docs/WORKSPACE-NOTIFICATIONS-LIFECYCLE.md): closes the same RLS-
+-- visibility gap fixed there -- see notify_task_assigned.sql's header
+-- comment for the full rationale (applies here per-recipient, inside
+-- the loop).
 create or replace function public.notify_project_status_changed()
 returns trigger
 language plpgsql
+security definer
+set search_path = ''
 as $$
 declare
     v_actor_employee_id uuid;

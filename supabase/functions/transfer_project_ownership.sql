@@ -35,6 +35,18 @@
 -- one ever failed, the first would roll back with it. `for update` below
 -- additionally serializes two concurrent transfer attempts on the same
 -- project against each other.
+-- project.ownership_transferred notification: emitted directly from this
+-- function's own body (not a project_members trigger) -- a generic
+-- AFTER UPDATE OF role trigger would fire on BOTH of this function's two
+-- UPDATEs (the demote-to-lead and the promote-to-owner), which is exactly
+-- the double-fire notify_project_member_role_changed.sql's own
+-- old.role='owner' OR new.role='owner' exclusion exists to avoid. The
+-- emit is placed after the final owner-count sanity check, not before:
+-- the whole function is one transaction, so if that check ever raised, an
+-- earlier emit would roll back with it anyway -- placing it last just
+-- avoids ever constructing a notification for a transfer about to be
+-- invalidated. This function is already SECURITY DEFINER, so
+-- emit_notification_event() (also SECURITY DEFINER) works fine from here.
 create or replace function public.transfer_project_ownership(
     p_project_id uuid,
     p_new_owner_employee_id uuid
@@ -47,6 +59,8 @@ as $$
 declare
     v_caller_id uuid := public.current_employee_id();
     v_current_owner_id uuid;
+    v_new_owner_profile_id uuid;
+    v_project_name text;
 begin
     if v_caller_id is null then
         raise exception 'Not authorized: no linked employee record for the current user';
@@ -95,6 +109,32 @@ begin
     -- Belt-and-braces confirmation, cheap enough to always run.
     if (select count(*) from public.project_members where project_id = p_project_id and role = 'owner') <> 1 then
         raise exception 'Ownership transfer for project % did not result in exactly one owner -- rolled back', p_project_id;
+    end if;
+
+    select e.profile_id into v_new_owner_profile_id
+    from public.employees e where e.id = p_new_owner_employee_id;
+
+    select p.name into v_project_name from public.projects p where p.id = p_project_id;
+
+    if v_new_owner_profile_id is not null then
+        begin
+            perform public.emit_notification_event(
+                'project.ownership_transferred', 'project_members',
+                p_project_id::text || ':' || p_new_owner_employee_id::text,
+                jsonb_build_object(
+                    'project_id', p_project_id,
+                    'new_owner_employee_id', p_new_owner_employee_id,
+                    'new_owner_profile_id', v_new_owner_profile_id,
+                    'old_owner_employee_id', v_current_owner_id,
+                    'title', 'Project Ownership Transferred',
+                    'message', format('You are now the owner of "%s".', coalesce(v_project_name, 'a project')),
+                    'link_to', '/app/workspace/projects/' || p_project_id
+                )
+            );
+        exception when others then
+            raise warning 'project.ownership_transferred notification failed for project % new owner %: %',
+                p_project_id, p_new_owner_employee_id, sqlerrm;
+        end;
     end if;
 end;
 $$;

@@ -8,9 +8,20 @@
 -- task). This is the exact event seed_projects_tasks_notification_rules.sql's
 -- own comment named as needing this loop-and-emit fix -- see that file's
 -- header for the original reasoning.
+--
+-- SECURITY DEFINER + set search_path = '' (added alongside the
+-- Workspace lifecycle notifications pass, see
+-- docs/WORKSPACE-NOTIFICATIONS-LIFECYCLE.md): without this, the
+-- `select e.profile_id from employees` lookup below runs under the
+-- ACTING user's own RLS, which only allows self/HR/superadmin/direct-
+-- manager visibility into employees -- a recipient outside that set
+-- would silently be skipped. Same hardening
+-- block_role_change_to_cc_with_active_tasks.sql already uses.
 create or replace function public.notify_task_status_changed()
 returns trigger
 language plpgsql
+security definer
+set search_path = ''
 as $$
 declare
     v_actor_employee_id uuid;

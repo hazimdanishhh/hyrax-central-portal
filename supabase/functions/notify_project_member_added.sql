@@ -3,9 +3,17 @@
 --
 -- Same event-system integration as notify_task_assigned.sql -- see that
 -- file's header comment for the general rationale.
+--
+-- SECURITY DEFINER + set search_path = '' (added alongside the
+-- Workspace lifecycle notifications pass, see
+-- docs/WORKSPACE-NOTIFICATIONS-LIFECYCLE.md): closes the same RLS-
+-- visibility gap fixed there -- see notify_task_assigned.sql's header
+-- comment for the full rationale.
 create or replace function public.notify_project_member_added()
 returns trigger
 language plpgsql
+security definer
+set search_path = ''
 as $$
 declare
     v_member_profile_id uuid;

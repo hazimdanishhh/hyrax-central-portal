@@ -20,9 +20,18 @@
 -- level (ProjectDocumentsTab's "Attach Document" flow, which only inserts
 -- into documents, never task_documents) has no natural task-scoped
 -- audience and is deliberately not covered by this trigger.
+--
+-- SECURITY DEFINER + set search_path = '' (added alongside the
+-- Workspace lifecycle notifications pass, see
+-- docs/WORKSPACE-NOTIFICATIONS-LIFECYCLE.md): closes the same RLS-
+-- visibility gap fixed there -- see notify_task_assigned.sql's header
+-- comment for the full rationale (applies here per-recipient, inside
+-- the loop).
 create or replace function public.notify_document_attached()
 returns trigger
 language plpgsql
+security definer
+set search_path = ''
 as $$
 declare
     v_task_title text;

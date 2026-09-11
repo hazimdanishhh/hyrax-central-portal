@@ -10,9 +10,21 @@
 -- Wrapped in begin...exception when others... (matches
 -- notify_profile_created()'s own convention) -- a notification failure
 -- must never roll back the actual task-assignee insert.
+--
+-- SECURITY DEFINER + set search_path = '' (added alongside the
+-- Workspace lifecycle notifications pass, see
+-- docs/WORKSPACE-NOTIFICATIONS-LIFECYCLE.md): without this, the
+-- `select e.profile_id from employees` lookup below runs under the
+-- ACTING user's own RLS, which only allows self/HR/superadmin/direct-
+-- manager visibility into employees -- an ordinary member assigning a
+-- task to another ordinary member (not their manager) would silently
+-- resolve v_assignee_profile_id to null and never notify anyone. Same
+-- hardening block_role_change_to_cc_with_active_tasks.sql already uses.
 create or replace function public.notify_task_assigned()
 returns trigger
 language plpgsql
+security definer
+set search_path = ''
 as $$
 declare
     v_assignee_profile_id uuid;
