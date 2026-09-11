@@ -90,7 +90,10 @@ export function getAttendanceOverviewConfig(
     kpis.overtimeHoursTotal,
     kpis.prevOvertimeHoursTotal,
   );
-  const leaveDaysDelta = calcDelta(kpis.leaveDaysCount, kpis.prevLeaveDaysCount);
+  const leaveDaysDelta = calcDelta(
+    kpis.leaveDaysCount,
+    kpis.prevLeaveDaysCount,
+  );
   const unpaidLeaveDaysDelta = calcDelta(
     kpis.unpaidLeaveDaysCount,
     kpis.prevUnpaidLeaveDaysCount,
@@ -430,7 +433,10 @@ export function getAttendanceOverviewConfig(
       sublabel: "Total, This Period",
       value: `${kpis.overtimeHoursTotal || 0}h`,
       variant: overtimeStatus.variant,
-      status: { icon: overtimeStatus.statusIcon, label: overtimeStatus.statusLabel },
+      status: {
+        icon: overtimeStatus.statusIcon,
+        label: overtimeStatus.statusLabel,
+      },
       to: "../list",
       filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
       metrics: [
@@ -526,7 +532,10 @@ export function getAttendanceOverviewConfig(
       sublabel: "This Period",
       value: `${kpis.absenteeismRatePct || 0}%`,
       variant: absenteeismStatus.variant,
-      status: { icon: absenteeismStatus.statusIcon, label: absenteeismStatus.statusLabel },
+      status: {
+        icon: absenteeismStatus.statusIcon,
+        label: absenteeismStatus.statusLabel,
+      },
       // The rate's own denominator population (all working-day records),
       // not just the absent slice -- Absent Days below is the sub-metric
       // for that.
@@ -537,7 +546,12 @@ export function getAttendanceOverviewConfig(
           label: "Absent Days",
           value: kpis.absentDaysCount || 0,
           to: "../list",
-          filter: { ...baseFilter, hrFlag: "Absent", ...periodFilter },
+          filter: {
+            ...baseFilter,
+            hrFlag: "Absent",
+            dayType: "working",
+            ...periodFilter,
+          },
         },
         {
           label: "Prev. Period",

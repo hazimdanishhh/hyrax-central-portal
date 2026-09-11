@@ -452,7 +452,7 @@ export const employeesTableConfig = ({
   {
     key: "work_location_id",
     label: "Work Location",
-    getValue: (employee) => employee.work_location?.id,
+    getValue: (employee) => employee.work_location_id,
     displayValue: (employee) => employee.work_location?.name,
     editable: true,
     editor: "select",

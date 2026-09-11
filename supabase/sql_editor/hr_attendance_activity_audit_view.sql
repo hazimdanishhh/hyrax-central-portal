@@ -24,7 +24,20 @@ WITH app_events AS (
         -- below ever populates these two. Present on every branch so the
         -- three UNION ALL column lists line up positionally.
         NULL::numeric AS day_fraction,
-        NULL::text AS remarks
+        NULL::text AS remarks,
+
+        -- Raw attendance_activities columns the "Edit" inline form
+        -- (AttendanceTimelineCard.jsx's DataForm, via tableConfig.jsx's
+        -- attendance_type_id/photo_url/notes columns) needs to actually
+        -- pre-populate with the CURRENT value -- `attendance_type` above is
+        -- only the joined display NAME (at.name), not the real FK id the
+        -- edit form's select needs to preselect the right option, and
+        -- neither photo_url nor notes existed on this view at all before.
+        -- NULL on every other branch (Hardware/Leave/Holiday never feed
+        -- this edit form -- App is the only editable event_source).
+        aa.attendance_type_id,
+        aa.photo_url,
+        aa.notes
 
     FROM public.attendance_activities aa
     JOIN public.employees e ON aa.employee_id = e.id
@@ -61,7 +74,14 @@ hw_events AS (
         END AS activity_audit_flag,
 
         NULL::numeric AS day_fraction,
-        NULL::text AS remarks
+        NULL::text AS remarks,
+
+        -- App-only edit-form fields (see app_events' own comment) -- never
+        -- populated for Hardware rows, present only to keep the UNION
+        -- ALL's column list positionally aligned.
+        NULL::bigint AS attendance_type_id,
+        NULL::text AS photo_url,
+        NULL::text AS notes
 
     FROM public.attendance_logs h
     JOIN public.employees e ON h.employee_id = e.employee_id
@@ -104,7 +124,12 @@ leave_events AS (
         'On Leave' AS activity_audit_flag,
 
         le.day_fraction,
-        le.remarks
+        le.remarks,
+
+        -- App-only edit-form fields (see app_events' own comment).
+        NULL::bigint AS attendance_type_id,
+        NULL::text AS photo_url,
+        NULL::text AS notes
 
     FROM public.leave_ledger_entries le
     JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
@@ -143,7 +168,12 @@ holiday_events AS (
         'Public Holiday' AS activity_audit_flag,
 
         NULL::numeric AS day_fraction,
-        NULL::text AS remarks
+        NULL::text AS remarks,
+
+        -- App-only edit-form fields (see app_events' own comment).
+        NULL::bigint AS attendance_type_id,
+        NULL::text AS photo_url,
+        NULL::text AS notes
 
     FROM public.public_holidays ph
     JOIN public.employees e
@@ -172,13 +202,35 @@ all_events AS (
 -- cheap. Frontend only surfaces these on the Leave row
 -- (AttendanceTimelineCard.jsx) -- App/Hardware rows carry them too since
 -- they're the same day-level fact, just unused there.
+-- Explicit column list, NOT `ae.*` -- ae.* would place attendance_type_id/
+-- photo_url/notes (defined inside app_events, before the UNION ALL) ahead
+-- of the uda.* columns below in the view's positional output, which is
+-- exactly what breaks CREATE OR REPLACE VIEW (Postgres reads that shift as
+-- renaming existing columns, not appending new ones). Listing every
+-- pre-existing column first, in their original order, then the 3 new ones
+-- last, keeps this a pure append.
 SELECT
-    ae.*,
+    ae.activity_id,
+    ae.employee_uuid,
+    ae.company_employee_code,
+    ae.full_name,
+    ae.work_date,
+    ae.event_source,
+    ae.attendance_type,
+    ae.check_in_time,
+    ae.check_out_time,
+    ae.approval_status,
+    ae.activity_audit_flag,
+    ae.day_fraction,
+    ae.remarks,
     uda.is_leave_attendance_conflict,
     uda.is_insufficient_half_day_hours,
     uda.has_leave_fraction_error,
     uda.is_worked_on_holiday,
-    uda.holiday_hours_worked
+    uda.holiday_hours_worked,
+    ae.attendance_type_id,
+    ae.photo_url,
+    ae.notes
 FROM all_events ae
 LEFT JOIN public.unified_daily_attendance uda
     ON uda.employee_uuid = ae.employee_uuid AND uda.work_date = ae.work_date;

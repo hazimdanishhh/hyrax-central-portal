@@ -35,7 +35,13 @@ export const attendanceActivityTableConfig = ({
   {
     key: "attendance_type_id",
     label: "Attendance Type",
-    getValue: (activity) => activity.attendance_type,
+    // attendance_activity_audit's own `attendance_type` column is already
+    // the joined display NAME (a plain string, e.g. "Site Visit") -- not a
+    // nested {name} relation object, so no `.name` here. getValue reads the
+    // real FK id (now selected by the view specifically for this form; it
+    // didn't exist on this view at all before), which is what lets the
+    // select below actually preselect the activity's current type.
+    getValue: (activity) => activity.attendance_type_id,
     displayValue: (activity) => activity.attendance_type,
     editable: true,
     editor: "select",
