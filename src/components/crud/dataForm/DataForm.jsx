@@ -17,6 +17,15 @@ import "./DataForm.scss";
 import SectionHeader from "../../sectionHeader/SectionHeader";
 import { useForm, Controller } from "react-hook-form";
 
+// RHF's own `required` semantics, minus its boolean-false special case (see
+// the Controller's rules below) -- an empty array (multi-select) or
+// null/undefined/"" fails; a deliberate `false` or `0` is a real, filled-in
+// answer.
+function isFilled(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  return value !== null && value !== undefined && value !== "";
+}
+
 function DataForm({
   columns = [],
   rowData = {},
@@ -150,25 +159,39 @@ function DataForm({
                     name={col.key}
                     control={control}
                     rules={{
-                      required: col.required,
-                      // Cross-field ordering checks (e.g. Clock In before
-                      // Clock Out, Join Date before Confirmation Date) --
-                      // `rowData` covers a comparison against a value that
-                      // isn't even part of THIS form's own columns (two
-                      // separate single-field forms editing sibling
-                      // columns on the same row); `formValues` covers a
-                      // comparison against a true sibling field's live
-                      // value within this same form. Returning a string
-                      // (RHF's own convention) becomes that field's error
-                      // message, surfaced by onError below instead of the
-                      // generic "required" wording.
-                      validate: col.validate
-                        ? (value) =>
+                      // NOT RHF's native `required: col.required` -- RHF
+                      // special-cases boolean values and treats `false` as
+                      // "empty", failing required for any field whose valid
+                      // answers include a deliberate `false` (e.g. a
+                      // tri-state select like Employee Management's "IT
+                      // Asset" needs_it_asset: true/false/null, where only
+                      // null/not-yet-decided should ever fail required).
+                      // isFilled below is RHF's own required semantics
+                      // minus that boolean special case.
+                      validate: {
+                        required: (value) =>
+                          !col.required ||
+                          isFilled(value) ||
+                          `${col.label} is required`,
+                        // Cross-field ordering checks (e.g. Clock In before
+                        // Clock Out, Join Date before Confirmation Date) --
+                        // `rowData` covers a comparison against a value
+                        // that isn't even part of THIS form's own columns
+                        // (two separate single-field forms editing sibling
+                        // columns on the same row); `formValues` covers a
+                        // comparison against a true sibling field's live
+                        // value within this same form. Returning a string
+                        // (RHF's own convention) becomes that field's error
+                        // message, surfaced by onError below instead of
+                        // the generic "required" wording.
+                        ...(col.validate && {
+                          custom: (value) =>
                             col.validate(value, {
                               rowData,
                               formValues: currentFormValues,
-                            })
-                        : undefined,
+                            }),
+                        }),
+                      },
                     }}
                     render={({ field }) => (
                       <Editor
