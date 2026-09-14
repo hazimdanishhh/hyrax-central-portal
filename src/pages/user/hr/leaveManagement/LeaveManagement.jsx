@@ -1,5 +1,6 @@
 // pages/user/hr/leaveManagement/LeaveManagement.jsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   CalendarIcon,
   UploadSimpleIcon,
@@ -24,6 +25,7 @@ import CsvImportModal from "../../../../components/crud/csvImportModal/CsvImport
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchLeaveRecords } from "../../../../features/hr/leave/private/api/leaveRecordsService";
 import useLeaveLedgerTypes from "../../../../features/hr/leave/private/hooks/useLeaveLedgerTypes";
+import { useLeaveRecordById } from "../../../../features/hr/leave/private/hooks/useLeaveRecordById";
 import useLeaveImportMutation from "../../../../features/hr/leave/private/hooks/useLeaveImportMutation";
 import { leaveRecordsTableConfig } from "./tableConfig";
 import { getLeaveRecordsFilterConfig } from "./filterConfig";
@@ -42,9 +44,10 @@ import DetailRow from "../../../../components/crud/detailRow/DetailRow";
  */
 export default function LeaveManagement() {
   const { darkMode } = useTheme();
+  const navigate = useNavigate();
+  const { leaveId } = useParams();
+  const [searchParams] = useSearchParams();
   const [importOpen, setImportOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { leaveTypes } = useLeaveLedgerTypes();
   const { runImport } = useLeaveImportMutation();
@@ -87,14 +90,28 @@ export default function LeaveManagement() {
 
   const hasData = records.length > 0;
 
+  // URL-driven (:leaveId), same pattern as EmployeeManagement.jsx -- check
+  // the already-loaded page first, else fall back to useLeaveRecordById for
+  // a deep link to a row not on the current page.
+  const { data: fetchedRecord } = useLeaveRecordById(leaveId);
+
+  const selectedRow = useMemo(() => {
+    if (!leaveId) return null;
+
+    const recordInList = records?.find((r) => r.id === leaveId);
+    if (recordInList) return recordInList;
+
+    return fetchedRecord || null;
+  }, [leaveId, records, fetchedRecord]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleRowClick(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
+    navigate(`${row.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/hr/leaves?${searchParams.toString()}`);
   }
 
   return (

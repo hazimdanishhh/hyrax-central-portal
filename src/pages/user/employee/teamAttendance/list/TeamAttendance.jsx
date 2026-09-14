@@ -6,8 +6,8 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "@/components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "@/components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
 import Button from "@/components/buttons/button/Button";
@@ -29,6 +29,7 @@ import { useEmployee } from "@/context/EmployeeContext";
 import { supabase } from "@/lib/supabaseClient";
 import useSubordinatesPublic from "@/features/hr/employees/public/hooks/useSubordinatesPublic";
 import { useAttendanceActivitiesMetadata } from "@/features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
+import { useAttendanceActivityById } from "@/features/hr/attendance/private/hooks/useAttendanceActivityById";
 import { attendanceDailySummaryTableConfig } from "@/pages/user/hr/attendanceManagement/list/tableConfig";
 import { getAttendanceActivitiesSortConfig } from "@/pages/user/hr/attendanceManagement/list/sortConfig";
 import { getAttendanceActivitiesLayoutConfig } from "@/pages/user/hr/attendanceManagement/list/layoutConfig";
@@ -80,11 +81,11 @@ function formatDayLabel(dateString) {
  */
 export default function TeamAttendance() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { attendanceId } = useParams();
   const { showMessage } = useMessage();
   const { employee } = useEmployee();
   const [layout, setLayout] = useState(1); // 1: Card, 2: Table
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null); // "approve" | "reject"
@@ -173,16 +174,31 @@ export default function TeamAttendance() {
   const hasData = activities.length > 0;
 
   // ==============
-  // SIDEBAR OPEN & CLOSE
+  // SIDEBAR OPEN & CLOSE -- URL-driven (:attendanceId), same pattern as
+  // AttendanceManagement.jsx (HR)/MyAttendance.jsx. Reuses HR's
+  // fallback-fetch hook directly -- RLS (hardened for managers too, see the
+  // approve/reject RPC comment below) already scopes visibility, this
+  // page's own "employee"-scoped fetch is a client-side convenience only.
   // ==============
+  const { data: fetchedActivity } = useAttendanceActivityById(attendanceId);
+
+  const selectedRow = useMemo(() => {
+    if (!attendanceId) return null;
+
+    const activityInList = activities?.find((a) => a.id === attendanceId);
+    if (activityInList) return activityInList;
+
+    return fetchedActivity || null;
+  }, [attendanceId, activities, fetchedActivity]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(data) {
-    setSelectedRow(data);
-    setSidebarOpen(true);
+    navigate(`${data.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/employee/team-attendance/list?${searchParams.toString()}`);
   }
 
   function closeActionModal() {

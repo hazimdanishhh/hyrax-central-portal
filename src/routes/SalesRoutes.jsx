@@ -103,7 +103,9 @@ export default (
             <SalesTargetsManagement />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":targetId" element={null} />
+      </Route>
     </Route>
 
     {/* SALES ORDERS -- department-only (R3), not manager-gated: reversed
@@ -141,7 +143,9 @@ export default (
             <SalesBudgetsManagement />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":budgetId" element={null} />
+      </Route>
     </Route>
 
     {/* SALES REP MAPPING -- links a SAP sales rep (sap_sales_persons) to a
@@ -153,7 +157,9 @@ export default (
           <SalesRepMapping />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":salesRepCode" element={null} />
+    </Route>
 
     {/* GUIDES -- step-by-step, media-capable walkthroughs of the Sales
         module, department-only (matches Leads/Clients/Orders' R3 gate) so

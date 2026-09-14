@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ReactFlow,
@@ -33,12 +34,16 @@ const nodeTypes = { employee: EmployeeNode };
 function OrganizationChart() {
   const { darkMode } = useTheme();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { employeeId: selectedEmployeeId } = useParams();
+  const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState({ department: "", manager: "" });
 
-  // Sidebar (view/edit) state -- mirrors EmployeeManagement.jsx's pattern,
-  // minus delete: clicking a node is view + edit only (see plan).
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Sidebar (view/edit) state -- URL-driven (:employeeId), same pattern as
+  // EmployeeManagement.jsx, minus delete: clicking a node is view + edit
+  // only (see plan). No new by-id hook needed -- useEmployeeById is already
+  // called below, just now keyed off the URL param instead of local state.
+  const sidebarOpen = !!selectedEmployeeId;
   const [isEditing, setIsEditing] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [pendingSaveRow, setPendingSaveRow] = useState(null);
@@ -122,14 +127,12 @@ function OrganizationChart() {
   );
 
   function handleNodeClick(_event, node) {
-    setSelectedEmployeeId(node.id);
-    setSidebarOpen(true);
+    navigate(`${node.id}?${searchParams.toString()}`);
     setIsEditing(false);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedEmployeeId(null);
+    navigate(`/app/hr/organization-chart?${searchParams.toString()}`);
     setIsEditing(false);
   }
 

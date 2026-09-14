@@ -1,5 +1,6 @@
 // pages/user/sales/orders/budgets/SalesBudgetsManagement.jsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
@@ -18,6 +19,7 @@ import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { fetchSalesBudgets } from "../../../../../features/sales/salesBudgets/private/api/salesBudgetsService";
 import { useSalesBudgetsMetadata } from "../../../../../features/sales/salesBudgets/private/hooks/useSalesBudgetsMetadata";
 import useSalesBudgetsMutations from "../../../../../features/sales/salesBudgets/private/hooks/useSalesBudgetsMutations";
+import { useSalesBudgetById } from "../../../../../features/sales/salesBudgets/private/hooks/useSalesBudgetById";
 import { salesBudgetsTableConfig } from "./tableConfig";
 import { getSalesBudgetsFilterConfig } from "./filterConfig";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
@@ -28,9 +30,9 @@ import PageTitle from "../../../../../components/pageTitle/PageTitle";
  * table -- no card/table layout toggle, no bulk actions.
  */
 export default function SalesBudgetsManagement() {
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const navigate = useNavigate();
+  const { budgetId } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     modalOpen,
@@ -90,16 +92,31 @@ export default function SalesBudgetsManagement() {
   const isSaving = creating || updating;
   const hasData = salesBudgets.length > 0;
 
+  // URL-driven (:budgetId), same pattern as EmployeeManagement.jsx -- check
+  // the already-loaded page first, else fall back to useSalesBudgetById for
+  // a deep link to a row not on the current page. Sidebar is always in
+  // edit mode whenever open (no view-only state), so isEditing just
+  // mirrors sidebarOpen.
+  const { data: fetchedBudget } = useSalesBudgetById(budgetId);
+
+  const selectedRow = useMemo(() => {
+    if (budgetId === "new") return {};
+    if (!budgetId) return null;
+
+    const budgetInList = salesBudgets?.find((b) => b.id === budgetId);
+    if (budgetInList) return budgetInList;
+
+    return fetchedBudget || null;
+  }, [budgetId, salesBudgets, fetchedBudget]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
-    setIsEditing(true);
+    navigate(`${row.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
-    setIsEditing(false);
+    navigate(`/app/sales/orders/budgets?${searchParams.toString()}`);
   }
 
   async function handleConfirmAction() {
@@ -117,8 +134,7 @@ export default function SalesBudgetsManagement() {
       }
 
       closeActionModal();
-      setSidebarOpen(false);
-      setSelectedRow(null);
+      handleCloseSidebar();
     } catch (err) {
       console.error(err);
     }
@@ -145,9 +161,7 @@ export default function SalesBudgetsManagement() {
               icon: PlusCircleIcon,
               name: "Add Budget",
               onClick: () => {
-                setSelectedRow({});
-                setSidebarOpen(true);
-                setIsEditing(true);
+                navigate(`new?${searchParams.toString()}`);
               },
               style: "button buttonType5 approval textXXS",
             },
@@ -206,7 +220,7 @@ export default function SalesBudgetsManagement() {
             saving={isSaving}
             deleting={deleting}
             creating={!selectedRow?.id}
-            isEditing={isEditing}
+            isEditing={sidebarOpen}
             onCancel={handleCloseSidebar}
           />
         )}

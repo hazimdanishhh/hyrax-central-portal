@@ -45,3 +45,20 @@ export async function fetchSalesTargets({
     totalCount: count || 0,
   };
 }
+
+// Fallback fetch for a deep link to a row not on the current page (see
+// SalesTargetsManagement.jsx's URL-driven sidebar) -- same select shape as
+// fetchSalesTargets, scoped to one id.
+export async function fetchSalesTargetById(id) {
+  if (!id) return null;
+
+  const { data, error } = await supabase
+    .from("sales_targets")
+    .select("*, employee:lead_owner_id (id, full_name)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}

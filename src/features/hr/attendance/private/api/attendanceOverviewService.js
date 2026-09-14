@@ -296,8 +296,35 @@ export async function fetchUnifiedAttendanceSearch({
   };
 }
 
+// Fallback fetch for a deep link to a row not on the currently loaded day/
+// page (see AttendanceManagement.jsx's URL-driven sidebar) -- the row's
+// "id" is normalizeUnifiedAttendance's own synthetic `${employee_uuid}_
+// ${work_date}` composite (unified_daily_attendance has no single-record
+// primary key of its own, since one row already aggregates a whole day's
+// punches), so it's parsed back apart here. Reuses normalizeUnifiedAttendance
+// so the resulting shape is byte-identical to a row already found in the
+// loaded list, whether Day mode or Search mode found it first.
+export async function fetchAttendanceActivityById(id) {
+  if (!id) return null;
+
+  const [employeeUuid, workDate] = id.split("_");
+  if (!employeeUuid || !workDate) return null;
+
+  const { data, error } = await supabase
+    .from("unified_daily_attendance")
+    .select("*")
+    .eq("employee_uuid", employeeUuid)
+    .eq("work_date", workDate)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return normalizeUnifiedAttendance([data])[0];
+}
+
 // FORMAT
-function normalizeUnifiedAttendance(rows) {
+export function normalizeUnifiedAttendance(rows) {
   return rows.map((row) => ({
     ...row,
 

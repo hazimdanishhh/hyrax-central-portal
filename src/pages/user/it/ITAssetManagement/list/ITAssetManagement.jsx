@@ -4,7 +4,8 @@ import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import { useTheme } from "../../../../../context/ThemeContext";
 import "./ITAssetManagement.scss";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import { itAssetTableConfig } from "./tableConfig";
@@ -27,6 +28,7 @@ import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { fetchITAssets } from "../../../../../features/it/assets/private/api/itAssets";
 import { useITAssetsMetadata } from "../../../../../features/it/assets/private/hooks/useITAssetsMetadata";
 import useITAssetMutations from "../../../../../features/it/assets/private/hooks/useITAssetMutations";
+import { useITAssetById } from "../../../../../features/it/assets/private/hooks/useITAssetById";
 
 /**
  * IT Asset Management Page
@@ -36,9 +38,10 @@ import useITAssetMutations from "../../../../../features/it/assets/private/hooks
 export default function ITAssetManagement() {
   const queryClient = useQueryClient();
   const { darkMode } = useTheme();
+  const navigate = useNavigate();
+  const { assetId } = useParams();
+  const [searchParams] = useSearchParams();
   const [layout, setLayout] = useState(0); // 0: List, 1: Table
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
     modalOpen,
@@ -155,16 +158,30 @@ export default function ITAssetManagement() {
   });
 
   // ==============
-  // SIDEBAR OPEN & CLOSE
+  // SIDEBAR OPEN & CLOSE -- URL-driven (:assetId), same pattern as
+  // EmployeeManagement.jsx: check the already-loaded page first, else fall
+  // back to useITAssetById for a deep link to a row not on the current page.
   // ==============
+  const { data: fetchedAsset } = useITAssetById(assetId);
+
+  const selectedRow = useMemo(() => {
+    if (assetId === "new") return {};
+    if (!assetId) return null;
+
+    const assetInList = assets?.find((a) => a.id === assetId);
+    if (assetInList) return assetInList;
+
+    return fetchedAsset || null;
+  }, [assetId, assets, fetchedAsset]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(asset) {
-    setSelectedRow(asset);
-    setSidebarOpen(true);
+    navigate(`${asset.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/it/assets/list?${searchParams.toString()}`);
   }
 
   // ==============
@@ -190,8 +207,7 @@ export default function ITAssetManagement() {
         queryKey: ["itAssets"],
       });
 
-      setSidebarOpen(false);
-      setSelectedRow(null);
+      handleCloseSidebar();
       closeActionModal();
     } catch (err) {
       console.error(err);
@@ -235,8 +251,7 @@ export default function ITAssetManagement() {
                 name: "Add Asset",
                 icon: PlusCircleIcon,
                 onClick: () => {
-                  setSelectedRow({});
-                  setSidebarOpen(true);
+                  navigate(`new?${searchParams.toString()}`);
                 },
                 style: "button buttonType5 approval",
               },

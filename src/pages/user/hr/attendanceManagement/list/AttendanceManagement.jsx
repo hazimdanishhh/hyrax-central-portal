@@ -7,8 +7,8 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "../../../../../components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "../../../../../components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
 import Button from "../../../../../components/buttons/button/Button";
@@ -29,6 +29,7 @@ import { useMessage } from "../../../../../context/MessageContext";
 import { useAttendanceActivitiesMetadata } from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import useAttendanceActivityMutations from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 import useAttendanceDailyList from "../../../../../features/hr/attendance/private/hooks/useAttendanceDailyList";
+import { useAttendanceActivityById } from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityById";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { supabase } from "../../../../../lib/supabaseClient";
@@ -100,9 +101,9 @@ function formatDayLabel(dateString) {
  */
 export default function AttendanceManagement() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { attendanceId } = useParams();
   const [layout, setLayout] = useState(1); // 1: Card, 2: Table
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const { showMessage } = useMessage();
 
@@ -243,16 +244,32 @@ export default function AttendanceManagement() {
   const hasData = activities.length > 0;
 
   // ==============
-  // SIDEBAR OPEN & CLOSE
+  // SIDEBAR OPEN & CLOSE -- URL-driven (:attendanceId), same pattern as
+  // EmployeeManagement.jsx/LeadsManagement.jsx: check the already-loaded
+  // day/page first (instant UI), else fall back to
+  // useAttendanceActivityById (deep link to a row not on the current
+  // day/page).
   // ==============
+  const { data: fetchedActivity } = useAttendanceActivityById(attendanceId);
+
+  const selectedRow = useMemo(() => {
+    if (attendanceId === "new") return {};
+    if (!attendanceId) return null;
+
+    const activityInList = activities?.find((a) => a.id === attendanceId);
+    if (activityInList) return activityInList;
+
+    return fetchedActivity || null;
+  }, [attendanceId, activities, fetchedActivity]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(data) {
-    setSelectedRow(data);
-    setSidebarOpen(true);
+    navigate(`${data.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/hr/attendance/list?${searchParams.toString()}`);
   }
 
   // ==============
@@ -272,7 +289,7 @@ export default function AttendanceManagement() {
       queryClient.invalidateQueries({ queryKey: ["attendance_activities"] }),
     ]);
 
-    setSidebarOpen(false);
+    handleCloseSidebar();
   };
 
   // ==============
@@ -378,8 +395,7 @@ export default function AttendanceManagement() {
         queryClient.invalidateQueries({ queryKey: ["attendance_activities"] }),
       ]);
 
-      setSidebarOpen(false);
-      setSelectedRow(null);
+      handleCloseSidebar();
       closeActionModal();
     } catch (err) {
       console.error(err);
@@ -413,8 +429,7 @@ export default function AttendanceManagement() {
               name: "Add Attendance",
               icon: PlusCircleIcon,
               onClick: () => {
-                setSelectedRow({});
-                setSidebarOpen(true);
+                navigate(`new?${searchParams.toString()}`);
               },
               style: "button buttonType5 approval",
             },

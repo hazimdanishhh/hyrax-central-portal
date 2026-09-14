@@ -17,7 +17,9 @@ export default (
           <Users />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":userId" element={null} />
+    </Route>
 
     {/* PIPELINE STATUS -- read-only visibility into hyrax-data-platform's
         SAP/Vigilance extractors (sap_pipeline_state + pipeline_run_log) */}

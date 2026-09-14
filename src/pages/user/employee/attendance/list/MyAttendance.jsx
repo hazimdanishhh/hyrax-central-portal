@@ -6,8 +6,8 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "@/components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "@/components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
 import Button from "@/components/buttons/button/Button";
@@ -28,6 +28,7 @@ import { attendanceDailySummaryTableConfig } from "@/pages/user/hr/attendanceMan
 import { getAttendanceActivitiesSortConfig } from "@/pages/user/hr/attendanceManagement/list/sortConfig";
 import { getAttendanceActivitiesLayoutConfig } from "@/pages/user/hr/attendanceManagement/list/layoutConfig";
 import useMyAttendanceDailyList from "@/features/employee/attendance/private/hooks/useMyAttendanceDailyList";
+import { useAttendanceActivityById } from "@/features/hr/attendance/private/hooks/useAttendanceActivityById";
 import useMyAttendanceSearch from "@/features/employee/attendance/private/hooks/useMyAttendanceSearch";
 import { getMyAttendanceFilterConfig } from "./filterConfig";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
@@ -75,10 +76,10 @@ function formatDayLabel(dateString) {
  */
 export default function MyAttendance() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { attendanceId } = useParams();
   const { employee } = useEmployee();
   const [layout, setLayout] = useState(1); // 1: Card, 2: Table
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ==============
   // HOOKS
@@ -155,16 +156,32 @@ export default function MyAttendance() {
   const hasData = activities.length > 0;
 
   // ==============
-  // SIDEBAR OPEN & CLOSE
+  // SIDEBAR OPEN & CLOSE -- URL-driven (:attendanceId), same pattern as
+  // AttendanceManagement.jsx (HR). Reuses HR's fallback-fetch hook directly
+  // -- this page's "employee" filter is only a client-side convenience
+  // (per myAttendanceService.js's own comment), RLS already scopes every
+  // unified_daily_attendance row to the caller's own, so there's no
+  // additional security concern to a bare useAttendanceActivityById call.
   // ==============
+  const { data: fetchedActivity } = useAttendanceActivityById(attendanceId);
+
+  const selectedRow = useMemo(() => {
+    if (!attendanceId) return null;
+
+    const activityInList = activities?.find((a) => a.id === attendanceId);
+    if (activityInList) return activityInList;
+
+    return fetchedActivity || null;
+  }, [attendanceId, activities, fetchedActivity]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(data) {
-    setSelectedRow(data);
-    setSidebarOpen(true);
+    navigate(`${data.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/employee/attendance/list?${searchParams.toString()}`);
   }
 
   // ==============
@@ -179,7 +196,7 @@ export default function MyAttendance() {
       queryClient.invalidateQueries({ queryKey: ["attendance_activities"] }),
     ]);
 
-    setSidebarOpen(false);
+    handleCloseSidebar();
   };
 
   return (

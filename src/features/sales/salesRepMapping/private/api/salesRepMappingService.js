@@ -85,3 +85,24 @@ export async function fetchSalesRepMappings({
     totalCount,
   };
 }
+
+// Fallback fetch for a deep link to a row not on the current page (see
+// SalesRepMapping.jsx's URL-driven sidebar) -- fetchSalesRepMappings above
+// pages client-side after fetching the whole table, so a row further down
+// the list than the current page won't be in its `data` slice. Same embeds,
+// scoped to one sales_rep_code (the table's natural key -- no surrogate id).
+export async function fetchSalesRepMappingByCode(salesRepCode) {
+  if (!salesRepCode) return null;
+
+  const { data, error } = await supabase
+    .from("employee_sales_rep_mapping")
+    .select(
+      "*, sap_sales_person:sap_sales_persons!sales_rep_code(*), employee:employees_public!employee_id(*)",
+    )
+    .eq("sales_rep_code", salesRepCode)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}

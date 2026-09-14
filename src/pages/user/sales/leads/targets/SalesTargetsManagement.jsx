@@ -1,5 +1,6 @@
 // pages/user/sales/leads/targets/SalesTargetsManagement.jsx
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
@@ -17,6 +18,7 @@ import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { fetchSalesTargets } from "../../../../../features/sales/salesTargets/private/api/salesTargetsService";
 import useSalesTargetsMutations from "../../../../../features/sales/salesTargets/private/hooks/useSalesTargetsMutations";
+import { useSalesTargetById } from "../../../../../features/sales/salesTargets/private/hooks/useSalesTargetById";
 import { salesTargetsTableConfig } from "./tableConfig";
 import { getSalesTargetsFilterConfig } from "./filterConfig";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
@@ -27,9 +29,9 @@ import PageTitle from "../../../../../components/pageTitle/PageTitle";
  * table -- no card/table layout toggle, no bulk actions.
  */
 export default function SalesTargetsManagement() {
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const navigate = useNavigate();
+  const { targetId } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     modalOpen,
@@ -79,16 +81,31 @@ export default function SalesTargetsManagement() {
   const isSaving = creating || updating;
   const hasData = salesTargets.length > 0;
 
+  // URL-driven (:targetId), same pattern as EmployeeManagement.jsx -- check
+  // the already-loaded page first, else fall back to useSalesTargetById for
+  // a deep link to a row not on the current page. This page's sidebar is
+  // always in edit mode whenever open (no separate view-only state), so
+  // isEditing just mirrors sidebarOpen rather than needing its own toggle.
+  const { data: fetchedTarget } = useSalesTargetById(targetId);
+
+  const selectedRow = useMemo(() => {
+    if (targetId === "new") return {};
+    if (!targetId) return null;
+
+    const targetInList = salesTargets?.find((t) => t.id === targetId);
+    if (targetInList) return targetInList;
+
+    return fetchedTarget || null;
+  }, [targetId, salesTargets, fetchedTarget]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
-    setIsEditing(true);
+    navigate(`${row.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
-    setIsEditing(false);
+    navigate(`/app/sales/leads/targets?${searchParams.toString()}`);
   }
 
   async function handleConfirmAction() {
@@ -106,8 +123,7 @@ export default function SalesTargetsManagement() {
       }
 
       closeActionModal();
-      setSidebarOpen(false);
-      setSelectedRow(null);
+      handleCloseSidebar();
     } catch (err) {
       console.error(err);
     }
@@ -134,9 +150,7 @@ export default function SalesTargetsManagement() {
               icon: PlusCircleIcon,
               name: "Add Target",
               onClick: () => {
-                setSelectedRow({});
-                setSidebarOpen(true);
-                setIsEditing(true);
+                navigate(`new?${searchParams.toString()}`);
               },
               style: "button buttonType5 approval textXXS",
             },
@@ -195,7 +209,7 @@ export default function SalesTargetsManagement() {
             saving={isSaving}
             deleting={deleting}
             creating={!selectedRow?.id}
-            isEditing={isEditing}
+            isEditing={sidebarOpen}
             onCancel={handleCloseSidebar}
           />
         )}

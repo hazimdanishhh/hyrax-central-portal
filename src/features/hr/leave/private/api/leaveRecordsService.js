@@ -60,6 +60,37 @@ export async function fetchLeaveRecords({
   };
 }
 
+// Fallback fetch for a deep link to a row not on the current page (see
+// LeaveManagement.jsx's URL-driven sidebar) -- same select shape as
+// fetchLeaveRecords, scoped to one id.
+export async function fetchLeaveRecordById(id) {
+  if (!id) return null;
+
+  const { data, error } = await supabase
+    .from("leave_ledger_entries")
+    .select(
+      `
+        id,
+        employee_id,
+        employee_code,
+        leave_date,
+        leave_type_id,
+        leave_type_code,
+        day_fraction,
+        remarks,
+        last_seen_at,
+        employee:employee_id (id, full_name),
+        leave_type:leave_type_id (id, code, label, category)
+      `,
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}
+
 export async function fetchLeaveLedgerTypes() {
   const { data, error } = await supabase
     .from("leave_ledger_types")

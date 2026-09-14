@@ -1,7 +1,8 @@
 // pages/user/hr/attendanceManagement/settings/AttendanceSettings.jsx
 import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useMemo } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
 import NoResult from "@/components/crud/noResult/NoResult";
@@ -28,8 +29,9 @@ import { publicHolidayTableConfig } from "./tableConfig";
  * wants to see all at once, already ordered by date server-side.
  */
 export default function AttendanceSettings() {
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const { holidayId } = useParams();
+  const [searchParams] = useSearchParams();
 
   const {
     modalOpen,
@@ -57,14 +59,26 @@ export default function AttendanceSettings() {
 
   const columns = publicHolidayTableConfig({ workLocations });
 
+  // URL-driven (:holidayId), same pattern as EmployeeManagement.jsx -- no
+  // separate by-id fallback fetch needed here (unlike most other pages in
+  // this pass): usePublicHolidays() deliberately has no pagination/filter
+  // at all, the whole calendar is always loaded in one shot, so any valid
+  // holidayId is always already present in `holidays` once it's loaded.
+  const selectedRow = useMemo(() => {
+    if (holidayId === "new") return {};
+    if (!holidayId) return null;
+
+    return holidays?.find((h) => h.id === holidayId) || null;
+  }, [holidayId, holidays]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(holiday) {
-    setSelectedRow(holiday);
-    setSidebarOpen(true);
+    navigate(`${holiday.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/hr/attendance/settings?${searchParams.toString()}`);
   }
 
   async function handleConfirmAction() {
@@ -83,8 +97,7 @@ export default function AttendanceSettings() {
         }
       }
 
-      setSidebarOpen(false);
-      setSelectedRow(null);
+      handleCloseSidebar();
       closeActionModal();
     } catch (err) {
       console.error(err);
@@ -100,8 +113,7 @@ export default function AttendanceSettings() {
               name: "Add Holiday",
               icon: PlusCircleIcon,
               onClick: () => {
-                setSelectedRow({});
-                setSidebarOpen(true);
+                navigate(`new?${searchParams.toString()}`);
               },
               style: "button buttonType5 approval",
             },

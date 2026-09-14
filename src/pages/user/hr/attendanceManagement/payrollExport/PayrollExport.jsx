@@ -1,6 +1,6 @@
 // pages/user/hr/attendanceManagement/payrollExport/PayrollExport.jsx
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import CardLayout from "@/components/cardLayout/CardLayout";
@@ -13,6 +13,7 @@ import DataSidebar from "@/components/dataSidebar/DataSidebar";
 import PayrollReconciliationSidebar from "@/components/attendance/payrollReconciliationSidebar/PayrollReconciliationSidebar";
 import { useAttendanceActivitiesMetadata } from "@/features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import usePayrollPeriodSummary from "@/features/hr/payroll/private/hooks/usePayrollPeriodSummary";
+import { usePayrollPeriodSummaryRowById } from "@/features/hr/payroll/private/hooks/usePayrollPeriodSummaryRowById";
 import {
   getPayrollExportFilterConfig,
   rowNeedsReconciliation,
@@ -40,14 +41,14 @@ export default function PayrollExport() {
   // link_to) -- not a full usePaginatedQuery-style bidirectional sync, this
   // page keeps its existing plain local-state behavior otherwise. Just
   // means "arrive via a link with a period in the URL, land pre-selected."
+  const navigate = useNavigate();
+  const { employeeUuid } = useParams();
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState(() => {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     return startDate && endDate ? { startDate, endDate } : {};
   });
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { employees, departments } = useAttendanceActivitiesMetadata();
   const filterConfig = getPayrollExportFilterConfig({ departments, employees });
@@ -71,14 +72,29 @@ export default function PayrollExport() {
   // no pagination, so displayRows already IS the complete export dataset.
   const exportFetchFn = () => Promise.resolve({ data: displayRows });
 
+  // SIDEBAR OPEN & CLOSE -- URL-driven (:employeeUuid), same pattern as
+  // EmployeeManagement.jsx, with a period-scoped fallback fetch (see
+  // usePayrollPeriodSummaryRowById) for a deep link whose employee got
+  // filtered out by the current department/employee filter.
+  const { data: fetchedRow } = usePayrollPeriodSummaryRowById(employeeUuid, filters);
+
+  const selectedRow = useMemo(() => {
+    if (!employeeUuid) return null;
+
+    const rowInList = displayRows?.find((r) => r.employeeUuid === employeeUuid);
+    if (rowInList) return rowInList;
+
+    return fetchedRow || null;
+  }, [employeeUuid, displayRows, fetchedRow]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(row) {
-    setSelectedRow(row);
-    setSidebarOpen(true);
+    navigate(`${row.employeeUuid}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/hr/attendance/payroll-export?${searchParams.toString()}`);
   }
 
   return (

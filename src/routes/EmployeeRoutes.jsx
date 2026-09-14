@@ -31,7 +31,9 @@ export default (
     <Route path="attendance" element={<AttendancePageLayout />}>
       <Route index element={<Navigate to="overview" replace />} />
       <Route path="overview" element={<MyAttendanceOverview />} />
-      <Route path="list" element={<MyAttendance />} />
+      <Route path="list" element={<MyAttendance />}>
+        <Route path=":attendanceId" element={null} />
+      </Route>
     </Route>
 
     <Route path="leave-request" element={<LeaveRequest />} />
@@ -65,7 +67,9 @@ export default (
             <TeamAttendance />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":attendanceId" element={null} />
+      </Route>
     </Route>
   </Route>
 );

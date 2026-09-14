@@ -48,7 +48,9 @@ export default (
             <ITAssetManagement />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":assetId" element={null} />
+      </Route>
     </Route>
 
     {/* SOFTWARE */}

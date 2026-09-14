@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTheme } from "../../../../context/ThemeContext";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../hooks/useCrudActionState";
 import { fetchSalesRepMappings } from "../../../../features/sales/salesRepMapping/private/api/salesRepMappingService";
 import useSalesRepMappingMutations from "../../../../features/sales/salesRepMapping/private/hooks/useSalesRepMappingMutations";
+import { useSalesRepMappingByCode } from "../../../../features/sales/salesRepMapping/private/hooks/useSalesRepMappingByCode";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import { LinkIcon, PencilSimpleLineIcon } from "@phosphor-icons/react";
 import { getSalesRepMappingSortConfig } from "./sortConfig";
@@ -34,9 +36,10 @@ import SalesRepMappingList from "../../../../components/sales/salesRepMapping/sa
  */
 export default function SalesRepMapping() {
   const { darkMode } = useTheme();
+  const navigate = useNavigate();
+  const { salesRepCode } = useParams();
+  const [searchParams] = useSearchParams();
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
     modalOpen,
@@ -83,14 +86,31 @@ export default function SalesRepMapping() {
 
   const hasData = mappings.length > 0;
 
+  // URL-driven (:salesRepCode -- the table's natural key, no surrogate id),
+  // same pattern as SapClients.jsx -- check the already-loaded page first,
+  // else fall back to useSalesRepMappingByCode for a deep link to a row
+  // further down the list than the current page.
+  const { data: fetchedMapping } = useSalesRepMappingByCode(salesRepCode);
+
+  const selectedRow = useMemo(() => {
+    if (!salesRepCode) return null;
+
+    const mappingInList = mappings?.find(
+      (m) => m.sales_rep_code === salesRepCode,
+    );
+    if (mappingInList) return mappingInList;
+
+    return fetchedMapping || null;
+  }, [salesRepCode, mappings, fetchedMapping]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(data) {
-    setSelectedRow(data);
-    setSidebarOpen(true);
+    navigate(`${data.sales_rep_code}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/sales/rep-mapping?${searchParams.toString()}`);
   }
 
   async function handleConfirmAction() {

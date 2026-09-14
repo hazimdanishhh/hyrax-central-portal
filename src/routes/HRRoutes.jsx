@@ -71,16 +71,15 @@ export default (
         }
       />
 
-      <Route path="list">
-        <Route
-          index
-          element={
-            <AccessRoute departments={["HR"]}>
-              <AttendanceManagement />
-            </AccessRoute>
-          }
-        />
-        <Route path=":attendanceId" element={<AttendanceManagement />} />
+      <Route
+        path="list"
+        element={
+          <AccessRoute departments={["HR"]}>
+            <AttendanceManagement />
+          </AccessRoute>
+        }
+      >
+        <Route path=":attendanceId" element={null} />
       </Route>
 
       {/* SETTINGS -- public holiday / company off-day calendar. See
@@ -92,7 +91,9 @@ export default (
             <AttendanceSettings />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":holidayId" element={null} />
+      </Route>
 
       {/* PAYROLL EXPORT -- the Payroll Period Summary from
           docs/PAYROLL-DATA-REQUIREMENTS.md's phasing section. */}
@@ -103,7 +104,9 @@ export default (
             <PayrollExport />
           </AccessRoute>
         }
-      />
+      >
+        <Route path=":employeeUuid" element={null} />
+      </Route>
     </Route>
 
     {/* HR REPORTS -- Tier-3 cross-submodule dashboard (Employees +
@@ -142,7 +145,9 @@ export default (
           <OrganizationChart />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":employeeId" element={null} />
+    </Route>
 
     {/* LEAVE MANAGEMENT */}
     <Route
@@ -152,7 +157,9 @@ export default (
           <LeaveManagement />
         </AccessRoute>
       }
-    />
+    >
+      <Route path=":leaveId" element={null} />
+    </Route>
 
     {/* RECRUITMENT MANAGEMENT */}
     <Route

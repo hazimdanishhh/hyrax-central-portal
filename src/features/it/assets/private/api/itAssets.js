@@ -72,3 +72,32 @@ export async function fetchITAssets({
     totalCount: count || 0,
   };
 }
+
+// Fallback fetch for a deep link to a row not on the current page (see
+// ITAssetManagement.jsx's URL-driven sidebar) -- same select shape as
+// fetchITAssets, scoped to one id.
+export async function fetchITAssetById(id) {
+  if (!id) return null;
+
+  const { data, error } = await supabase
+    .from("it_assets")
+    .select(
+      `
+      *,
+      asset_category:asset_category_id (id, name),
+      asset_subcategory:asset_subcategory_id (id, name, sub, icon),
+      asset_status:asset_status_id (id, name),
+      asset_user:employees_public!asset_user_id (*),
+      operating_system:operating_system_id (id, name, icon),
+      asset_condition:asset_condition_id (id, name),
+      asset_department:asset_department_id (id, name, sub),
+      asset_manufacturer:asset_manufacturer_id (id, name)
+    `,
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTheme } from "../../../../../context/ThemeContext";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { fetchProfiles } from "../../../../../features/superadmin/users/private/api/profiles";
 import { useProfilesMetadata } from "../../../../../features/superadmin/users/private/hooks/useProfilesMetadata";
 import useProfileMutations from "../../../../../features/superadmin/users/private/hooks/useProfileMutations";
+import { useProfileById } from "../../../../../features/superadmin/users/private/hooks/useProfileById";
 import { useProfilesOverview } from "../../../../../features/superadmin/users/private/hooks/useProfilesOverview";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import { PencilSimpleLineIcon, UsersIcon } from "@phosphor-icons/react";
@@ -34,9 +36,10 @@ import UserEmployeeLink from "./item/UserEmployeeLink";
 
 export default function Users() {
   const { darkMode } = useTheme();
+  const navigate = useNavigate();
+  const { userId } = useParams();
+  const [searchParams] = useSearchParams();
   const [layout, setLayout] = useState(2); // 1: Card, 2: Table
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
     modalOpen,
@@ -130,16 +133,29 @@ export default function Users() {
   const hasData = users.length > 0;
 
   // ==============
-  // SIDEBAR OPEN & CLOSE
+  // SIDEBAR OPEN & CLOSE -- URL-driven (:userId), same pattern as
+  // EmployeeManagement.jsx: check the already-loaded page first, else fall
+  // back to useProfileById for a deep link to a row not on the current page.
   // ==============
+  const { data: fetchedUser } = useProfileById(userId);
+
+  const selectedRow = useMemo(() => {
+    if (!userId) return null;
+
+    const userInList = users?.find((u) => u.id === userId);
+    if (userInList) return userInList;
+
+    return fetchedUser || null;
+  }, [userId, users, fetchedUser]);
+
+  const sidebarOpen = !!selectedRow;
+
   function handleOpenSidebar(data) {
-    setSelectedRow(data);
-    setSidebarOpen(true);
+    navigate(`${data.id}?${searchParams.toString()}`);
   }
 
   function handleCloseSidebar() {
-    setSidebarOpen(false);
-    setSelectedRow(null);
+    navigate(`/app/system/users?${searchParams.toString()}`);
   }
 
   // ==============

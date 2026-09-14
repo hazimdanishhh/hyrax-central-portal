@@ -48,3 +48,20 @@ export async function fetchSalesBudgets({
     totalCount: count || 0,
   };
 }
+
+// Fallback fetch for a deep link to a row not on the current page (see
+// SalesBudgetsManagement.jsx's URL-driven sidebar) -- same select shape as
+// fetchSalesBudgets, scoped to one id.
+export async function fetchSalesBudgetById(id) {
+  if (!id) return null;
+
+  const { data, error } = await supabase
+    .from("sales_budgets")
+    .select("*, sales_rep:sales_rep_code (sales_rep_code, sales_rep_name)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}

@@ -65,3 +65,25 @@ export async function fetchProfiles({
     totalCount: count || 0,
   };
 }
+
+// Fallback fetch for a deep link to a row not on the current page (see
+// Users.jsx's URL-driven sidebar) -- same select shape as fetchProfiles,
+// scoped to one id.
+export async function fetchProfileById(id) {
+  if (!id) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(
+      `*,
+        role:role_id(*),
+        department:department_id(*)
+        `,
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}
