@@ -9,6 +9,7 @@ import usePayrollReconciliationEmailMutations from "../../../features/hr/payroll
 import { formatDate, formatDateTime } from "../../../functions/formatDate";
 import "./PayrollReconciliationSidebar.scss";
 import { useTheme } from "../../../context/ThemeContext";
+import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 
 // Fixed display order, matching the Payroll Export table's own column order
 // (Days Absent, Leave Conflicts, Insufficient Half-Day Hours, Leave Data
@@ -67,7 +68,14 @@ export default function PayrollReconciliationSidebar({
     <div className="payrollReconciliationSidebar">
       <div className="payrollReconciliationSidebarHeader">
         <div className="payrollReconciliationSidebarName">
-          <p className="textBold textS">{employeeName}</p>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <EmployeeImage
+              employeeId={employeeUuid}
+              showName={false}
+              setShowName={() => {}}
+            />
+            <p className="textBold textS">{employeeName}</p>
+          </div>
           <p className="textRegular textS">
             {formatDate(startDate)} — {formatDate(endDate)}
           </p>
