@@ -79,6 +79,7 @@ This is a genuine "select from a small set of existing options" field — the ap
 - **`get_attendance_dashboard_rpc.sql`** and **`get_hr_reports_dashboard_rpc.sql`** — add a `p_work_location_id` parameter, mirroring `p_department_id`'s exact null-passthrough pattern in every CTE. **Both files carry their own OVERLOAD WARNING comment already** — adding a parameter creates a second overloaded function instead of replacing the existing one; run `DROP FUNCTION ... (old signature)` in Supabase Studio before redeploying either.
 - List/Overview/Reports `filterConfig.js` files (Attendance List — HR's plus the duplicated My/Team Attendance List copies, Attendance Overview, HR Reports) — add a "Work Location" dropdown, mirroring the existing department dropdown exactly.
 - `attendanceOverviewService.js`'s `applyAttendanceFilter` — add `case "workLocation": return query.eq("work_location_id", value);`.
+- **Employee Management (added in a later pass, 2026-09-14)** — the same "Work Location" dropdown addition, outside Attendance: `get_hr_employees_dashboard_rpc.sql` gained a `p_work_location_id bigint default null` parameter mirroring `p_department_id`'s exact null-passthrough pattern; `employeeManagement/list/filterConfig.js` and `employeeManagement/overview/config/filterConfig.js` both got the matching "Work Location" dropdown; `employeesService.js`'s `EQ_OR_NULL_MAP` gained `workLocation: "work_location_id"` for the List page's direct-query filtering.
 
 ### Personal address (`address_personal` → structured, created inline)
 

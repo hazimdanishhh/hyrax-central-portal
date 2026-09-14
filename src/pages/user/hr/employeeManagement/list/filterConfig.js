@@ -18,6 +18,7 @@ export function getEmployeesFilterConfig({
   employmentTypes,
   terminationReasons,
   employmentStatuses,
+  workLocations,
 }) {
   return [
     {
@@ -103,6 +104,16 @@ export function getEmployeesFilterConfig({
         { label: "No Department", value: "__null__" },
         ...departments.map((d) => ({ label: d.name, value: d.id })),
       ],
+    },
+    {
+      // Same shape as Attendance Management's own Work Location filter --
+      // no "No Work Location" sentinel, mirroring that filter exactly.
+      key: "workLocation",
+      label: "Work Location",
+      options: (workLocations || []).map((w) => ({
+        label: w.name,
+        value: w.id,
+      })),
     },
     {
       key: "nationality",

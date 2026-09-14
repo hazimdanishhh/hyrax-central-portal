@@ -13,6 +13,7 @@ export async function fetchEmployeesDashboard({ filters }) {
     p_start_date: null,
     p_end_date: null,
     p_department_id: null,
+    p_work_location_id: null,
   };
 
   Object.entries(filters || {}).forEach(([key, value]) => {
@@ -29,6 +30,10 @@ export async function fetchEmployeesDashboard({ filters }) {
 
       case "department":
         rpcParams.p_department_id = value === FILTER_NULL ? null : value;
+        break;
+
+      case "workLocation":
+        rpcParams.p_work_location_id = value === FILTER_NULL ? null : value;
         break;
 
       default:

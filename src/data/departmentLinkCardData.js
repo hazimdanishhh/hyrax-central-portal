@@ -71,7 +71,7 @@ export const departmentLinkCardData = [
       },
 
       {
-        label: "Leads",
+        label: "Leads Pipeline",
         description: "Track and progress deals through your sales pipeline.",
         icon: HandshakeIcon,
         path: "sales/leads",

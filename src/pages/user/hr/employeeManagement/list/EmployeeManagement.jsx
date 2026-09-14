@@ -16,6 +16,7 @@ import PageActions from "../../../../../components/crud/pageActions/PageActions"
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
+import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import EmployeesList from "../../../../../components/employees/employeesList/EmployeesList";
@@ -25,6 +26,8 @@ import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFil
 import { useAccessControl } from "../../../../../context/AccessControlContext";
 import { useTheme } from "../../../../../context/ThemeContext";
 import { fetchEmployees } from "../../../../../features/hr/employees/private/api/employeesService";
+import { buildStatusTabs } from "../../../../../functions/statusTabs";
+import { getEmployeeStatusTabsConfig } from "../../../../../functions/employeeStatusTabsConfig";
 import {
   EMPLOYEE_STATUS_TRANSITIONS,
   FINALIZE_DEPARTURE_STATUS_IDS,
@@ -158,6 +161,11 @@ export default function EmployeeManagement() {
     employmentTypes,
     terminationReasons,
     employmentStatuses,
+    workLocations,
+  });
+  const statusTabs = buildStatusTabs({
+    searchParams,
+    ...getEmployeeStatusTabsConfig(),
   });
 
   // ==============
@@ -462,6 +470,23 @@ export default function EmployeeManagement() {
           resetParams={resetParams}
         />
       )}
+
+      {/* STATUS TABS -- statusBucket (Active/Terminated/Inactive) as the
+          primary enum, plus confirmation/contract/lifecycle-case quick
+          filters as extraTabs (see functions/employeeStatusTabsConfig.js).
+          Same buildStatusTabs()/StatusTab pattern as Attendance Management's
+          List page. */}
+      <div className="statusTabsRow scrollbar">
+        {statusTabs.map((tab) => (
+          <StatusTab
+            key={tab.label}
+            to={tab.to}
+            label={tab.label}
+            themeType={tab.themeType}
+            isActive={tab.isActive}
+          />
+        ))}
+      </div>
 
       {/* RESULT NUMBER + NEXT AND PREVIOUS BUTTONS */}
       <PageResult

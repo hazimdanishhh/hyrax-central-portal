@@ -115,7 +115,7 @@ _Fully native — Hyrax doesn't run SAP's HR module at all, so `OHEM`/`OUDP`/`OU
 
 | Page                         | Route                                | Tables / Source                                                                                                                                                          |
 | ---------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Employee Overview            | `/app/hr/employees/overview`         | RPC `get_hr_employees_dashboard` → `employees`, `departments`, `employment_status`, `employment_type`, `nationalities`, `termination_reason`                             |
+| Employee Overview            | `/app/hr/employees/overview`         | RPC `get_hr_employees_dashboard` → `employees`, `departments`, `employment_status`, `employment_type`, `nationalities`, `termination_reason`, `work_locations` |
 | Employee Management (list)   | `/app/hr/employees/list`             | `employees`; lookups: `departments`, `employment_status`, `employment_type`, `identification_type`, `nationalities`, `termination_reason`, `work_locations`, `addresses` |
 | Attendance Overview          | `/app/hr/attendance/overview`        | `unified_daily_attendance`, `attendance_activity_audit` (views)                                                                                                          |
 | Attendance Management (list) | `/app/hr/attendance/list`            | `unified_daily_attendance`, `attendance_activity_audit`; both fed by Vigilance IoT's `attendance_logs` (raw biometric door-scanner log — see `docs/RPC-REFERENCE.md`)    |

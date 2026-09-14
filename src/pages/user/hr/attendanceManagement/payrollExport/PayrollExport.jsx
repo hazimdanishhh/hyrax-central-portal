@@ -13,8 +13,10 @@ import DataSidebar from "@/components/dataSidebar/DataSidebar";
 import PayrollReconciliationSidebar from "@/components/attendance/payrollReconciliationSidebar/PayrollReconciliationSidebar";
 import { useAttendanceActivitiesMetadata } from "@/features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import usePayrollPeriodSummary from "@/features/hr/payroll/private/hooks/usePayrollPeriodSummary";
-import { fetchPayrollPeriodSummary } from "@/features/hr/payroll/private/api/payrollPeriodSummaryService";
-import { getPayrollExportFilterConfig } from "./filterConfig";
+import {
+  getPayrollExportFilterConfig,
+  rowNeedsReconciliation,
+} from "./filterConfig";
 import { payrollPeriodSummaryTableConfig } from "./tableConfig";
 import { payrollPeriodSummaryExportColumns } from "./exportConfig";
 
@@ -53,8 +55,21 @@ export default function PayrollExport() {
   const { rows, isLoading, isFetching, error, hasPeriod } =
     usePayrollPeriodSummary(filters);
 
+  // Client-side-only post-filter -- the RPC has no matching parameter (see
+  // filterConfig.js), and doesn't need one: it already returns every active
+  // employee's counts for the period in one shot.
+  const displayRows = filters.needsReconciliation
+    ? rows.filter(rowNeedsReconciliation)
+    : rows;
+
   const columns = payrollPeriodSummaryTableConfig();
-  const hasData = rows.length > 0;
+  const hasData = displayRows.length > 0;
+
+  // Mirrors the already-filtered/displayed rows instead of re-querying
+  // fetchPayrollPeriodSummary (which has no needsReconciliation param and
+  // would silently export everyone) -- this page is headcount-bounded with
+  // no pagination, so displayRows already IS the complete export dataset.
+  const exportFetchFn = () => Promise.resolve({ data: displayRows });
 
   function handleOpenSidebar(row) {
     setSelectedRow(row);
@@ -81,7 +96,7 @@ export default function PayrollExport() {
         isLoading={isLoading}
         isError={Boolean(error)}
         enableExport
-        exportFetchFn={fetchPayrollPeriodSummary}
+        exportFetchFn={exportFetchFn}
         exportColumns={payrollPeriodSummaryExportColumns}
         exportFileNamePrefix="Payroll_Period_Summary"
       />
@@ -99,7 +114,7 @@ export default function PayrollExport() {
           <NoResult title="No active employees found for this period/filter combination." />
         ) : (
           <DataTable
-            data={rows}
+            data={displayRows}
             columns={columns}
             rowKey="employeeUuid"
             onRowClick={handleOpenSidebar}

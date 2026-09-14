@@ -63,11 +63,12 @@ export default function EmployeeOverview() {
   // beats adding a second, narrower metadata fetch just for this one field.
   const {
     departments,
+    workLocations,
     isLoading: metadataLoading,
     error: metadataError,
   } = useEmployeesMetadata();
 
-  const filterConfig = getFilterConfig({ departments });
+  const filterConfig = getFilterConfig({ departments, workLocations });
 
   const isLoading = dashboardLoading || metadataLoading;
   const isFetching = dashboardFetching;

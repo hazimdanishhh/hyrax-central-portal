@@ -20,7 +20,7 @@ export default function LeadsPageLayout() {
       <section className={darkMode ? "sectionDark" : "sectionLight"}>
         <div className="sectionWrapper">
           <div className="sectionContent">
-            <Breadcrumbs icon={HandshakeIcon} current="Leads Management" />
+            <Breadcrumbs icon={HandshakeIcon} current="Leads Pipeline" />
 
             <CardWrapper>
               <div className="pageTabContainer">

@@ -208,7 +208,7 @@ export const sideNavLinkData = [
       },
 
       {
-        label: "Leads",
+        label: "Leads Pipeline",
         icon: HandshakeIcon,
         path: "sales/leads",
 

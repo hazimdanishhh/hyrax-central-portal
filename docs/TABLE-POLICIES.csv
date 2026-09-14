@@ -47,7 +47,16 @@ public,attendance_activities,table,true,false,Superadmin CRUD,ALL,true,{authenti
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
-public,attendance_logs,table,true,false,null,null,null,null,null,null
+public,attendance_logs,table,true,false,Employees can view own scan logs,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM employees e
+  WHERE ((e.employee_id = attendance_logs.employee_id) AND (e.id = current_employee_id()))))",null
+public,attendance_logs,table,true,false,HR can view all scan logs,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))",null
+public,attendance_logs,table,true,false,Managers can view subordinates' scan logs,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM employees sub
+  WHERE ((sub.employee_id = attendance_logs.employee_id) AND (sub.manager_id = current_employee_id()))))",null
+public,attendance_logs,table,true,false,Superadmin can view all scan logs,SELECT,true,{authenticated},is_superadmin(),null
 public,attendance_types,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,clients,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,clients,table,true,false,MGM Department CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
@@ -106,12 +115,12 @@ public,employees,table,true,false,HR CRUD,ALL,true,{authenticated},"(EXISTS ( SE
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))","(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))"
+public,employees,table,true,false,Managers can view their direct reports,SELECT,true,{authenticated},(manager_id = current_employee_id()),null
 public,employees,table,true,false,Only Superadmin can CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
-public,employees,table,true,false,Managers can view their direct reports,SELECT,true,{authenticated},(manager_id = current_employee_id()),null
 public,employment_status,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,employment_type,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,identification_type,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
@@ -137,7 +146,6 @@ public,lead_source_types,table,true,false,Enable read access for all users,SELEC
 public,leave_balances,table,true,false,Enable users to view their own data only,SELECT,true,{authenticated},"(employee_id IN ( SELECT employees.id
    FROM employees
   WHERE (employees.profile_id = auth.uid())))",null
-public,leave_holidays,table,true,false,null,null,null,null,null,null
 public,leave_ledger_entries,table,true,false,Employees can view own leave records,SELECT,true,{authenticated},(employee_id = current_employee_id()),null
 public,leave_ledger_entries,table,true,false,HR can view all leave records,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
@@ -155,6 +163,12 @@ public,notification_events,table,true,false,Superadmin CRUD,ALL,true,{authentica
 public,notification_rules,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
 public,notifications,table,true,false,Users mark own notifications read,UPDATE,true,{authenticated},((user_id = auth.uid()) OR is_superadmin()),((user_id = auth.uid()) OR is_superadmin())
 public,notifications,table,true,false,Users read own notifications,SELECT,true,{authenticated},((user_id = auth.uid()) OR is_superadmin()),null
+public,payroll_reconciliation_email_sends,table,true,false,HR can view payroll reconciliation email sends,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))",null
+public,payroll_reconciliation_email_sends,table,true,false,Superadmin can view payroll reconciliation email sends,SELECT,true,{authenticated},is_superadmin(),null
+public,payroll_reconciliation_glossary,table,true,false,Authenticated users can view payroll reconciliation glossary,SELECT,true,{authenticated},true,null
+public,payroll_reconciliation_glossary,table,true,false,Superadmin can manage payroll reconciliation glossary,ALL,true,{authenticated},is_superadmin(),is_superadmin()
 public,pipeline_run_log,table,true,false,All VIEW,SELECT,true,{authenticated},true,null
 public,pipeline_run_log,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
@@ -185,6 +199,15 @@ public,projects,table,true,false,Linked employees can create projects,INSERT,tru
 public,projects,table,true,false,Members can view their projects,SELECT,true,{authenticated},is_project_member(id),null
 public,projects,table,true,false,Owners can delete their projects,DELETE,true,{authenticated},is_project_owner(id),null
 public,projects,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,public_holidays,table,true,false,Anyone can view public holidays,SELECT,true,{authenticated},true,null
+public,public_holidays,table,true,false,HR CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'HR'::text))))","(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'HR'::text))))"
+public,public_holidays,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
 public,roles,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,sales_attainment_snapshots,table,true,false,null,null,null,null,null,null
 public,sales_budgets,table,true,false,MGM Manager CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1

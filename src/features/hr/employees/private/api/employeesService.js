@@ -156,6 +156,7 @@ export async function fetchEmployees({
     identificationType: "identification_type_id",
     maritalStatus: "marital_status",
     employmentStatus: "employment_status_id",
+    workLocation: "work_location_id",
   };
 
   Object.entries(EQ_OR_NULL_MAP).forEach(([key, column]) => {

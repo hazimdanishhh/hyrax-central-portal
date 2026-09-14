@@ -19,9 +19,10 @@
 -- there's no external pipeline that can lag or fail. This RPC is always as
 -- current as the moment it's called.
 create or replace function get_hr_employees_dashboard(
-    p_start_date    date default null,
-    p_end_date      date default null,
-    p_department_id bigint default null
+    p_start_date        date default null,
+    p_end_date          date default null,
+    p_department_id     bigint default null,
+    p_work_location_id  bigint default null
 )
 returns json
 language plpgsql
@@ -102,6 +103,7 @@ with base_employees as (
     left join employment_status es on es.id = e.employment_status_id
     left join employment_type et on et.id = e.employment_type_id
     where (p_department_id is null or e.department_id = p_department_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
 ),
 
 employees_agg as (
