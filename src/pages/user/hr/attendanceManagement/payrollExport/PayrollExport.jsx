@@ -1,5 +1,6 @@
 // pages/user/hr/attendanceManagement/payrollExport/PayrollExport.jsx
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import CardLayout from "@/components/cardLayout/CardLayout";
@@ -33,7 +34,16 @@ import { payrollPeriodSummaryExportColumns } from "./exportConfig";
  * Attendance List's Day mode).
  */
 export default function PayrollExport() {
-  const [filters, setFilters] = useState({});
+  // One-time seed from the URL (e.g. the weekly HR digest notification's
+  // link_to) -- not a full usePaginatedQuery-style bidirectional sync, this
+  // page keeps its existing plain local-state behavior otherwise. Just
+  // means "arrive via a link with a period in the URL, land pre-selected."
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState(() => {
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    return startDate && endDate ? { startDate, endDate } : {};
+  });
   const [selectedRow, setSelectedRow] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 

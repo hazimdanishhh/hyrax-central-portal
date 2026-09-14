@@ -20,6 +20,7 @@ import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineC
 import AttendanceDayTimelineBar from "../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import { getDisplayAttendanceFlag } from "../../../functions/attendanceFlagStatus";
+import { formatHours } from "../../../functions/formatDate";
 
 export default function AttendanceSidebarHR({
   selectedRow, // This is now the Daily Summary Row
@@ -96,9 +97,7 @@ export default function AttendanceSidebarHR({
           {/* Worked-on-a-weekend fact, independent of hr_flag -- only shown
               when the "Weekend" label above ISN'T already covering this day
               (i.e. they actually attended). */}
-          {showWorkedWeekendTag && (
-            <StatusBox status="Weekend" type="grey" />
-          )}
+          {showWorkedWeekendTag && <StatusBox status="Weekend" type="grey" />}
         </div>
       </div>
 
@@ -132,7 +131,9 @@ export default function AttendanceSidebarHR({
       </div>
 
       <div className="attendanceCardSidebarHeader">
-        <p className="textBold textS">{selectedRow.hours_worked}h worked</p>
+        <p className="textBold textS">
+          {formatHours(selectedRow.hours_worked)} worked
+        </p>
         <AttendanceAnomalyBadges
           overtimeHours={selectedRow.overtime_hours}
           isEarlyLeave={selectedRow.is_early_leave}

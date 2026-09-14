@@ -1,4 +1,5 @@
 // components/attendance/payrollReconciliationSidebar/PayrollReconciliationSidebar.jsx
+import { Link } from "react-router";
 import { PaperPlaneTiltIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
 import LoadingIcon from "../../loadingIcon/LoadingIcon";
@@ -7,6 +8,7 @@ import usePayrollReconciliationGlossary from "../../../features/hr/payroll/priva
 import usePayrollReconciliationLastSend from "../../../features/hr/payroll/private/hooks/usePayrollReconciliationLastSend";
 import usePayrollReconciliationEmailMutations from "../../../features/hr/payroll/private/hooks/usePayrollReconciliationEmailMutations";
 import { formatDate, formatDateTime } from "../../../functions/formatDate";
+import { buildHrAttendanceListLink } from "../../../functions/payrollReconciliationLinks";
 import "./PayrollReconciliationSidebar.scss";
 import { useTheme } from "../../../context/ThemeContext";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
@@ -137,6 +139,19 @@ export default function PayrollReconciliationSidebar({
                         {glossaryEntry.employee_action_text}
                       </p>
                     )}
+                    <Link
+                      to={buildHrAttendanceListLink({
+                        employeeUuid,
+                        code: section.code,
+                        startDate,
+                        endDate,
+                      })}
+                      className="textRegular textXXS payrollReconciliationDeepLink"
+                    >
+                      View these {sectionRows.length} day
+                      {sectionRows.length === 1 ? "" : "s"} in Attendance List
+                      &rarr;
+                    </Link>
                   </>
                 )}
               </div>

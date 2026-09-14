@@ -33,6 +33,7 @@ import useMyAttendanceThisWeek from "@/features/employee/attendance/private/hook
 import useMyCurrentStatus from "@/features/employee/attendance/private/hooks/useMyCurrentStatus";
 import useClockInOutAction from "@/features/employee/attendance/private/hooks/useClockInOutAction";
 import "./TodayAttendanceCard.scss";
+import { formatHours } from "../../../functions/formatDate";
 
 function todayISODate() {
   const now = new Date();
@@ -179,7 +180,7 @@ export default function TodayAttendanceCard() {
                   {today?.hours_worked != null && (
                     <div className="todayAttendanceHoursRow">
                       <p className="textBold textS">
-                        {today.hours_worked}h worked
+                        {formatHours(today.hours_worked)} worked
                       </p>
                       <AttendanceAnomalyBadges
                         overtimeHours={today?.overtime_hours}

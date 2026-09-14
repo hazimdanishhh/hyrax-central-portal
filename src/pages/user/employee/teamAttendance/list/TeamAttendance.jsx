@@ -21,6 +21,7 @@ import SortBar from "@/components/crud/sortBar/SortBar";
 import DataSidebar from "@/components/dataSidebar/DataSidebar";
 import DataTable from "@/components/dataTable/DataTable";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
+import StatusTab from "@/components/crud/statusTab/StatusTab";
 import ActionModal from "@/components/modals/actionModal/ActionModal";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
 import { useMessage } from "@/context/MessageContext";
@@ -34,6 +35,8 @@ import { getAttendanceActivitiesLayoutConfig } from "@/pages/user/hr/attendanceM
 import useTeamAttendanceDailyList from "@/features/employee/attendance/private/hooks/useTeamAttendanceDailyList";
 import useTeamAttendanceSearch from "@/features/employee/attendance/private/hooks/useTeamAttendanceSearch";
 import { getTeamAttendanceFilterConfig } from "./filterConfig";
+import { buildStatusTabs } from "@/functions/statusTabs";
+import { getAttendanceStatusTabsConfig } from "@/functions/attendanceStatusTabsConfig";
 
 // Mirrors HR's SEARCH_MODE_FILTER_KEYS, minus "department"/"manager" (this
 // page's scope is always "my direct reports", so those keys never appear in
@@ -155,6 +158,14 @@ export default function TeamAttendance() {
     workLocations,
   });
 
+  // Same tab config HR's Attendance List uses (attendanceStatusTabsConfig.js)
+  // -- every param key it targets is already in this page's own
+  // SEARCH_MODE_FILTER_KEYS above.
+  const statusTabs = buildStatusTabs({
+    searchParams,
+    ...getAttendanceStatusTabsConfig(),
+  });
+
   // ==============
   // DATA LOADING
   // ==============
@@ -270,6 +281,18 @@ export default function TeamAttendance() {
           resetParams={resetParams}
         />
       )}
+
+      <div className="statusTabsRow scrollbar">
+        {statusTabs.map((tab) => (
+          <StatusTab
+            key={tab.label}
+            to={tab.to}
+            label={tab.label}
+            themeType={tab.themeType}
+            isActive={tab.isActive}
+          />
+        ))}
+      </div>
 
       {!isSearchMode && (
         <CardLayout style="pageResultContainer">

@@ -115,3 +115,25 @@ export function formatRelativeTime(value) {
   const diffDays = Math.round(diffHours / 24);
   return `${diffDays}d ago`;
 }
+
+/**
+ * format time from 7.5 7hr 30mins
+ */
+export function formatHours(decimalHours) {
+  if (!decimalHours) return "0h"; // Fallback for null/undefined
+
+  const hours = Math.floor(decimalHours);
+  const decimalPart = decimalHours - hours;
+  const minutes = Math.round(decimalPart * 60);
+
+  // Handle edge case where rounding pushes minutes to 60
+  if (minutes === 60) {
+    return `${hours + 1}h`;
+  }
+
+  // Format the output (e.g., "4h", "4h 30m", or "30m")
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+
+  return `${hours}h ${minutes}m`;
+}

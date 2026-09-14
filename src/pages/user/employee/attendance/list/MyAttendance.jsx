@@ -21,6 +21,7 @@ import SortBar from "@/components/crud/sortBar/SortBar";
 import DataSidebar from "@/components/dataSidebar/DataSidebar";
 import DataTable from "@/components/dataTable/DataTable";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
+import StatusTab from "@/components/crud/statusTab/StatusTab";
 import { useEmployee } from "@/context/EmployeeContext";
 import useAttendanceActivityMutations from "@/features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 import { attendanceDailySummaryTableConfig } from "@/pages/user/hr/attendanceManagement/list/tableConfig";
@@ -30,6 +31,8 @@ import useMyAttendanceDailyList from "@/features/employee/attendance/private/hoo
 import useMyAttendanceSearch from "@/features/employee/attendance/private/hooks/useMyAttendanceSearch";
 import { getMyAttendanceFilterConfig } from "./filterConfig";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
+import { buildStatusTabs } from "@/functions/statusTabs";
+import { getAttendanceStatusTabsConfig } from "@/functions/attendanceStatusTabsConfig";
 
 // Which filter keys promote the page from Day mode (one calendar day) into
 // Search mode (all dates unless narrowed, row-paginated) -- mirrors HR's own
@@ -137,6 +140,14 @@ export default function MyAttendance() {
   const columns = attendanceDailySummaryTableConfig();
   const filterConfig = getMyAttendanceFilterConfig();
 
+  // Same tab config HR's Attendance List uses (attendanceStatusTabsConfig.js)
+  // -- every param key it targets is already in this page's own
+  // SEARCH_MODE_FILTER_KEYS above.
+  const statusTabs = buildStatusTabs({
+    searchParams,
+    ...getAttendanceStatusTabsConfig(),
+  });
+
   // ==============
   // DATA LOADING
   // ==============
@@ -209,6 +220,18 @@ export default function MyAttendance() {
           resetParams={resetParams}
         />
       )}
+
+      <div className="statusTabsRow scrollbar">
+        {statusTabs.map((tab) => (
+          <StatusTab
+            key={tab.label}
+            to={tab.to}
+            label={tab.label}
+            themeType={tab.themeType}
+            isActive={tab.isActive}
+          />
+        ))}
+      </div>
 
       {!isSearchMode && (
         <CardLayout style="pageResultContainer">

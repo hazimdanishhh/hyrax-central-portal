@@ -44,6 +44,14 @@ declare
     v_glossary_description text;
     v_glossary_action_text text;
     v_queue_id bigint;
+    -- Per-category deep link into the employee's own My Attendance list,
+    -- pre-filtered to that flag -- lets someone who clicks through a
+    -- (manually sent, during this testing phase) email actually exercise
+    -- the reconciliation flow end-to-end. v_app_base_url matches
+    -- fan_out_notification_event.sql's own hardcoded constant.
+    v_section_count integer;
+    v_category_query_params text;
+    v_app_base_url constant text := 'https://portal.hyraxoil.com';
     -- Fixed display order, independent of whatever row order
     -- payroll_reconciliation_glossary happens to be seeded/edited in later
     -- -- matches PayrollReconciliationSidebar.jsx's own fixed 4-section
@@ -104,23 +112,41 @@ begin
         from public.payroll_reconciliation_glossary g
         where g.code = v_code and g.is_active;
 
-        select string_agg(
-            format('<li>%s</li>', to_char(r.work_date, 'DD Mon YYYY (Dy)')),
-            ''
-            order by r.work_date
-        )
-        into v_section_html
+        select
+            count(*),
+            string_agg(
+                format('<li>%s</li>', to_char(r.work_date, 'DD Mon YYYY (Dy)')),
+                ''
+                order by r.work_date
+            )
+        into v_section_count, v_section_html
         from public.get_payroll_reconciliation_rows(p_employee_uuid, p_start_date, p_end_date) r
         where r.category = v_code;
 
+        v_category_query_params := case v_code
+            when 'absent' then 'hrFlag=Absent&dayType=working'
+            when 'leave_conflict' then 'leaveAttendanceConflict=true'
+            when 'insufficient_half_day' then 'insufficientHalfDayHours=true'
+            when 'leave_fraction_error' then 'leaveFractionError=true'
+        end;
+
         v_body_html := v_body_html || format(
-            '<h3>%s</h3><p>%s</p><p><em>%s</em></p>%s',
+            '<h3>%s</h3><p>%s</p><p><em>%s</em></p>%s%s',
             coalesce(v_glossary_label, v_code),
             coalesce(v_glossary_description, ''),
             coalesce(v_glossary_action_text, ''),
             case
                 when v_section_html is null then '<p>None — all clear.</p>'
                 else '<ul>' || v_section_html || '</ul>'
+            end,
+            case
+                when v_section_count > 0 then format(
+                    '<p><a href="%s/app/employee/attendance/list?%s&startDate=%s&endDate=%s">View %s day%s in the portal &rarr;</a></p>',
+                    v_app_base_url, v_category_query_params,
+                    to_char(p_start_date, 'YYYY-MM-DD'), to_char(p_end_date, 'YYYY-MM-DD'),
+                    v_section_count, case when v_section_count = 1 then '' else 's' end
+                )
+                else ''
             end
         );
     end loop;

@@ -137,8 +137,8 @@ export default function AttendanceDayTimelineBar({ timelineData = [] }) {
       <div className="attendanceDayTimelineBarTrack">
         {segments.map((seg, i) => {
           const className = seg.type
-            ? ATTENDANCE_TYPE_CONFIG[seg.type.toLowerCase().trim()]?.className ||
-              "default"
+            ? ATTENDANCE_TYPE_CONFIG[seg.type.toLowerCase().trim()]
+                ?.className || "default"
             : "grey";
           const tooltipContent = seg.type
             ? `${seg.type}: ${formatTime(seg.checkInTime)} - ${
