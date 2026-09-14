@@ -1,0 +1,55 @@
+.payrollReconciliationSidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: start;
+  padding: 0.8rem;
+  padding-top: 0;
+  gap: 0.8rem;
+
+  .payrollReconciliationSidebarHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .payrollReconciliationNoEmail {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--color-error, #d9534f);
+  }
+
+  .payrollReconciliationSidebarSections {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .payrollReconciliationSection {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .payrollReconciliationDateList {
+    margin: 0;
+    padding-left: 1.2rem;
+  }
+
+  .payrollReconciliationClear {
+    opacity: 0.7;
+  }
+
+  .payrollReconciliationAction {
+    font-style: italic;
+    opacity: 0.85;
+  }
+
+  .payrollReconciliationSidebarFooter {
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    gap: 0.4rem;
+  }
+}

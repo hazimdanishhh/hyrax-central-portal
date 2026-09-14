@@ -11,6 +11,8 @@ export function payrollPeriodSummaryTableConfig() {
     { key: "departmentName", label: "Department", getValue: (row) => row.departmentName || "--" },
     { key: "hoursWorkedTotal", label: "Hours Worked", getValue: (row) => Number(row.hoursWorkedTotal || 0).toFixed(2) },
     { key: "overtimeHoursTotal", label: "Overtime Hours", getValue: (row) => Number(row.overtimeHoursTotal || 0).toFixed(2) },
+    { key: "totalWorkingDaysCount", label: "Total Working Days", getValue: (row) => row.totalWorkingDaysCount || 0 },
+    { key: "actualDaysWorkedCount", label: "Actual Days Worked", getValue: (row) => row.actualDaysWorkedCount || 0 },
     { key: "daysAbsentCount", label: "Days Absent", getValue: (row) => row.daysAbsentCount || 0 },
     { key: "holidayDaysWorkedCount", label: "Holiday Days Worked", getValue: (row) => row.holidayDaysWorkedCount || 0 },
     { key: "holidayHoursWorkedTotal", label: "Holiday Hours Worked", getValue: (row) => Number(row.holidayHoursWorkedTotal || 0).toFixed(2) },

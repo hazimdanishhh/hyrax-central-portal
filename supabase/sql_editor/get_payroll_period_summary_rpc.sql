@@ -25,6 +25,39 @@
 -- HR/superadmin only -- no self-service branch (unlike
 -- get_attendance_dashboard_rpc.sql), since this only ever powers the
 -- HR-only Payroll Export tab (AccessRoute departments=["HR"]).
+--
+-- totalWorkingDaysCount/actualDaysWorkedCount (added for the row-click
+-- reconciliation sidebar, PayrollReconciliationSidebar.jsx): the scheduled
+-- calendar workdays for the period (not weekend, not public holiday) and,
+-- of those, how many the employee actually has real attendance for.
+-- Reconciliation identity HR can sanity-check on screen: roughly
+-- totalWorkingDaysCount = actualDaysWorkedCount + daysAbsentCount +
+-- paidLeaveDaysTotal + unpaidLeaveDaysTotal -- "roughly", not exactly, for
+-- one concrete, traced reason: a half-day (0.5) leave logged with ZERO
+-- attendance that day makes hr_flag read 'On Leave (...)', not 'Absent'
+-- (see hr_unified_daily_attendance_view.sql's hr_flag CASE expression), so
+-- that day contributes 1 to totalWorkingDaysCount, 0 to
+-- actualDaysWorkedCount, 0 to daysAbsentCount, and only 0.5 to
+-- paidLeaveDaysTotal/unpaidLeaveDaysTotal combined -- a real 0.5-day gap in
+-- the identity, and exactly what is_insufficient_half_day_hours already
+-- exists to flag separately. Not something to "fix" into being exact.
+--
+-- Deliberately NOT bounded by employee join_date/end_date -- see this
+-- file's own daysAbsentCount, which has never been bounded by it either
+-- (unified_daily_attendance's expected_shifts CTE has no such bound today
+-- for ANY consumer); bounding only these two new columns would make the
+-- reconciliation identity worse for a mid-period joiner/leaver, not
+-- better, so this intentionally inherits the same pre-existing behavior
+-- rather than a new one. A real fix belongs in the view itself, out of
+-- scope here.
+--
+-- resolvedEmail/emailSource: the address the "Send Email" flow
+-- (queue_payroll_reconciliation_email_rpc.sql) would actually use --
+-- coalesce(email_work, email_personal), surfaced here so
+-- PayrollReconciliationSidebar.jsx can gate/disable Send and show which
+-- address was used without a second round trip. Both are nullable --
+-- resolvedEmail/emailSource are null when both are blank, which the
+-- frontend must treat as "no email on file," never a silent failure.
 create or replace function get_payroll_period_summary(
     p_start_date    date,
     p_end_date      date,
@@ -101,6 +134,17 @@ attendance_summary as (
         -- "Days absent" definition -- hr_flag = 'Absent' alone overcounts
         -- unworked weekends/holidays, both of which also read 'Absent'.
         count(*) filter (where hr_flag = 'Absent' and not is_weekend and not is_public_holiday) as days_absent_count,
+        -- Scheduled calendar workdays this period -- see this file's own
+        -- header comment for the reconciliation identity and its one
+        -- documented, expected gap source.
+        count(*) filter (where not is_weekend and not is_public_holiday) as total_working_days_count,
+        -- Of those scheduled workdays, how many the employee actually has
+        -- real attendance for -- every hr_flag value except 'Absent' and
+        -- 'On Leave (...)'.
+        count(*) filter (
+            where not is_weekend and not is_public_holiday
+            and hr_flag in ('OK', 'Approved', 'Pending App Approval', 'Missing App Check-Out', 'Incomplete Card Scans')
+        ) as actual_days_worked_count,
         count(*) filter (where is_worked_on_holiday) as holiday_days_worked_count,
         round(sum(holiday_hours_worked) filter (where is_worked_on_holiday)::numeric, 2) as holiday_hours_worked_total,
         count(*) filter (where is_worked_on_weekend) as weekend_days_worked_count,
@@ -129,6 +173,8 @@ select json_agg(
         'departmentName', a.department_name,
         'hoursWorkedTotal', a.hours_worked_total,
         'overtimeHoursTotal', a.overtime_hours_total,
+        'totalWorkingDaysCount', a.total_working_days_count,
+        'actualDaysWorkedCount', a.actual_days_worked_count,
         'daysAbsentCount', a.days_absent_count,
         'holidayDaysWorkedCount', a.holiday_days_worked_count,
         'holidayHoursWorkedTotal', coalesce(a.holiday_hours_worked_total, 0),
@@ -138,12 +184,19 @@ select json_agg(
         'unpaidLeaveDaysTotal', coalesce(l.unpaid_leave_days_total, 0),
         'leaveAttendanceConflictCount', a.leave_attendance_conflict_count,
         'insufficientHalfDayHoursCount', a.insufficient_half_day_hours_count,
-        'leaveFractionErrorCount', a.leave_fraction_error_count
+        'leaveFractionErrorCount', a.leave_fraction_error_count,
+        'resolvedEmail', coalesce(emp.email_work, emp.email_personal),
+        'emailSource', case
+            when emp.email_work is not null then 'work'
+            when emp.email_personal is not null then 'personal'
+            else null
+        end
     )
     order by a.full_name
 ) into result
 from attendance_summary a
-left join leave_summary l on l.leave_emp_uuid = a.employee_uuid;
+left join leave_summary l on l.leave_emp_uuid = a.employee_uuid
+left join public.employees emp on emp.id = a.employee_uuid;
 
 return coalesce(result, '[]'::json);
 

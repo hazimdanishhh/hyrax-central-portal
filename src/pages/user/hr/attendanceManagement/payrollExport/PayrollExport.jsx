@@ -1,11 +1,15 @@
 // pages/user/hr/attendanceManagement/payrollExport/PayrollExport.jsx
 import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
 import NoResult from "@/components/crud/noResult/NoResult";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
 import PayrollCycleFilterBar from "@/components/payrollCycleFilterBar/PayrollCycleFilterBar";
 import DataTable from "@/components/dataTable/DataTable";
+import DataSidebar from "@/components/dataSidebar/DataSidebar";
+import PayrollReconciliationSidebar from "@/components/attendance/payrollReconciliationSidebar/PayrollReconciliationSidebar";
 import { useAttendanceActivitiesMetadata } from "@/features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import usePayrollPeriodSummary from "@/features/hr/payroll/private/hooks/usePayrollPeriodSummary";
 import { fetchPayrollPeriodSummary } from "@/features/hr/payroll/private/api/payrollPeriodSummaryService";
@@ -30,6 +34,8 @@ import { payrollPeriodSummaryExportColumns } from "./exportConfig";
  */
 export default function PayrollExport() {
   const [filters, setFilters] = useState({});
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { employees, departments } = useAttendanceActivitiesMetadata();
   const filterConfig = getPayrollExportFilterConfig({ departments, employees });
@@ -39,6 +45,16 @@ export default function PayrollExport() {
 
   const columns = payrollPeriodSummaryTableConfig();
   const hasData = rows.length > 0;
+
+  function handleOpenSidebar(row) {
+    setSelectedRow(row);
+    setSidebarOpen(true);
+  }
+
+  function handleCloseSidebar() {
+    setSidebarOpen(false);
+    setSelectedRow(null);
+  }
 
   return (
     <>
@@ -72,9 +88,38 @@ export default function PayrollExport() {
         ) : !hasData || error ? (
           <NoResult title="No active employees found for this period/filter combination." />
         ) : (
-          <DataTable data={rows} columns={columns} rowKey="employeeUuid" />
+          <DataTable
+            data={rows}
+            columns={columns}
+            rowKey="employeeUuid"
+            onRowClick={handleOpenSidebar}
+          />
         )}
       </div>
+
+      {/* RECONCILIATION SIDEBAR -- read-only drilldown for one employee's
+          row (isEditing={false} so DataSidebar skips its own <DataForm>
+          and just renders PayrollReconciliationSidebar as children). */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <DataSidebar
+            title={`Reconciliation — ${selectedRow?.fullName || ""}`}
+            icon={MagnifyingGlassIcon}
+            open={sidebarOpen}
+            onClose={handleCloseSidebar}
+            isEditing={false}
+          >
+            <PayrollReconciliationSidebar
+              employeeUuid={selectedRow?.employeeUuid}
+              employeeName={selectedRow?.fullName}
+              resolvedEmail={selectedRow?.resolvedEmail}
+              emailSource={selectedRow?.emailSource}
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+            />
+          </DataSidebar>
+        )}
+      </AnimatePresence>
     </>
   );
 }
