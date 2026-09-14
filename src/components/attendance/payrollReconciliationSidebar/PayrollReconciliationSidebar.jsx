@@ -8,6 +8,7 @@ import usePayrollReconciliationLastSend from "../../../features/hr/payroll/priva
 import usePayrollReconciliationEmailMutations from "../../../features/hr/payroll/private/hooks/usePayrollReconciliationEmailMutations";
 import { formatDate, formatDateTime } from "../../../functions/formatDate";
 import "./PayrollReconciliationSidebar.scss";
+import { useTheme } from "../../../context/ThemeContext";
 
 // Fixed display order, matching the Payroll Export table's own column order
 // (Days Absent, Leave Conflicts, Insufficient Half-Day Hours, Leave Data
@@ -17,7 +18,10 @@ import "./PayrollReconciliationSidebar.scss";
 const SECTIONS = [
   { code: "absent", tableColumnKey: "daysAbsentCount" },
   { code: "leave_conflict", tableColumnKey: "leaveAttendanceConflictCount" },
-  { code: "insufficient_half_day", tableColumnKey: "insufficientHalfDayHoursCount" },
+  {
+    code: "insufficient_half_day",
+    tableColumnKey: "insufficientHalfDayHoursCount",
+  },
   { code: "leave_fraction_error", tableColumnKey: "leaveFractionErrorCount" },
 ];
 
@@ -40,6 +44,7 @@ export default function PayrollReconciliationSidebar({
   startDate,
   endDate,
 }) {
+  const { darkMode } = useTheme();
   const { rows, isLoading } = usePayrollReconciliationDetail({
     employeeUuid,
     startDate,
@@ -61,21 +66,23 @@ export default function PayrollReconciliationSidebar({
   return (
     <div className="payrollReconciliationSidebar">
       <div className="payrollReconciliationSidebarHeader">
-        <p className="textBold textS">{employeeName}</p>
-        <p className="textRegular textS">
-          {formatDate(startDate)} — {formatDate(endDate)}
-        </p>
+        <div className="payrollReconciliationSidebarName">
+          <p className="textBold textS">{employeeName}</p>
+          <p className="textRegular textS">
+            {formatDate(startDate)} — {formatDate(endDate)}
+          </p>
+        </div>
 
         {resolvedEmail ? (
           <p className="textRegular textXS">
-            Will email: <span className="textBold">{resolvedEmail}</span>{" "}
-            ({emailSource === "work" ? "work email" : "personal email"})
+            Will email: <span className="textBold">{resolvedEmail}</span> (
+            {emailSource === "work" ? "work email" : "personal email"})
           </p>
         ) : (
           <p className="textRegular textXS payrollReconciliationNoEmail">
             <WarningCircleIcon size={16} />
-            No work or personal email on file — add one in Employee
-            Management before sending.
+            No work or personal email on file — add one in Employee Management
+            before sending.
           </p>
         )}
       </div>
@@ -93,7 +100,7 @@ export default function PayrollReconciliationSidebar({
             return (
               <div
                 key={section.code}
-                className="payrollReconciliationSection"
+                className="payrollReconciliationSection generalCard"
               >
                 <p className="textBold textS">
                   {glossaryEntry?.label || section.code}
@@ -130,13 +137,15 @@ export default function PayrollReconciliationSidebar({
         </div>
       )}
 
-      <div className="divider"></div>
+      <div className="payrollReconciliationFooterGap"></div>
 
-      <div className="payrollReconciliationSidebarFooter">
+      <div
+        className={`payrollReconciliationSidebarFooter${darkMode ? " sectionDark" : " sectionLight"}`}
+      >
         <Button
           name={queuing ? "Queuing..." : "Send Email"}
           icon={PaperPlaneTiltIcon}
-          style="buttonPrimary"
+          style="button buttonType5 approval"
           disabled={!resolvedEmail || queuing}
           onClick={handleSendEmail}
         />

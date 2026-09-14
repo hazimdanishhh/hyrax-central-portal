@@ -84,7 +84,7 @@ begin
     end if;
 
     v_subject := format(
-        'Attendance Reconciliation Needed — %s — %s to %s',
+        'Attendance Reconciliation Needed: %s ( %s to %s )',
         v_employee_name,
         to_char(p_start_date, 'DD Mon YYYY'),
         to_char(p_end_date, 'DD Mon YYYY')
