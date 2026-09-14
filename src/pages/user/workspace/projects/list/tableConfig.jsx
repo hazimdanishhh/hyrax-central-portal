@@ -109,6 +109,7 @@ export const projectsTableConfig = ({
       editor: "date",
       section: "Dates",
       half: true,
+      required: true,
     },
     {
       key: "completed_date",
@@ -125,6 +126,20 @@ export const projectsTableConfig = ({
       getValue: "description",
       editable: true,
       editor: "textarea",
+      section: "Details",
+    },
+    {
+      key: "drive_folder_url",
+      label: "Shared Drive Folder",
+      getValue: "drive_folder_url",
+      // Quick-access link to the project's shared Drive folder/Shared
+      // Drive -- distinct from the Documents tab's per-file library.
+      // Rendered as an "Open Shared Drive" button in ProjectDetailLayout.
+      // selectFolders restricts the picker to folders/Shared Drives, not
+      // files (see GoogleDrivePicker.jsx).
+      editable: true,
+      editor: "drivePicker",
+      selectFolders: true,
       section: "Details",
     },
   ];

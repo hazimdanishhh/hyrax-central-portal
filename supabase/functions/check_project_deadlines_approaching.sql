@@ -8,6 +8,11 @@
 -- the Projects page (getProjectsFilterConfig / fetchProjects), mirroring
 -- My Tasks' own dueStatus filter.
 --
+-- RECURRING DAILY (2026-09): originally one-shot (`sent_at is null`,
+-- never re-checked once set). Now re-fires once per calendar day for as
+-- long as a project's deadline is still approaching, matching
+-- check_tasks_due_soon.sql's own daily cadence.
+--
 -- The cooldown column lives one level removed from what's being
 -- aggregated here (deadline_reminder_sent_at is on `projects`, but the
 -- digest groups by `project_members.employee_id`) -- unlike the task
@@ -40,7 +45,7 @@ begin
         join public.employees e on e.id = pm.employee_id
         where p.target_end_date between current_date and current_date + 3
           and p.status not in ('COMPLETED', 'CANCELLED')
-          and p.deadline_reminder_sent_at is null
+          and (p.deadline_reminder_sent_at is null or p.deadline_reminder_sent_at::date < current_date)
           and e.profile_id is not null
         group by pm.employee_id, e.profile_id
     loop
@@ -63,7 +68,7 @@ begin
 
             update public.projects p
                 set deadline_reminder_sent_at = now()
-                where p.deadline_reminder_sent_at is null
+                where (p.deadline_reminder_sent_at is null or p.deadline_reminder_sent_at::date < current_date)
                   and p.target_end_date between current_date and current_date + 3
                   and p.status not in ('COMPLETED', 'CANCELLED')
                   and exists (

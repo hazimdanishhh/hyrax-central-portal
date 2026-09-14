@@ -10,6 +10,14 @@
 -- `dueStatus=due_soon` filter on My Tasks (getMyTasksFilterConfig /
 -- fetchMyTasks) rather than any one specific task.
 --
+-- RECURRING DAILY (2026-09): originally one-shot (`sent_at is null`,
+-- never re-checked once set), which meant a task sitting in the due-soon
+-- window for several days only ever notified its assignee once. Now
+-- re-fires once per calendar day for as long as a task still qualifies,
+-- so the daily 9AM run (check-workspace-lifecycle-daily) gives everyone a
+-- fresh digest of what's still due soon -- matching task.overdue's own
+-- recurring shape, just daily instead of every 7 days.
+--
 -- Dedup is still keyed per (task, assignee) PAIR underneath -- the
 -- cooldown columns still live on task_assignees (see
 -- task_assignees_add_reminder_columns.sql), stamped per-recipient inside
@@ -44,7 +52,7 @@ begin
         join public.employees e on e.id = ta.employee_id
         where t.due_date between current_date and current_date + 3
           and t.status not in ('COMPLETED', 'CANCELLED')
-          and ta.due_soon_reminder_sent_at is null
+          and (ta.due_soon_reminder_sent_at is null or ta.due_soon_reminder_sent_at::date < current_date)
           and e.profile_id is not null
         group by ta.employee_id, e.profile_id
     loop
@@ -72,7 +80,7 @@ begin
                   and ta.employee_id = v_recipient.employee_id
                   and t.due_date between current_date and current_date + 3
                   and t.status not in ('COMPLETED', 'CANCELLED')
-                  and ta.due_soon_reminder_sent_at is null;
+                  and (ta.due_soon_reminder_sent_at is null or ta.due_soon_reminder_sent_at::date < current_date);
         exception when others then
             raise warning 'task.due_soon notification failed for employee %: %',
                 v_recipient.employee_id, sqlerrm;

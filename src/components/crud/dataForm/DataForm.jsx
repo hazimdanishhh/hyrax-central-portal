@@ -214,6 +214,11 @@ function DataForm({
                         cacheOptions={col.cacheOptions}
                         formatOptionLabel={col.formatOptionLabel}
                         allowReplace={col.allowReplace}
+                        // Only meaningful to the drivePicker editor
+                        // (GoogleDriveEditor) -- restricts its picker to
+                        // folders/Shared Drives instead of files. Ignored
+                        // (harmless) by every other editor.
+                        selectFolders={col.selectFolders}
                       />
                     )}
                   />

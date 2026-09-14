@@ -1,10 +1,6 @@
 // pages/user/workspace/tasks/list/tableConfig.jsx
 import { Link } from "react-router";
-import StatusBox from "../../../../../components/status/statusBox/StatusBox";
-import {
-  TASK_STATUSES,
-  TASK_STATUS_TYPE,
-} from "../../../../../features/workspace/tasks/private/taskStatusMeta";
+import { TASK_STATUSES } from "../../../../../features/workspace/tasks/private/taskStatusMeta";
 
 /**
  * A slimmer variant of the project Tasks tab's tableConfig -- no
@@ -60,32 +56,19 @@ export const myTasksTableConfig = ({ projectDocuments = [] } = {}) => [
     getValue: "status",
     displayValue: (task) =>
       TASK_STATUSES.find((s) => s.value === task.status)?.label,
-    // Status only ever changes via TaskCard's quick-action buttons now --
-    // computed:true (not just show:false) stops DataForm from seeding or
-    // submitting this field at all, so an empty Add Task form can never
-    // submit status:null (which would violate tasks.status's NOT NULL
-    // constraint) -- see progress_percentage's identical precedent.
-    computed: true,
-    show: false,
+    // Status only ever changes via TaskCard's quick-action buttons -- read-
+    // only here (disabled select, resolves to its label). My Tasks has no
+    // Add Task flow (every row is, by definition, one the viewer is
+    // already assigned to), so unlike taskTableConfig.jsx there's no
+    // `creating` case to hide this for -- always shown. NOT computed:true
+    // -- handleSave (MyTasks.jsx) strips `status` back out of the
+    // submitted fields before calling updateTask, the same defensive
+    // destructure already used there for `documents`.
     editable: false,
+    editor: "select",
+    options: TASK_STATUSES,
     isSearchable: false,
-    render: (_displayValue, task) => (
-      <StatusBox
-        status={
-          TASK_STATUSES.find((s) => s.value === task.status)?.label ||
-          task.status
-        }
-        type={TASK_STATUS_TYPE[task.status] || "grey"}
-      />
-    ),
-    half: true,
-  },
-  {
-    key: "start_date",
-    label: "Start Date",
-    getValue: "start_date",
-    editable: true,
-    editor: "date",
+    isClearable: false,
     half: true,
   },
   {
@@ -98,11 +81,21 @@ export const myTasksTableConfig = ({ projectDocuments = [] } = {}) => [
     required: true,
   },
   {
+    key: "start_date",
+    label: "Start Date",
+    getValue: "start_date",
+    editable: true,
+    editor: "date",
+    section: "Lifecycle Dates",
+    half: true,
+  },
+  {
     key: "completed_date",
     label: "Completed Date",
     getValue: "completed_date",
     editable: true,
     editor: "date",
+    section: "Lifecycle Dates",
     half: true,
   },
   {

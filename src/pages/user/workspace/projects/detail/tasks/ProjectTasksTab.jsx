@@ -101,6 +101,7 @@ export default function ProjectTasksTab() {
     workingMembers,
     canEdit: true,
     projectDocuments,
+    creating: true,
   });
 
   const search = searchParams.get("search") || "";
@@ -190,7 +191,16 @@ export default function ProjectTasksTab() {
   }
 
   async function handleAddTask(formData) {
-    const { assignee_ids: assigneeIds, documents, ...taskFields } = formData;
+    // status is stripped here even though the Add Task form hides it
+    // (creating:true) -- DataForm still seeds/submits every non-computed
+    // column regardless of `show`, so this is the actual guarantee against
+    // ever submitting status:null, not the field's own flags.
+    const {
+      assignee_ids: assigneeIds,
+      documents,
+      status: _status,
+      ...taskFields
+    } = formData;
 
     const newTask = await createTask({
       ...taskFields,
@@ -215,7 +225,15 @@ export default function ProjectTasksTab() {
   // policy -- must be skipped for them; only the document sync (gated by
   // the looser "working member" task_documents policy) should run.
   async function handleEditSave(formData) {
-    const { assignee_ids: assigneeIds, documents, ...taskFields } = formData;
+    // status is read-only display here (see tableConfig.jsx) -- stripped
+    // before the update so this form can never override the value
+    // TaskCard's guarded status buttons are the only real path to.
+    const {
+      assignee_ids: assigneeIds,
+      documents,
+      status: _status,
+      ...taskFields
+    } = formData;
 
     if (canEditSelectedTask) {
       await updateTask({ id: selectedTask.id, ...taskFields });

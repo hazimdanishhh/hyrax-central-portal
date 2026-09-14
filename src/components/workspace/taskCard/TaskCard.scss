@@ -96,15 +96,15 @@
     white-space: pre-wrap;
   }
 
-  .taskCardAssignees {
+  .taskCardIndicators {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 0.4rem;
   }
 
   .taskCardActions {
     display: flex;
-    gap: 0.6rem;
+    gap: 0.3rem;
   }
 
   .taskCardExpandToggle {
@@ -120,5 +120,20 @@
 
   p {
     text-align: start;
+  }
+}
+
+.taskCardRosterPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+
+  .taskCardRosterRow {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 }

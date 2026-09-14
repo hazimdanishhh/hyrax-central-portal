@@ -4,10 +4,11 @@
 -- Scheduled-scan escalation counterpart to
 -- check_project_deadlines_approaching.sql -- DIGESTED per recipient
 -- (2026-09), same restructuring/reasoning as that file's own header
--- comment. RECURRING (7-day cooldown via projects.overdue_last_notified_at)
--- rather than one-shot, matching check_tasks_overdue.sql's/
--- check_employee_confirmations_overdue.sql's own 7-day cadence. Links to
--- the `dueStatus=overdue` filter on the Projects page.
+-- comment. RECURRING DAILY (changed 2026-09 from a 7-day cooldown) via
+-- projects.overdue_last_notified_at -- re-fires once per calendar day for
+-- as long as a project is still overdue, matching
+-- check_tasks_overdue.sql's own daily cadence. Links to the
+-- `dueStatus=overdue` filter on the Projects page.
 --
 -- SECURITY DEFINER + set search_path = '': same hardening as every other
 -- check_* function in this system.
@@ -27,7 +28,7 @@ begin
         join public.employees e on e.id = pm.employee_id
         where p.target_end_date < current_date
           and p.status not in ('COMPLETED', 'CANCELLED')
-          and (p.overdue_last_notified_at is null or p.overdue_last_notified_at < now() - interval '7 days')
+          and (p.overdue_last_notified_at is null or p.overdue_last_notified_at::date < current_date)
           and e.profile_id is not null
         group by pm.employee_id, e.profile_id
     loop
@@ -50,7 +51,7 @@ begin
 
             update public.projects p
                 set overdue_last_notified_at = now()
-                where (p.overdue_last_notified_at is null or p.overdue_last_notified_at < now() - interval '7 days')
+                where (p.overdue_last_notified_at is null or p.overdue_last_notified_at::date < current_date)
                   and p.target_end_date < current_date
                   and p.status not in ('COMPLETED', 'CANCELLED')
                   and exists (

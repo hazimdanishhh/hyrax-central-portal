@@ -6,6 +6,12 @@
   z-index: 9999;
   background-color: rgb($neutral500, 0.2);
   backdrop-filter: blur(4px);
+  // Explicit, not left to inherit -- when this overlay is rendered nested
+  // inside a clickable card (ProjectDocumentsIndicator/TaskDocumentsIndicator),
+  // an ancestor's `cursor: pointer` would otherwise bleed through the whole
+  // backdrop, making it look clickable-as-a-button even though clicking it
+  // only closes the sidebar.
+  cursor: default;
 
   @media (max-width: 768px) {
     justify-content: center;

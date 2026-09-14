@@ -35,7 +35,20 @@ export default function DataSidebar({
   return (
     <motion.div
       className="dataSidebarOverlay"
-      onClick={onClose}
+      onClick={(e) => {
+        // Stops here, not just at the inner panel's own stopPropagation --
+        // whenever a DataSidebar is rendered nested inside another
+        // clickable element (e.g. ProjectDocumentsIndicator/
+        // TaskDocumentsIndicator, mounted inside a card's own onClick div,
+        // unlike sidebars rendered as a card's sibling), an unstopped click
+        // on this backdrop would otherwise bubble past this overlay into
+        // that ancestor's onClick -- closing the sidebar AND triggering
+        // the card's navigation in the same click, plus visibly inheriting
+        // the ancestor's `cursor: pointer` the whole backdrop. Harmless to
+        // stop here even for sidebars that aren't nested in anything.
+        e.stopPropagation();
+        onClose?.();
+      }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

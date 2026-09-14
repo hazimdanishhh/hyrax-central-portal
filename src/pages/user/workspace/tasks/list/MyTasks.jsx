@@ -132,7 +132,10 @@ export default function MyTasks() {
   }
 
   async function handleSave(formData) {
-    const { documents, ...taskFields } = formData;
+    // status is read-only display here (see tableConfig.jsx) -- stripped
+    // before the update so this form can never override the value
+    // TaskCard's guarded status buttons are the only real path to.
+    const { documents, status: _status, ...taskFields } = formData;
 
     await updateTask({ id: selectedTask.id, ...taskFields });
     await syncDocumentLinks({

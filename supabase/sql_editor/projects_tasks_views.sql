@@ -47,6 +47,15 @@ comment on view public.project_progress is
 -- no FK for it to detect), so this is what the frontend queries instead
 -- of two round-trips joined client-side. Inner join, not left --
 -- project_progress always has exactly one row per project by construction.
+--
+-- `p.*` is expanded to a concrete column list at CREATE time, not
+-- re-expanded on every query -- adding a column to `projects` later (e.g.
+-- projects_add_drive_folder_url.sql) needs this view DROPPED and
+-- recreated, not just `create or replace`, or every read through it keeps
+-- silently omitting the new column. See PROJECTS-TASKS-ARCHITECTURE.md's
+-- "Three non-obvious pitfalls" #4, and
+-- refresh_projects_with_progress_for_drive_folder_url.sql for the concrete
+-- fix this hit in practice.
 create view public.projects_with_progress
 with (security_invoker = true)
 as

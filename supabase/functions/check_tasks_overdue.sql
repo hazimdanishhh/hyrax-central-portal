@@ -3,10 +3,11 @@
 --
 -- Scheduled-scan escalation counterpart to check_tasks_due_soon.sql --
 -- DIGESTED per recipient (2026-09), same restructuring/reasoning as that
--- file's own header comment. RECURRING (7-day cooldown via
--- task_assignees.overdue_last_notified_at) rather than one-shot, matching
--- check_projects_overdue.sql's/check_employee_confirmations_overdue.sql's
--- own 7-day cadence.
+-- file's own header comment. RECURRING DAILY (changed 2026-09 from a
+-- 7-day cooldown) via task_assignees.overdue_last_notified_at -- re-fires
+-- once per calendar day for as long as a task is still overdue, so the
+-- daily 9AM run gives everyone a fresh glimpse of what's still overdue,
+-- not just a once-a-week nudge.
 --
 -- SECURITY DEFINER + set search_path = '': same hardening as every other
 -- check_* function in this system.
@@ -26,7 +27,7 @@ begin
         join public.employees e on e.id = ta.employee_id
         where t.due_date < current_date
           and t.status not in ('COMPLETED', 'CANCELLED')
-          and (ta.overdue_last_notified_at is null or ta.overdue_last_notified_at < now() - interval '7 days')
+          and (ta.overdue_last_notified_at is null or ta.overdue_last_notified_at::date < current_date)
           and e.profile_id is not null
         group by ta.employee_id, e.profile_id
     loop
@@ -54,7 +55,7 @@ begin
                   and ta.employee_id = v_recipient.employee_id
                   and t.due_date < current_date
                   and t.status not in ('COMPLETED', 'CANCELLED')
-                  and (ta.overdue_last_notified_at is null or ta.overdue_last_notified_at < now() - interval '7 days');
+                  and (ta.overdue_last_notified_at is null or ta.overdue_last_notified_at::date < current_date);
         exception when others then
             raise warning 'task.overdue notification failed for employee %: %',
                 v_recipient.employee_id, sqlerrm;

@@ -1,0 +1,21 @@
+.taskDocumentsIndicatorPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
+.taskDocumentsIndicatorRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  flex-direction: row;
+  flex-wrap: nowrap;
+}
+
+.taskDocumentsIndicatorIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}

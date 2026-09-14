@@ -2,7 +2,7 @@ import React, { forwardRef } from "react";
 import GoogleDrivePicker from "../../googleDrive/GoogleDrivePicker";
 
 const GoogleDriveEditor = forwardRef(
-  ({ value, onChange, placeholder, readOnly, ...props }, ref) => {
+  ({ value, onChange, placeholder, readOnly, selectFolders, ...props }, ref) => {
     return (
       <div className="editorContainer">
         <input
@@ -11,14 +11,18 @@ const GoogleDriveEditor = forwardRef(
           className=""
           value={value || ""}
           readOnly={true} // Always readonly so users don't type random text
-          placeholder={placeholder || "No document selected..."}
+          placeholder={
+            placeholder ||
+            (selectFolders ? "No folder selected..." : "No document selected...")
+          }
           {...props}
         />
 
         {/* Only show the picker button if the field is editable */}
         {!readOnly && (
           <GoogleDrivePicker
-            label="Browse Drive"
+            label={selectFolders ? "Browse Drive Folders" : "Browse Drive"}
+            selectFolders={selectFolders}
             onSelect={(file) => {
               // file.url comes from the picker, pass it to React Hook Form
               onChange(file.url);

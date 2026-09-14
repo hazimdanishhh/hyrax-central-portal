@@ -24,13 +24,14 @@ export default function ProjectDocumentsIndicator({ projectId, projectName }) {
     <>
       <Button
         type="button"
-        style="button buttonType5 textXXXS"
+        style="button buttonType5 blue textXXXS"
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);
         }}
         title="View Project Documents"
         icon={FileIcon}
+        weight="fill"
         size={16}
       />
 
@@ -71,7 +72,9 @@ function ProjectDocumentsIndicatorSidebar({ projectId, projectName, onClose }) {
             {documents.length === 0 ? (
               <NoResult title="No documents yet" />
             ) : (
-              documents.map((doc) => <DocumentCard key={doc.id} document={doc} />)
+              documents.map((doc) => (
+                <DocumentCard key={doc.id} document={doc} />
+              ))
             )}
           </>
         )}

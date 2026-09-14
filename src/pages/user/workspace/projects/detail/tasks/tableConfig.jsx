@@ -1,20 +1,16 @@
 // pages/user/workspace/projects/detail/tasks/tableConfig.jsx
-import StatusBox from "../../../../../../components/status/statusBox/StatusBox";
-import {
-  TASK_STATUSES,
-  TASK_STATUS_TYPE,
-} from "../../../../../../features/workspace/tasks/private/taskStatusMeta";
+import { TASK_STATUSES } from "../../../../../../features/workspace/tasks/private/taskStatusMeta";
 
 /**
  * Factory function. `canEdit` (from taskPermissions.isTaskAssignee, per
  * req #6 -- only a task's own assignees can edit it) sets most fields'
  * `editable` uniformly (status is the one exception -- always
- * non-editable/hidden here regardless of `canEdit`, since it only ever
- * changes via TaskCard's guarded quick-action buttons now, never this
- * form); combined with the sidebar's own `cannotUpdate` prop (hides Save
- * entirely), this needs ZERO changes to DataTable/DataForm/DataTableCell --
- * both mechanisms already exist, just never had a caller before this
- * module.
+ * non-editable regardless of `canEdit`, shown read-only rather than
+ * hidden once the task exists, since it only ever changes via TaskCard's
+ * guarded quick-action buttons now, never this form); combined with the
+ * sidebar's own `cannotUpdate` prop (hides Save entirely), this needs
+ * ZERO changes to DataTable/DataForm/DataTableCell -- both mechanisms
+ * already exist, just never had a caller before this module.
  *
  * `workingMembers` (owner/lead/member roles only, never cc) scopes the
  * assignee picker's options to req #5's actual constraint in the UI, on
@@ -38,6 +34,7 @@ export const taskTableConfig = ({
   canEdit = true,
   canAttachDocuments = canEdit,
   projectDocuments = [],
+  creating = false,
 }) => {
   const assigneeOptions = workingMembers.map((m) => ({
     label: m.employee?.full_name,
@@ -74,32 +71,23 @@ export const taskTableConfig = ({
       getValue: "status",
       displayValue: (task) =>
         TASK_STATUSES.find((s) => s.value === task.status)?.label,
-      // Status only ever changes via TaskCard's quick-action buttons now --
-      // computed:true (not just show:false) stops DataForm from seeding or
-      // submitting this field at all, so the Add Task form can never
-      // submit status:null (which would violate tasks.status's NOT NULL
-      // constraint) -- see progress_percentage's identical precedent.
-      computed: true,
-      show: false,
+      // Status only ever changes via TaskCard's quick-action buttons --
+      // never editable here. Shown read-only (disabled select, resolves to
+      // its label like Projects' own status field) so the current status
+      // is visible on the Edit form; hidden on Add Task (`creating`) since
+      // there's no status yet. NOT computed:true anymore -- this needs to
+      // actually seed/display the current value -- so handleAddTask/
+      // handleEditSave (ProjectTasksTab.jsx) strip `status` back out of
+      // the submitted fields before calling createTask/updateTask, the
+      // same defensive destructure already used there for assignee_ids/
+      // documents. That's what still makes tasks.status's NOT NULL
+      // constraint unreachable from this form, not the field's own flags.
+      show: !creating,
       editable: false,
+      editor: "select",
+      options: TASK_STATUSES,
       isSearchable: false,
-      render: (_displayValue, task) => (
-        <StatusBox
-          status={
-            TASK_STATUSES.find((s) => s.value === task.status)?.label ||
-            task.status
-          }
-          type={TASK_STATUS_TYPE[task.status] || "grey"}
-        />
-      ),
-      half: true,
-    },
-    {
-      key: "start_date",
-      label: "Start Date",
-      getValue: "start_date",
-      editable: canEdit,
-      editor: "date",
+      isClearable: false,
       half: true,
     },
     {
@@ -112,11 +100,21 @@ export const taskTableConfig = ({
       required: true,
     },
     {
+      key: "start_date",
+      label: "Start Date",
+      getValue: "start_date",
+      editable: canEdit,
+      editor: "date",
+      section: "Lifecycle Dates",
+      half: true,
+    },
+    {
       key: "completed_date",
       label: "Completed Date",
       getValue: "completed_date",
       editable: canEdit,
       editor: "date",
+      section: "Lifecycle Dates",
       half: true,
     },
     {

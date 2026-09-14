@@ -6,12 +6,14 @@ import {
   UsersIcon,
   FolderIcon,
   ListChecksIcon,
+  GoogleLogoIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../cardLayout/CardLayout";
 import StatusBox from "../../status/statusBox/StatusBox";
 import ProgressBar from "../../progressBar/ProgressBar";
 import IconCard from "../../iconCard/IconCard";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
+import Button from "../../buttons/button/Button";
 import DataSidebar from "../../dataSidebar/DataSidebar";
 import ProjectMemberAvatarStack from "../projectMemberAvatarStack/ProjectMemberAvatarStack";
 import ProjectDocumentsIndicator from "../projectDocumentsIndicator/ProjectDocumentsIndicator";
@@ -24,6 +26,7 @@ import { getDueDateStatus } from "../../../functions/dueDateStatus";
 import { formatDate } from "../../../functions/formatDate";
 import "./ProjectCard.scss";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
+import googleLogo from "/src/assets/icons/googledrive.svg";
 
 /**
  * Simple Card-view counterpart to the Projects list -- a plain <div>
@@ -118,6 +121,24 @@ export default function ProjectCard({
               projectId={project.id}
               projectName={project.name}
             />
+            {project.drive_folder_url && (
+              <a
+                className="button buttonType5 approval textXXXS"
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                href={project.drive_folder_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open Shared Drive"
+              >
+                <img
+                  src={googleLogo}
+                  alt="Open Shared Drive"
+                  style={{ width: "16px" }}
+                />
+              </a>
+            )}
           </div>
         </div>
 

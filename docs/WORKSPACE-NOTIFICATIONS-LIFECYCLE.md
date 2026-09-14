@@ -24,8 +24,8 @@ flowchart TD
     P6 --> P8[Member role tier changed] --> N4(["🔵 project.member_role_changed\nexcludes owner transitions"]):::building
     P6 --> P9[Ownership transferred] --> N5(["🔵 project.ownership_transferred\nnew owner only"]):::building
     P3 & P4 --> P10{target_end_date\napproaching / passed?}
-    P10 -->|~3 days out| N6(["🔵 project.deadline_approaching\ndigest per member, with count"]):::building
-    P10 -->|overdue, 7-day recheck| N7(["🔵 project.overdue\ndigest per member, with count"]):::building
+    P10 -->|~3 days out| N6(["🔵 project.deadline_approaching\ndigest per member, with count, daily"]):::building
+    P10 -->|overdue, daily recheck| N7(["🔵 project.overdue\ndigest per member, with count, daily"]):::building
     P11[target_end_date rescheduled] -.->|silently resets cooldowns, no event| P10
     P5 --> P12["Project deleted\n(CANCELLED + taskless only)"] -.-> LO1["⬛ Leave out: no active\nstakeholders left by then"]:::leaveout
 ```
@@ -52,8 +52,8 @@ flowchart TD
     T3 & T4 & T5 & T6 -->|any transition| NT3(["🟢 task.status_changed\ncurrent assignees today;\n+ CC once that ships"]):::implemented
     T3 & T4 -->|due_date edited| NT4(["🔵 task.due_date_changed\nresets due-soon/overdue cooldowns"]):::building
     T3 & T4 --> T7{due_date\napproaching / passed?}
-    T7 -->|~3 days out| NT5(["🔵 task.due_soon\ndigest per assignee, with count"]):::building
-    T7 -->|overdue, 7-day recheck| NT6(["🔵 task.overdue\ndigest per assignee, with count"]):::building
+    T7 -->|~3 days out| NT5(["🔵 task.due_soon\ndigest per assignee, with count, daily"]):::building
+    T7 -->|overdue, daily recheck| NT6(["🔵 task.overdue\ndigest per assignee, with count, daily"]):::building
     T3 & T4 & T5 & T6 --> T8[Task deleted] --> NT7(["🔵 task.deleted\ncurrent assignees"]):::building
     T3 & T4 --> T9[Comment posted] --> NT8(["🟣 task.comment_added\nassignees + CC + owner/lead"]):::future
 ```
@@ -78,7 +78,7 @@ flowchart TD
 
 ## Notes on the decisions behind this map
 
-- **Due-soon / deadline-approaching window: 3 days.** Applies to `task.due_soon` and `project.deadline_approaching`. `task.overdue`/`project.overdue` then re-notify every 7 days until resolved (matches `check_employee_confirmations_overdue.sql`'s own recurring-cooldown cadence).
+- **Due-soon / deadline-approaching window: 3 days.** Applies to `task.due_soon` and `project.deadline_approaching`. All four scan-driven events (`task.due_soon`/`task.overdue`/`project.deadline_approaching`/`project.overdue`) re-notify once per calendar day until resolved (changed 2026-09 from one-shot/7-day-cooldown dedup — see `docs/PROJECTS-TASKS-ARCHITECTURE.md`'s Notifications section), so a recipient gets a fresh daily digest for as long as something still qualifies, matching the daily 9AM `check-workspace-lifecycle-daily` cron cadence itself.
 - **Dynamic multi-recipient audience for the project-level deadline events is "all project members," any role including `cc`** — matches `project.status_changed`'s existing precedent (`cc` exists specifically to stay informed).
 - **`document.added_to_project`** (a document attached at the project-library level, with no task link) is deliberately left `Proposed` — correctly distinguishing it from a doc that gets task-linked moments later needs a short-delay scheduled scan, not an instant trigger, and wasn't judged worth the added latency/complexity yet.
 - **`project.created`** was considered and explicitly dropped — every real stakeholder is already covered by `project.member_added` firing per initial member at creation time.

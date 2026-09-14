@@ -8,11 +8,11 @@ import {
   FileIcon,
   PencilSimpleLineIcon,
   ArrowsLeftRightIcon,
-  TrashIcon,
   ClockIcon,
   WarningCircleIcon,
   CheckCircleIcon,
 } from "@phosphor-icons/react";
+import googleLogo from "/src/assets/icons/googledrive.svg";
 import { useTheme } from "../../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../../components/breadcrumbs/Breadcrumbs";
 import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
@@ -78,7 +78,6 @@ export default function ProjectDetailLayout() {
   } = useProjectMutations();
 
   const [editingOpen, setEditingOpen] = useState(false);
-  const [transferOpen, setTransferOpen] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
@@ -113,6 +112,7 @@ export default function ProjectDetailLayout() {
     try {
       await deleteProject(project.id);
       setDeleteModalOpen(false);
+      setEditingOpen(false);
       navigate("/app/workspace/projects");
     } catch (err) {
       console.error(err);
@@ -125,17 +125,13 @@ export default function ProjectDetailLayout() {
       projectId: project.id,
       newOwnerEmployeeId: transferTargetId,
     });
-    handleCloseTransfer();
+    setTransferTargetId(null);
+    setEditingOpen(false);
   }
 
   async function handleConfirmComplete() {
     await updateProject({ id: project.id, status: "COMPLETED" });
     setCompleteModalOpen(false);
-  }
-
-  function handleCloseTransfer() {
-    setTransferOpen(false);
-    setTransferTargetId(null);
   }
 
   const otherMemberOptions = members
@@ -216,6 +212,26 @@ export default function ProjectDetailLayout() {
                   </div>
 
                   <div className="projectDetailHeaderActions">
+                    {project.drive_folder_url && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.open(
+                            project.drive_folder_url,
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        }
+                        className="button buttonType5 approval textXS"
+                      >
+                        <img
+                          src={googleLogo}
+                          alt="Google"
+                          style={{ width: "16px" }}
+                        />
+                        Open Shared Drive
+                      </button>
+                    )}
                     {permissions.isElevated && (
                       <Button
                         name="Edit Project"
@@ -223,24 +239,6 @@ export default function ProjectDetailLayout() {
                         style="button buttonType5 textXS"
                         size={16}
                         onClick={() => setEditingOpen(true)}
-                      />
-                    )}
-                    {permissions.isOwner && (
-                      <Button
-                        name="Transfer Ownership"
-                        icon={ArrowsLeftRightIcon}
-                        style="button buttonType5 textXS"
-                        size={16}
-                        onClick={() => setTransferOpen(true)}
-                      />
-                    )}
-                    {permissions.isOwner && (
-                      <Button
-                        name="Delete"
-                        icon={TrashIcon}
-                        style="button buttonType5 rejection textXS"
-                        size={16}
-                        onClick={() => setDeleteModalOpen(true)}
                       />
                     )}
                   </div>
@@ -333,47 +331,54 @@ export default function ProjectDetailLayout() {
             rowData={project}
             columns={editColumns}
             onSave={handleEditSave}
+            onDelete={() => setDeleteModalOpen(true)}
             onCancel={() => setEditingOpen(false)}
             saving={updating}
-            hideDelete
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {transferOpen && (
-          <DataSidebar
-            title="Transfer Ownership"
-            icon={ArrowsLeftRightIcon}
-            open={transferOpen}
-            onClose={handleCloseTransfer}
-            isEditing={false}
-            hideDelete
+            deleting={deleting}
+            // Only the owner can delete the project (RLS-enforced) --
+            // an elevated-but-non-owner lead can still open this sidebar
+            // to edit details, just without the Delete button.
+            hideDelete={!permissions.isOwner}
           >
-            <div className="projectDetailTransferPanel">
-              <p className="textRegular textXS">Transfer ownership to:</p>
-              <Select
-                unstyled
-                className="selectContainer"
-                classNamePrefix="reactSelect"
-                placeholder="Select a member..."
-                options={otherMemberOptions}
-                value={
-                  otherMemberOptions.find(
-                    (o) => o.value === transferTargetId,
-                  ) || null
-                }
-                onChange={(opt) => setTransferTargetId(opt?.value ?? null)}
-              />
-              <Button
-                name="Confirm Transfer"
-                icon={ArrowsLeftRightIcon}
-                style="button buttonType5 approval textXS"
-                size={16}
-                disabled={!transferTargetId || transferringOwnership}
-                onClick={handleConfirmTransfer}
-              />
-            </div>
+            {permissions.isOwner && (
+              <div className="dataSidebarSection" style={{ margin: "0.8rem" }}>
+                <div className="dataSidebarSectionFields cardStyle">
+                  <div className="dataSidebarSectionHeader">
+                    <IconCard
+                      icon={ArrowsLeftRightIcon}
+                      name="Transfer Ownership"
+                      style="textXS textBold"
+                    />
+                  </div>
+                  <div className="projectDetailTransferPanel">
+                    <p className="textRegular textXS">Transfer ownership to:</p>
+                    <Select
+                      unstyled
+                      className="selectContainer"
+                      classNamePrefix="reactSelect"
+                      placeholder="Select a member..."
+                      options={otherMemberOptions}
+                      value={
+                        otherMemberOptions.find(
+                          (o) => o.value === transferTargetId,
+                        ) || null
+                      }
+                      onChange={(opt) =>
+                        setTransferTargetId(opt?.value ?? null)
+                      }
+                    />
+                    <Button
+                      name="Transfer"
+                      icon={ArrowsLeftRightIcon}
+                      style="button buttonType5 approval textXS"
+                      size={16}
+                      disabled={!transferTargetId || transferringOwnership}
+                      onClick={handleConfirmTransfer}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </DataSidebar>
         )}
       </AnimatePresence>
