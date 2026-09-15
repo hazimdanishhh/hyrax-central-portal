@@ -351,34 +351,60 @@ SELECT
     dl.leave_type_codes,
     dl.leave_day_fraction_total AS leave_day_fraction,
 
-    -- Overtime: time worked strictly after 6PM, regardless of arrival time
-    -- -- company policy is NOT "hours_worked > 8". The overtime window's
-    -- start is bounded to the LATER of (actual first arrival, 6PM) -- fixes
-    -- a real bug where someone whose entire day started after 6PM (e.g.
-    -- clocked in 9PM, out 11PM) previously showed 5h of overtime (11PM
-    -- minus a flat 6PM) instead of the real 2h, since the old formula
-    -- assumed continuous presence from 6PM regardless of when they actually
-    -- arrived. GREATEST/EXTRACT are null-safe: GREATEST ignores NULL
-    -- arguments rather than propagating them, so a day with no checkin at
-    -- all still computes to 0 here exactly as before (matching how such
-    -- days are already excluded downstream via hr_flag/is_on_leave filters
-    -- rather than needing a separate null-guard), and a normal day (arrival
-    -- before 6PM) is unaffected since GREATEST(early_arrival, 18:00) still
-    -- picks 18:00. Repeats the same MAX(...)/MIN(...) expressions
-    -- last_out/first_in_time_of_day above already use -- a SELECT list
+    -- Overtime: hours worked after 6PM, but ONLY on a normal working day
+    -- (not weekend/public holiday) AND only when that day's TOTAL hours
+    -- worked exceed 8. Corrected 2026-09-15 after two confirmed issues with
+    -- the original "any time after 6PM, regardless of arrival time or total
+    -- hours" rule:
+    --   1. It double-counted with weekend_hours_worked/holiday_hours_worked
+    --      -- a Saturday shift past 6PM registered both full weekend hours
+    --      AND separate overtime hours on top of them. Malaysian OT/rest-day
+    --      pay convention pays that whole shift at its own premium rate
+    --      (1.5x/2x/3x under the Employment Act), not "normal rate +
+    --      separate OT on top" -- so overtime is now forced to 0 whenever
+    --      is_weekend or is_public_holiday is true; those hours are already
+    --      fully captured by weekend_hours_worked/holiday_hours_worked
+    --      below.
+    --   2. A late-arriving-but-normal-length day (e.g. in at noon, out at
+    --      8pm -- a plain 8 hours, just shifted later) registered 2h of
+    --      "overtime" purely because the clock-out happened to be after
+    --      6PM, with no check on total hours worked. Now gated: a day must
+    --      have MORE than 8 total hours worked before any overtime is
+    --      reported at all. Once both gates pass, the reported quantity is
+    --      still specifically "hours worked after 6PM" (not
+    --      hours-worked-minus-8) -- unchanged from the original formula.
+    -- See docs/PAYROLL-DATA-REQUIREMENTS.md's "Overtime hours" row and
+    -- docs/OVERTIME-WEEKEND-HOLIDAY-CLAIMS-DESIGN.md for the related,
+    -- still-open gap: none of this is reconciled against HR's actual
+    -- (still paper-based) overtime/weekend/holiday approval process.
+    --
+    -- The inner GREATEST/EXTRACT expression (unchanged from before) is
+    -- null-safe: GREATEST ignores NULL arguments rather than propagating
+    -- them, so a day with no checkin at all still computes to 0. It also
+    -- still bounds its window's start to the LATER of (actual first
+    -- arrival, 6PM) -- fixes a separate, earlier bug where someone whose
+    -- entire day started after 6PM (e.g. clocked in 9PM, out 11PM) would
+    -- otherwise show 5h of overtime (11PM minus a flat 6PM) instead of the
+    -- real 2h. Repeats the same MAX(...)/MIN(...) expressions last_out/
+    -- first_in_time_of_day above already use, and the same hours_worked
+    -- expression this view's other columns already repeat -- a SELECT list
     -- can't reference a sibling output column's alias, and restructuring
     -- this view into a wrapping CTE is a bigger change than this fix
     -- warrants.
-    GREATEST(
-        EXTRACT(EPOCH FROM (
-            (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time
-            - GREATEST(
-                (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time,
-                TIME '18:00:00'
-              )
-        )) / 3600.0,
-        0
-    ) AS overtime_hours,
+    CASE
+        WHEN u.is_weekend OR dh.holiday_name IS NOT NULL THEN 0
+        WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0)) <= 8 THEN 0
+        ELSE GREATEST(
+            EXTRACT(EPOCH FROM (
+                (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time
+                - GREATEST(
+                    (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time,
+                    TIME '18:00:00'
+                  )
+            )) / 3600.0,
+            0
+        )
+    END AS overtime_hours,
 
     -- Early leave: before this employee's assigned work location's cutoff
     -- (work_locations.early_leave_time), falling back to the flat 5PM
