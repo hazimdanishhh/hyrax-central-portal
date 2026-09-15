@@ -17,7 +17,13 @@
 -- do that, so this RPC groups by the real identity column throughout.
 --
 -- Every source column already exists on unified_daily_attendance/
--- leave_ledger_entries -- no new view/table columns needed. period_rows is
+-- leave_ledger_entries -- no new view/table columns needed (2026-09-15
+-- addition: estimatedNormalDayOtHoursTotal/estimatedRestDay*/
+-- estimatedHolidayFullTierDaysCount/estimatedHolidayExcessHoursTotal below
+-- are a straight sum/count over unified_daily_attendance's own new
+-- statutory rate-tier ESTIMATE columns -- see that view's header comment
+-- on them, and docs/PAYROLL-DATA-REQUIREMENTS.md -- still no new source
+-- table). period_rows is
 -- materialized for the same reason get_attendance_dashboard_rpc.sql
 -- materializes it (unified_daily_attendance is expensive; this CTE is read
 -- twice below).
@@ -151,7 +157,17 @@ attendance_summary as (
         round(sum(weekend_hours_worked) filter (where is_worked_on_weekend)::numeric, 2) as weekend_hours_worked_total,
         count(*) filter (where is_leave_attendance_conflict) as leave_attendance_conflict_count,
         count(*) filter (where is_insufficient_half_day_hours) as insufficient_half_day_hours_count,
-        count(*) filter (where has_leave_fraction_error) as leave_fraction_error_count
+        count(*) filter (where has_leave_fraction_error) as leave_fraction_error_count,
+        -- Statutory rate-tier ESTIMATE (see hr_unified_daily_attendance_view.sql's
+        -- own header comment on these columns, added 2026-09-15) -- for
+        -- reconciliation against the real, claims-module-driven "actuals"
+        -- once that's built, never itself the payable figure.
+        round(sum(estimated_normal_day_ot_hours)::numeric, 2) as estimated_normal_day_ot_hours_total,
+        count(*) filter (where rest_day_wage_tier = 'half_day') as estimated_rest_day_half_tier_days_count,
+        count(*) filter (where rest_day_wage_tier = 'full_day') as estimated_rest_day_full_tier_days_count,
+        round(sum(rest_day_excess_hours)::numeric, 2) as estimated_rest_day_excess_hours_total,
+        count(*) filter (where holiday_wage_tier = 'full_day') as estimated_holiday_full_tier_days_count,
+        round(sum(holiday_excess_hours)::numeric, 2) as estimated_holiday_excess_hours_total
     from period_rows
     group by employee_uuid
 ),
@@ -185,6 +201,12 @@ select json_agg(
         'leaveAttendanceConflictCount', a.leave_attendance_conflict_count,
         'insufficientHalfDayHoursCount', a.insufficient_half_day_hours_count,
         'leaveFractionErrorCount', a.leave_fraction_error_count,
+        'estimatedNormalDayOtHoursTotal', coalesce(a.estimated_normal_day_ot_hours_total, 0),
+        'estimatedRestDayHalfTierDaysCount', a.estimated_rest_day_half_tier_days_count,
+        'estimatedRestDayFullTierDaysCount', a.estimated_rest_day_full_tier_days_count,
+        'estimatedRestDayExcessHoursTotal', coalesce(a.estimated_rest_day_excess_hours_total, 0),
+        'estimatedHolidayFullTierDaysCount', a.estimated_holiday_full_tier_days_count,
+        'estimatedHolidayExcessHoursTotal', coalesce(a.estimated_holiday_excess_hours_total, 0),
         'resolvedEmail', coalesce(emp.email_work, emp.email_personal),
         'emailSource', case
             when emp.email_work is not null then 'work'

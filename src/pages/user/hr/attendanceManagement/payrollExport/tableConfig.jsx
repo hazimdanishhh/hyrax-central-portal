@@ -18,6 +18,17 @@ export function payrollPeriodSummaryTableConfig() {
     { key: "holidayHoursWorkedTotal", label: "Holiday Hours Worked", getValue: (row) => Number(row.holidayHoursWorkedTotal || 0).toFixed(2) },
     { key: "weekendDaysWorkedCount", label: "Weekend Days Worked", getValue: (row) => row.weekendDaysWorkedCount || 0 },
     { key: "weekendHoursWorkedTotal", label: "Weekend Hours Worked", getValue: (row) => Number(row.weekendHoursWorkedTotal || 0).toFixed(2) },
+    // Statutory rate-tier ESTIMATE columns (added 2026-09-15) -- "(Est.)" in
+    // every label is deliberate, not decoration: these are reconciliation
+    // estimates only, never the payable figure -- see
+    // hr_unified_daily_attendance_view.sql's header comment on these
+    // columns and docs/PAYROLL-DATA-REQUIREMENTS.md.
+    { key: "estimatedNormalDayOtHoursTotal", label: "Normal Day OT Hours (Est.)", getValue: (row) => Number(row.estimatedNormalDayOtHoursTotal || 0).toFixed(2) },
+    { key: "estimatedRestDayHalfTierDaysCount", label: "Rest Day 0.5x-Tier Days (Est.)", getValue: (row) => row.estimatedRestDayHalfTierDaysCount || 0 },
+    { key: "estimatedRestDayFullTierDaysCount", label: "Rest Day 1x-Tier Days (Est.)", getValue: (row) => row.estimatedRestDayFullTierDaysCount || 0 },
+    { key: "estimatedRestDayExcessHoursTotal", label: "Rest Day 2x Excess Hours (Est.)", getValue: (row) => Number(row.estimatedRestDayExcessHoursTotal || 0).toFixed(2) },
+    { key: "estimatedHolidayFullTierDaysCount", label: "Holiday 2x-Tier Days (Est.)", getValue: (row) => row.estimatedHolidayFullTierDaysCount || 0 },
+    { key: "estimatedHolidayExcessHoursTotal", label: "Holiday 3x Excess Hours (Est.)", getValue: (row) => Number(row.estimatedHolidayExcessHoursTotal || 0).toFixed(2) },
     { key: "paidLeaveDaysTotal", label: "Paid Leave Days", getValue: (row) => Number(row.paidLeaveDaysTotal || 0).toFixed(2) },
     { key: "unpaidLeaveDaysTotal", label: "Unpaid Leave Days", getValue: (row) => Number(row.unpaidLeaveDaysTotal || 0).toFixed(2) },
     { key: "leaveAttendanceConflictCount", label: "Leave Conflicts", getValue: (row) => row.leaveAttendanceConflictCount || 0 },

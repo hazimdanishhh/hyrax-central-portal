@@ -567,7 +567,104 @@ SELECT
         WHEN u.is_weekend
         THEN GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0)
         ELSE 0
-    END AS weekend_hours_worked
+    END AS weekend_hours_worked,
+
+    -- ===================================================================
+    -- STATUTORY RATE-TIER ESTIMATE (added 2026-09-15) -- ESTIMATE ONLY,
+    -- for reconciliation against the real, claims-module-driven "actuals"
+    -- once that's built (see docs/OVERTIME-WEEKEND-HOLIDAY-CLAIMS-DESIGN.md)
+    -- -- never itself the payable figure. Verified against Malaysia's
+    -- Employment Act 1955 ss.60/60A/60D (monthly-rated employee tiers):
+    -- normal-day OT is a clean 1.5x hourly rate; rest-day/holiday pay for
+    -- the "up to normal hours" portion is a flat day-wage fraction (NOT a
+    -- continuous hourly multiplier), with only the hours BEYOND normal
+    -- hours paid per-hour (2x rest day / 3x holiday, additive on top of
+    -- the day-wage base -- best-available reading, flagged in
+    -- docs/PAYROLL-DATA-REQUIREMENTS.md as needing final HR/payroll
+    -- sign-off since sources weren't 100% explicit on the additive point).
+    --
+    -- Deliberately separate, new columns rather than redefining
+    -- overtime_hours above a third time -- that column stays exactly as
+    -- shipped (a simple "worked past 6PM" anomaly/badge signal already
+    -- consumed elsewhere); this is a more precise, statute-driven estimate
+    -- for payroll reconciliation specifically.
+    --
+    -- Schedule facts this relies on (confirmed, not guessed): every
+    -- employee's shift starts 08:30, ends at their work location's
+    -- early_leave_time (17:00 KL / 17:30 Meru -- reused directly, despite
+    -- originally being the is_early_leave threshold, because it already
+    -- holds exactly these locations' official shift-end times), minus a
+    -- flat 1-hour unpaid lunch baked into the raw punch span (not
+    -- separately punched). Resulting normal_hours_threshold: 7.5h KL, 8h
+    -- Meru. This 1-hour deduction is scoped ONLY to this estimate -- it
+    -- does NOT change hours_worked itself (used elsewhere for attendance
+    -- stats/is_insufficient_half_day_hours, out of scope to touch here).
+
+    -- Normal daily hours for this employee's work location (shift end
+    -- minus 08:30 start, minus the 1-hour lunch). Exposed for
+    -- transparency/debugging, not just an intermediate value.
+    EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1
+        AS normal_hours_threshold,
+
+    -- "True" hours worked for rate-tier comparison purposes only --
+    -- hours_worked's own expression minus the 1-hour lunch, floored at 0.
+    GREATEST(0, GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
+        AS true_hours_worked,
+
+    -- Normal-day overtime: hours beyond this location's
+    -- normal_hours_threshold, entitled to 1.5x hourly rate (s.60A). Zero on
+    -- weekend/public-holiday days -- those use the rest-day/holiday tiers
+    -- below instead, never both.
+    CASE
+        WHEN u.is_weekend OR dh.holiday_name IS NOT NULL THEN 0
+        ELSE GREATEST(0,
+            (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
+            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+        )
+    END AS estimated_normal_day_ot_hours,
+
+    -- Rest-day (weekend) day-wage tier (s.60(3)): 0.5 day's wages if worked
+    -- hours <= half normal_hours_threshold, 1 day's wages if > half but <=
+    -- normal_hours_threshold (this base tier still applies even when hours
+    -- exceed normal_hours_threshold -- see rest_day_excess_hours below,
+    -- additive on top). NULL when not a weekend, or no work done that day.
+    CASE
+        WHEN NOT u.is_weekend THEN NULL
+        WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1) <= 0 THEN NULL
+        WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
+             <= (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1) / 2
+        THEN 'half_day'
+        ELSE 'full_day'
+    END AS rest_day_wage_tier,
+
+    -- Rest-day hours beyond normal_hours_threshold (s.60(3)(c)): additional
+    -- 2x hourly rate, on top of the day-wage tier above.
+    CASE
+        WHEN NOT u.is_weekend THEN 0
+        ELSE GREATEST(0,
+            (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
+            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+        )
+    END AS rest_day_excess_hours,
+
+    -- Public holiday day-wage tier (s.60D(3)): 2 days' wages for ANY work
+    -- up to normal_hours_threshold -- no half-day sub-tier, unlike rest
+    -- days (any nonzero holiday attendance triggers the full tier).
+    CASE
+        WHEN dh.holiday_name IS NULL THEN NULL
+        WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1) <= 0 THEN NULL
+        ELSE 'full_day'
+    END AS holiday_wage_tier,
+
+    -- Holiday hours beyond normal_hours_threshold (s.60D(3)(aa)): additional
+    -- 3x hourly rate, on top of the day-wage tier above.
+    CASE
+        WHEN dh.holiday_name IS NULL THEN 0
+        ELSE GREATEST(0,
+            (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
+            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+        )
+    END AS holiday_excess_hours
 
 FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date

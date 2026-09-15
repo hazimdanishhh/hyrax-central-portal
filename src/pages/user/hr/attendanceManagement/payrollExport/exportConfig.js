@@ -17,6 +17,14 @@ export const payrollPeriodSummaryExportColumns = [
   { label: "Holiday Hours Worked", accessor: (row) => Number(row.holidayHoursWorkedTotal || 0).toFixed(2) },
   { label: "Weekend Days Worked", accessor: (row) => row.weekendDaysWorkedCount || 0 },
   { label: "Weekend Hours Worked", accessor: (row) => Number(row.weekendHoursWorkedTotal || 0).toFixed(2) },
+  // Statutory rate-tier ESTIMATE columns (added 2026-09-15) -- see
+  // tableConfig.jsx's matching entries for the "(Est.)" rationale.
+  { label: "Normal Day OT Hours (Est.)", accessor: (row) => Number(row.estimatedNormalDayOtHoursTotal || 0).toFixed(2) },
+  { label: "Rest Day 0.5x-Tier Days (Est.)", accessor: (row) => row.estimatedRestDayHalfTierDaysCount || 0 },
+  { label: "Rest Day 1x-Tier Days (Est.)", accessor: (row) => row.estimatedRestDayFullTierDaysCount || 0 },
+  { label: "Rest Day 2x Excess Hours (Est.)", accessor: (row) => Number(row.estimatedRestDayExcessHoursTotal || 0).toFixed(2) },
+  { label: "Holiday 2x-Tier Days (Est.)", accessor: (row) => row.estimatedHolidayFullTierDaysCount || 0 },
+  { label: "Holiday 3x Excess Hours (Est.)", accessor: (row) => Number(row.estimatedHolidayExcessHoursTotal || 0).toFixed(2) },
   { label: "Paid Leave Days", accessor: (row) => Number(row.paidLeaveDaysTotal || 0).toFixed(2) },
   { label: "Unpaid Leave Days", accessor: (row) => Number(row.unpaidLeaveDaysTotal || 0).toFixed(2) },
   { label: "Leave/Attendance Conflicts", accessor: (row) => row.leaveAttendanceConflictCount || 0 },
