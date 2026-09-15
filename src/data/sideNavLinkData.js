@@ -387,7 +387,7 @@ export const sideNavLinkData = [
   // =================================================
   {
     segmentTitle: "OPERATIONS",
-    segmentCode: "OPERATIONS",
+    segmentCode: "OPS",
 
     links: [
       {
