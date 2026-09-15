@@ -16,8 +16,8 @@ export default function PageActions({
       {next && (
         <Button
           icon={next.icon}
-          tooltipName={next.tooltipName}
-          style="button buttonType5 textXXS"
+          title={next.tooltipName}
+          style="button buttonType5 textXXS changeViewButton"
           name="Change View"
           onClick={() => setLayout(next.value)}
           size={20}

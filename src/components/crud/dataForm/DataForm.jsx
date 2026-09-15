@@ -7,7 +7,6 @@ import {
   TrashSimpleIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { editors } from "../../dataTable/editors/Editors";
 import Button from "../../buttons/button/Button";
 import { useMessage } from "../../../context/MessageContext";
 import Breadcrumbs from "../../breadcrumbs/Breadcrumbs";
@@ -15,16 +14,9 @@ import IconCard from "../../iconCard/IconCard";
 import PageHeader from "../pageHeader/PageHeader";
 import "./DataForm.scss";
 import SectionHeader from "../../sectionHeader/SectionHeader";
-import { useForm, Controller } from "react-hook-form";
-
-// RHF's own `required` semantics, minus its boolean-false special case (see
-// the Controller's rules below) -- an empty array (multi-select) or
-// null/undefined/"" fails; a deliberate `false` or `0` is a real, filled-in
-// answer.
-function isFilled(value) {
-  if (Array.isArray(value)) return value.length > 0;
-  return value !== null && value !== undefined && value !== "";
-}
+import { useForm } from "react-hook-form";
+import EditableField from "./EditableField";
+import { resolveColumnValue } from "@/features/_shared/resolveColumnValue";
 
 function DataForm({
   columns = [],
@@ -51,17 +43,7 @@ function DataForm({
     const initial = {};
     columns.forEach((col) => {
       if (col.computed) return; // server-computed/view-only field -- never seed into RHF state so it can never leak into submitted form data (see progress_percentage)
-      const rawValue =
-        typeof col.getValue === "function"
-          ? col.getValue(rowData)
-          : typeof col.getValue === "string"
-            ? rowData?.[col.getValue]
-            : typeof col.accessor === "function"
-              ? col.accessor(rowData)
-              : typeof col.accessor === "string"
-                ? rowData?.[col.accessor]
-                : "";
-      initial[col.key] = rawValue ?? "";
+      initial[col.key] = resolveColumnValue(rowData, col) ?? "";
     });
     return initial;
   };
@@ -125,127 +107,17 @@ function DataForm({
             </div>
 
             {fields.map((col) => {
-              const Editor = editors[col.editor] ?? editors.text;
               if (col.show === false) return null;
 
-              // 🔥 THE CACHE KILLER: Generate a dynamic React key based on dependencies
-              const dependencyString = col.dependsOn
-                ? col.dependsOn
-                    .map((dep) => {
-                      const val = currentFormValues[dep];
-                      return typeof val === "object" ? val?.value : val;
-                    })
-                    .join("-")
-                : "static";
-
-              // Unique key forces React to destroy and remount the field if a dependency changes
-              const componentKey = `${col.key}-${dependencyString}`;
-
               return (
-                <div
+                <EditableField
                   key={col.key}
-                  className={`dataSidebarField ${col.half ? "half" : ""}`}
-                >
-                  <label
-                    className={`textBold textXXS ${col.required ? "required" : ""}`}
-                  >
-                    {col.label}
-                    <span className="dataSidebarRequired">
-                      {col.required && "*"}
-                    </span>
-                  </label>
-
-                  <Controller
-                    name={col.key}
-                    control={control}
-                    rules={{
-                      // NOT RHF's native `required: col.required` -- RHF
-                      // special-cases boolean values and treats `false` as
-                      // "empty", failing required for any field whose valid
-                      // answers include a deliberate `false` (e.g. a
-                      // tri-state select like Employee Management's "IT
-                      // Asset" needs_it_asset: true/false/null, where only
-                      // null/not-yet-decided should ever fail required).
-                      // isFilled below is RHF's own required semantics
-                      // minus that boolean special case.
-                      validate: {
-                        required: (value) =>
-                          !col.required ||
-                          isFilled(value) ||
-                          `${col.label} is required`,
-                        // Cross-field ordering checks (e.g. Clock In before
-                        // Clock Out, Join Date before Confirmation Date) --
-                        // `rowData` covers a comparison against a value
-                        // that isn't even part of THIS form's own columns
-                        // (two separate single-field forms editing sibling
-                        // columns on the same row); `formValues` covers a
-                        // comparison against a true sibling field's live
-                        // value within this same form. Returning a string
-                        // (RHF's own convention) becomes that field's error
-                        // message, surfaced by onError below instead of
-                        // the generic "required" wording.
-                        ...(col.validate && {
-                          custom: (value) =>
-                            col.validate(value, {
-                              rowData,
-                              formValues: currentFormValues,
-                            }),
-                        }),
-                      },
-                    }}
-                    render={({ field }) => (
-                      <Editor
-                        {...field}
-                        key={componentKey} // Physically remounts to wipe AsyncSelect cache
-                        // Pass current form values so config can extract clientId
-                        loadOptions={
-                          col.loadOptions
-                            ? (search) =>
-                                col.loadOptions(search, currentFormValues)
-                            : undefined
-                        }
-                        options={
-                          typeof col.options === "function"
-                            ? col.options(currentFormValues)
-                            : col.options
-                        }
-                        // The date to re-attach for a "time"-editor column
-                        // (see TimeEditor.jsx) -- optional; only meaningful
-                        // to that editor, ignored (harmless) by every
-                        // other one.
-                        referenceDate={
-                          col.getReferenceDate
-                            ? col.getReferenceDate(rowData)
-                            : undefined
-                        }
-                        // Wrap onChange to handle your "clears" logic
-                        onChange={(val) => {
-                          field.onChange(val); // Standard RHF update
-                          if (col.clears) {
-                            col.clears.forEach((clearKey) =>
-                              setValue(clearKey, null),
-                            );
-                          }
-                        }}
-                        required={col.required}
-                        isSearchable={col.isSearchable}
-                        readOnly={!col.editable}
-                        min={col.min}
-                        max={col.max}
-                        step={col.step}
-                        isClearable={col.isClearable}
-                        cacheOptions={col.cacheOptions}
-                        formatOptionLabel={col.formatOptionLabel}
-                        allowReplace={col.allowReplace}
-                        // Only meaningful to the drivePicker editor
-                        // (GoogleDriveEditor) -- restricts its picker to
-                        // folders/Shared Drives instead of files. Ignored
-                        // (harmless) by every other editor.
-                        selectFolders={col.selectFolders}
-                      />
-                    )}
-                  />
-                </div>
+                  col={col}
+                  control={control}
+                  currentFormValues={currentFormValues}
+                  rowData={rowData}
+                  setValue={setValue}
+                />
               );
             })}
           </div>

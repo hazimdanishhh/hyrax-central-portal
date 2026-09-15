@@ -15,7 +15,6 @@ import NoResult from "../../../../../components/crud/noResult/NoResult";
 import PageActions from "../../../../../components/crud/pageActions/PageActions";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
-import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import DataTable from "../../../../../components/dataTable/DataTable";
@@ -41,7 +40,6 @@ import { getEmployeesFilterConfig } from "./filterConfig";
 import EmployeeLifecycleCaseSummary from "./item/EmployeeLifecycleCaseSummary";
 import EmployeeSidebar from "./item/EmployeeSidebar";
 import { getEmployeesLayoutConfig } from "./layoutConfig";
-import { getEmployeesSortConfig } from "./sortConfig";
 import { employeesTableConfig } from "./tableConfig";
 
 /**
@@ -64,6 +62,11 @@ export default function EmployeeManagement() {
   const [pendingSaveRow, setPendingSaveRow] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
+  // Table view's single currently-editing row (exclusive -- only one row
+  // editable at a time, see DataTable.jsx). Controlled here (rather than
+  // left as DataTable's internal state) so a successful save can clear it
+  // alongside pendingSaveRow/modalType in handleConfirmAction below.
+  const [editingRowId, setEditingRowId] = useState(null);
   // Guided status-transition modal state -- separate from the plain
   // save/delete ActionModal above (different fields/confirm behavior, see
   // docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md Part 2).
@@ -82,15 +85,13 @@ export default function EmployeeManagement() {
     totalPages,
     search,
     filters,
-    sortBy,
-    sortOrder,
+    sorting,
     activeFilters,
     hasActiveFilters,
     setPage,
     setSearch,
     setFilters,
-    setSortBy,
-    setSortOrder,
+    setSorting,
     resetParams,
     isLoading: employeesLoading,
     isFetching: employeesFetching,
@@ -140,7 +141,6 @@ export default function EmployeeManagement() {
   // CONFIG
   // ==============
   const layoutOptions = getEmployeesLayoutConfig();
-  const sortOptions = getEmployeesSortConfig();
   const columns = employeesTableConfig({
     managers,
     profiles,
@@ -239,6 +239,15 @@ export default function EmployeeManagement() {
     setModalOpen(true);
   }
 
+  // Table view's row-level edit -- DataTable never mutates directly, it
+  // only asks the host page to confirm+persist (same ActionModal/mutation
+  // path the sidebar already uses), so this just reshapes the row-edit
+  // payload into the same {id, ...fields} shape handleRequestSave/
+  // handleConfirmAction already handle for the sidebar.
+  function handleRequestRowSave({ row, changedFields }) {
+    handleRequestSave({ id: row.id, ...changedFields });
+  }
+
   // ==============
   // DELETE
   // ==============
@@ -281,9 +290,12 @@ export default function EmployeeManagement() {
       }
 
       setModalOpen(false);
-      handleCloseSidebar();
+      // A row-edit-originated save has no sidebar open -- guard so it
+      // doesn't push a redundant navigation entry to the same list URL.
+      if (sidebarOpen) handleCloseSidebar();
       setPendingSaveRow(null);
       setModalType(null);
+      setEditingRowId(null);
     } catch (err) {
       console.error(err);
     }
@@ -415,14 +427,14 @@ export default function EmployeeManagement() {
       <PageHeader>
         {/* LAYOUT UI + ACTION BUTTONS */}
         <PageActions
-          // layout={layout}
-          // setLayout={setLayout}
-          // options={layoutOptions}
+          layout={layout}
+          setLayout={setLayout}
+          options={layoutOptions}
           actionButtons={[
             {
               icon: PlusCircleIcon,
               name: "Add Employee",
-              style: "button buttonType5 approval textXXS",
+              style: "button buttonType5 greenFill buttonFull textXXS",
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
               },
@@ -447,15 +459,6 @@ export default function EmployeeManagement() {
             //   disabled: selectedRows.length === 0,
             // },
           ]}
-        />
-
-        {/* SORTING ACTIONS */}
-        <SortBar
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOptions={sortOptions}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
         />
       </PageHeader>
 
@@ -515,6 +518,14 @@ export default function EmployeeManagement() {
             columns={columns}
             rowKey="id"
             onRowClick={handleOpenSidebar}
+            sorting={sorting}
+            onSortingChange={setSorting}
+            manualSorting
+            editableRows
+            showCompleteness
+            onRequestRowSave={handleRequestRowSave}
+            editingRowId={editingRowId}
+            onEditingRowIdChange={setEditingRowId}
           />
         ) : (
           // LIST LAYOUT

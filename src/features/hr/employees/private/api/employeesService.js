@@ -28,6 +28,22 @@ const TENURE_BAND_DAYS = {
   Unknown: null,
 };
 
+// Multi-column sort allow-list: only real, top-level `employees` columns go
+// here -- `sorting[].id` ultimately comes from a user-editable URL param,
+// and embedded/joined columns (department, manager, ...) can't be sorted
+// via a plain `.order()` anyway (a `referencedTable` order only reorders
+// the nested embedded array, never these parent rows -- confirmed against
+// @supabase/postgrest-js). Keys here match `sortKey`/`key` as set in
+// tableConfig.jsx's `sortable` columns.
+const SORTABLE_COLUMNS = {
+  full_name: "full_name",
+  employee_id: "employee_id",
+  join_date: "join_date",
+  department_id: "department_id", // proxy sort for the joined "Department" column
+  manager_id: "manager_id", // proxy sort for the joined "Manager" column
+  employment_status_id: "employment_status_id",
+};
+
 function toISODate(date) {
   return date.toISOString().slice(0, 10);
 }
@@ -73,10 +89,15 @@ export async function fetchEmployees({
   filters,
   sortBy,
   sortOrder,
+  sorting, // new: [{id, desc}] multi-column sort -- falls back to sortBy/sortOrder below
 }) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   const f = filters || {};
+
+  const effectiveSorting = sorting?.length
+    ? sorting
+    : [{ id: sortBy, desc: sortOrder === "descending" }];
 
   // employment_status is !inner because employment_status_id is a required
   // column (tableConfig.jsx marks it required, every employee is expected to
@@ -128,8 +149,18 @@ export async function fetchEmployees({
       `,
       { count: "exact" },
     )
-    .eq("lifecycle_cases.status", "OPEN")
-    .order(sortBy, { ascending: sortOrder === "ascending" });
+    .eq("lifecycle_cases.status", "OPEN");
+
+  // Chained .order() calls compose into one multi-column Postgres
+  // ORDER BY (confirmed against @supabase/postgrest-js -- each call appends
+  // to the same querystring param rather than overwriting it), so this
+  // scales to any table size the same way a single-column sort does; only
+  // unrecognized/unsafe ids are silently ignored.
+  effectiveSorting.forEach(({ id, desc }) => {
+    const column = SORTABLE_COLUMNS[id];
+    if (!column) return;
+    query = query.order(column, { ascending: !desc });
+  });
 
   if (lifecycleCaseFilterValue) {
     query = query.eq(

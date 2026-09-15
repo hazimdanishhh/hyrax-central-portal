@@ -1,67 +1,22 @@
-import { useState, useEffect } from "react";
-import { editors } from "./editors/Editors";
-
-export default function DataTableCell({
-  row,
-  rowId,
-  column,
-  isEditing,
-  rawValue,
-  displayValue,
-  startEdit,
-  onSave,
-}) {
-  const [localValue, setLocalValue] = useState(rawValue ?? "");
-
-  // Sync when edit starts
-  useEffect(() => {
-    if (isEditing) {
-      setLocalValue(
-        column.editor === "select" && rawValue != null
-          ? String(rawValue)
-          : (rawValue ?? ""),
-      );
-    }
-  }, [isEditing, rawValue, column.editor]);
-
+/**
+ * Read-only cell rendering only -- row-level editing (when a table opts
+ * into it via DataTable's `editableRows` prop) is handled entirely by
+ * EditableTableRow.jsx instead, which replaces this component's row for the
+ * one currently-editing row. Previously this component also owned a
+ * per-cell click-to-edit path, but its save callback silently discarded the
+ * typed value (DataTable.jsx wired `onSave={() => saveEdit(row, col)}`,
+ * dropping the value DataTableCell passed), and no page's tableConfig.jsx
+ * ever defined `column.onSave` to receive it anyway -- dead code, removed
+ * rather than patched.
+ */
+export default function DataTableCell({ column, row, displayValue }) {
   if (column.render) {
     return <td>{column.render(displayValue, row)}</td>;
   }
 
-  if (!column.editable) {
-    return (
-      <td>
-        <input disabled value={displayValue ?? ""} />
-      </td>
-    );
-  }
-
-  if (isEditing) {
-    const Editor = editors[column.editor] ?? editors.text;
-
-    return (
-      <td>
-        <Editor
-          value={localValue}
-          options={column.options}
-          onChange={setLocalValue}
-          onBlur={() => onSave(localValue)}
-          autoFocus
-        />
-      </td>
-    );
-  }
-
   return (
     <td>
-      <input
-        readOnly
-        value={displayValue ?? ""}
-        onClick={(e) => {
-          e.stopPropagation();
-          startEdit(rowId, column, rawValue);
-        }}
-      />
+      <span>{displayValue ?? "—"}</span>
     </td>
   );
 }

@@ -17,6 +17,7 @@ import { usePayrollPeriodSummaryRowById } from "@/features/hr/payroll/private/ho
 import {
   getPayrollExportFilterConfig,
   rowNeedsReconciliation,
+  getRowReconciliationFlags,
 } from "./filterConfig";
 import { payrollPeriodSummaryTableConfig } from "./tableConfig";
 import { payrollPeriodSummaryExportColumns } from "./exportConfig";
@@ -134,6 +135,8 @@ export default function PayrollExport() {
             columns={columns}
             rowKey="employeeUuid"
             onRowClick={handleOpenSidebar}
+            getRowFlags={getRowReconciliationFlags}
+            flagTooltipTitle="Needs Reconciliation"
           />
         )}
       </div>

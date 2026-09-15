@@ -51,7 +51,7 @@
       font-weight: 600;
       border-bottom: 1px solid $neutral300;
       white-space: nowrap;
-      background-color: rgb($neutral300, 0.6);
+      background-color: rgb($neutral300, 0.5);
       backdrop-filter: blur(4px);
     }
   }
@@ -70,6 +70,7 @@
       vertical-align: middle;
       white-space: nowrap;
       width: fit-content;
+      text-align: start;
     }
   }
 }
@@ -129,4 +130,50 @@
 /* STATUS COMPONENT ALIGNMENT */
 .dataTable .statusBadge {
   min-width: 90px;
+}
+
+/* SORTABLE HEADERS */
+.dataTable th.sortableHeader {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background-color: rgb($neutral400, 0.3);
+  }
+}
+
+.dataTableHeaderLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dataTableSortIcons {
+  display: inline-flex;
+  align-items: center;
+  color: $primary;
+
+  sup {
+    font-size: 10px;
+    margin-left: 1px;
+  }
+}
+
+/* ROW EDIT MODE */
+.dataTable tr.editingRow {
+  background-color: rgb($primary, 0.06);
+}
+
+.dataTable .dataTableRowActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.dataTableRowActions {
+  position: sticky;
+  right: 0;
+  backdrop-filter: blur(10px);
+  height: 100%;
 }

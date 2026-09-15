@@ -107,6 +107,7 @@ export const employeesTableConfig = ({
     editor: "text",
     required: true,
     section: "Personal Information",
+    sortable: true,
   },
   {
     key: "preferred_name",
@@ -297,6 +298,7 @@ export const employeesTableConfig = ({
     editable: true,
     editor: "text",
     section: "Employment Details",
+    sortable: true,
   },
   {
     key: "department_id",
@@ -310,6 +312,9 @@ export const employeesTableConfig = ({
       value: d.id,
     })),
     section: "Employment Details",
+    // Sorts by the FK, not the joined name -- an embedded column can't be
+    // sorted via a plain .order() server-side (see employeesService.js).
+    sortable: true,
   },
   {
     key: "position",
@@ -334,6 +339,7 @@ export const employeesTableConfig = ({
     isSearchable: false,
     section: "Employment Details",
     half: true,
+    sortable: true,
   },
   {
     key: "employment_type_id",
@@ -383,6 +389,7 @@ export const employeesTableConfig = ({
     section: "Employment Details",
     half: true,
     required: true,
+    sortable: true,
   },
   {
     key: "confirmation_date",
@@ -457,6 +464,8 @@ export const employeesTableConfig = ({
       value: m.id,
     })),
     section: "Reporting Manager",
+    // Sorts by the FK, not the joined name -- see department_id above.
+    sortable: true,
   },
 
   // ADDRESS INFORMATION -- see docs/WORK-LOCATIONS-ARCHITECTURE.md.

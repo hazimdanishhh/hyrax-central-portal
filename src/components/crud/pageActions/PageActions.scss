@@ -5,4 +5,10 @@
     flex-wrap: wrap;
     width: 100%;
   }
+
+  .changeViewButton {
+    @media screen and (max-width: 768px) {
+      display: none;
+    }
+  }
 }

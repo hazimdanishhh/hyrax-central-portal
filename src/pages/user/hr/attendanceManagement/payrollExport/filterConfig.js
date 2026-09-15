@@ -33,14 +33,36 @@ export function getPayrollExportFilterConfig({ departments, employees }) {
 }
 
 // One place for the four reconciliation counts this page surfaces (see
-// tableConfig.jsx/exportConfig.js) -- OR'd together, not AND'd: a row only
-// needs to be flagged for one of the four to belong in "Needs
-// Reconciliation".
+// tableConfig.jsx/exportConfig.js) -- each becomes its own message when
+// non-zero, so both the "Needs Reconciliation" filter and the DataTable
+// row-flag badge (see PayrollExport.jsx) agree on exactly the same rule.
+export function getRowReconciliationFlags(row) {
+  const flags = [];
+  const days = row.daysAbsentCount || 0;
+  const conflicts = row.leaveAttendanceConflictCount || 0;
+  const insufficientHalfDays = row.insufficientHalfDayHoursCount || 0;
+  const leaveErrors = row.leaveFractionErrorCount || 0;
+
+  if (days > 0) {
+    flags.push(`${days} day${days === 1 ? "" : "s"} absent`);
+  }
+  if (conflicts > 0) {
+    flags.push(
+      `${conflicts} leave/attendance conflict${conflicts === 1 ? "" : "s"}`,
+    );
+  }
+  if (insufficientHalfDays > 0) {
+    flags.push(
+      `${insufficientHalfDays} insufficient half-day hour record${insufficientHalfDays === 1 ? "" : "s"}`,
+    );
+  }
+  if (leaveErrors > 0) {
+    flags.push(`${leaveErrors} leave data error${leaveErrors === 1 ? "" : "s"}`);
+  }
+
+  return flags;
+}
+
 export function rowNeedsReconciliation(row) {
-  return (
-    (row.daysAbsentCount || 0) > 0 ||
-    (row.leaveAttendanceConflictCount || 0) > 0 ||
-    (row.insufficientHalfDayHoursCount || 0) > 0 ||
-    (row.leaveFractionErrorCount || 0) > 0
-  );
+  return getRowReconciliationFlags(row).length > 0;
 }

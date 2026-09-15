@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useCallback, useEffect } from "react";
+import { parseSortParam, serializeSorting } from "./sortParam";
 
 /**
  * Reusable Generic Search Params Hook
@@ -19,6 +20,8 @@ import { useMemo, useCallback, useEffect } from "react";
      filters,
      sortBy,
      sortOrder,
+     sorting,       // multi-column SortingState ([{id, desc}]) -- pass to
+                     // <DataTable sorting={sorting} onSortingChange={setSorting} manualSorting />
      activeFilters,
      hasActiveFilters,
      setPage,
@@ -26,6 +29,8 @@ import { useMemo, useCallback, useEffect } from "react";
      setFilters,
      setSortBy,
      setSortOrder,
+     setSorting,
+     setPageSize,   // optional -- lets a page offer a larger page size
      resetParams,
      isLoading: assetsLoading, //Change to dataset name
      isFetching,
@@ -58,6 +63,25 @@ export default function usePaginatedQuery({
   const sortBy = searchParams.get("sortBy") || defaultSortBy;
   const sortOrder = searchParams.get("sortOrder") || defaultSortOrder;
 
+  // Multi-column sort, additive alongside the legacy sortBy/sortOrder above --
+  // a single new `sort` URL param ("col1.asc,col2.desc", the same format
+  // PostgREST itself uses for `?order=`), falling back to the legacy single
+  // column when absent so existing bookmarked URLs/un-migrated pages keep
+  // working unchanged. See sortParam.js.
+  const sorting = useMemo(() => {
+    return (
+      parseSortParam(searchParams.get("sort")) ??
+      [{ id: sortBy, desc: sortOrder === "descending" }]
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString(), sortBy, sortOrder]);
+
+  // Page size, URL-driven only when a page opts in via setPageSize -- falls
+  // back to the constructor's `pageSize` for every existing caller.
+  const rawPageSize = Number(searchParams.get("pageSize"));
+  const effectivePageSize =
+    Number.isInteger(rawPageSize) && rawPageSize > 0 ? rawPageSize : pageSize;
+
   // =========================
   // FILTERS
   // =========================
@@ -69,7 +93,11 @@ export default function usePaginatedQuery({
     // share the same URL when that page switches between day/search modes.
     // No other page in this app uses "date" as a filter key.
     searchParams.forEach((value, key) => {
-      if (!["page", "date", "search", "sortBy", "sortOrder"].includes(key)) {
+      if (
+        !["page", "date", "search", "sortBy", "sortOrder", "sort", "pageSize"].includes(
+          key,
+        )
+      ) {
         obj[key] = value;
       }
     });
@@ -129,6 +157,8 @@ export default function usePaginatedQuery({
         search,
         sortBy,
         sortOrder,
+        sorting,
+        pageSize: effectivePageSize,
         ...filters,
         ...extraParams,
       },
@@ -136,11 +166,12 @@ export default function usePaginatedQuery({
     queryFn: () =>
       queryFn({
         page,
-        pageSize,
+        pageSize: effectivePageSize,
         search,
         filters,
         sortBy,
         sortOrder,
+        sorting,
         ...extraParams,
       }),
     enabled,
@@ -155,7 +186,7 @@ export default function usePaginatedQuery({
   // =========================
   // FINAL TOTAL PAGES
   // =========================
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalCount / effectivePageSize));
 
   // =========================
   // LOADING
@@ -188,6 +219,29 @@ export default function usePaginatedQuery({
     [updateParams],
   );
 
+  // Multi-column sort setter -- matches TanStack Table's own onSortingChange
+  // calling convention (a new array, or an updater function taking the
+  // current array), so <DataTable sorting={sorting} onSortingChange={setSorting}
+  // manualSorting /> wires straight through with no shim. Clears the legacy
+  // sortBy/sortOrder params once a page writes the new format.
+  const setSorting = useCallback(
+    (updater) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      updateParams({
+        sort: next?.length ? serializeSorting(next) : undefined,
+        sortBy: undefined,
+        sortOrder: undefined,
+        page: 1,
+      });
+    },
+    [sorting, updateParams],
+  );
+
+  const setPageSize = useCallback(
+    (val) => updateParams({ pageSize: val, page: 1 }),
+    [updateParams],
+  );
+
   // =========================
   // FILTER
   // =========================
@@ -216,11 +270,23 @@ export default function usePaginatedQuery({
 
     params.set("page", "1");
     if (search) params.set("search", search);
-    if (sortBy) params.set("sortBy", sortBy);
-    if (sortOrder) params.set("sortOrder", sortOrder);
+
+    // Preserve whichever sort format is currently active -- a page that has
+    // migrated to multi-column `sort` shouldn't lose it just because filters
+    // were reset.
+    const currentSort = searchParams.get("sort");
+    if (currentSort) {
+      params.set("sort", currentSort);
+    } else {
+      if (sortBy) params.set("sortBy", sortBy);
+      if (sortOrder) params.set("sortOrder", sortOrder);
+    }
+
+    const currentPageSize = searchParams.get("pageSize");
+    if (currentPageSize) params.set("pageSize", currentPageSize);
 
     setSearchParams(params);
-  }, [search, sortBy, sortOrder, setSearchParams]);
+  }, [search, sortBy, sortOrder, searchParams, setSearchParams]);
 
   // =========================
   // RESET PARAMS
@@ -242,6 +308,8 @@ export default function usePaginatedQuery({
     filters,
     sortBy,
     sortOrder,
+    sorting,
+    pageSize: effectivePageSize,
 
     // derived
     activeFilters,
@@ -257,6 +325,8 @@ export default function usePaginatedQuery({
     setSearch,
     setSortBy,
     setSortOrder,
+    setSorting,
+    setPageSize,
     setFilter,
     setFilters,
     resetFilters,
