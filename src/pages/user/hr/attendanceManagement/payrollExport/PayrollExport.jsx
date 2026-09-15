@@ -1,5 +1,5 @@
 // pages/user/hr/attendanceManagement/payrollExport/PayrollExport.jsx
-import { useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { MagnifyingGlassIcon } from "@phosphor-icons/react";
@@ -30,26 +30,55 @@ import { payrollPeriodSummaryExportColumns } from "./exportConfig";
  * reconciliation flag), previewed on-screen and downloadable as CSV for
  * handoff to payroll. Read-only -- no CRUD, unlike the Settings tab.
  *
- * Plain local filter state (not useDashboardQuery/usePaginatedQuery's
- * URL-param-backed state) -- this page's own usePayrollPeriodSummary hook
- * does the actual fetching, and there's no pagination to coordinate
+ * Filters are fully URL-synced (added 2026-09-15) -- department/employee/
+ * needsReconciliation/startDate/endDate all read from and write back to the
+ * querystring, so a filtered view can be bookmarked/shared/reopened exactly
+ * as left (e.g. the weekly HR digest notification's link_to already relied
+ * on startDate/endDate surviving a reload; every other filter now does too).
+ * Deliberately a small inline sync, not usePaginatedQuery/useDashboardQuery
+ * -- this page has no pagination/sorting to coordinate
  * (get_payroll_period_summary_rpc.sql already returns every active employee
  * for the period in one shot, same "headcount-bounded" precedent as the
- * Attendance List's Day mode).
+ * Attendance List's Day mode), and useDashboardQuery's own filters
+ * always writes a stray, unused `page=1` alongside them.
  */
 export default function PayrollExport() {
-  // One-time seed from the URL (e.g. the weekly HR digest notification's
-  // link_to) -- not a full usePaginatedQuery-style bidirectional sync, this
-  // page keeps its existing plain local-state behavior otherwise. Just
-  // means "arrive via a link with a period in the URL, land pre-selected."
   const navigate = useNavigate();
   const { employeeUuid } = useParams();
-  const [searchParams] = useSearchParams();
-  const [filters, setFilters] = useState(() => {
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
-    return startDate && endDate ? { startDate, endDate } : {};
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const filters = useMemo(() => {
+    const obj = {};
+    searchParams.forEach((value, key) => {
+      obj[key] = value;
+    });
+    return obj;
+  }, [searchParams.toString()]);
+
+  // Matches SearchFilterBar/PayrollCycleFilterBar's existing calling
+  // convention exactly -- both always call onFilterChange with a full
+  // merged {...filters, changedKey: value} object (empty string to clear),
+  // so this only ever needs to apply that object to the URL, never diff
+  // against what's already there.
+  const setFilters = useCallback(
+    (newFilters) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          Object.entries(newFilters).forEach(([key, value]) => {
+            if (value === undefined || value === null || value === "") {
+              params.delete(key);
+            } else {
+              params.set(key, String(value));
+            }
+          });
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const { employees, departments } = useAttendanceActivitiesMetadata();
   const filterConfig = getPayrollExportFilterConfig({ departments, employees });
@@ -154,6 +183,7 @@ export default function PayrollExport() {
             isEditing={false}
           >
             <PayrollReconciliationSidebar
+              row={selectedRow}
               employeeUuid={selectedRow?.employeeUuid}
               employeeName={selectedRow?.fullName}
               resolvedEmail={selectedRow?.resolvedEmail}

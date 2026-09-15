@@ -29,6 +29,63 @@
     color: var(--color-error, #d9534f);
   }
 
+  // SUMMARY KPI CARDS -- every row field except the 4 reconciliation counts
+  // (those get their own section below). Small, numerous, grid-arranged --
+  // deliberately not the full OverviewCards tile (icon/sub-metrics/status
+  // badge) used on dashboard pages, which is built for in-app <Link> nav,
+  // not this section's "open in a new tab, keep the sidebar open" links.
+  //
+  // Segmented into labeled groups (Attendance/Overtime/Holiday/Weekend/
+  // Leave), deliberately plain/neutral -- NOT color-coded. Color is
+  // reserved for reconciliation STATUS (matches/mismatch/no-claim) once the
+  // Overtime/Weekend/Holiday Claims submodule gives each "(Est.)" figure a
+  // real approved "actual" to compare against -- see kpiCardConfig.js.
+  .payrollSummaryKpiGroups {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin: 0 0.8rem;
+  }
+
+  .payrollSummaryKpiGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .payrollSummaryKpiGroupLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.6;
+  }
+
+  .payrollSummaryKpiGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+
+    @media screen and (min-width: 480px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .payrollSummaryKpiCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.5rem 0.6rem;
+    text-align: start;
+  }
+
+  .payrollSummaryKpiCardLink {
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+      opacity: 0.75;
+    }
+  }
+
   .payrollReconciliationSidebarSections {
     display: flex;
     flex-direction: column;
@@ -42,13 +99,10 @@
     gap: 0.3rem;
   }
 
-  .payrollReconciliationDateList {
-    margin: 0;
-    padding-left: 1.2rem;
-
-    li {
-      list-style-type: disc;
-    }
+  .payrollReconciliationCardList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
   }
 
   .payrollReconciliationClear {
@@ -60,16 +114,12 @@
     opacity: 0.85;
   }
 
-  .payrollReconciliationFooterGap {
-    height: 7rem;
-  }
-
   .payrollReconciliationSidebarFooter {
     display: flex;
     flex-direction: column;
     align-items: start;
     gap: 0.4rem;
-    position: fixed;
+    position: sticky;
     bottom: 0;
     width: 100%;
     padding: 0.4rem 0.8rem;

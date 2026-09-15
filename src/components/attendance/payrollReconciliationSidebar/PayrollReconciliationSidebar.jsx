@@ -1,17 +1,61 @@
 // components/attendance/payrollReconciliationSidebar/PayrollReconciliationSidebar.jsx
 import { Link } from "react-router";
-import { PaperPlaneTiltIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import {
+  CaretRightIcon,
+  PaperPlaneTiltIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
 import LoadingIcon from "../../loadingIcon/LoadingIcon";
 import usePayrollReconciliationDetail from "../../../features/hr/payroll/private/hooks/usePayrollReconciliationDetail";
 import usePayrollReconciliationGlossary from "../../../features/hr/payroll/private/hooks/usePayrollReconciliationGlossary";
 import usePayrollReconciliationLastSend from "../../../features/hr/payroll/private/hooks/usePayrollReconciliationLastSend";
 import usePayrollReconciliationEmailMutations from "../../../features/hr/payroll/private/hooks/usePayrollReconciliationEmailMutations";
-import { formatDate, formatDateTime } from "../../../functions/formatDate";
+import {
+  formatDate,
+  formatDateTime,
+  formatTime,
+} from "../../../functions/formatDate";
 import { buildHrAttendanceListLink } from "../../../functions/payrollReconciliationLinks";
+import { getPayrollSummaryKpiCards } from "../../../pages/user/hr/attendanceManagement/payrollExport/kpiCardConfig";
 import "./PayrollReconciliationSidebar.scss";
 import { useTheme } from "../../../context/ThemeContext";
 import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
+import AttendanceCard from "../attendanceCard/AttendanceCard";
+import CardLayout from "../../cardLayout/CardLayout";
+import RouterButton from "../../buttons/routerButton/RouterButton";
+
+// Maps one get_payroll_reconciliation_rows() row into the snake_case shape
+// AttendanceCard already expects (see attendanceOverviewService.js's
+// normalizeUnifiedAttendance -- this mirrors its field names exactly, just
+// sourced from the RPC's camelCase JSON instead of a raw table row).
+// is_leave_attendance_conflict/is_insufficient_half_day_hours/
+// has_leave_fraction_error are derived from `category` itself rather than
+// carried separately -- each row already IS one specific category, so this
+// correctly highlights only the flag that earned it a place in THIS section
+// rather than every flag that happens to apply to that day.
+function toAttendanceCardActivity(row, { employeeUuid, employeeName }) {
+  return {
+    id: employeeUuid,
+    full_name: employeeName,
+    work_date: formatDate(row.workDate),
+    hr_flag: row.hrFlag,
+    is_weekend: row.isWeekend,
+    daily_activities: row.dailyActivities,
+    is_on_leave: Boolean(row.leaveTypeCodes),
+    leave_type_codes: row.leaveTypeCodes,
+    first_in_time: formatTime(row.firstIn),
+    last_out_time: formatTime(row.lastOut),
+    overtime_hours: row.overtimeHours,
+    is_early_leave: row.isEarlyLeave,
+    is_late_arrival: row.isLateArrival,
+    is_leave_attendance_conflict: row.category === "leave_conflict",
+    is_insufficient_half_day_hours: row.category === "insufficient_half_day",
+    has_leave_fraction_error: row.category === "leave_fraction_error",
+    is_worked_on_holiday: row.isWorkedOnHoliday,
+    holiday_hours_worked: row.holidayHoursWorked,
+  };
+}
 
 // Fixed display order, matching the Payroll Export table's own column order
 // (Days Absent, Leave Conflicts, Insufficient Half-Day Hours, Leave Data
@@ -40,6 +84,7 @@ const SECTIONS = [
  * existing async email_queue/send-queued-emails pipeline.
  */
 export default function PayrollReconciliationSidebar({
+  row,
   employeeUuid,
   employeeName,
   resolvedEmail,
@@ -97,6 +142,49 @@ export default function PayrollReconciliationSidebar({
         )}
       </div>
 
+      {/* SUMMARY KPI CARDS -- every row field except the 4 reconciliation
+          counts below (those get their own richer section, with actual
+          attendance cards). Each links to the matching Attendance List
+          filter in a new tab, so HR can manually verify a number without
+          losing their place in this sidebar. */}
+      {row && (
+        <div className="payrollSummaryKpiGroups">
+          {getPayrollSummaryKpiCards(row, { startDate, endDate }).map(
+            (group) => (
+              <div key={group.groupLabel} className="payrollSummaryKpiGroup">
+                <p className="textBold textXXS payrollSummaryKpiGroupLabel">
+                  {group.groupLabel}
+                </p>
+                <div className="payrollSummaryKpiGrid">
+                  {group.cards.map((card) => {
+                    const Wrapper = card.link ? "a" : "div";
+                    const wrapperProps = card.link
+                      ? {
+                          href: card.link,
+                          target: "_blank",
+                          rel: "noopener noreferrer",
+                        }
+                      : {};
+
+                    return (
+                      <Wrapper
+                        key={card.label}
+                        {...wrapperProps}
+                        title={card.description}
+                        className={`payrollSummaryKpiCard generalCard${card.link ? " payrollSummaryKpiCardLink" : ""}`}
+                      >
+                        <p className="textXXS textLight">{card.label}</p>
+                        <p className="textBold textS">{card.value}</p>
+                      </Wrapper>
+                    );
+                  })}
+                </div>
+              </div>
+            ),
+          )}
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingIcon />
       ) : (
@@ -104,7 +192,7 @@ export default function PayrollReconciliationSidebar({
           {SECTIONS.map((section) => {
             const glossaryEntry = glossaryByCode[section.code];
             const sectionRows = rows.filter(
-              (row) => row.category === section.code,
+              (detailRow) => detailRow.category === section.code,
             );
 
             return (
@@ -113,8 +201,12 @@ export default function PayrollReconciliationSidebar({
                 className="payrollReconciliationSection generalCard"
               >
                 <p className="textBold textS">
-                  {glossaryEntry?.label || section.code}
+                  {glossaryEntry?.label || section.code}{" "}
+                  <span className="textRegular textXXS">
+                    ({sectionRows.length} days)
+                  </span>
                 </p>
+
                 {glossaryEntry?.description && (
                   <p className="textRegular textXS">
                     {glossaryEntry.description}
@@ -127,31 +219,46 @@ export default function PayrollReconciliationSidebar({
                   </p>
                 ) : (
                   <>
-                    <ul className="payrollReconciliationDateList">
-                      {sectionRows.map((row) => (
-                        <li key={`${row.category}-${row.workDate}`}>
-                          {formatDate(row.workDate)}
-                        </li>
+                    <CardLayout style="cardLayout1 cardGapSmall">
+                      {sectionRows.map((sectionRow) => (
+                        <AttendanceCard
+                          key={`${sectionRow.category}-${sectionRow.workDate}`}
+                          activity={toAttendanceCardActivity(sectionRow, {
+                            employeeUuid,
+                            employeeName,
+                          })}
+                          onClick={() =>
+                            window.open(
+                              buildHrAttendanceListLink({
+                                employeeUuid,
+                                code: "generic",
+                                startDate: sectionRow.workDate,
+                                endDate: sectionRow.workDate,
+                              }),
+                              "_blank",
+                            )
+                          }
+                        />
                       ))}
-                    </ul>
+                    </CardLayout>
                     {glossaryEntry?.employee_action_text && (
                       <p className="textRegular textXS payrollReconciliationAction">
                         {glossaryEntry.employee_action_text}
                       </p>
                     )}
-                    <Link
+                    <RouterButton
                       to={buildHrAttendanceListLink({
                         employeeUuid,
                         code: section.code,
                         startDate,
                         endDate,
                       })}
-                      className="textRegular textXXS payrollReconciliationDeepLink"
-                    >
-                      View these {sectionRows.length} day
-                      {sectionRows.length === 1 ? "" : "s"} in Attendance List
-                      &rarr;
-                    </Link>
+                      style="textRegular textXXS button buttonType4"
+                      icon={CaretRightIcon}
+                      name={`View all ${sectionRows.length} day${sectionRows.length === 1 ? "" : "s"} in Attendance List`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
                   </>
                 )}
               </div>
@@ -159,8 +266,6 @@ export default function PayrollReconciliationSidebar({
           })}
         </div>
       )}
-
-      <div className="payrollReconciliationFooterGap"></div>
 
       <div
         className={`payrollReconciliationSidebarFooter${darkMode ? " sectionDark" : " sectionLight"}`}

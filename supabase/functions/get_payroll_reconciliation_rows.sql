@@ -1,7 +1,17 @@
 -- arguments: p_employee_uuid uuid, p_start_date date, p_end_date date
 -- returns: table (work_date, category, hr_flag, leave_type_codes,
 --                  leave_day_fraction, hours_worked, is_weekend,
---                  is_public_holiday, public_holiday_name)
+--                  is_public_holiday, public_holiday_name, first_in,
+--                  last_out, overtime_hours, is_early_leave, is_late_arrival,
+--                  is_worked_on_holiday, holiday_hours_worked,
+--                  daily_activities)
+--
+-- The last 8 columns (added 2026-09-15) exist so
+-- PayrollReconciliationSidebar.jsx can render a real AttendanceCard per
+-- flagged day instead of a bare date -- callers that only ever read the
+-- original 9 columns by name (queue_payroll_reconciliation_email_rpc.sql,
+-- get_payroll_reconciliation_detail_rpc.sql's pre-existing fields) are
+-- unaffected by this purely additive change.
 --
 -- Shared day-level reconciliation detail behind BOTH
 -- get_payroll_reconciliation_detail_rpc.sql (the sidebar's on-screen fetch)
@@ -40,6 +50,23 @@
 -- function during planning, silently dropping SECURITY DEFINER) + set
 -- search_path = '' + fully-qualified names: same hardening as every other
 -- SECURITY DEFINER function in this schema.
+--
+-- The DROP below is required, not optional, whenever this function's
+-- RETURNS TABLE column list changes (as it did 2026-09-15, adding the 8
+-- AttendanceCard columns) -- Postgres's CREATE OR REPLACE FUNCTION refuses
+-- to change a function's OUT-parameter row type ("cannot change return type
+-- of existing function... Row type defined by OUT parameters is
+-- different"), unlike every other kind of function body change, which
+-- CREATE OR REPLACE handles fine on its own. Safe to drop first: no view,
+-- generated column, or index depends on this function, and its two plpgsql
+-- callers (get_payroll_reconciliation_detail_rpc.sql,
+-- queue_payroll_reconciliation_email_rpc.sql) resolve the call by name at
+-- EXECUTION time, not by a stored OID bound at their own creation time, so
+-- neither needs to be recreated afterward. Supabase's default schema-level
+-- privileges re-grant EXECUTE to the recreated function automatically, same
+-- as every other function here -- no explicit GRANT needed.
+drop function if exists public.get_payroll_reconciliation_rows(uuid, date, date);
+
 create or replace function public.get_payroll_reconciliation_rows(
     p_employee_uuid uuid,
     p_start_date    date,
@@ -54,7 +81,32 @@ returns table (
     hours_worked         numeric,
     is_weekend           boolean,
     is_public_holiday    boolean,
-    public_holiday_name  text
+    public_holiday_name  text,
+    -- Added 2026-09-15 so PayrollReconciliationSidebar.jsx can render a real
+    -- AttendanceCard (src/components/attendance/attendanceCard/) per
+    -- flagged day instead of a bare date -- these mirror
+    -- unified_daily_attendance's own raw columns exactly, no renaming.
+    --
+    -- first_in/last_out are plain `timestamp`, NOT `timestamptz` -- the
+    -- view builds them from expressions like
+    -- `scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'`, and applying
+    -- AT TIME ZONE to a timestamptz value converts it TO a zone-naive
+    -- timestamp (the Malaysia wall-clock reading), not the other way
+    -- around. Declaring timestamptz here doesn't just render wrong -- it
+    -- fails outright ("cannot change return type"/42804 "structure of query
+    -- does not match function result type"), since Postgres has no
+    -- implicit/assignment cast between timestamp and timestamptz (unlike
+    -- numeric-vs-double-precision columns elsewhere in this table, which
+    -- silently coerce) -- the conversion is inherently timezone-dependent,
+    -- so Postgres refuses to guess.
+    first_in             timestamp,
+    last_out             timestamp,
+    overtime_hours       numeric,
+    is_early_leave       boolean,
+    is_late_arrival      boolean,
+    is_worked_on_holiday boolean,
+    holiday_hours_worked numeric,
+    daily_activities     text
 )
 language plpgsql
 stable
@@ -83,7 +135,10 @@ begin
     )
     select r.work_date, 'absent'::text, r.hr_flag, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
-           r.is_public_holiday, r.public_holiday_name
+           r.is_public_holiday, r.public_holiday_name,
+           r.first_in, r.last_out, r.overtime_hours, r.is_early_leave,
+           r.is_late_arrival, r.is_worked_on_holiday, r.holiday_hours_worked,
+           r.daily_activities
     from period_rows r
     where r.hr_flag = 'Absent' and not r.is_weekend and not r.is_public_holiday
 
@@ -91,7 +146,10 @@ begin
 
     select r.work_date, 'leave_conflict', r.hr_flag, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
-           r.is_public_holiday, r.public_holiday_name
+           r.is_public_holiday, r.public_holiday_name,
+           r.first_in, r.last_out, r.overtime_hours, r.is_early_leave,
+           r.is_late_arrival, r.is_worked_on_holiday, r.holiday_hours_worked,
+           r.daily_activities
     from period_rows r
     where r.is_leave_attendance_conflict
 
@@ -99,7 +157,10 @@ begin
 
     select r.work_date, 'insufficient_half_day', r.hr_flag, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
-           r.is_public_holiday, r.public_holiday_name
+           r.is_public_holiday, r.public_holiday_name,
+           r.first_in, r.last_out, r.overtime_hours, r.is_early_leave,
+           r.is_late_arrival, r.is_worked_on_holiday, r.holiday_hours_worked,
+           r.daily_activities
     from period_rows r
     where r.is_insufficient_half_day_hours
 
@@ -107,7 +168,10 @@ begin
 
     select r.work_date, 'leave_fraction_error', r.hr_flag, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
-           r.is_public_holiday, r.public_holiday_name
+           r.is_public_holiday, r.public_holiday_name,
+           r.first_in, r.last_out, r.overtime_hours, r.is_early_leave,
+           r.is_late_arrival, r.is_worked_on_holiday, r.holiday_hours_worked,
+           r.daily_activities
     from period_rows r
     where r.has_leave_fraction_error
 

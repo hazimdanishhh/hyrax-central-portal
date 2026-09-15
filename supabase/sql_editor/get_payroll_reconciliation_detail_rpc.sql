@@ -54,7 +54,18 @@ select json_agg(
         'hoursWorked', g.hours_worked,
         'isWeekend', g.is_weekend,
         'isPublicHoliday', g.is_public_holiday,
-        'publicHolidayName', g.public_holiday_name
+        'publicHolidayName', g.public_holiday_name,
+        -- Added 2026-09-15 so the sidebar can render a real AttendanceCard
+        -- (src/components/attendance/attendanceCard/) per flagged day --
+        -- see get_payroll_reconciliation_rows.sql's own header comment.
+        'firstIn', g.first_in,
+        'lastOut', g.last_out,
+        'overtimeHours', g.overtime_hours,
+        'isEarlyLeave', g.is_early_leave,
+        'isLateArrival', g.is_late_arrival,
+        'isWorkedOnHoliday', g.is_worked_on_holiday,
+        'holidayHoursWorked', g.holiday_hours_worked,
+        'dailyActivities', g.daily_activities
     )
     order by g.work_date, g.category
 ) into result
