@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../../components/buttons/button/Button";
 import { useAuth } from "../../context/AuthContext";
 import { fadeInWithEase, staggerContainer } from "../../functions/motionUtils";
+import { isTauri } from "../../lib/desktopAuthBridge";
 import { supabase } from "../../lib/supabaseClient";
 import "./LoginPage.scss";
 
@@ -24,16 +25,34 @@ export default function LoginPage() {
 
   // Google Login Function
   const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const desktop = isTauri();
+
+    // Google no longer allows completing OAuth inside an embedded webview
+    // (see disallowed_useragent), so the desktop app opens the sign-in flow
+    // in the system browser and rejoins via the hyraxportal:// deep link
+    // instead of navigating in place. Browser users are unaffected.
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/app`,
-        scopes: "https://www.googleapis.com/auth/drive.file",
-      },
+      options: desktop
+        ? {
+            redirectTo: "hyraxportal://auth-callback",
+            skipBrowserRedirect: true,
+            scopes: "https://www.googleapis.com/auth/drive.file",
+          }
+        : {
+            redirectTo: `${window.location.origin}/app`,
+            scopes: "https://www.googleapis.com/auth/drive.file",
+          },
     });
 
     if (error) {
       console.error("Google login error:", error.message);
+      return;
+    }
+
+    if (desktop && data?.url) {
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
+      await openUrl(data.url);
     }
   };
 

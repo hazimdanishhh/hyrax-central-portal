@@ -1,5 +1,6 @@
 // src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from "react";
+import { listenForDesktopOAuthCallback } from "../lib/desktopAuthBridge";
 import { supabase } from "../lib/supabaseClient";
 
 const AuthContext = createContext(null);
@@ -61,6 +62,15 @@ export function AuthProvider({ children }) {
     );
 
     return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // No-ops outside the desktop app; see desktopAuthBridge.js.
+  useEffect(() => {
+    let cleanup;
+    listenForDesktopOAuthCallback().then((fn) => {
+      cleanup = fn;
+    });
+    return () => cleanup?.();
   }, []);
 
   // Logout
