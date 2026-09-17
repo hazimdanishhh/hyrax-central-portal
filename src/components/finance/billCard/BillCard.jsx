@@ -20,6 +20,12 @@ export default function BillCard({ bill, to }) {
   // formula for any other fetch path so this never breaks, just stops being
   // the single source of truth for that one path.
   const outstanding = bill.outstanding_balance ?? total - paid;
+  // Sum of this bill's own ACTIVE (non-cancelled) sap_vendor_payment_
+  // applications rows -- see InvoiceCard.jsx's own comment for why this is
+  // kept separate from `paid` (OPCH.PaidToDate) rather than blended in, and
+  // why the mismatch badge below exists.
+  const appliedPayment = bill.applied_payment_myr ?? 0;
+  const paidAppliedMismatch = Math.abs(paid - appliedPayment) > 0.01;
   const Wrapper = to ? Link : "div";
   const wrapperProps = to
     ? { to, className: "generalCard salesOrderCard" }
@@ -86,6 +92,13 @@ export default function BillCard({ bill, to }) {
               <strong className="textBold">Outstanding (RM):</strong> RM{" "}
               {Math.round(outstanding).toLocaleString()}
             </p>
+            <p className="textLight textXXS">
+              <strong className="textBold">Applied Payment (RM):</strong> RM{" "}
+              {Math.round(appliedPayment).toLocaleString()}
+            </p>
+            {paidAppliedMismatch && (
+              <StatusBox status="Paid ≠ Applied" type="red" />
+            )}
           </div>
         </div>
       </div>

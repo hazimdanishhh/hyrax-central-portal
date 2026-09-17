@@ -22,6 +22,16 @@ export default function InvoiceCard({ invoice, to }) {
   // inline formula for any other fetch path so this never breaks, just
   // stops being the single source of truth for that one path.
   const outstanding = invoice.outstanding_balance ?? total - paid;
+  // Sum of this invoice's own ACTIVE (non-cancelled) sap_payment_applications
+  // rows -- a second, independently-sourced "how much is paid" figure,
+  // deliberately kept separate from `paid` (SAP's own OINV.PaidToDate).
+  // These two can legitimately disagree (see the view's own header comment
+  // for why) -- the mismatch badge below exists to surface that gap
+  // instead of hiding it, since it usually means paid_to_date hasn't
+  // caught up with a payment application that landed after this invoice's
+  // header last synced.
+  const appliedPayment = invoice.applied_payment_myr ?? 0;
+  const paidAppliedMismatch = Math.abs(paid - appliedPayment) > 0.01;
   const gp = invoice.gross_profit;
   const grossProfitDisplay =
     gp == null || Math.abs(gp) > Math.abs(total) * 5
@@ -113,6 +123,13 @@ export default function InvoiceCard({ invoice, to }) {
               <strong className="textBold">Outstanding (RM):</strong> RM{" "}
               {Math.round(outstanding).toLocaleString()}
             </p>
+            <p className="textLight textXXS">
+              <strong className="textBold">Applied Payment (RM):</strong> RM{" "}
+              {Math.round(appliedPayment).toLocaleString()}
+            </p>
+            {paidAppliedMismatch && (
+              <StatusBox status="Paid ≠ Applied" type="red" />
+            )}
             <p className="textLight textXXS">
               <strong className="textBold">Gross Profit (RM):</strong>{" "}
               {grossProfitDisplay}

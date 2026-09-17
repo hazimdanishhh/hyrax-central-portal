@@ -19,17 +19,54 @@
 -- every `CREATE OR REPLACE VIEW`, so an eventual new sap_invoices/
 -- sap_vendor_bills column (from a future hyrax-data-platform extractor
 -- change) would automatically appear here too, not silently go missing.
+--
+-- applied_payment_myr (added 2026-09): a SECOND, independent measure of
+-- "how much has actually been paid" -- the sum of this document's own
+-- ACTIVE (non-cancelled) sap_payment_applications rows, mirroring
+-- get_finance_dashboard_rpc.sql's existing base_payment_apps/
+-- base_vendor_payment_apps CTE shape, just per-document instead of
+-- company-wide. This is deliberately kept as a SEPARATE column from
+-- paid_to_date, not blended into outstanding_balance -- the two can
+-- legitimately disagree (paid_to_date is SAP's own OINV/OPCH running
+-- total; applied_payment_myr is derived from RCT2/VPM2 application rows,
+-- which this app's own extractor only re-syncs on a 60-day lookback for
+-- payments, not for invoices/bills -- see hyrax-data-platform's
+-- payments.py RCT2_LOOKBACK_DAYS comment), and the whole point of exposing
+-- both on the card is to make that gap visible, not paper over it. Uses
+-- `left join lateral` (not a pre-aggregated `group by` derived table) so
+-- Postgres can correlate/push the i.doc_entry predicate down per row,
+-- the efficient shape for a paginated view -- though at this app's
+-- documented data scale (<100MB, ~20k rows, DASHBOARD-CONVENTIONS.md's own
+-- "Scale note") either shape would be fine.
 create or replace view public.sap_invoices_with_balance as
 select
     i.*,
-    (i.total_amount_myr - i.paid_to_date) as outstanding_balance
-from public.sap_invoices i;
+    (i.total_amount_myr - i.paid_to_date) as outstanding_balance,
+    coalesce(pa.applied_payment_myr, 0) as applied_payment_myr
+from public.sap_invoices i
+left join lateral (
+    select sum(pa.amount_applied_myr) as applied_payment_myr
+    from public.sap_payment_applications pa
+    join public.sap_payments p on pa.payment_ref = p.doc_entry
+    where pa.doc_entry = i.doc_entry
+      and pa.inv_type = 13
+      and p.is_cancelled = 'N'
+) pa on true;
 
 create or replace view public.sap_vendor_bills_with_balance as
 select
     b.*,
-    (b.total_amount_myr - b.paid_to_date) as outstanding_balance
-from public.sap_vendor_bills b;
+    (b.total_amount_myr - b.paid_to_date) as outstanding_balance,
+    coalesce(pa.applied_payment_myr, 0) as applied_payment_myr
+from public.sap_vendor_bills b
+left join lateral (
+    select sum(pa.amount_applied_myr) as applied_payment_myr
+    from public.sap_vendor_payment_applications pa
+    join public.sap_vendor_payments p on pa.payment_ref = p.doc_entry
+    where pa.doc_entry = b.doc_entry
+      and pa.doc_type = 18
+      and p.is_cancelled = 'N'
+) pa on true;
 
 -- CRITICAL -- without this, both views silently run as their OWNER (the
 -- role that pasted this script, not the querying user), which means
