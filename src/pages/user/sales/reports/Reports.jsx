@@ -58,13 +58,14 @@ function Reports() {
     departments: ["SAL", "MGM"],
   });
 
-  // finance/invoices and finance/payments are FIN-only, while this page is
-  // SAL/MGM -- same cross-department gate Finance's own dashboard already
-  // uses for its own links (canAccessFinanceOps). Without this, a Sales
-  // manager clicking Invoice Budget Attainment/Customer Concentration/
+  // finance/invoices and finance/payments are FIN;MGM (company-wide, no role
+  // restriction -- MGM re-added 2026-09, same reversal as canAccessOrders
+  // above), matching Finance's own dashboard's identical link gate
+  // (canAccessFinanceOps). Without this, a viewer who can't open those
+  // Finance pages clicking Invoice Budget Attainment/Customer Concentration/
   // Payments Collected would hit "Unauthorized."
-  const canAccessInvoices = canAccess({ departments: ["FIN"] });
-  const canAccessPayments = canAccess({ departments: ["FIN"] });
+  const canAccessInvoices = canAccess({ departments: ["FIN", "MGM"] });
+  const canAccessPayments = canAccess({ departments: ["FIN", "MGM"] });
 
   // Needs Attention (added 2026-08, O2C funnel restructure) -- SAL-manager
   // only, not MGM: MGM viewers of this page are the holistic/exec-summary

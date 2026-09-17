@@ -317,24 +317,27 @@ export const sideNavLinkData = [
         roles: ["manager"],
       },
 
+      // MGM added company-wide 2026-09, mirroring Sales' own 2026-09 MGM
+      // reversal on Clients/Leads/Orders -- see FinanceRoutes.jsx's own
+      // comment on this route for the full rationale.
       {
         label: "Invoices",
         icon: FileTextIcon,
         path: "finance/invoices",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Gate matches finance/bills' AccessRoute exactly (department-only, no
       // role restriction, same as Invoices/Payments -- these are Tier-1
-      // individual-contributor pages per docs/DASHBOARD-CONVENTIONS.md, not
-      // manager-exclusive; MGM sees the rollup via Finance Reports instead).
+      // individual-contributor pages per docs/DASHBOARD-CONVENTIONS.md).
+      // MGM added company-wide 2026-09 -- see Invoices' own comment above.
       {
         label: "Bills",
         icon: InvoiceIcon,
         path: "finance/bills",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // {
@@ -342,34 +345,36 @@ export const sideNavLinkData = [
       //   icon: ClipboardTextIcon,
       //   path: "finance/claims-management",
 
-      //   departments: ["FIN"],
+      //   departments: ["FIN", "MGM"],
       // },
 
       {
         label: "Incoming Payments",
         icon: CoinsIcon,
         path: "finance/payments",
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Gate matches finance/vendor-payments' AccessRoute exactly (department
-      // only, no role restriction).
+      // only, no role restriction). MGM added company-wide 2026-09 -- see
+      // Invoices' own comment above.
       {
         label: "Outgoing Payments",
         icon: HandCoinsIcon,
         path: "finance/vendor-payments",
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Gate matches finance/journal-entries'/finance/chart-of-accounts'
       // AccessRoute exactly (department-only, no role restriction -- same
-      // Tier-1 rationale as Invoices/Bills above).
+      // Tier-1 rationale as Invoices/Bills above). MGM added company-wide
+      // 2026-09 -- see Invoices' own comment above.
       {
         label: "Journal Entries",
         icon: BookOpenIcon,
         path: "finance/journal-entries",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       {
@@ -377,7 +382,7 @@ export const sideNavLinkData = [
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
     ],
   },

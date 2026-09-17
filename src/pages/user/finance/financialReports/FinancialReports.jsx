@@ -63,11 +63,13 @@ export default function FinancialReports() {
   const dashboardRef = useRef(null);
 
   // finance/invoices, finance/payments, finance/bills, and
-  // finance/vendor-payments all share the same FIN-only gate (MGM excluded,
-  // see R3 in supabase/access-control/README.md), so one check covers every
-  // "View All" link below -- an MGM viewer never sees a dead link to a page
-  // they can't open.
-  const canAccessFinanceOps = canAccess({ departments: ["FIN"] });
+  // finance/vendor-payments all share the same FIN;MGM gate (company-wide,
+  // no role restriction -- MGM re-added 2026-09, reversing the R3 exclusion
+  // recorded in supabase/access-control/README.md, the same way Sales'
+  // analogous 2026-09 reversal worked), so one check covers every "View
+  // All" link below -- an MGM viewer never sees a dead link to a page they
+  // can't open.
+  const canAccessFinanceOps = canAccess({ departments: ["FIN", "MGM"] });
   // cash-flow/balance-sheet/income-statement are a DIFFERENT gate --
   // FIN;MGM manager (FinanceRoutes.jsx), not FIN-only -- reusing
   // canAccessFinanceOps here (fixed 2026-09) hid all 3 chart links from MGM

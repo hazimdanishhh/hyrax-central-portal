@@ -53,10 +53,11 @@ import { getStatusVariant } from "../../../../../functions/statusVariant";
  * Drill-through pass (Phase 4): `filters` is this page's own active Owner/
  * Product Type/period filters, `canAccessInvoices`/`canAccessPayments` mirror
  * `canAccessOrders` (computed in Reports.jsx via canAccess({departments:
- * ["FIN"]})) -- Invoices/Payments are FIN-only while this page is SAL/MGM,
- * so every link into them must degrade to `to: null` for a viewer who can't
- * actually open the target, same pattern Finance's own dashboard already
- * uses for its cross-page links. Owner/Product Type only ever thread into
+ * ["FIN", "MGM"]})) -- Invoices/Payments are FIN;MGM company-wide, same as
+ * this page, but every link into them must still degrade to `to: null` for
+ * a viewer who can't actually open the target (e.g. a department other than
+ * SAL/FIN/MGM), same pattern Finance's own dashboard already uses for its
+ * cross-page links. Owner/Product Type only ever thread into
  * the CRM-side tiles (Pipeline Attainment/Pipeline Health/Win Rate/Sales
  * Cycle) -- confirmed via the RPC that they scope base_leads only, with zero
  * effect on any SAP-sourced KPI (Order Book, Invoiced, Collected, Customer

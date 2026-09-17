@@ -107,7 +107,7 @@ export default function SalesOrderSidebar({ selectedRow }) {
                 key={invoice.doc_entry}
                 invoice={invoice}
                 to={
-                  canAccess({ departments: ["FIN"] })
+                  canAccess({ departments: ["FIN", "MGM"] })
                     ? `/app/finance/invoices/${invoice.doc_entry}?search=${invoice.invoice_number}`
                     : undefined
                 }
@@ -120,11 +120,10 @@ export default function SalesOrderSidebar({ selectedRow }) {
       {/* MATCHED PAYMENT(S) -- transitive live lookup: SO -> matched
           invoice(s) above -> payment(s) applied to those invoices (SAP has
           no direct SO->Payment link). Flat across every matched invoice.
-          FIN-gated -- unlike InvoiceSidebar.jsx's own unconditional Matched
-          Payment(s) block (both sides share the FIN gate there), this
-          sidebar is reached via Sales/MGM routes, so a viewer isn't
-          guaranteed FIN access -- same conditional the Matched Invoice(s)
-          block above already uses. */}
+          FIN;MGM-gated -- this sidebar is reached via Sales/MGM routes, and
+          since 2026-09 MGM also has company-wide Finance Tier-1 access, so
+          the conditional now mirrors that -- same check the Matched
+          Invoice(s) block above already uses. */}
       <MatchConnector label="Matched Payment(s)" icon={FileTextIcon} />
       <CardLayout style="generalCard matchedSection cardPaddingSmall">
         {matchedPaymentsLoading ? (
@@ -140,7 +139,7 @@ export default function SalesOrderSidebar({ selectedRow }) {
                 key={payment.doc_entry}
                 payment={payment}
                 to={
-                  canAccess({ departments: ["FIN"] })
+                  canAccess({ departments: ["FIN", "MGM"] })
                     ? `/app/finance/payments/${payment.doc_entry}?search=${payment.receipt_number}`
                     : undefined
                 }

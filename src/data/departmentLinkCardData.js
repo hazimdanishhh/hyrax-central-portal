@@ -163,16 +163,18 @@ export const departmentLinkCardData = [
         roles: ["manager"],
       },
 
+      // Department-only, no role restriction -- Tier-1 individual
+      // contributor page per docs/DASHBOARD-CONVENTIONS.md, matches
+      // FinanceRoutes.jsx's AccessRoute gate exactly. MGM added company-wide
+      // 2026-09, mirroring Sales' own 2026-09 MGM reversal on Clients/Leads/
+      // Orders -- see FinanceRoutes.jsx's own comment on this route.
       {
         label: "Invoices",
         description: "View and track outstanding customer invoices.",
         icon: FileTextIcon,
         path: "finance/invoices",
 
-        // Department-only, no role restriction -- Tier-1 individual
-        // contributor page per docs/DASHBOARD-CONVENTIONS.md, matches
-        // FinanceRoutes.jsx's AccessRoute gate exactly.
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Matches finance/bills' AccessRoute gate exactly (mirrors Invoices'
@@ -183,7 +185,7 @@ export const departmentLinkCardData = [
         icon: InvoiceIcon,
         path: "finance/bills",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // {
@@ -192,7 +194,7 @@ export const departmentLinkCardData = [
       //   icon: ClipboardTextIcon,
       //   path: "finance/claims-management",
 
-      //   departments: ["FIN"],
+      //   departments: ["FIN", "MGM"],
       // },
 
       {
@@ -201,7 +203,7 @@ export const departmentLinkCardData = [
         icon: CoinsIcon,
         path: "finance/payments",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Matches finance/vendor-payments' AccessRoute gate exactly (department
@@ -212,7 +214,7 @@ export const departmentLinkCardData = [
         icon: HandCoinsIcon,
         path: "finance/vendor-payments",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       // Matches finance/journal-entries'/finance/chart-of-accounts'
@@ -224,7 +226,7 @@ export const departmentLinkCardData = [
         icon: BookOpenIcon,
         path: "finance/journal-entries",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
 
       {
@@ -233,7 +235,7 @@ export const departmentLinkCardData = [
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
 
-        departments: ["FIN"],
+        departments: ["FIN", "MGM"],
       },
     ],
   },
