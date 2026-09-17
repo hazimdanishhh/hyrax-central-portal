@@ -16,6 +16,12 @@ export default function InvoiceCard({ invoice, to }) {
   const isOpen = invoice.status_code === "O";
   const total = invoice.total_amount_myr || 0;
   const paid = invoice.paid_to_date || 0;
+  // Sourced from sap_invoices_with_balance (see
+  // finance_outstanding_balance_views.sql) wherever the row came through
+  // fetchInvoices/fetchInvoiceByDocEntry -- falls back to the identical
+  // inline formula for any other fetch path so this never breaks, just
+  // stops being the single source of truth for that one path.
+  const outstanding = invoice.outstanding_balance ?? total - paid;
   const gp = invoice.gross_profit;
   const grossProfitDisplay =
     gp == null || Math.abs(gp) > Math.abs(total) * 5
@@ -102,6 +108,10 @@ export default function InvoiceCard({ invoice, to }) {
             <p className="textLight textXXS">
               <strong className="textBold">Paid (RM):</strong> RM{" "}
               {Math.round(paid).toLocaleString()}
+            </p>
+            <p className="textLight textXXS">
+              <strong className="textBold">Outstanding (RM):</strong> RM{" "}
+              {Math.round(outstanding).toLocaleString()}
             </p>
             <p className="textLight textXXS">
               <strong className="textBold">Gross Profit (RM):</strong>{" "}

@@ -124,6 +124,81 @@
 }
 
 // =====================
+// ICON BUTTON SQUARE HEIGHT FULL
+// =====================
+.iconButton3 {
+  display: flex;
+  // align-self: end;
+  justify-content: center;
+  align-items: center;
+  background-color: $neutral100;
+  color: $neutral900;
+  padding: 0.5em;
+  border-radius: 0.5rem;
+  position: relative;
+  border: 1px solid $neutral700;
+  width: max-content;
+  height: 100%;
+
+  // Disabled
+  &:disabled {
+    color: $neutral600;
+    background-color: $neutral400;
+
+    &:hover {
+      border: 1px solid $neutral600;
+      background-color: $neutral400;
+      cursor: not-allowed;
+    }
+  }
+
+  &:hover {
+    background-color: $primary;
+    color: $neutral100;
+    border-color: $primary;
+    transition: background-color 0.1s;
+  }
+
+  &.active {
+    background-color: $primary; // your primary color
+    border-color: $primary;
+  }
+
+  // Red
+  &.rejection {
+    background-color: rgba($error600, 0.8);
+
+    &:hover {
+      background-color: $error600;
+      transition: background-color 0.1s;
+    }
+  }
+
+  // Green
+  &.approval {
+    background-color: rgba($success600, 0.8);
+
+    &:hover {
+      background-color: $success600;
+      transition: background-color 0.1s;
+    }
+  }
+
+  // Green
+  &.blue {
+    background-color: rgba($info600, 0.1);
+    color: $info600;
+    border-color: $info600;
+
+    &:hover {
+      background-color: $info600;
+      color: $neutral100;
+      transition: background-color 0.1s;
+    }
+  }
+}
+
+// =====================
 // BUTTON TOOL TIP
 // =====================
 .buttonTooltip {

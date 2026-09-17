@@ -431,7 +431,7 @@ export default function AttendanceManagement() {
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
               },
-              style: "button buttonType5 approval",
+              style: "button buttonType5 greenFill buttonFull textXXS",
             },
           ]}
         />

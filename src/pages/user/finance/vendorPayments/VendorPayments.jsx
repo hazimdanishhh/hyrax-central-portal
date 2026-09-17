@@ -9,6 +9,8 @@ import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
+import SortBar from "../../../../components/crud/sortBar/SortBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
@@ -18,6 +20,7 @@ import { fetchVendorPayments } from "../../../../features/finance/vendorPayments
 import { useVendorPayment } from "../../../../features/finance/vendorPayments/private/hooks/useVendorPayment";
 import { getVendorPaymentsFilterConfig } from "./filterConfig";
 import { getVendorPaymentsOverviewConfig } from "./overviewConfig";
+import { getVendorPaymentsSortConfig } from "./sortConfig";
 import { useVendorPaymentsOverview } from "../../../../features/finance/vendorPayments/private/hooks/useVendorPaymentsOverview";
 import VendorPaymentSidebar from "./detail/VendorPaymentSidebar";
 import VendorPaymentCard from "../../../../components/finance/vendorPaymentCard/VendorPaymentCard";
@@ -45,9 +48,13 @@ export default function VendorPayments() {
     filters,
     activeFilters,
     hasActiveFilters,
+    sortBy,
+    sortOrder,
     setPage,
     setSearch,
     setFilters,
+    setSortBy,
+    setSortOrder,
     resetParams,
     isLoading,
     isFetching,
@@ -79,10 +86,11 @@ export default function VendorPayments() {
 
   const sidebarOpen = !!selectedRow;
 
-  const { kpis } = useVendorPaymentsOverview();
+  const { kpis } = useVendorPaymentsOverview(filters, search);
   const overviewItems = getVendorPaymentsOverviewConfig(kpis);
 
   const filterConfig = getVendorPaymentsFilterConfig();
+  const sortOptions = getVendorPaymentsSortConfig();
   const hasData = vendorPayments.length > 0;
 
   function handleCloseSidebar() {
@@ -123,6 +131,16 @@ export default function VendorPayments() {
                 resetParams={resetParams}
               />
             )}
+
+            <PageHeader>
+              <SortBar
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                sortOptions={sortOptions}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+              />
+            </PageHeader>
 
             <PageResult
               data={vendorPayments}

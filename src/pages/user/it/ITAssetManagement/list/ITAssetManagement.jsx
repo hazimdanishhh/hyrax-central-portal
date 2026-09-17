@@ -253,7 +253,7 @@ export default function ITAssetManagement() {
                 onClick: () => {
                   navigate(`new?${searchParams.toString()}`);
                 },
-                style: "button buttonType5 approval",
+                style: "button buttonType5 greenFill buttonFull textXXS",
               },
             ]}
           />

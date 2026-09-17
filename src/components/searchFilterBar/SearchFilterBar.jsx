@@ -195,7 +195,8 @@ export default function SearchFilterBar({
             onClick={() => setFilterOpen(!filterOpen)}
             name="Filter"
             icon2={FunnelIcon}
-            style="button buttonType5 textLight textXXS"
+            style="textXXXS textBold button buttonType5"
+            size={20}
           />
         </div>
 
@@ -206,7 +207,7 @@ export default function SearchFilterBar({
               name="Export"
               icon={exportIsOpen === true ? CaretUpIcon : CaretDownIcon}
               icon2={DownloadSimpleIcon}
-              style="textXXS button buttonType5 blue"
+              style="textXXXS textBold button buttonType5 blue"
               size={20}
               onClick={() => setExportIsOpen(!exportIsOpen)}
             />

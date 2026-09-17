@@ -130,7 +130,7 @@ export default function ProjectMembersTab() {
           <Button
             name="Add Members"
             icon={PlusIcon}
-            style="button buttonType5 approval textXS"
+            style="button buttonType5 greenFill buttonFull textXS"
             size={16}
             onClick={() => setAddingOpen(true)}
           />

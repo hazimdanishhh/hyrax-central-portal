@@ -15,7 +15,37 @@
 -- period-bound chart-card total, never as a headline number), plus two
 -- volume-pulse figures (This Week / This Month) since there's no backlog
 -- concept to flag urgency on here.
-create or replace function public.get_payments_overview()
+--
+-- Filter-aware (added 2026-09, matching fetchPayments()'s own filter set):
+-- p_start_date/p_end_date scope this page's own period filter on
+-- payment_date -- independently null-guarded, per
+-- DASHBOARD-CONVENTIONS.md's date-range rule -- and simply AND with the
+-- existing thisWeek/thisMonth relative-to-today windows below (e.g. picking
+-- a historical period will naturally zero out thisWeek/thisMonth, since both
+-- windows must then be satisfied at once -- expected, not a bug). No
+-- p_sales_rep_code/p_status_code -- sap_payments has neither column, matching
+-- getPaymentsFilterConfig()'s own filter set. p_is_cancelled defaults to
+-- excluding cancelled docs ('N') when not supplied. Deliberately NOT
+-- parameterized: unallocatedOnly -- that toggle is what this page's own
+-- Unallocated tile sets on the list when clicked, so feeding it back in here
+-- would be circular. Don't add it here.
+--
+-- IMPORTANT: `create or replace function` can only replace a function whose
+-- argument list is IDENTICAL to the new one -- Postgres identifies a
+-- function by name + parameter *types*, so the previous zero-argument
+-- get_payments_overview() is a genuinely different signature and would
+-- otherwise keep existing as a second, separate overload after this file is
+-- re-run, silently coexisting alongside the parameterized version below. The
+-- explicit drop guarantees only one overload survives -- run it first.
+drop function if exists public.get_payments_overview();
+
+create or replace function public.get_payments_overview(
+    p_customer_code text default null,
+    p_is_cancelled text default null,
+    p_start_date date default null,
+    p_end_date date default null,
+    p_search text default null
+)
 returns json
 language plpgsql
 as $$
@@ -25,11 +55,21 @@ begin
     with base_payments as (
         select *
         from public.sap_payments
-        where is_cancelled = 'N'
+        where (
+                case when p_is_cancelled is null then is_cancelled = 'N'
+                     else is_cancelled = p_is_cancelled
+                end
+              )
+          and (p_customer_code is null or customer_code = p_customer_code)
+          and (p_start_date is null or payment_date::date >= p_start_date)
+          and (p_end_date is null or payment_date::date <= p_end_date)
+          and (
+                p_search is null
+                or customer_name ilike '%' || p_search || '%'
+                or (p_search ~ '^\d+$' and receipt_number::text = p_search)
+              )
     )
     select json_build_object(
-        -- All-time snapshot, not period-bound -- matches every other tile's
-        -- "always reflects the full picture" convention.
         'unallocatedCount', count(*) filter (where unallocated_amount > 0.01),
         'unallocatedValue', coalesce(sum(unallocated_amount) filter (where unallocated_amount > 0.01), 0),
 

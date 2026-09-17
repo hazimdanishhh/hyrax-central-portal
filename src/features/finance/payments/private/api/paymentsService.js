@@ -90,10 +90,50 @@ export async function fetchPayments({
 /**
  * Backs the Payments list page's OverviewCards -- see
  * get_payments_overview_rpc.sql's own comment for why this is a plain (not
- * security definer) RPC.
+ * security definer) RPC, and for why unallocatedOnly is deliberately NOT
+ * forwarded here. Param mapping mirrors fetchFinanceDashboard.js's own
+ * filters -> rpcParams switch.
  */
-export async function fetchPaymentsOverview() {
-  const { data, error } = await supabase.rpc("get_payments_overview");
+export async function fetchPaymentsOverview({ filters, search } = {}) {
+  const FILTER_NULL = "__null__";
+
+  const rpcParams = {
+    p_customer_code: null,
+    p_is_cancelled: null,
+    p_start_date: null,
+    p_end_date: null,
+    p_search: search || null,
+  };
+
+  Object.entries(filters || {}).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+
+    switch (key) {
+      case "customerCode":
+        rpcParams.p_customer_code = value === FILTER_NULL ? null : value;
+        break;
+
+      case "isCancelled":
+        rpcParams.p_is_cancelled = value === FILTER_NULL ? null : value;
+        break;
+
+      case "startDate":
+        rpcParams.p_start_date = value;
+        break;
+
+      case "endDate":
+        rpcParams.p_end_date = value;
+        break;
+
+      default:
+        break;
+    }
+  });
+
+  const { data, error } = await supabase.rpc(
+    "get_payments_overview",
+    rpcParams,
+  );
 
   if (error) throw error;
 

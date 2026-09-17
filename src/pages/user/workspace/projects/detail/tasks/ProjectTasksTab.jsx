@@ -115,9 +115,24 @@ export default function ProjectTasksTab() {
     statuses: TASK_STATUSES,
     statusTypeMap: TASK_STATUS_TYPE,
     extraTabs: [
-      { label: "Overdue", paramKey: "dueStatus", value: "overdue", type: "red" },
-      { label: "Due Soon", paramKey: "dueStatus", value: "due_soon", type: "yellow" },
-      { label: "Completed Late", paramKey: "dueStatus", value: "completed_late", type: "yellow" },
+      {
+        label: "Overdue",
+        paramKey: "dueStatus",
+        value: "overdue",
+        type: "red",
+      },
+      {
+        label: "Due Soon",
+        paramKey: "dueStatus",
+        value: "due_soon",
+        type: "yellow",
+      },
+      {
+        label: "Completed Late",
+        paramKey: "dueStatus",
+        value: "completed_late",
+        type: "yellow",
+      },
     ],
   });
 
@@ -171,7 +186,8 @@ export default function ProjectTasksTab() {
         // recomputing it here, same value myTasksService.js's server-side
         // filter and get_project_overview_rpc.sql's completedLateCount
         // both already read.
-        if (dueStatus === "completed_late" && !t.is_completed_late) return false;
+        if (dueStatus === "completed_late" && !t.is_completed_late)
+          return false;
       }
       if (
         q &&
@@ -187,7 +203,9 @@ export default function ProjectTasksTab() {
   }
 
   function handleCloseEdit() {
-    navigate(`/app/workspace/projects/${projectId}/tasks?${searchParams.toString()}`);
+    navigate(
+      `/app/workspace/projects/${projectId}/tasks?${searchParams.toString()}`,
+    );
   }
 
   async function handleAddTask(formData) {
@@ -303,7 +321,7 @@ export default function ProjectTasksTab() {
           <Button
             name="Add Task"
             icon={PlusIcon}
-            style="button buttonType5 approval textXS"
+            style="button buttonType5 greenFill buttonFull textXS"
             size={16}
             onClick={() => setAddingOpen(true)}
           />

@@ -27,8 +27,11 @@ export async function fetchBills({
     .toISOString()
     .split("T")[0];
 
+  // Queries the balance-enriched view (see finance_outstanding_balance_
+  // views.sql), not the raw table -- adds outstanding_balance as a real,
+  // filterable column (see hasBalanceOnly below), same columns otherwise.
   let query = supabase
-    .from("sap_vendor_bills")
+    .from("sap_vendor_bills_with_balance")
     .select("*", { count: "exact" })
     .order(sortBy, { ascending: sortOrder === "ascending" });
 
@@ -91,6 +94,14 @@ export async function fetchBills({
         }
         break;
 
+      // Closes the KPI-vs-list reconciliation gap: Outstanding/Due Soon/
+      // Overdue/Critically Overdue all require this same "real balance
+      // remaining" condition on top of status_code -- see
+      // finance_outstanding_balance_views.sql's header comment.
+      case "hasBalanceOnly":
+        if (value === "true") query = query.gt("outstanding_balance", 0.01);
+        break;
+
       case "startDate":
         query = query.gte("bill_date", value);
         break;
@@ -127,7 +138,7 @@ export async function fetchBillByDocEntry(docEntry) {
   if (!docEntry) return null;
 
   const { data, error } = await supabase
-    .from("sap_vendor_bills")
+    .from("sap_vendor_bills_with_balance")
     .select("*")
     .eq("doc_entry", Number(docEntry))
     .maybeSingle();
@@ -140,10 +151,52 @@ export async function fetchBillByDocEntry(docEntry) {
 /**
  * Backs the Bills list page's OverviewCards -- see
  * get_bills_overview_rpc.sql's own comment for why this is a plain (not
- * security definer) RPC.
+ * security definer) RPC, and for why overdueOnly/dueSoonOnly/
+ * criticallyOverdueOnly are deliberately NOT forwarded here. Param mapping
+ * mirrors fetchFinanceDashboard.js's own filters -> rpcParams switch.
  */
-export async function fetchBillsOverview() {
-  const { data, error } = await supabase.rpc("get_bills_overview");
+export async function fetchBillsOverview({ filters, search } = {}) {
+  const FILTER_NULL = "__null__";
+
+  const rpcParams = {
+    p_vendor_code: null,
+    p_status_code: null,
+    p_is_cancelled: null,
+    p_start_date: null,
+    p_end_date: null,
+    p_search: search || null,
+  };
+
+  Object.entries(filters || {}).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+
+    switch (key) {
+      case "vendorCode":
+        rpcParams.p_vendor_code = value === FILTER_NULL ? null : value;
+        break;
+
+      case "statusCode":
+        rpcParams.p_status_code = value === FILTER_NULL ? null : value;
+        break;
+
+      case "isCancelled":
+        rpcParams.p_is_cancelled = value === FILTER_NULL ? null : value;
+        break;
+
+      case "startDate":
+        rpcParams.p_start_date = value;
+        break;
+
+      case "endDate":
+        rpcParams.p_end_date = value;
+        break;
+
+      default:
+        break;
+    }
+  });
+
+  const { data, error } = await supabase.rpc("get_bills_overview", rpcParams);
 
   if (error) throw error;
 

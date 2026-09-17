@@ -14,7 +14,12 @@ export default function BillCard({ bill, to }) {
   const isOpen = bill.status_code === "O";
   const total = bill.total_amount_myr || 0;
   const paid = bill.paid_to_date || 0;
-  const outstanding = total - paid;
+  // Sourced from sap_vendor_bills_with_balance (see
+  // finance_outstanding_balance_views.sql) wherever the row came through
+  // fetchBills/fetchBillByDocEntry -- falls back to the identical inline
+  // formula for any other fetch path so this never breaks, just stops being
+  // the single source of truth for that one path.
+  const outstanding = bill.outstanding_balance ?? total - paid;
   const Wrapper = to ? Link : "div";
   const wrapperProps = to
     ? { to, className: "generalCard salesOrderCard" }

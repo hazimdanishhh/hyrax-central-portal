@@ -23,3 +23,23 @@ export function exclusiveUpperBound(dateStr) {
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().split("T")[0];
 }
+
+/**
+ * Formats a Date as this app's "YYYY-MM-DD" filter-param shape using the
+ * Date's own LOCAL calendar fields -- never `.toISOString().split("T")[0]`,
+ * which reads back the UTC calendar day instead. For any timezone ahead of
+ * UTC (e.g. Malaysia, UTC+8), that silently rolls the date back by a full
+ * day for part of the day (a `new Date(year, month, 1)` "month start"
+ * constructed at local midnight lands on UTC 16:00 the PREVIOUS day, so
+ * `.toISOString()` reports the last day of the prior month instead of the
+ * 1st -- confirmed root cause of a 2026-09 KPI-vs-list mismatch on the
+ * Payments/Vendor Payments "This Week"/"This Month" drill-through filters).
+ * Every overviewConfig.js "this week"/"this month" filter needs the
+ * viewer's own calendar day, not UTC's -- use this instead.
+ */
+export function toLocalDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

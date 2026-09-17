@@ -9,6 +9,8 @@ import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
+import SortBar from "../../../../components/crud/sortBar/SortBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
@@ -18,6 +20,7 @@ import { fetchPayments } from "../../../../features/finance/payments/private/api
 import { usePayment } from "../../../../features/finance/payments/private/hooks/usePayment";
 import { getPaymentsFilterConfig } from "./filterConfig";
 import { getPaymentsOverviewConfig } from "./overviewConfig";
+import { getPaymentsSortConfig } from "./sortConfig";
 import { usePaymentsOverview } from "../../../../features/finance/payments/private/hooks/usePaymentsOverview";
 import PaymentSidebar from "./detail/PaymentSidebar";
 import PaymentCard from "../../../../components/finance/paymentCard/PaymentCard";
@@ -44,9 +47,13 @@ export default function Payments() {
     filters,
     activeFilters,
     hasActiveFilters,
+    sortBy,
+    sortOrder,
     setPage,
     setSearch,
     setFilters,
+    setSortBy,
+    setSortOrder,
     resetParams,
     isLoading,
     isFetching,
@@ -78,10 +85,11 @@ export default function Payments() {
 
   const sidebarOpen = !!selectedRow;
 
-  const { kpis } = usePaymentsOverview();
+  const { kpis } = usePaymentsOverview(filters, search);
   const overviewItems = getPaymentsOverviewConfig(kpis);
 
   const filterConfig = getPaymentsFilterConfig();
+  const sortOptions = getPaymentsSortConfig();
   const hasData = payments.length > 0;
 
   function handleCloseSidebar() {
@@ -122,6 +130,16 @@ export default function Payments() {
                 resetParams={resetParams}
               />
             )}
+
+            <PageHeader>
+              <SortBar
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                sortOptions={sortOptions}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+              />
+            </PageHeader>
 
             <PageResult
               data={payments}

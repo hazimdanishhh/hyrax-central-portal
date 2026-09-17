@@ -9,6 +9,8 @@ import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
+import SortBar from "../../../../components/crud/sortBar/SortBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
@@ -19,6 +21,7 @@ import { useInvoice } from "../../../../features/finance/invoices/private/hooks/
 import { useFinanceMetadata } from "../../../../features/finance/reports/private/hooks/useFinanceMetadata";
 import { getInvoicesFilterConfig } from "./filterConfig";
 import { getInvoicesOverviewConfig } from "./overviewConfig";
+import { getInvoicesSortConfig } from "./sortConfig";
 import { useInvoicesOverview } from "../../../../features/finance/invoices/private/hooks/useInvoicesOverview";
 import InvoiceSidebar from "./detail/InvoiceSidebar";
 import InvoiceCard from "../../../../components/finance/invoiceCard/InvoiceCard";
@@ -45,9 +48,13 @@ export default function Invoices() {
     filters,
     activeFilters,
     hasActiveFilters,
+    sortBy,
+    sortOrder,
     setPage,
     setSearch,
     setFilters,
+    setSortBy,
+    setSortOrder,
     resetParams,
     isLoading: invoicesLoading,
     isFetching: invoicesFetching,
@@ -87,10 +94,11 @@ export default function Invoices() {
 
   const sidebarOpen = !!selectedRow;
 
-  const { kpis } = useInvoicesOverview();
+  const { kpis } = useInvoicesOverview(filters, search);
   const overviewItems = getInvoicesOverviewConfig(kpis);
 
   const filterConfig = getInvoicesFilterConfig({ salesReps });
+  const sortOptions = getInvoicesSortConfig();
 
   const isLoading = invoicesLoading || metadataLoading;
   const isFetching = invoicesFetching || metadataFetching;
@@ -135,6 +143,16 @@ export default function Invoices() {
                 resetParams={resetParams}
               />
             )}
+
+            <PageHeader>
+              <SortBar
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                sortOptions={sortOptions}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+              />
+            </PageHeader>
 
             <PageResult
               data={invoices}

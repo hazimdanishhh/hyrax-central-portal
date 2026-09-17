@@ -4,6 +4,7 @@ import {
   CalendarBlankIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../functions/formatNumber";
+import { toLocalDateString } from "../../../../functions/dateRangeFilters";
 
 /**
  * AP mirror of finance/payments/overviewConfig.js -- same three-tile shape
@@ -18,18 +19,14 @@ export function getVendorPaymentsOverviewConfig(kpis) {
   const unallocatedFilter = { unallocatedOnly: "true", isCancelled: "N" };
   const thisWeekFilter = {
     isCancelled: "N",
-    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0],
-    endDate: new Date().toISOString().split("T")[0],
+    startDate: toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
+    endDate: toLocalDateString(new Date()),
   };
   const now = new Date();
   const thisMonthFilter = {
     isCancelled: "N",
-    startDate: new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split("T")[0],
-    endDate: now.toISOString().split("T")[0],
+    startDate: toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)),
+    endDate: toLocalDateString(now),
   };
 
   return [

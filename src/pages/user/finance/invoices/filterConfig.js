@@ -64,5 +64,13 @@ export function getInvoicesFilterConfig({ salesReps }) {
         { label: "Critically Overdue Only (90+ Days)", value: "true" },
       ],
     },
+    {
+      key: "hasBalanceOnly",
+      label: "Outstanding Balance Only",
+      options: [
+        { label: "All Invoices", value: "false" },
+        { label: "Has Outstanding Balance", value: "true" },
+      ],
+    },
   ];
 }

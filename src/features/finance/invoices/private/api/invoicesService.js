@@ -31,8 +31,11 @@ export async function fetchInvoices({
     .toISOString()
     .split("T")[0];
 
+  // Queries the balance-enriched view (see finance_outstanding_balance_
+  // views.sql), not the raw table -- adds outstanding_balance as a real,
+  // filterable column (see hasBalanceOnly below), same columns otherwise.
   let query = supabase
-    .from("sap_invoices")
+    .from("sap_invoices_with_balance")
     .select("*", { count: "exact" })
     .order(sortBy, { ascending: sortOrder === "ascending" });
 
@@ -108,6 +111,14 @@ export async function fetchInvoices({
         }
         break;
 
+      // Closes the KPI-vs-list reconciliation gap: Outstanding/Due Soon/
+      // Overdue/Critically Overdue all require this same "real balance
+      // remaining" condition on top of status_code -- see
+      // finance_outstanding_balance_views.sql's header comment.
+      case "hasBalanceOnly":
+        if (value === "true") query = query.gt("outstanding_balance", 0.01);
+        break;
+
       case "startDate":
         query = query.gte("invoice_date", value);
         break;
@@ -151,7 +162,7 @@ export async function fetchInvoiceByDocEntry(docEntry) {
 
   const [{ data, error }, repsByCode, namesByCode] = await Promise.all([
     supabase
-      .from("sap_invoices")
+      .from("sap_invoices_with_balance")
       .select("*")
       .eq("doc_entry", Number(docEntry))
       .maybeSingle(),
@@ -237,10 +248,60 @@ export async function fetchInvoicesForSalesOrder(soDocEntry) {
 /**
  * Backs the Invoices list page's OverviewCards -- see
  * get_invoices_overview_rpc.sql's own comment for why this is a plain (not
- * security definer) RPC.
+ * security definer) RPC, and for why overdueOnly/dueSoonOnly/
+ * criticallyOverdueOnly are deliberately NOT forwarded here. Param mapping
+ * mirrors fetchFinanceDashboard.js's own filters -> rpcParams switch.
  */
-export async function fetchInvoicesOverview() {
-  const { data, error } = await supabase.rpc("get_invoices_overview");
+export async function fetchInvoicesOverview({ filters, search } = {}) {
+  const FILTER_NULL = "__null__";
+
+  const rpcParams = {
+    p_customer_code: null,
+    p_sales_rep_code: null,
+    p_status_code: null,
+    p_is_cancelled: null,
+    p_start_date: null,
+    p_end_date: null,
+    p_search: search || null,
+  };
+
+  Object.entries(filters || {}).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+
+    switch (key) {
+      case "customerCode":
+        rpcParams.p_customer_code = value === FILTER_NULL ? null : value;
+        break;
+
+      case "salesRepCode":
+        rpcParams.p_sales_rep_code = value === FILTER_NULL ? null : value;
+        break;
+
+      case "statusCode":
+        rpcParams.p_status_code = value === FILTER_NULL ? null : value;
+        break;
+
+      case "isCancelled":
+        rpcParams.p_is_cancelled = value === FILTER_NULL ? null : value;
+        break;
+
+      case "startDate":
+        rpcParams.p_start_date = value;
+        break;
+
+      case "endDate":
+        rpcParams.p_end_date = value;
+        break;
+
+      default:
+        break;
+    }
+  });
+
+  const { data, error } = await supabase.rpc(
+    "get_invoices_overview",
+    rpcParams,
+  );
 
   if (error) throw error;
 

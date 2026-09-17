@@ -6,6 +6,8 @@ import CardLayout from "../../../../components/cardLayout/CardLayout";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
+import SortBar from "../../../../components/crud/sortBar/SortBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
@@ -16,6 +18,7 @@ import { useSalesOrder } from "../../../../features/sales/orders/private/hooks/u
 import { useSalesOrdersMetadata } from "../../../../features/sales/orders/private/hooks/useSalesOrdersMetadata";
 import { getSalesOrdersFilterConfig } from "./filterConfig";
 import { getSalesOrdersOverviewConfig } from "./overviewConfig";
+import { getSalesOrdersSortConfig } from "./sortConfig";
 import { useSalesOrdersOverview } from "../../../../features/sales/orders/private/hooks/useSalesOrdersOverview";
 import SalesOrderCard from "../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
 import SalesOrderSidebar from "./detail/SalesOrderSidebar";
@@ -48,9 +51,13 @@ export default function Orders() {
     filters,
     activeFilters,
     hasActiveFilters,
+    sortBy,
+    sortOrder,
     setPage,
     setSearch,
     setFilters,
+    setSortBy,
+    setSortOrder,
     resetParams,
     isLoading: ordersLoading,
     isFetching: ordersFetching,
@@ -89,10 +96,11 @@ export default function Orders() {
 
   const sidebarOpen = !!selectedRow;
 
-  const { kpis } = useSalesOrdersOverview();
+  const { kpis } = useSalesOrdersOverview(filters, search);
   const overviewItems = getSalesOrdersOverviewConfig(kpis);
 
   const filterConfig = getSalesOrdersFilterConfig({ salesReps });
+  const sortOptions = getSalesOrdersSortConfig();
 
   const isLoading = ordersLoading || metadataLoading;
   const isFetching = ordersFetching || metadataFetching;
@@ -134,6 +142,16 @@ export default function Orders() {
           resetParams={resetParams}
         />
       )}
+
+      <PageHeader>
+        <SortBar
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOptions={sortOptions}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+        />
+      </PageHeader>
 
       <PageResult
         data={salesOrders}

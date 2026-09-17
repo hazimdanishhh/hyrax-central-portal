@@ -114,8 +114,18 @@ export default function ProjectsManagement() {
     statuses: PROJECT_STATUSES,
     statusTypeMap: PROJECT_STATUS_TYPE,
     extraTabs: [
-      { label: "Overdue", paramKey: "dueStatus", value: "overdue", type: "red" },
-      { label: "Due Soon", paramKey: "dueStatus", value: "due_soon", type: "yellow" },
+      {
+        label: "Overdue",
+        paramKey: "dueStatus",
+        value: "overdue",
+        type: "red",
+      },
+      {
+        label: "Due Soon",
+        paramKey: "dueStatus",
+        value: "due_soon",
+        type: "yellow",
+      },
     ],
   });
 
@@ -202,7 +212,7 @@ export default function ProjectsManagement() {
                     name: "Add Project",
                     icon: PlusCircleIcon,
                     onClick: handleOpenCreate,
-                    style: "button buttonType5 approval textXXS",
+                    style: "button buttonType5 greenFill buttonFull textXXS",
                   },
                 ]}
               />

@@ -435,7 +435,7 @@ export default function LeadsManagement() {
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
               },
-              style: "button buttonType5 approval textXXS",
+              style: "button buttonType5 greenFill buttonFull textXXS",
             },
           ]}
         />

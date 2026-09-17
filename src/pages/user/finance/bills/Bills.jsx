@@ -9,6 +9,8 @@ import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
+import PageHeader from "../../../../components/crud/pageHeader/PageHeader";
+import SortBar from "../../../../components/crud/sortBar/SortBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
 import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
@@ -18,6 +20,7 @@ import { fetchBills } from "../../../../features/finance/bills/private/api/bills
 import { useBill } from "../../../../features/finance/bills/private/hooks/useBill";
 import { getBillsFilterConfig } from "./filterConfig";
 import { getBillsOverviewConfig } from "./overviewConfig";
+import { getBillsSortConfig } from "./sortConfig";
 import { useBillsOverview } from "../../../../features/finance/bills/private/hooks/useBillsOverview";
 import BillSidebar from "./detail/BillSidebar";
 import BillCard from "../../../../components/finance/billCard/BillCard";
@@ -45,9 +48,13 @@ export default function Bills() {
     filters,
     activeFilters,
     hasActiveFilters,
+    sortBy,
+    sortOrder,
     setPage,
     setSearch,
     setFilters,
+    setSortBy,
+    setSortOrder,
     resetParams,
     isLoading,
     isFetching,
@@ -79,10 +86,11 @@ export default function Bills() {
 
   const sidebarOpen = !!selectedRow;
 
-  const { kpis } = useBillsOverview();
+  const { kpis } = useBillsOverview(filters, search);
   const overviewItems = getBillsOverviewConfig(kpis);
 
   const filterConfig = getBillsFilterConfig();
+  const sortOptions = getBillsSortConfig();
   const hasData = bills.length > 0;
 
   function handleCloseSidebar() {
@@ -123,6 +131,16 @@ export default function Bills() {
                 resetParams={resetParams}
               />
             )}
+
+            <PageHeader>
+              <SortBar
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                sortOptions={sortOptions}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+              />
+            </PageHeader>
 
             <PageResult
               data={bills}

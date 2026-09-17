@@ -5,6 +5,7 @@ import {
   TrendUpIcon,
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../functions/formatNumber";
+import { toLocalDateString } from "../../../../functions/dateRangeFilters";
 
 /**
  * Four tiles (Open / Due Soon / Overdue / New This Week), each RM headline +
@@ -24,10 +25,8 @@ export function getSalesOrdersOverviewConfig(kpis) {
   // closed status (only excluding cancelled ones via base_orders).
   const newThisWeekFilter = {
     isCancelled: "N",
-    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0],
-    endDate: new Date().toISOString().split("T")[0],
+    startDate: toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
+    endDate: toLocalDateString(new Date()),
   };
 
   return [

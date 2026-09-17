@@ -138,7 +138,7 @@ export default function LeaveManagement() {
                     name: "Import Leave CSV",
                     icon: UploadSimpleIcon,
                     onClick: () => setImportOpen(true),
-                    style: "button buttonType5 approval",
+                    style: "button buttonType5 greenFill buttonFull textXXS",
                   },
                 ]}
               />

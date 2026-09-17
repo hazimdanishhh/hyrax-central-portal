@@ -15,7 +15,16 @@ import { compactCurrency } from "../../../../functions/formatNumber";
  * for why.
  */
 export function getInvoicesOverviewConfig(kpis) {
-  const baseFilter = { statusCode: "O", isCancelled: "N" };
+  // hasBalanceOnly matters here -- every tile below also requires
+  // (total_amount_myr - paid_to_date) > 0.01 in get_invoices_overview_rpc.sql,
+  // so without it the drill-through list would include open invoices already
+  // paid in full, which the KPI never counted (see
+  // finance_outstanding_balance_views.sql).
+  const baseFilter = {
+    statusCode: "O",
+    isCancelled: "N",
+    hasBalanceOnly: "true",
+  };
   const dueSoonFilter = { ...baseFilter, dueSoonOnly: "true" };
   const overdueFilter = { ...baseFilter, overdueOnly: "true" };
   const criticallyOverdueFilter = {

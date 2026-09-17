@@ -115,7 +115,7 @@ export default function AttendanceSettings() {
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
               },
-              style: "button buttonType5 approval",
+              style: "button buttonType5 greenFill buttonFull textXXS",
             },
           ]}
         />
@@ -129,7 +129,7 @@ export default function AttendanceSettings() {
         ) : !hasData || error ? (
           <NoResult />
         ) : (
-          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+          <CardLayout style="cardLayout1 cardGapSmall">
             {holidays.map((holiday) => (
               <PublicHolidayCard
                 key={holiday.id}
