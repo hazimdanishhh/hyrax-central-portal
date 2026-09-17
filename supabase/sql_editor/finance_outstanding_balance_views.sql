@@ -38,11 +38,20 @@
 -- the efficient shape for a paginated view -- though at this app's
 -- documented data scale (<100MB, ~20k rows, DASHBOARD-CONVENTIONS.md's own
 -- "Scale note") either shape would be fine.
+-- has_paid_mismatch (added 2026-09): exposes the applied_payment_myr-vs-
+-- paid_to_date comparison itself as a real, filterable boolean column --
+-- same reasoning as outstanding_balance/hasBalanceOnly above: PostgREST
+-- can't filter on an arithmetic comparison across two columns directly, so
+-- the comparison has to be computed here to become filterable
+-- (`paidMismatchOnly`, see invoicesService.js/billsService.js). Same 0.01
+-- epsilon guard used throughout this app for floating-point-settled
+-- balances (see get_invoices_overview_rpc.sql's own outstandingCount).
 create or replace view public.sap_invoices_with_balance as
 select
     i.*,
     (i.total_amount_myr - i.paid_to_date) as outstanding_balance,
-    coalesce(pa.applied_payment_myr, 0) as applied_payment_myr
+    coalesce(pa.applied_payment_myr, 0) as applied_payment_myr,
+    (abs(i.paid_to_date - coalesce(pa.applied_payment_myr, 0)) > 0.01) as has_paid_mismatch
 from public.sap_invoices i
 left join lateral (
     select sum(pa.amount_applied_myr) as applied_payment_myr
@@ -57,7 +66,8 @@ create or replace view public.sap_vendor_bills_with_balance as
 select
     b.*,
     (b.total_amount_myr - b.paid_to_date) as outstanding_balance,
-    coalesce(pa.applied_payment_myr, 0) as applied_payment_myr
+    coalesce(pa.applied_payment_myr, 0) as applied_payment_myr,
+    (abs(b.paid_to_date - coalesce(pa.applied_payment_myr, 0)) > 0.01) as has_paid_mismatch
 from public.sap_vendor_bills b
 left join lateral (
     select sum(pa.amount_applied_myr) as applied_payment_myr

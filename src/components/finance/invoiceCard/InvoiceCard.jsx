@@ -9,6 +9,7 @@ import { Link } from "react-router";
 import StatusBox from "../../status/statusBox/StatusBox";
 import CardLayout from "../../cardLayout/CardLayout";
 import SalesRepBadge from "../../employees/salesRepBadge/SalesRepBadge";
+import SAPCustomerCard from "../../client/sapCustomerCard/SAPCustomerCard";
 
 const MotionLink = motion.create(Link);
 
@@ -31,7 +32,11 @@ export default function InvoiceCard({ invoice, to }) {
   // caught up with a payment application that landed after this invoice's
   // header last synced.
   const appliedPayment = invoice.applied_payment_myr ?? 0;
-  const paidAppliedMismatch = Math.abs(paid - appliedPayment) > 0.01;
+  // Sourced from the same view's has_paid_mismatch column (also what the
+  // new paidMismatchOnly filter matches on) -- falls back to the identical
+  // inline comparison for any fetch path that doesn't include it.
+  const paidAppliedMismatch =
+    invoice.has_paid_mismatch ?? Math.abs(paid - appliedPayment) > 0.01;
   const gp = invoice.gross_profit;
   const grossProfitDisplay =
     gp == null || Math.abs(gp) > Math.abs(total) * 5
@@ -64,20 +69,15 @@ export default function InvoiceCard({ invoice, to }) {
             {invoice.is_cancelled === "Y" && (
               <StatusBox status="Cancelled" type="red" />
             )}
+            {paidAppliedMismatch && (
+              <StatusBox status="Paid ≠ Applied" type="red" />
+            )}
           </div>
 
           <div className="salesOrderCardHeaderDetails">
             <p className="textBold textXS">INV# {invoice.invoice_number}</p>
 
-            <div className="salesOrderCustomer">
-              <StatusBox status={invoice.customer_code} type="blue" />
-              <p
-                className="textLight textXXS truncate"
-                title={invoice.customer_name}
-              >
-                {invoice.customer_name}
-              </p>
-            </div>
+            <SAPCustomerCard row={invoice} />
 
             <StatusBox
               status={
@@ -127,9 +127,7 @@ export default function InvoiceCard({ invoice, to }) {
               <strong className="textBold">Applied Payment (RM):</strong> RM{" "}
               {Math.round(appliedPayment).toLocaleString()}
             </p>
-            {paidAppliedMismatch && (
-              <StatusBox status="Paid ≠ Applied" type="red" />
-            )}
+
             <p className="textLight textXXS">
               <strong className="textBold">Gross Profit (RM):</strong>{" "}
               {grossProfitDisplay}

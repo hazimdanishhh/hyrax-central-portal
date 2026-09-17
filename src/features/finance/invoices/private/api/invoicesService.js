@@ -119,6 +119,14 @@ export async function fetchInvoices({
         if (value === "true") query = query.gt("outstanding_balance", 0.01);
         break;
 
+      // Surfaces the paid_to_date-vs-applied_payment_myr divergence found
+      // 2026-09 -- see finance_outstanding_balance_views.sql's own
+      // has_paid_mismatch comment for why this needs a real column rather
+      // than a client-side comparison.
+      case "paidMismatchOnly":
+        if (value === "true") query = query.eq("has_paid_mismatch", true);
+        break;
+
       case "startDate":
         query = query.gte("invoice_date", value);
         break;

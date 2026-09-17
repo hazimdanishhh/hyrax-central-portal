@@ -25,7 +25,11 @@ export default function BillCard({ bill, to }) {
   // kept separate from `paid` (OPCH.PaidToDate) rather than blended in, and
   // why the mismatch badge below exists.
   const appliedPayment = bill.applied_payment_myr ?? 0;
-  const paidAppliedMismatch = Math.abs(paid - appliedPayment) > 0.01;
+  // Sourced from the same view's has_paid_mismatch column (also what the
+  // new paidMismatchOnly filter matches on) -- falls back to the identical
+  // inline comparison for any fetch path that doesn't include it.
+  const paidAppliedMismatch =
+    bill.has_paid_mismatch ?? Math.abs(paid - appliedPayment) > 0.01;
   const Wrapper = to ? Link : "div";
   const wrapperProps = to
     ? { to, className: "generalCard salesOrderCard" }

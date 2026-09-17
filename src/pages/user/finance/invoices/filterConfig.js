@@ -72,5 +72,13 @@ export function getInvoicesFilterConfig({ salesReps }) {
         { label: "Has Outstanding Balance", value: "true" },
       ],
     },
+    {
+      key: "paidMismatchOnly",
+      label: "Paid ≠ Applied Only",
+      options: [
+        { label: "All Invoices", value: "false" },
+        { label: "Paid ≠ Applied Only", value: "true" },
+      ],
+    },
   ];
 }

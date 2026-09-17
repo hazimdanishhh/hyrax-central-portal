@@ -9,6 +9,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router";
 import SalesRepBadge from "../../../employees/salesRepBadge/SalesRepBadge";
+import SAPCustomerCard from "../../../client/sapCustomerCard/SAPCustomerCard";
 
 const MotionLink = motion.create(Link);
 
@@ -61,15 +62,7 @@ function SalesOrderCard({ order, to }) {
           <div className="salesOrderCardHeaderDetails">
             <p className="textBold textXS">SO# {order.so_number}</p>
 
-            <div className="salesOrderCustomer">
-              <StatusBox status={order.customer_code} type="blue" />
-              <p
-                className="textLight textXXS truncate"
-                title={order.customer_name}
-              >
-                {order.customer_name}
-              </p>
-            </div>
+            <SAPCustomerCard row={order} />
 
             <StatusBox
               status={

@@ -4,6 +4,7 @@ import { formatDate } from "../../../functions/formatDate";
 import StatusBox from "../../status/statusBox/StatusBox";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import IconCard from "../../iconCard/IconCard";
+import SAPCustomerCard from "../../client/sapCustomerCard/SAPCustomerCard";
 
 // Read-only card for a sap_payments row. No rep/employee avatar and no
 // PO/customer_ref field on this entity -- reference fills the badge slot
@@ -31,15 +32,7 @@ export default function PaymentCard({ payment, to }) {
           <div className="salesOrderCardHeaderDetails">
             <p className="textBold textXS">RCT# {payment.receipt_number}</p>
 
-            <div className="salesOrderCustomer">
-              <StatusBox status={payment.customer_code} type="blue" />
-              <p
-                className="textLight textXXS truncate"
-                title={payment.customer_name}
-              >
-                {payment.customer_name}
-              </p>
-            </div>
+            <SAPCustomerCard row={payment} />
 
             <StatusBox
               status={

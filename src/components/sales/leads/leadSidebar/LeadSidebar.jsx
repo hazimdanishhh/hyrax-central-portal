@@ -39,6 +39,7 @@ import LoadingIcon from "../../../loadingIcon/LoadingIcon";
 import DetailFieldGrid from "../../../dataSidebar/DetailFieldGrid";
 import { formatDate } from "../../../../functions/formatDate";
 import SalesOrderCard from "../../orders/salesOrderCard/SalesOrderCard";
+import SAPCustomerCard from "../../../client/sapCustomerCard/SAPCustomerCard";
 
 export default function LeadSidebar({
   selectedRow,
@@ -94,6 +95,8 @@ export default function LeadSidebar({
    */
   const allowedTransitions = LEAD_STAGE_TRANSITIONS[selectedRow.stage] || [];
 
+  console.log(selectedRow);
+
   return (
     <div className="leadSidebarContainer">
       <div className="leadSidebarDateTimeContainer">
@@ -146,18 +149,14 @@ export default function LeadSidebar({
           <p className="textRegular textXS">{selectedRow.description}</p>
 
           <div className="leadSidebarOnHoldContainer">
-            <IconCard
-              name={accountName}
-              icon={BriefcaseIcon}
-              style="textLight textXS"
-            />
-            <StatusBox
-              status={
+            <SAPCustomerCard
+              code={
                 isSapLinked
-                  ? `SAP Customer — ${selectedRow.sap_customer_code}`
-                  : "Prospect"
+                  ? selectedRow.sap_customer_code
+                  : selectedRow.client_id
               }
-              type={isSapLinked ? "green" : "grey"}
+              name={accountName}
+              isSapLinked={isSapLinked}
             />
           </div>
 
