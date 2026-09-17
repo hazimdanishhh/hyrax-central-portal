@@ -31,10 +31,10 @@ export function getHrReportsOverviewConfig(
     ...(filters.startDate && { startDate: filters.startDate }),
     ...(filters.endDate && { endDate: filters.endDate }),
   };
-  const employeesTo = canAccessHrOps ? "/app/hr/employees/list" : undefined;
-  const attendanceTo = canAccessHrOps ? "/app/hr/attendance/list" : undefined;
-  const onboardingTo = canAccessHrOps ? "/app/hr/onboarding" : undefined;
-  const offboardingTo = canAccessHrOps ? "/app/hr/offboarding" : undefined;
+  const employeesTo = canAccessHrOps ? "/app/hr/employees/list" : null;
+  const attendanceTo = canAccessHrOps ? "/app/hr/attendance/list" : null;
+  const onboardingTo = canAccessHrOps ? "/app/hr/onboarding" : null;
+  const offboardingTo = canAccessHrOps ? "/app/hr/offboarding" : null;
 
   // Same thresholds already tuned/shipped on Employee Overview/Attendance
   // Overview's own equivalent tiles -- kept identical so a number reads the
@@ -74,7 +74,11 @@ export function getHrReportsOverviewConfig(
           label: "Departures",
           value: kpis.departuresInPeriod || 0,
           to: employeesTo,
-          filter: { ...baseFilter, statusBucket: "terminated", ...periodFilter },
+          filter: {
+            ...baseFilter,
+            statusBucket: "terminated",
+            ...periodFilter,
+          },
         },
       ],
       title:
@@ -86,7 +90,10 @@ export function getHrReportsOverviewConfig(
       sublabel: "This Period",
       value: `${kpis.attritionRatePct || 0}%`,
       variant: attritionStatus.variant,
-      status: { icon: attritionStatus.statusIcon, label: attritionStatus.statusLabel },
+      status: {
+        icon: attritionStatus.statusIcon,
+        label: attritionStatus.statusLabel,
+      },
       to: null,
       metrics: [{ label: "Departures", value: kpis.departuresInPeriod || 0 }],
       title:
@@ -110,11 +117,15 @@ export function getHrReportsOverviewConfig(
       sublabel: "This Period",
       value: `${kpis.absenteeismRatePct || 0}%`,
       variant: absenteeismStatus.variant,
-      status: { icon: absenteeismStatus.statusIcon, label: absenteeismStatus.statusLabel },
+      status: {
+        icon: absenteeismStatus.statusIcon,
+        label: absenteeismStatus.statusLabel,
+      },
       to: attendanceTo,
       filter: { ...baseFilter, hrFlag: "Absent", ...periodFilter },
       metrics: [],
-      title: "Absent-flagged records divided by all working-day records this period.",
+      title:
+        "Absent-flagged records divided by all working-day records this period.",
     },
     {
       icon: AlarmIcon,
@@ -122,11 +133,17 @@ export function getHrReportsOverviewConfig(
       sublabel: "Total, This Period",
       value: `${kpis.overtimeHoursTotal || 0}h`,
       variant: overtimeStatus.variant,
-      status: { icon: overtimeStatus.statusIcon, label: overtimeStatus.statusLabel },
+      status: {
+        icon: overtimeStatus.statusIcon,
+        label: overtimeStatus.statusLabel,
+      },
       to: attendanceTo,
       filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
       metrics: [
-        { label: "Employees With Overtime", value: kpis.employeesWithOvertimeCount || 0 },
+        {
+          label: "Employees With Overtime",
+          value: kpis.employeesWithOvertimeCount || 0,
+        },
       ],
       title:
         "Sum of hours worked after 6:00 PM (18:00) across working-day records this period -- not hours above 8/day, and not affected by what time the employee arrived.",
@@ -139,7 +156,9 @@ export function getHrReportsOverviewConfig(
       variant: "blueCard",
       to: attendanceTo,
       filter: { ...baseFilter, onLeave: "true", ...periodFilter },
-      metrics: [{ label: "Employees on Leave", value: kpis.employeesOnLeaveCount || 0 }],
+      metrics: [
+        { label: "Employees on Leave", value: kpis.employeesOnLeaveCount || 0 },
+      ],
       title:
         "Sum of day_fraction across all HR2000 leave-ledger entries falling in the selected period, company-wide (or within the selected department).",
     },
@@ -152,7 +171,10 @@ export function getHrReportsOverviewConfig(
       to: onboardingTo,
       filter: {},
       metrics: [
-        { label: "Completed This Period", value: kpis.onboardingCompletedInPeriod || 0 },
+        {
+          label: "Completed This Period",
+          value: kpis.onboardingCompletedInPeriod || 0,
+        },
         {
           label: "Avg Days to Complete",
           value:
@@ -173,7 +195,10 @@ export function getHrReportsOverviewConfig(
       to: offboardingTo,
       filter: {},
       metrics: [
-        { label: "Completed This Period", value: kpis.offboardingCompletedInPeriod || 0 },
+        {
+          label: "Completed This Period",
+          value: kpis.offboardingCompletedInPeriod || 0,
+        },
         {
           label: "Avg Days to Complete",
           value:
@@ -238,22 +263,34 @@ export function getHrReportsNeedsAttentionConfig(
       label: "HR Actions Needed",
       sublabel: "Confirmations Due or Overdue",
       value:
-        (kpis.confirmationsDueSoonCount || 0) + (kpis.lateConfirmationsCount || 0),
+        (kpis.confirmationsDueSoonCount || 0) +
+        (kpis.lateConfirmationsCount || 0),
       variant: hrActionsStatus.variant,
-      status: { icon: hrActionsStatus.statusIcon, label: hrActionsStatus.statusLabel },
+      status: {
+        icon: hrActionsStatus.statusIcon,
+        label: hrActionsStatus.statusLabel,
+      },
       to: null,
       metrics: [
         {
           label: "Confirmations Due Soon",
           value: kpis.confirmationsDueSoonCount || 0,
           to: employeesTo,
-          filter: { ...baseFilter, employmentStatus: 3, confirmationStatus: "due_soon" },
+          filter: {
+            ...baseFilter,
+            employmentStatus: 3,
+            confirmationStatus: "due_soon",
+          },
         },
         {
           label: "Confirmations Overdue",
           value: kpis.lateConfirmationsCount || 0,
           to: employeesTo,
-          filter: { ...baseFilter, employmentStatus: 3, confirmationStatus: "overdue" },
+          filter: {
+            ...baseFilter,
+            employmentStatus: 3,
+            confirmationStatus: "overdue",
+          },
         },
       ],
       title:
@@ -263,13 +300,22 @@ export function getHrReportsNeedsAttentionConfig(
       icon: ListChecksIcon,
       label: "Stuck Lifecycle Cases",
       sublabel: "Open More Than 14 Days",
-      value: (kpis.onboardingStuckCount || 0) + (kpis.offboardingStuckCount || 0),
+      value:
+        (kpis.onboardingStuckCount || 0) + (kpis.offboardingStuckCount || 0),
       variant: stuckStatus.variant,
       status: { icon: stuckStatus.statusIcon, label: stuckStatus.statusLabel },
       to: null,
       metrics: [
-        { label: "Onboarding", value: kpis.onboardingStuckCount || 0, to: onboardingTo },
-        { label: "Offboarding", value: kpis.offboardingStuckCount || 0, to: offboardingTo },
+        {
+          label: "Onboarding",
+          value: kpis.onboardingStuckCount || 0,
+          to: onboardingTo,
+        },
+        {
+          label: "Offboarding",
+          value: kpis.offboardingStuckCount || 0,
+          to: offboardingTo,
+        },
       ],
       title:
         "Onboarding/offboarding checklists still OPEN more than 14 days after being opened -- same 'stuck' definition the Lifecycle Case List itself uses.",
@@ -280,26 +326,41 @@ export function getHrReportsNeedsAttentionConfig(
       sublabel: "Missing Manager, Department, Profile, or Status Mismatch",
       value: kpis.dataGapsCount || 0,
       variant: dataGapsStatus.variant,
-      status: { icon: dataGapsStatus.statusIcon, label: dataGapsStatus.statusLabel },
+      status: {
+        icon: dataGapsStatus.statusIcon,
+        label: dataGapsStatus.statusLabel,
+      },
       to: null,
       metrics: [
         {
           label: "No Manager",
           value: kpis.noManagerCount || 0,
           to: employeesTo,
-          filter: { ...baseFilter, statusBucket: "active", manager: "__null__" },
+          filter: {
+            ...baseFilter,
+            statusBucket: "active",
+            manager: "__null__",
+          },
         },
         {
           label: "No Department",
           value: kpis.noDepartmentCount || 0,
           to: employeesTo,
-          filter: { ...baseFilter, statusBucket: "active", department: "__null__" },
+          filter: {
+            ...baseFilter,
+            statusBucket: "active",
+            department: "__null__",
+          },
         },
         {
           label: "No Profile",
           value: kpis.noProfileCount || 0,
           to: employeesTo,
-          filter: { ...baseFilter, statusBucket: "active", profile: "__null__" },
+          filter: {
+            ...baseFilter,
+            statusBucket: "active",
+            profile: "__null__",
+          },
         },
         {
           label: "Status Mismatch",
