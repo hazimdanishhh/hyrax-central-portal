@@ -73,6 +73,21 @@ export async function fetchInvoices({
         if (value) query = query.in("customer_code", String(value).split(","));
         break;
 
+      // Same shape as customerCodes above -- backs the Sales Order
+      // Fulfillment sidebar's "View All Invoices" button, scoping the list
+      // to exactly this order's own matched invoice doc_entrys (resolved
+      // client-side via fetchInvoicesForSalesOrder), not an approximation
+      // like customer+date range.
+      case "docEntries":
+        if (value)
+          query = query.in(
+            "doc_entry",
+            String(value)
+              .split(",")
+              .map(Number),
+          );
+        break;
+
       case "salesRepCode":
         if (value !== FILTER_NULL) query = query.eq("sales_rep_code", value);
         break;
@@ -243,8 +258,13 @@ export async function fetchInvoicesForSalesOrder(soDocEntry) {
   ];
   if (invoiceIds.length === 0) return [];
 
+  // sap_invoices_with_balance, not the raw table -- so a matched invoice
+  // card rendered inside a Sales Order sidebar shows real outstanding_
+  // balance/applied_payment_myr/has_paid_mismatch figures instead of
+  // silently defaulting to 0 (a real gap found 2026-09: this fetch never
+  // included those columns before).
   const { data: invoices, error: invoicesError } = await supabase
-    .from("sap_invoices")
+    .from("sap_invoices_with_balance")
     .select("*")
     .in("doc_entry", invoiceIds);
 

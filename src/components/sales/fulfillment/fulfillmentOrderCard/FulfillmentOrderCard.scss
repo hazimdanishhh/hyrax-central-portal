@@ -1,0 +1,57 @@
+.fulfillmentOrderCard {
+  .fulfillmentOrderCardHeader {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+
+    @media screen and (max-width: 768px) {
+      flex-direction: column;
+    }
+
+    .fulfillmentOrderCardStatus {
+      display: flex;
+      gap: 0.4rem;
+      align-items: start;
+      justify-content: start;
+      flex-wrap: wrap;
+
+      @media screen and (max-width: 768px) {
+        justify-content: space-between;
+      }
+    }
+
+    .fulfillmentOrderCardDates {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+
+      @media screen and (max-width: 768px) {
+        justify-content: space-between;
+      }
+    }
+  }
+  .fulfillmentOrderCardStageRow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: 100%;
+    border-bottom: 1px solid rgba($neutral500, 0.3);
+    padding-bottom: 0.8rem;
+  }
+
+  .fulfillmentOrderCardStageSummary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .fulfillmentOrderCardFigures {
+    width: 100%;
+    border-top: 1px solid rgba($neutral500, 0.3);
+    padding-top: 0.8rem;
+  }
+}

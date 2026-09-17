@@ -1,0 +1,26 @@
+.salesOrderSidebar {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0.8rem 0.8rem 0.8rem;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  gap: 0.8rem;
+}
+
+// Collapsible section header button, used by this sidebar's Order
+// Lines/Matched Invoice(s)/Matched Payment(s) sections. Resets native
+// <button> chrome so a SectionHeader/MatchConnector renders identically to
+// its non-clickable use elsewhere, just with a caret and a pointer cursor
+// added.
+.salesOrderSidebarSectionToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}

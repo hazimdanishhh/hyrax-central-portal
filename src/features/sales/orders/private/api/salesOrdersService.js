@@ -83,6 +83,18 @@ export async function fetchSalesOrders({
     .toISOString()
     .split("T")[0];
 
+  // Deliberately the RAW table, NOT sap_sales_orders_with_fulfillment --
+  // reverted 2026-09 after that view caused the list to time out with no
+  // period filter applied. Root cause: sap_sales_orders_with_fulfillment's
+  // lateral joins are correlated per-row, but `count: "exact"` (needed for
+  // pagination) forces Postgres to evaluate that full aggregation across
+  // EVERY row in the unfiltered result set just to count them, not only the
+  // 20 being displayed -- a real N-row cost the raw table never had. This
+  // sidebar (SalesOrderSidebar.jsx) has never used that view either -- the
+  // fulfillment-enriched columns now live only behind the standalone
+  // Fulfillment Tracker page/module (fulfillmentOrdersService.js), which
+  // accepts that view's cost by design instead of trying to bolt it onto
+  // this fast list.
   let query = supabase
     .from("sap_sales_orders")
     .select("*", { count: "exact" })

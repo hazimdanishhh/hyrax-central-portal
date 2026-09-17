@@ -95,8 +95,6 @@ export default function LeadSidebar({
    */
   const allowedTransitions = LEAD_STAGE_TRANSITIONS[selectedRow.stage] || [];
 
-  console.log(selectedRow);
-
   return (
     <div className="leadSidebarContainer">
       <div className="leadSidebarDateTimeContainer">

@@ -89,6 +89,16 @@ export const departmentLinkCardData = [
       },
 
       {
+        label: "Fulfillment Tracker",
+        description:
+          "Track each order from lead match through delivery, invoicing and full payment.",
+        icon: TruckIcon,
+        path: "sales/fulfillment",
+
+        departments: ["SAL", "MGM"],
+      },
+
+      {
         label: "Guides",
         description: "Step-by-step walkthroughs of the Sales pipeline.",
         icon: BookOpenIcon,

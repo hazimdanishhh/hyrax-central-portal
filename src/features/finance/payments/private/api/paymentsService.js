@@ -50,6 +50,22 @@ export async function fetchPayments({
         if (value !== FILTER_NULL) query = query.eq("customer_code", value);
         break;
 
+      // Backs the Sales Order Fulfillment sidebar's "View All Payments"
+      // button, scoping the list to exactly this order's own matched
+      // payment doc_entrys (resolved client-side via
+      // fetchPaymentsForSalesOrder's SO -> invoice -> payment-application
+      // transitive join), not an approximation. Mirrors invoicesService.js's
+      // own docEntries case.
+      case "docEntries":
+        if (value)
+          query = query.in(
+            "doc_entry",
+            String(value)
+              .split(",")
+              .map(Number),
+          );
+        break;
+
       case "isCancelled":
         if (value !== FILTER_NULL) query = query.eq("is_cancelled", value);
         break;

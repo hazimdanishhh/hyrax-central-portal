@@ -73,6 +73,13 @@
     grid-template-columns: repeat(1, 1fr);
     gap: 0.4rem;
   }
+
+  &.cardLayoutMin2 {
+    @media screen and (max-width: 1024px) {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.4rem;
+    }
+  }
 }
 
 .cardLayout1 {

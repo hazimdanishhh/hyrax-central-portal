@@ -224,6 +224,14 @@ export const sideNavLinkData = [
       },
 
       {
+        label: "Fulfillment Tracker",
+        icon: TruckIcon,
+        path: "sales/fulfillment",
+
+        departments: ["SAL", "MGM"],
+      },
+
+      {
         label: "Sales Rep Mapping",
         icon: LinkIcon,
         path: "sales/rep-mapping",
