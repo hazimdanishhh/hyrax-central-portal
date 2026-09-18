@@ -1,80 +1,121 @@
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   FileTextIcon,
   HandshakeIcon,
   ReceiptIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+  CaretRightIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import MatchConnector from "../../../../../components/matchConnector/MatchConnector";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import DataTable from "../../../../../components/dataTable/DataTable";
-import { formatDate } from "../../../../../functions/formatDate";
+import buildFilterUrl from "../../../../../functions/convertFilter";
+import { useFulfillmentOrder } from "../../../../../features/sales/orders/private/hooks/useFulfillmentOrder";
 import { useSalesOrderLines } from "../../../../../features/sales/orders/private/hooks/useSalesOrderLines";
 import { useLeadByPoNumber } from "../../../../../features/sales/leads/private/hooks/useLeadByPoNumber";
 import { useInvoicesForSalesOrder } from "../../../../../features/finance/invoices/private/hooks/useInvoicesForSalesOrder";
 import { usePaymentsForSalesOrder } from "../../../../../features/finance/payments/private/hooks/usePaymentsForSalesOrder";
 import { useAccessControl } from "../../../../../context/AccessControlContext";
-import { salesOrderLinesTableConfig } from "./salesOrderLinesTableConfig";
 import "./SalesOrderSidebar.scss";
-import SalesOrderCard from "../../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
 import SalesOrderLineCard from "../../../../../components/sales/orders/salesOrderLineCard/SalesOrderLineCard";
+import SalesOrderFulfillmentStage from "../../../../../components/sales/orders/salesOrderFulfillmentStage/SalesOrderFulfillmentStage";
 import InvoiceCard from "../../../../../components/finance/invoiceCard/InvoiceCard";
 import PaymentCard from "../../../../../components/finance/paymentCard/PaymentCard";
 import RouterButton from "../../../../../components/buttons/routerButton/RouterButton";
+import FulfillmentOrderCard from "../../../../../components/sales/orders/fulfillmentOrderCard/FulfillmentOrderCard";
 
 /**
- * Read-only detail view for a sales order -- no Edit button anywhere, no
- * isEditing/setIsEditing received, which is what keeps DataSidebar
- * permanently in its read-only (children-only) mode for this entity.
+ * Detail sidebar for the Sales Orders page. Order Lines/Matched
+ * Invoice(s)/Matched Payment(s) are each collapsed by default -- their data
+ * only fetches once the viewer actually expands that section (see
+ * useSalesOrderLines/useInvoicesForSalesOrder/usePaymentsForSalesOrder's own
+ * `enabled` param), and each carries a "View all" button (styled after
+ * PayrollReconciliationSidebar.jsx's own precedent) drilling through to the
+ * real Invoices/Payments list, filtered to exactly this order's own matched
+ * doc_entrys via the `docEntries` filter (invoicesService.js/
+ * paymentsService.js).
  */
 export default function SalesOrderSidebar({ selectedRow }) {
   const { canAccess } = useAccessControl();
+
+  // Same queryKey shape as Orders.jsx's own fallback useFulfillmentOrder
+  // call, so React Query dedupes into a single network request when both
+  // fire for the same docEntry (a direct/shared URL case).
+  const { data: fulfillmentOrder } = useFulfillmentOrder(
+    selectedRow?.doc_entry,
+  );
+
+  // Collapsible sections -- collapsed by default; each one's own fetch is
+  // gated on its own open state below.
+  const [linesOpen, setLinesOpen] = useState(false);
+  const [invoicesOpen, setInvoicesOpen] = useState(false);
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
+
   const {
     data: lines,
     isLoading,
     error,
-  } = useSalesOrderLines(selectedRow?.doc_entry);
+  } = useSalesOrderLines(selectedRow?.doc_entry, linesOpen);
 
   // Reverse of LeadSidebar.jsx's "MATCHED SAP SALES ORDER" block --
   // customer_ref (SAP NumAtCard) matched against sales_leads.po_number.
   // po_number is UNIQUE, so this is at most one lead, no 0/1/many handling
-  // needed here.
+  // needed here. Cheap/always-on (not gated by any toggle) -- the stage
+  // tracker above needs this immediately, not just an expanded section.
   const { data: matchedLead } = useLeadByPoNumber(selectedRow?.customer_ref);
 
-  // Reverse of InvoiceSidebar.jsx's "MATCHED SALES ORDER(S)" block --
-  // resolved via SAP's real document trail (sap_invoice_lines'
-  // base_entry/base_type), not the free-typed PO number. No uniqueness
-  // constraint in this chain, so this is 0/1/many (unlike matchedLead above).
   const {
     data: matchedInvoices = [],
     isLoading: matchedInvoicesLoading,
     error: matchedInvoicesError,
-  } = useInvoicesForSalesOrder(selectedRow?.doc_entry);
+  } = useInvoicesForSalesOrder(selectedRow?.doc_entry, invoicesOpen);
 
-  // Transitive SO -> matched invoice(s) -> payment(s) join -- SAP has no
-  // direct SO->Payment link. Reverse of InvoiceSidebar.jsx's own "MATCHED
-  // PAYMENT(S)" block, generalized across every matched invoice. Flat list,
-  // not grouped by invoice -- a payment's own detail page already shows
-  // which invoice(s) it applied to for anyone who needs that detail.
   const {
     data: matchedPayments = [],
     isLoading: matchedPaymentsLoading,
     error: matchedPaymentsError,
-  } = usePaymentsForSalesOrder(selectedRow?.doc_entry);
+  } = usePaymentsForSalesOrder(selectedRow?.doc_entry, paymentsOpen);
 
-  const columns = salesOrderLinesTableConfig();
-  const hasData = lines?.length > 0;
+  const hasLineData = lines?.length > 0;
 
-  const gp = selectedRow.gross_profit;
-  const total = selectedRow.total_amount_myr || 0;
-  const grossProfitDisplay =
-    gp == null || Math.abs(gp) > Math.abs(total) * 5
-      ? "—"
-      : `RM ${Math.round(gp).toLocaleString()}`;
+  const isFullyDelivered = fulfillmentOrder?.is_fully_delivered ?? false;
+  const totalDeliveredQty = fulfillmentOrder?.total_delivered_qty ?? 0;
+  const matchedInvoiceCount = fulfillmentOrder?.matched_invoice_count ?? 0;
+  const hasPaidMismatch = fulfillmentOrder?.has_paid_mismatch ?? false;
+  const isFullyPaid = fulfillmentOrder?.is_fully_paid ?? false;
+
+  const canAccessFinance = canAccess({ departments: ["FIN", "MGM"] });
+
+  const invoicesFilterUrl = buildFilterUrl({
+    docEntries: matchedInvoices.map((invoice) => invoice.doc_entry),
+  });
+  const paymentsFilterUrl = buildFilterUrl({
+    docEntries: matchedPayments.map((payment) => payment.doc_entry),
+  });
+
   return (
     <div className="salesOrderSidebar">
-      <SalesOrderCard order={selectedRow} />
+      {/* FULFILLMENT STAGE TRACKER -- mirrors where <LeadStage> sits in
+          LeadSidebar.jsx. */}
+      <SalesOrderFulfillmentStage
+        isCancelled={selectedRow?.is_cancelled === "Y"}
+        hasMatchedLead={!!matchedLead}
+        leadHref={
+          matchedLead ? `/app/sales/leads/list/${matchedLead.id}` : undefined
+        }
+        isFullyDelivered={isFullyDelivered}
+        totalDeliveredQty={totalDeliveredQty}
+        matchedInvoiceCount={matchedInvoiceCount}
+        isFullyPaid={isFullyPaid}
+        hasPaidMismatch={hasPaidMismatch}
+        vertical
+      />
+
+      <FulfillmentOrderCard order={selectedRow} showStage={false} />
 
       {matchedLead && canAccess({ departments: ["SAL", "MGM"] }) && (
         <RouterButton
@@ -85,86 +126,172 @@ export default function SalesOrderSidebar({ selectedRow }) {
         />
       )}
 
+      {/* ORDER LINES -- collapsible + lazy-loaded. */}
+      <CardLayout style="generalCard cardPaddingSmall">
+        <button
+          type="button"
+          className="salesOrderSidebarSectionToggle"
+          onClick={() => setLinesOpen((open) => !open)}
+        >
+          <SectionHeader icon={FileTextIcon} title="Order Lines" />
+          {linesOpen ? <CaretUpIcon size={18} /> : <CaretDownIcon size={18} />}
+        </button>
+
+        <AnimatePresence mode="wait">
+          {linesOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -5 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -5 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+              {isLoading ? (
+                <LoadingIcon />
+              ) : error ? (
+                <NoResult title="Error loading results" />
+              ) : !hasLineData ? (
+                <NoResult />
+              ) : (
+                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                  {lines.map((line) => (
+                    <SalesOrderLineCard key={line.line_num} line={line} />
+                  ))}
+                </CardLayout>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </CardLayout>
+
       {/* MATCHED INVOICE(S) -- live lookup via SAP's real document trail
           (sap_invoice_lines.base_entry/base_type), not a persisted bridge.
           Reverse of InvoiceSidebar.jsx's "MATCHED SALES ORDER(S)" block.
-          Each matched card deep-links straight to that invoice's own detail
-          page (/app/finance/invoices/:docEntry), gated the same as any other
-          Invoices link -- only shown to users who'd actually pass that
-          route's own access check (FinanceRoutes.jsx: departments=["FIN"]). */}
-      <MatchConnector label="Matched Invoice(s)" icon={ReceiptIcon} />
+          Collapsible + lazy-loaded, plus a "View all" drill-through filtered
+          to exactly these matched doc_entrys. */}
       <CardLayout style="generalCard matchedSection cardPaddingSmall">
-        {matchedInvoicesLoading ? (
-          <LoadingIcon />
-        ) : matchedInvoicesError ? (
-          <NoResult title="Error checking for a matching invoice" />
-        ) : matchedInvoices.length === 0 ? (
-          <NoResult title="No matching invoice found" />
-        ) : (
-          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
-            {matchedInvoices.map((invoice) => (
-              <InvoiceCard
-                key={invoice.doc_entry}
-                invoice={invoice}
-                to={
-                  canAccess({ departments: ["FIN", "MGM"] })
-                    ? `/app/finance/invoices/${invoice.doc_entry}?search=${invoice.invoice_number}`
-                    : undefined
-                }
-              />
-            ))}
-          </CardLayout>
-        )}
+        <button
+          type="button"
+          className="salesOrderSidebarSectionToggle"
+          onClick={() => setInvoicesOpen((open) => !open)}
+        >
+          <MatchConnector label="Matched Invoice(s)" icon={ReceiptIcon} />
+          {invoicesOpen ? (
+            <CaretUpIcon size={18} />
+          ) : (
+            <CaretDownIcon size={18} />
+          )}
+        </button>
+
+        <AnimatePresence mode="wait">
+          {invoicesOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -5 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -5 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              style={{ width: "100%" }}
+            >
+              {matchedInvoicesLoading ? (
+                <LoadingIcon />
+              ) : matchedInvoicesError ? (
+                <NoResult title="Error checking for a matching invoice" />
+              ) : matchedInvoices.length === 0 ? (
+                <NoResult title="No matching invoice found" />
+              ) : (
+                <>
+                  <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                    {matchedInvoices.map((invoice) => (
+                      <InvoiceCard
+                        key={invoice.doc_entry}
+                        invoice={invoice}
+                        to={
+                          canAccessFinance
+                            ? `/app/finance/invoices/${invoice.doc_entry}?search=${invoice.invoice_number}`
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </CardLayout>
+                  {canAccessFinance && (
+                    <RouterButton
+                      to={`/app/finance/invoices${invoicesFilterUrl}`}
+                      style="textRegular textXXS button buttonType4"
+                      icon={CaretRightIcon}
+                      name={`View all ${matchedInvoices.length} invoice${matchedInvoices.length === 1 ? "" : "s"}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  )}
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </CardLayout>
 
       {/* MATCHED PAYMENT(S) -- transitive live lookup: SO -> matched
           invoice(s) above -> payment(s) applied to those invoices (SAP has
           no direct SO->Payment link). Flat across every matched invoice.
-          FIN;MGM-gated -- this sidebar is reached via Sales/MGM routes, and
-          since 2026-09 MGM also has company-wide Finance Tier-1 access, so
-          the conditional now mirrors that -- same check the Matched
-          Invoice(s) block above already uses. */}
-      <MatchConnector label="Matched Payment(s)" icon={FileTextIcon} />
+          Collapsible + lazy-loaded, plus a "View all" drill-through. */}
       <CardLayout style="generalCard matchedSection cardPaddingSmall">
-        {matchedPaymentsLoading ? (
-          <LoadingIcon />
-        ) : matchedPaymentsError ? (
-          <NoResult title="Error checking for a matching payment" />
-        ) : matchedPayments.length === 0 ? (
-          <NoResult title="No matching payment found" />
-        ) : (
-          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
-            {matchedPayments.map((payment) => (
-              <PaymentCard
-                key={payment.doc_entry}
-                payment={payment}
-                to={
-                  canAccess({ departments: ["FIN", "MGM"] })
-                    ? `/app/finance/payments/${payment.doc_entry}?search=${payment.receipt_number}`
-                    : undefined
-                }
-              />
-            ))}
-          </CardLayout>
-        )}
-      </CardLayout>
+        <button
+          type="button"
+          className="salesOrderSidebarSectionToggle"
+          onClick={() => setPaymentsOpen((open) => !open)}
+        >
+          <MatchConnector label="Matched Payment(s)" icon={FileTextIcon} />
+          {paymentsOpen ? (
+            <CaretUpIcon size={18} />
+          ) : (
+            <CaretDownIcon size={18} />
+          )}
+        </button>
 
-      <CardLayout style="generalCard cardPaddingSmall">
-        <SectionHeader icon={FileTextIcon} title="Order Lines" />
-
-        {isLoading ? (
-          <LoadingIcon />
-        ) : error ? (
-          <NoResult title="Error loading results" />
-        ) : !hasData ? (
-          <NoResult />
-        ) : (
-          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
-            {lines.map((line) => (
-              <SalesOrderLineCard key={line.line_num} line={line} />
-            ))}
-          </CardLayout>
-        )}
+        <AnimatePresence mode="wait">
+          {paymentsOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -5 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -5 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              style={{ width: "100%" }}
+            >
+              {matchedPaymentsLoading ? (
+                <LoadingIcon />
+              ) : matchedPaymentsError ? (
+                <NoResult title="Error checking for a matching payment" />
+              ) : matchedPayments.length === 0 ? (
+                <NoResult title="No matching payment found" />
+              ) : (
+                <>
+                  <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                    {matchedPayments.map((payment) => (
+                      <PaymentCard
+                        key={payment.doc_entry}
+                        payment={payment}
+                        to={
+                          canAccessFinance
+                            ? `/app/finance/payments/${payment.doc_entry}?search=${payment.receipt_number}`
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </CardLayout>
+                  {canAccessFinance && (
+                    <RouterButton
+                      to={`/app/finance/payments${paymentsFilterUrl}`}
+                      style="textRegular textXXS button buttonType4"
+                      icon={CaretRightIcon}
+                      name={`View all ${matchedPayments.length} payment${matchedPayments.length === 1 ? "" : "s"}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  )}
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </CardLayout>
     </div>
   );

@@ -136,23 +136,27 @@ If a PO number happens to match more than one SAP order (this can genuinely happ
     label: "Sales Orders",
     icon: ReceiptIcon,
     description:
-      "How to browse, search, and read the real SAP sales orders synced into this portal.",
+      "How to browse, search, and trace a SAP sales order all the way through delivery, invoicing and payment.",
     steps: [
       {
         title: "Sales Orders is read-only, sourced from SAP",
-        body: `**Sales → Sales Orders → All Orders** shows every SAP sales order synced into this portal. SAP is the system of record for this data — you can't create, edit, or delete an order here, only view it.`,
+        body: `**Sales → Sales Orders → All Orders** shows every SAP sales order synced into this portal, along with its delivery, invoice and payment status — also computed live from SAP. You can't create, edit, or delete an order here, only view it.`,
       },
       {
         title: "Searching and filtering",
-        body: `Use the search bar to find an order by SO number, customer name, or PO number. Filters let you narrow by customer, sales rep, status (Open/Closed), cancelled orders, and order date range.`,
+        body: `Use the search bar to find an order by SO number, customer name, or PO number. Filters let you narrow by customer, sales rep, status (Open/Closed), cancelled orders, order date range, lead-matched orders, delivery status (Not Started/Partial/Fully Delivered/Not Fully Delivered), delivery overdue or due soon, invoiced/not invoiced, fully paid/not fully paid, and payment mismatches.`,
+      },
+      {
+        title: "The four KPI tiles",
+        body: `At the top of the page, four tiles summarize the *currently filtered* list: **Open Backlog** (orders still awaiting delivery), **Overdue Delivery** (open orders past their requested delivery date), **Delivered, Not Invoiced** (a billing gap), and **Invoiced, Not Fully Paid** (outstanding AR, flagged red if a payment mismatch is detected). Click any tile — or one of its sub-figures — to filter the list to exactly the orders it counted.`,
       },
       {
         title: "Reading an order card",
-        body: `Each order card shows: Open/Closed status, the customer and their SAP customer code, the PO number (if any), order and delivery dates, the order total, and gross profit. The small photo on the card is the SAP sales rep this order is attributed to, mapped through to their real employee record — hover it to see their name.`,
+        body: `Each card shows a stage tracker (Lead Matched → Order Created → Delivered → Invoiced → Fully Paid) plus a plain-text status badge, the customer and SAP customer code, the PO number (if any), order and delivery dates, and the full money trail: order total, delivered quantity, amount invoiced, amount paid, outstanding balance, and gross profit. The small photo on the card is the SAP sales rep this order is attributed to, mapped through to their real employee record — hover it to see their name.`,
       },
       {
         title: "Opening an order's detail",
-        body: `Click any order card to open its full detail, including every line item (item, quantity, unit price, line total). Each order's URL is shareable — you can send a direct link to a specific order.
+        body: `Click any order card to open its full detail. Order Lines, Matched Invoice(s), and Matched Payment(s) are each collapsible — expand a section to load it, and a **"View all"** button drills through to the full Invoices/Payments list filtered to exactly that order's matches (only shown if you have access to Finance's pages). Each order's URL is shareable — you can send a direct link to a specific order.
 
 If that order matches a lead by PO number, a **"View Matching Lead"** button appears at the top of the detail — jump straight to that lead.`,
       },

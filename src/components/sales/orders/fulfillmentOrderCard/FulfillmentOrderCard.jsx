@@ -10,27 +10,28 @@ import SalesRepBadge from "../../../employees/salesRepBadge/SalesRepBadge";
 import SAPCustomerCard from "../../../client/sapCustomerCard/SAPCustomerCard";
 import SalesOrderFulfillmentStage, {
   getFulfillmentStageSummary,
-} from "../../orders/salesOrderFulfillmentStage/SalesOrderFulfillmentStage";
+} from "../salesOrderFulfillmentStage/SalesOrderFulfillmentStage";
 import { compactCurrency } from "../../../../functions/formatNumber";
 import CardLayout from "../../../cardLayout/CardLayout";
 
 const MotionLink = motion.create(Link);
 
 /**
- * Read-only Fulfillment Tracker list card -- its own layout, not a reuse of
- * SalesOrderCard.jsx, but deliberately close to it in spirit: same header
- * row shape (status/PO badges on the left, dates on the right) and the same
- * className family (salesOrderCard/salesOrderCardHeader/...) for that
- * section, so it reads as a natural sibling of Sales Orders' own card. Below
- * that, a dedicated figures grid (own classNames) fits the extra fulfillment
- * money trail -- Total Order sitting next to Total Invoiced/Paid/Outstanding
- * -- properly instead of squeezed into SalesOrderCard's own narrow one-line
- * "Total/Gross Profit" column. The stage tracker
- * (SalesOrderFulfillmentStage, non-vertical) plus a plain-text current-stage
- * badge sit above both, in their own row. Every fulfillment column read here
- * (is_fully_delivered/matched_invoice_count/total_invoiced_myr/etc.) comes
- * straight off sap_sales_orders_with_fulfillment -- this page's own list
- * query, unlike Sales Orders', is deliberately backed by that view (see
+ * Sales Orders list card -- its own layout, not a reuse of the plain
+ * SalesOrderCard.jsx (still used by LeadSidebar/InvoiceSidebar's matched-order
+ * cards, which don't need the fulfillment trail), but deliberately close to
+ * it in spirit: same header row shape (status/PO badges on the left, dates on
+ * the right) and the same className family (salesOrderCard/
+ * salesOrderCardHeader/...) for that section, so it reads as a natural
+ * sibling. Below that, a dedicated figures grid (own classNames) fits the
+ * extra fulfillment money trail -- Total Order sitting next to Total
+ * Invoiced/Paid/Outstanding -- properly instead of squeezed into
+ * SalesOrderCard's own narrow one-line "Total/Gross Profit" column. The stage
+ * tracker (SalesOrderFulfillmentStage, non-vertical) plus a plain-text
+ * current-stage badge sit above both, in their own row. Every fulfillment
+ * column read here (is_fully_delivered/matched_invoice_count/
+ * total_invoiced_myr/etc.) comes straight off
+ * sap_sales_orders_with_fulfillment -- this page's list query (see
  * fulfillmentOrdersService.js).
  */
 function FulfillmentOrderCard({ order, to, showStage = true }) {

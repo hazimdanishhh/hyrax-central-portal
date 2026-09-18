@@ -83,18 +83,13 @@ export async function fetchSalesOrders({
     .toISOString()
     .split("T")[0];
 
-  // Deliberately the RAW table, NOT sap_sales_orders_with_fulfillment --
-  // reverted 2026-09 after that view caused the list to time out with no
-  // period filter applied. Root cause: sap_sales_orders_with_fulfillment's
-  // lateral joins are correlated per-row, but `count: "exact"` (needed for
-  // pagination) forces Postgres to evaluate that full aggregation across
-  // EVERY row in the unfiltered result set just to count them, not only the
-  // 20 being displayed -- a real N-row cost the raw table never had. This
-  // sidebar (SalesOrderSidebar.jsx) has never used that view either -- the
-  // fulfillment-enriched columns now live only behind the standalone
-  // Fulfillment Tracker page/module (fulfillmentOrdersService.js), which
-  // accepts that view's cost by design instead of trying to bolt it onto
-  // this fast list.
+  // Raw table, not sap_sales_orders_with_fulfillment -- this function only
+  // backs useSalesOrderByPoNumber.js/useSalesOrdersByCustomerCode.js's
+  // lookup hooks, neither of which need the fulfillment-enriched columns.
+  // The Sales Orders PAGE itself reads the enriched view via
+  // fetchFulfillmentOrders (fulfillmentOrdersService.js), whose pagination
+  // count is decoupled from the data fetch specifically so an unfiltered
+  // load stays cheap -- see that file's own header comment.
   let query = supabase
     .from("sap_sales_orders")
     .select("*", { count: "exact" })
@@ -193,30 +188,6 @@ export async function fetchSalesOrders({
 }
 
 /**
- * Fetch a single sales order by its natural key (doc_entry), for the
- * deep-linkable /app/sales/orders/all/:docEntry detail route -- mirrors
- * fetchLeadById's role for useLead (see useSalesOrder.js).
- */
-export async function fetchSalesOrderByDocEntry(docEntry) {
-  if (!docEntry) return null;
-
-  const [{ data, error }, repsByCode, namesByCode] = await Promise.all([
-    supabase
-      .from("sap_sales_orders")
-      .select("*")
-      .eq("doc_entry", Number(docEntry))
-      .maybeSingle(),
-    fetchRepsByCode(),
-    fetchRepNamesByCode(),
-  ]);
-
-  if (error) throw error;
-  if (!data) return null;
-
-  return attachRep(data, repsByCode, namesByCode);
-}
-
-/**
  * Reverse of invoicesService.js's fetchInvoicesForSalesOrder -- resolves the
  * sales order(s) an invoice was generated from via SAP's real document trail
  * (sap_invoice_lines' base_entry/base_type), not the free-typed PO number
@@ -279,67 +250,4 @@ export async function fetchSalesOrdersForInvoice(invoiceDocEntry) {
   return (orders || []).map((order) =>
     attachRep(order, repsByCode, namesByCode),
   );
-}
-
-/**
- * Backs the Sales Orders list page's OverviewCards -- see
- * get_sales_orders_overview_rpc.sql's own comment for why this is a plain
- * (not security definer) RPC, and for why overdueOnly/dueSoonOnly are
- * deliberately NOT forwarded here. Param mapping mirrors
- * fetchFinanceDashboard.js's own filters -> rpcParams switch.
- */
-export async function fetchSalesOrdersOverview({ filters, search } = {}) {
-  const FILTER_NULL = "__null__";
-
-  const rpcParams = {
-    p_customer_code: null,
-    p_sales_rep_code: null,
-    p_status_code: null,
-    p_is_cancelled: null,
-    p_start_date: null,
-    p_end_date: null,
-    p_search: search || null,
-  };
-
-  Object.entries(filters || {}).forEach(([key, value]) => {
-    if (value === undefined || value === "") return;
-
-    switch (key) {
-      case "customerCode":
-        rpcParams.p_customer_code = value === FILTER_NULL ? null : value;
-        break;
-
-      case "salesRepCode":
-        rpcParams.p_sales_rep_code = value === FILTER_NULL ? null : value;
-        break;
-
-      case "statusCode":
-        rpcParams.p_status_code = value === FILTER_NULL ? null : value;
-        break;
-
-      case "isCancelled":
-        rpcParams.p_is_cancelled = value === FILTER_NULL ? null : value;
-        break;
-
-      case "startDate":
-        rpcParams.p_start_date = value;
-        break;
-
-      case "endDate":
-        rpcParams.p_end_date = value;
-        break;
-
-      default:
-        break;
-    }
-  });
-
-  const { data, error } = await supabase.rpc(
-    "get_sales_orders_overview",
-    rpcParams,
-  );
-
-  if (error) throw error;
-
-  return data;
 }

@@ -3,6 +3,17 @@ import {
   searchSapCustomers,
 } from "../../../../features/sales/orders/private/api/salesOrdersMetadataService";
 
+/**
+ * Sales Orders' filters -- the base set (customer/rep/status/cancelled) plus
+ * the fulfillment-specific stage filters this page adds on top of the
+ * sap_sales_orders_with_fulfillment view's own columns. leadMatchedOnly/
+ * invoicedOnly/fullyPaidOnly/hasMismatchOnly are each an "Only" boolean --
+ * additive flags a viewer can combine, not a single mutually-exclusive
+ * status. deliveryStatus is the one exception -- a real 4-way enum (Not
+ * Started/Partial/Fully Delivered/Not Fully Delivered), not a boolean, since
+ * "partial" only makes sense relative to "fully delivered" and "not
+ * started," not as an independent on/off toggle.
+ */
 export function getSalesOrdersFilterConfig({ salesReps }) {
   return [
     {
@@ -41,19 +52,63 @@ export function getSalesOrdersFilterConfig({ salesReps }) {
       ],
     },
     {
-      key: "overdueOnly",
-      label: "Overdue Only",
+      key: "leadMatchedOnly",
+      label: "Lead Matched Only",
       options: [
-        { label: "All Open/Closed", value: "false" },
-        { label: "Overdue Only", value: "true" },
+        { label: "All", value: "false" },
+        { label: "Lead Matched Only", value: "true" },
       ],
     },
     {
-      key: "dueSoonOnly",
-      label: "Due Soon Only",
+      key: "deliveryStatus",
+      label: "Delivery Fulfillment",
       options: [
-        { label: "All Open/Closed", value: "false" },
-        { label: "Due Soon Only", value: "true" },
+        { label: "Not Started", value: "not_started" },
+        { label: "Partial Delivery", value: "partial" },
+        { label: "Fully Delivered", value: "delivered" },
+        { label: "Not Fully Delivered", value: "open" },
+      ],
+    },
+    {
+      key: "deliveryOverdueOnly",
+      label: "Delivery Overdue",
+      options: [
+        { label: "All", value: "false" },
+        { label: "Overdue Delivery Only", value: "true" },
+      ],
+    },
+    {
+      key: "deliveryDueSoonOnly",
+      label: "Delivery Due Soon",
+      options: [
+        { label: "All", value: "false" },
+        { label: "Due in next 7 days", value: "true" },
+      ],
+    },
+    {
+      key: "invoicedOnly",
+      label: "Invoiced Only",
+      options: [
+        { label: "All", value: "false" },
+        { label: "Invoiced Only", value: "true" },
+        { label: "Not Invoiced", value: "none" },
+      ],
+    },
+    {
+      key: "fullyPaidOnly",
+      label: "Fully Paid Only",
+      options: [
+        { label: "All", value: "false" },
+        { label: "Fully Paid Only", value: "true" },
+        { label: "Not Fully Paid", value: "none" },
+      ],
+    },
+    {
+      key: "hasMismatchOnly",
+      label: "Payment Mismatch",
+      options: [
+        { label: "All", value: "false" },
+        { label: "Mismatch Only", value: "true" },
       ],
     },
   ];

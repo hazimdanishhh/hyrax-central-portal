@@ -139,7 +139,7 @@ export async function fetchBills({
 /**
  * Fetch-by-id fallback for the /app/finance/bills/:docEntry detail route --
  * covers a direct/shared URL where the bill isn't already in the in-memory
- * paginated list. Mirrors salesOrdersService.js's fetchSalesOrderByDocEntry,
+ * paginated list. Mirrors fulfillmentOrdersService.js's fetchFulfillmentOrderByDocEntry,
  * minus the rep-enrichment join (fetchBills doesn't join one either).
  */
 export async function fetchBillByDocEntry(docEntry) {

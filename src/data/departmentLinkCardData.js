@@ -81,19 +81,10 @@ export const departmentLinkCardData = [
 
       {
         label: "Sales Orders",
-        description: "Browse SAP sales orders booked across the department.",
+        description:
+          "Browse SAP sales orders and trace each one from lead match through delivery, invoicing and full payment.",
         icon: ReceiptIcon,
         path: "sales/orders",
-
-        departments: ["SAL", "MGM"],
-      },
-
-      {
-        label: "Fulfillment Tracker",
-        description:
-          "Track each order from lead match through delivery, invoicing and full payment.",
-        icon: TruckIcon,
-        path: "sales/fulfillment",
 
         departments: ["SAL", "MGM"],
       },

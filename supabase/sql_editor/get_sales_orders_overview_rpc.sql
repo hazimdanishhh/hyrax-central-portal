@@ -1,3 +1,19 @@
+-- SUPERSEDED by get_fulfillment_overview (get_fulfillment_overview_rpc.sql)
+-- when Sales Orders was merged onto the fulfillment-enriched view. This
+-- RPC's dueSoonCount/newThisWeekCount figures were deliberately dropped
+-- rather than ported over -- Overdue Delivery/Open Backlog on the new RPC
+-- are the more accurate, fulfillment-aware replacements, and "new this
+-- week" is already served by Sales Reports' Order Book by Rep chart.
+-- Run this in the Supabase SQL editor to remove the now-unused function
+-- (the exact signature must be spelled out in full -- see this file's own
+-- overload-trap warning below):
+--
+--   drop function if exists public.get_sales_orders_overview(
+--     text, bigint, text, text, date, date, text);
+--
+-- Kept below, not deleted outright, to preserve the audit trail per this
+-- repo's own convention.
+--
 -- Run this once in the Supabase SQL editor.
 --
 -- KPI counts/values for the Sales Orders list page's OverviewCards -- plain

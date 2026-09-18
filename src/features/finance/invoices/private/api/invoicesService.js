@@ -178,7 +178,7 @@ export async function fetchInvoices({
  * Fetch-by-id fallback for the /app/finance/invoices/:docEntry detail route
  * -- covers a direct/shared URL where the invoice isn't already in the
  * in-memory paginated list. Mirrors salesOrdersService.js's
- * fetchSalesOrderByDocEntry, including the same sales-rep enrichment join.
+ * fetchFulfillmentOrderByDocEntry, including the same sales-rep enrichment join.
  */
 export async function fetchInvoiceByDocEntry(docEntry) {
   if (!docEntry) return null;
@@ -263,14 +263,26 @@ export async function fetchInvoicesForSalesOrder(soDocEntry) {
   // balance/applied_payment_myr/has_paid_mismatch figures instead of
   // silently defaulting to 0 (a real gap found 2026-09: this fetch never
   // included those columns before).
-  const { data: invoices, error: invoicesError } = await supabase
-    .from("sap_invoices_with_balance")
-    .select("*")
-    .in("doc_entry", invoiceIds);
+  const [{ data: invoices, error: invoicesError }, repsByCode, namesByCode] =
+    await Promise.all([
+      supabase
+        .from("sap_invoices_with_balance")
+        .select("*")
+        .in("doc_entry", invoiceIds),
+      fetchRepsByCode(),
+      fetchRepNamesByCode(),
+    ]);
 
   if (invoicesError) throw invoicesError;
 
-  return invoices || [];
+  // Same rep-enrichment join fetchInvoices/fetchInvoiceByDocEntry already
+  // do -- without this, InvoiceCard's SalesRepBadge falls back to showing
+  // the bare sales_rep_code ("unmapped rep #") for every matched invoice in
+  // a Sales Order's sidebar, regardless of whether that rep actually has a
+  // mapping (a real gap: this fetch never attached `rep` at all).
+  return (invoices || []).map((invoice) =>
+    attachRep(invoice, repsByCode, namesByCode),
+  );
 }
 
 /**

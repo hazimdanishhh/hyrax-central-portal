@@ -67,7 +67,7 @@ export async function fetchJournalEntries({
  * in the in-memory paginated list. Keyed by trans_id, not doc_entry --
  * sap_gl_journal_entries' natural key (OJDT.TransId), unlike every other
  * Finance submodule here. Mirrors salesOrdersService.js's
- * fetchSalesOrderByDocEntry, minus the rep-enrichment join
+ * fetchFulfillmentOrderByDocEntry, minus the rep-enrichment join
  * (fetchJournalEntries doesn't join one either).
  */
 export async function fetchJournalEntryByTransId(transId) {

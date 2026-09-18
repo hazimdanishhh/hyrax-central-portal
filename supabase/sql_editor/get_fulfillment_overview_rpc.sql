@@ -1,8 +1,13 @@
 -- Run this once in the Supabase SQL editor.
 --
--- KPI counts/values for the Fulfillment Tracker page's OverviewCards -- plain
--- function (NOT security definer), so it runs with the caller's own
--- row-security context. It reads sap_sales_orders_with_fulfillment, which is
+-- KPI counts/values for the Sales Orders page's OverviewCards
+-- (/app/sales/orders/all) -- backed the short-lived standalone Fulfillment
+-- Tracker page for about a day before that page was folded directly into
+-- Sales Orders; the function itself is unchanged, just its consumer moved.
+-- Supersedes get_sales_orders_overview (get_sales_orders_overview_rpc.sql),
+-- kept there for the audit trail. Plain function (NOT security definer), so
+-- it runs with the caller's own row-security context. It reads
+-- sap_sales_orders_with_fulfillment, which is
 -- already security_invoker = on (see that view's own file), so
 -- sap_sales_orders'/sap_invoices_with_balance's per-department RLS policies
 -- scope every figure below to exactly what this caller already sees via

@@ -10,7 +10,6 @@ import ClientsManagement from "../pages/user/sales/clients/list/ClientsManagemen
 import SapClients from "../pages/user/sales/clients/sap/SapClients";
 import Orders from "../pages/user/sales/orders/Orders";
 import OrdersPageLayout from "../pages/user/sales/orders/OrdersPageLayout";
-import FulfillmentTracker from "../pages/user/sales/fulfillment/FulfillmentTracker";
 import SalesBudgetsManagement from "../pages/user/sales/orders/budgets/SalesBudgetsManagement";
 import SalesTargetsManagement from "../pages/user/sales/leads/targets/SalesTargetsManagement";
 import SalesRepMapping from "../pages/user/sales/salesRepMapping/SalesRepMapping";
@@ -113,7 +112,12 @@ export default (
         2026-08 from the 2026-07 R4 classification (see
         supabase/access-control/route_access_matrix.csv) now that a lead's
         owner can be notified of, and needs to click through to, their own
-        matched SAP sales order (sales_order.po_matched notification). */}
+        matched SAP sales order (sales_order.po_matched notification).
+        Backed by sap_sales_orders_with_fulfillment (Lead -> Order ->
+        Delivered -> Invoiced -> Fully Paid) since 2026-09 -- absorbed the
+        short-lived standalone Fulfillment Tracker route/page, which existed
+        for one day before being folded back in here (see
+        docs/SALES-ORDER-PIPELINE-ROADMAP.md §2.2). */}
     <Route
       path="orders"
       element={
@@ -147,22 +151,6 @@ export default (
       >
         <Route path=":budgetId" element={null} />
       </Route>
-    </Route>
-
-    {/* FULFILLMENT TRACKER -- Lead -> Order -> Delivered -> Invoiced ->
-        Fully Paid, graduated 2026-09 from an experimental sidebar on the
-        Sales Orders page (see docs/SALES-ORDER-PIPELINE-ROADMAP.md §2.2).
-        Same R3 department-only gate as Sales Orders, no manager role
-        restriction. */}
-    <Route
-      path="fulfillment"
-      element={
-        <AccessRoute departments={["SAL", "MGM"]}>
-          <FulfillmentTracker />
-        </AccessRoute>
-      }
-    >
-      <Route path=":docEntry" element={null} />
     </Route>
 
     {/* SALES REP MAPPING -- links a SAP sales rep (sap_sales_persons) to a

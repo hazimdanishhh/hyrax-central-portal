@@ -160,7 +160,7 @@ export async function fetchPaymentsOverview({ filters, search } = {}) {
  * Fetch-by-id fallback for the /app/finance/payments/:docEntry detail route
  * -- covers a direct/shared URL where the payment isn't already in the
  * in-memory paginated list. Mirrors salesOrdersService.js's
- * fetchSalesOrderByDocEntry, minus the rep-enrichment join (fetchPayments
+ * fetchFulfillmentOrderByDocEntry, minus the rep-enrichment join (fetchPayments
  * doesn't join one either).
  */
 export async function fetchPaymentByDocEntry(docEntry) {

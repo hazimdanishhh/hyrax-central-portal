@@ -143,7 +143,7 @@ export async function fetchVendorPaymentsOverview({ filters, search } = {}) {
  * Fetch-by-id fallback for the /app/finance/vendor-payments/:docEntry detail
  * route -- covers a direct/shared URL where the vendor payment isn't already
  * in the in-memory paginated list. Mirrors salesOrdersService.js's
- * fetchSalesOrderByDocEntry, minus the rep-enrichment join
+ * fetchFulfillmentOrderByDocEntry, minus the rep-enrichment join
  * (fetchVendorPayments doesn't join one either).
  */
 export async function fetchVendorPaymentByDocEntry(docEntry) {

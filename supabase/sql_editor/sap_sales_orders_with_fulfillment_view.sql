@@ -1,16 +1,24 @@
 -- Run this once in the Supabase SQL editor.
 --
--- Backs the standalone Sales Fulfillment Tracker page/module (graduated
--- 2026-09 from an experimental parallel sidebar on the Sales Orders page
--- itself, per docs/SALES-ORDER-PIPELINE-ROADMAP.md §2.2, the #1 recommended
--- next build -- "nothing today lets anyone open a Sales Order and see
--- delivered?/invoiced?/paid? in one place"). Deliberately NOT queried by
--- the plain Sales Orders page anymore (salesOrdersService.js's
--- fetchSalesOrders/fetchSalesOrderByDocEntry were reverted back to the raw
--- sap_sales_orders table) -- this view's own aggregation cost belongs only
--- to the Fulfillment Tracker's own service (fulfillmentOrdersService.js),
--- a page that's expected to be heavier by design, the same way this app's
--- Reports pages are heavier than their sibling List pages.
+-- Backs the Sales Orders page directly (/app/sales/orders/all) -- Lead ->
+-- Order -> Delivered -> Invoiced -> Fully Paid, per
+-- docs/SALES-ORDER-PIPELINE-ROADMAP.md §2.2. Briefly lived as a separate
+-- standalone Fulfillment Tracker page/route for about a day before being
+-- folded directly into Sales Orders -- the two pages had no cross-links
+-- between them and read as duplicate, unrelated features rather than one
+-- view being richer than the other.
+--
+-- fetchFulfillmentOrders (fulfillmentOrdersService.js, now under
+-- features/sales/orders/) queries this view for the page's list/cards/KPI
+-- strip. Its pagination count is decoupled from the data fetch: when only
+-- base-column filters are active, the count comes from the cheap raw
+-- sap_sales_orders table instead of this view -- valid because every
+-- lateral below is an UNGROUPED aggregate subquery (`on true`, no
+-- GROUP BY, no fan-out join), so row cardinality is provably identical to
+-- the base table. INVARIANT: if this view ever gains a GROUP BY lateral or
+-- a plain 1:N join, that optimization must be reverted. salesOrdersService.js's
+-- own fetchSalesOrders (the raw table) is kept separately for the
+-- PO-number/customer-code lookup hooks, which don't need enrichment.
 --
 -- Mirrors finance_outstanding_balance_views.sql's own shape exactly
 -- (additive `left join lateral` columns, security_invoker on).

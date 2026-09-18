@@ -16,7 +16,7 @@ const EMPTY_KPIS = {
 };
 
 /**
- * Backs the Fulfillment Tracker's OverviewCards -- mirrors the paginated
+ * Backs the Sales Orders page's OverviewCards -- mirrors the paginated
  * list's active filters/search so the KPI strip always summarizes exactly the
  * filtered slice the cards below are showing. filters/search are the same
  * values the page already gets from usePaginatedQuery -- no separate filter

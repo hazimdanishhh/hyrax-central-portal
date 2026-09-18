@@ -29,7 +29,6 @@ import {
   AppWindowIcon,
   MonitorIcon,
   CoinsIcon,
-  TruckIcon,
   ReceiptIcon,
   InvoiceIcon,
   HandCoinsIcon,
@@ -219,14 +218,6 @@ export const sideNavLinkData = [
         label: "Sales Orders",
         icon: ReceiptIcon,
         path: "sales/orders",
-
-        departments: ["SAL", "MGM"],
-      },
-
-      {
-        label: "Fulfillment Tracker",
-        icon: TruckIcon,
-        path: "sales/fulfillment",
 
         departments: ["SAL", "MGM"],
       },

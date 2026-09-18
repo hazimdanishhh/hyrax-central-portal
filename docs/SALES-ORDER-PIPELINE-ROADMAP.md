@@ -105,14 +105,14 @@ Everything below is a genuinely separate, unbuilt piece of work. Ordered here by
 
 Today's match (§1.5-1.6) is 100% computed live, every time, with no stored relationship. A dormant table, `public.sales_orders` (`sap_so_id`, `sales_lead_id`, `sales_quotation_id`), already exists for exactly this and is completely unused. Building this out (a trigger/backfill populating it on match, plus a persistent "SAP-Validated ✓" indicator on the lead) would let a WON lead's `actual_revenue` be cross-checked against real SAP figures, without unifying the two numbers (they're deliberately allowed to disagree — see `docs/DASHBOARD-ROADMAP.md` §5, Duality B). **Pure Supabase/app-side work — no new SAP data needed.**
 
-### 2.2 Trace the sales order forward: Delivery → Invoice → Payment
+### 2.2 Trace the sales order forward: Delivery → Invoice → Payment — ✅ Delivered
 
-**The SAP data for every one of these already exists in Supabase today** — `sap_deliveries`/`sap_delivery_lines` (SAP `ODLN`/`DLN1`), `sap_invoices`/`sap_invoice_lines` (`OINV`/`INV1`), and `sap_payments`/`sap_payment_applications` (`ORCT`/`RCT2`) have all been ingested since this pipeline's very first phase. The join chain is already populated and documented:
+**Built, 2026-09.** The SAP data for every one of these already existed in Supabase — `sap_deliveries`/`sap_delivery_lines` (SAP `ODLN`/`DLN1`), `sap_invoices`/`sap_invoice_lines` (`OINV`/`INV1`), and `sap_payments`/`sap_payment_applications` (`ORCT`/`RCT2`) have all been ingested since this pipeline's very first phase. The join chain used:
 
 - Sales Order → Delivery → Invoice, via `base_entry`/`base_type` columns already captured on the line tables — **two confirmed, live branches**: an invoice can be drawn from a delivery (`base_type = 15`, `INV1.BaseEntry → ODLN.DocEntry`) *or* directly from the sales order with delivery skipped entirely (`base_type = 17`, `INV1.BaseEntry → ORDR.DocEntry`). Both happen in practice — a query that only follows one branch silently drops real rows.
 - Invoice → Payment, via `sap_payment_applications`, filtered to `inv_type = 13` (the same polymorphic-FK caveat already solved for the existing RCT2 payment-matching work).
 
-**What's actually missing is entirely on the `hyrax-central-portal` side**: Finance already has standalone Invoices and Payments pages, but they're dead-end lists with zero awareness of `sap_sales_orders` or `sales_leads`. Operations has no browsable Deliveries page at all — `sap_deliveries` is only consumed as aggregate input into Operations' dashboard KPIs. Nothing today lets anyone open a Sales Order and see "delivered? invoiced? paid?" in one place.
+The whole trace is exposed by `public.sap_sales_orders_with_fulfillment` (`supabase/sql_editor/sap_sales_orders_with_fulfillment_view.sql`) and surfaced **directly on the existing Sales Orders page** (`/app/sales/orders/all`) — not as a separate page. It briefly shipped as a standalone "Fulfillment Tracker" page/route for about a day (commit `53b98c1`) before being folded back into Sales Orders: the two pages had no cross-links between them and read as duplicate, unrelated ways to "see your orders" rather than one view being richer than the other. A rep or manager now sees delivered/invoiced/paid status, a 4-tile KPI strip (Open Backlog / Overdue Delivery / Delivered-Not-Invoiced / Invoiced-Not-Fully-Paid), and collapsible Matched Invoice(s)/Matched Payment(s) sections inline on every order.
 
 ### 2.3 Returns / credit notes
 
@@ -166,7 +166,7 @@ flowchart TD
 
 Ranked purely by *what's actually cheap given today's real state* — not by which sounds most impressive:
 
-1. **§2.2, the fulfillment trace (Delivery → Invoice → Payment).** Highest value, lowest cost: every table is already syncing, every join key is already populated and documented. This is new pages/queries in `hyrax-central-portal` only. Directly resolves 3 of the 4 legs blocking `DASHBOARD-ROADMAP.md`'s deferred open decision #8.
+1. **§2.2, the fulfillment trace (Delivery → Invoice → Payment) — ✅ Delivered, 2026-09.** Was highest value, lowest cost: every table was already syncing, every join key already populated and documented. Shipped directly onto the existing Sales Orders page — see §2.2 above for the one-day standalone-page detour. Directly resolves 3 of the 4 legs blocking `DASHBOARD-ROADMAP.md`'s deferred open decision #8.
 2. **§2.1, persisting the lead ↔ order bridge.** Also cheap (pure Supabase trigger/backfill logic, dormant table already exists), and half-done already — the notification side is live, only the persisted-row/indicator half remains. Slightly lower urgency than #1 because the live lookup already covers the user-facing gap today; this is more about durability/auditability than closing a visible hole.
 3. **§2.3, returns/credit notes.** Needs one live SAP discovery pass (low uncertainty, "unquestionably there" per the data platform's own plan), then a normal extractor build. Independent of #1/#2 — can slot in whenever.
 4. **§2.5, downstream notifications.** Sequence after #1 — alerting on "invoice overdue" or "delivery late" is far more useful once there's an actual trace view for the alert to link into.

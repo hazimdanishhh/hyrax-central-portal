@@ -13,28 +13,36 @@ import DataSidebar from "../../../../components/dataSidebar/DataSidebar";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchSalesOrders } from "../../../../features/sales/orders/private/api/salesOrdersService";
-import { useSalesOrder } from "../../../../features/sales/orders/private/hooks/useSalesOrder";
+import { fetchFulfillmentOrders } from "../../../../features/sales/orders/private/api/fulfillmentOrdersService";
+import { useFulfillmentOrder } from "../../../../features/sales/orders/private/hooks/useFulfillmentOrder";
+import { useFulfillmentOverview } from "../../../../features/sales/orders/private/hooks/useFulfillmentOverview";
 import { useSalesOrdersMetadata } from "../../../../features/sales/orders/private/hooks/useSalesOrdersMetadata";
 import { getSalesOrdersFilterConfig } from "./filterConfig";
 import { getSalesOrdersOverviewConfig } from "./overviewConfig";
 import { getSalesOrdersSortConfig } from "./sortConfig";
-import { useSalesOrdersOverview } from "../../../../features/sales/orders/private/hooks/useSalesOrdersOverview";
-import SalesOrderCard from "../../../../components/sales/orders/salesOrderCard/SalesOrderCard";
+import FulfillmentOrderCard from "../../../../components/sales/orders/fulfillmentOrderCard/FulfillmentOrderCard";
 import SalesOrderSidebar from "./detail/SalesOrderSidebar";
 import PageTitle from "../../../../components/pageTitle/PageTitle";
 import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 
 /**
- * Read-only sales orders list -- SAP is the system of record, so there's no
- * create/edit/delete here, just search/filter/sort/paginate over
- * sap_sales_orders. This is the drill-through target for the Sales Reports
- * dashboard's Order Book KPI card and Order Book by Rep chart.
+ * Sales Orders -- SAP is the system of record, so there's no create/edit/
+ * delete here, just search/filter/sort/paginate over
+ * sap_sales_orders_with_fulfillment, tracing each order all the way through
+ * Delivered -> Invoiced -> Fully Paid. This is the drill-through target for
+ * the Sales Reports dashboard's Order Book KPI card and Order Book by Rep
+ * chart, a Lead's "Matched SAP Sales Order" card, and an Invoice's "Matched
+ * Sales Order" card.
+ *
+ * Backed by the enriched view rather than the raw sap_sales_orders table --
+ * see fulfillmentOrdersService.js's own header comment for how its
+ * pagination count avoids paying that view's full aggregation cost on an
+ * unfiltered/bookmarked load.
  *
  * Row-click opens the detail sidebar via a real URL
  * (/app/sales/orders/all/:docEntry), not local state -- mirrors
- * LeadsManagement.jsx's :leadId pattern (2026-08) so a matched-order card
- * elsewhere in the app (LeadSidebar.jsx) or a future notification can
+ * LeadsManagement.jsx's :leadId pattern so a matched-order card elsewhere in
+ * the app (LeadSidebar.jsx, InvoiceSidebar.jsx) or a future notification can
  * deep-link straight to one specific order.
  */
 export default function Orders() {
@@ -64,7 +72,7 @@ export default function Orders() {
     error: ordersError,
   } = usePaginatedQuery({
     queryKey: "sales_orders",
-    queryFn: fetchSalesOrders,
+    queryFn: fetchFulfillmentOrders,
     pageSize: 20,
     defaultSortBy: "order_date",
     defaultSortOrder: "descending",
@@ -77,12 +85,12 @@ export default function Orders() {
     error: metadataError,
   } = useSalesOrdersMetadata();
 
-  const { data: fetchedOrder } = useSalesOrder(docEntry);
+  const { data: fetchedOrder } = useFulfillmentOrder(docEntry);
 
   // Find selected row based on URL param -- in-memory paginated list first
   // (instant UI for a click from the list), falling back to the
   // fetch-by-id result (direct/shared URL, or a notification linking
-  // straight to an order). Same shape as LeadsManagement.jsx's selectedRow.
+  // straight to an order).
   const selectedRow = useMemo(() => {
     if (!docEntry) return null;
 
@@ -96,7 +104,7 @@ export default function Orders() {
 
   const sidebarOpen = !!selectedRow;
 
-  const { kpis } = useSalesOrdersOverview(filters, search);
+  const { kpis } = useFulfillmentOverview(filters, search);
   const overviewItems = getSalesOrdersOverviewConfig(kpis);
 
   const filterConfig = getSalesOrdersFilterConfig({ salesReps });
@@ -115,7 +123,7 @@ export default function Orders() {
     <>
       <PageTitle
         title="Sales Orders"
-        subtitle="View and manage your sales orders, details and status"
+        subtitle="Track every SAP order from lead match through delivery, invoicing and payment"
       />
 
       <OverviewCards items={overviewItems} style="overviewCard2" />
@@ -172,9 +180,9 @@ export default function Orders() {
         ) : error ? (
           <NoResult title="Error loading results" />
         ) : (
-          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+          <CardLayout style="cardLayout2 cardPaddingSmall cardGapSmall">
             {salesOrders.map((order) => (
-              <SalesOrderCard
+              <FulfillmentOrderCard
                 key={order.doc_entry}
                 order={order}
                 to={`${order.doc_entry}?${searchParams.toString()}`}
@@ -192,7 +200,6 @@ export default function Orders() {
             open={sidebarOpen}
             onClose={handleCloseSidebar}
             isEditing={false}
-            // fullPage
           >
             <SalesOrderSidebar selectedRow={selectedRow} />
           </DataSidebar>

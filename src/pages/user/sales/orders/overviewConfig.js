@@ -1,97 +1,151 @@
 import {
-  ReceiptIcon,
-  ClockIcon,
+  TruckIcon,
   WarningCircleIcon,
-  TrendUpIcon,
+  ReceiptIcon,
+  CoinsIcon,
+  WarningOctagonIcon,
 } from "@phosphor-icons/react";
-import { compactCurrency } from "../../../../functions/formatNumber";
-import { toLocalDateString } from "../../../../functions/dateRangeFilters";
+import {
+  compactCurrency,
+  compactNumber,
+} from "../../../../functions/formatNumber";
 
 /**
- * Four tiles (Open / Due Soon / Overdue / New This Week), each RM headline +
- * count sub-metric -- same two-tier shape as FinancialReports.jsx's own
- * "Overdue Risk" tile, not the flatter counts-only style Projects/Users use,
- * since here both the RM value and the count matter equally. `to: "."` on
- * every tile/metric, not omitted -- OverviewCards' own resolveLinkTo
+ * Four tiles for the Lead -> Order -> Delivered -> Invoiced -> Fully Paid
+ * pipeline, one per handoff that can actually stall: still-to-deliver (and
+ * how late), delivered-but-unbilled, billed-but-uncollected. Same two-tier
+ * RM + count shape as Invoices'/Bills' own configs.
+ *
+ * `to: "."` on every tile/metric, not omitted -- OverviewCards' resolveLinkTo
  * defaults an omitted `to` to "../list", which isn't a real route for this
- * page (it IS the list), so that default would silently 404.
+ * page (it's the "all" tab of a shared orders/budgets layout, not a "list"
+ * sibling), so the default would silently 404. "." resolves against the
+ * parent `all` route, so it also dismisses an open :docEntry detail sidebar,
+ * which is correct.
+ *
+ * "false" on any of this page's "Only" toggles is a labelled NO-OP in
+ * fulfillmentOrdersService.js, never an inversion -- the "none"/"open"/
+ * deliveryOverdueOnly values used below are the negative-side filters that
+ * exist alongside this file so each tile's drill-through returns exactly the
+ * rows the tile counted.
  */
 export function getSalesOrdersOverviewConfig(kpis) {
-  const baseFilter = { statusCode: "O", isCancelled: "N" };
-  const dueSoonFilter = { ...baseFilter, dueSoonOnly: "true" };
-  const overdueFilter = { ...baseFilter, overdueOnly: "true" };
-  // isCancelled only, no statusCode -- matches get_sales_orders_overview_
-  // rpc.sql's newThisWeekCount, which counts orders regardless of open/
-  // closed status (only excluding cancelled ones via base_orders).
-  const newThisWeekFilter = {
+  // statusCode:"O" matches the RPC's own actionability gate on tiles 1-2.
+  const backlogFilter = {
+    statusCode: "O",
     isCancelled: "N",
-    startDate: toLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
-    endDate: toLocalDateString(new Date()),
+    deliveryStatus: "open",
   };
+  const overdueDeliveryFilter = {
+    statusCode: "O",
+    isCancelled: "N",
+    deliveryOverdueOnly: "true",
+  };
+  // No statusCode -- a closed, delivered, unbilled order is still a gap.
+  const notInvoicedFilter = {
+    isCancelled: "N",
+    deliveryStatus: "delivered",
+    invoicedOnly: "none",
+  };
+  const outstandingFilter = {
+    isCancelled: "N",
+    invoicedOnly: "true",
+    fullyPaidOnly: "none",
+  };
+  const mismatchFilter = { isCancelled: "N", hasMismatchOnly: "true" };
 
   return [
     {
-      icon: ReceiptIcon,
-      label: "Open Orders",
-      value: compactCurrency(kpis.openValue),
-      variant: "blueCardFill",
+      icon: TruckIcon,
+      label: "Open Backlog",
+      value: compactCurrency(kpis.backlogValue),
+      variant: "blueCardFill", // hero -- identity, never a verdict
       to: ".",
-      filter: baseFilter,
-      metrics: [
-        { label: "Orders", value: kpis.openCount, to: ".", filter: baseFilter },
-      ],
-      title: `Open sales orders, as of today — ${compactCurrency(kpis.openValue)}`,
-    },
-    {
-      icon: ClockIcon,
-      label: "Due Soon",
-      value: compactCurrency(kpis.dueSoonValue),
-      variant: kpis.dueSoonCount > 0 ? "yellowCard" : "greenCard",
-      to: ".",
-      filter: dueSoonFilter,
+      filter: backlogFilter,
       metrics: [
         {
           label: "Orders",
-          value: kpis.dueSoonCount,
+          value: kpis.backlogCount,
           to: ".",
-          filter: dueSoonFilter,
+          filter: backlogFilter,
+        },
+        {
+          label: "Open Units",
+          value: compactNumber(kpis.backlogOpenQty),
+          to: ".",
+          filter: backlogFilter,
         },
       ],
-      title: `Open orders due for delivery in the next 7 days — ${compactCurrency(kpis.dueSoonValue)}`,
+      title: `Open orders with delivery still outstanding — ${compactCurrency(kpis.backlogValue)} full order value across ${kpis.backlogCount} orders, ${compactNumber(kpis.backlogOpenQty)} units still undelivered`,
     },
     {
       icon: WarningCircleIcon,
-      label: "Overdue",
-      value: compactCurrency(kpis.overdueValue),
-      variant: kpis.overdueCount > 0 ? "redCard" : "greenCard",
+      label: "Overdue Delivery",
+      value: compactCurrency(kpis.overdueDeliveryValue),
+      variant: kpis.overdueDeliveryCount > 0 ? "redCard" : "greenCard",
       to: ".",
-      filter: overdueFilter,
+      filter: overdueDeliveryFilter,
       metrics: [
         {
           label: "Orders",
-          value: kpis.overdueCount,
+          value: kpis.overdueDeliveryCount,
           to: ".",
-          filter: overdueFilter,
+          filter: overdueDeliveryFilter,
         },
       ],
-      title: `Open orders past their requested delivery date — ${compactCurrency(kpis.overdueValue)}`,
+      title: `Open orders past their requested delivery date with quantity still undelivered — ${compactCurrency(kpis.overdueDeliveryValue)}`,
     },
     {
-      icon: TrendUpIcon,
-      label: "New This Week",
-      value: compactCurrency(kpis.newThisWeekValue),
-      variant: "blueCard",
+      icon: ReceiptIcon,
+      label: "Delivered, Not Invoiced",
+      value: compactCurrency(kpis.deliveredNotInvoicedValue),
+      variant: kpis.deliveredNotInvoicedCount > 0 ? "redCard" : "greenCard",
       to: ".",
-      filter: newThisWeekFilter,
+      filter: notInvoicedFilter,
       metrics: [
         {
           label: "Orders",
-          value: kpis.newThisWeekCount,
+          value: kpis.deliveredNotInvoicedCount,
           to: ".",
-          filter: newThisWeekFilter,
+          filter: notInvoicedFilter,
         },
       ],
-      title: `Orders placed in the last 7 days — ${compactCurrency(kpis.newThisWeekValue)}`,
+      title: `Fully delivered orders with no matched invoice — ${compactCurrency(kpis.deliveredNotInvoicedValue)} of delivered value not yet billed`,
+    },
+    {
+      icon: CoinsIcon,
+      label: "Invoiced, Not Fully Paid",
+      value: compactCurrency(kpis.outstandingValue),
+      // A payment mismatch escalates this tile to red even when the
+      // outstanding balance itself is unremarkable, because the sub-metric
+      // below means the "fully paid" determination is unverified, not merely
+      // unfinished. Outstanding AR alone is yellow, not red -- it's the
+      // normal end state of a healthy pipeline (payment terms), not an
+      // anomaly.
+      variant:
+        kpis.mismatchCount > 0
+          ? "redCard"
+          : kpis.outstandingCount > 0
+            ? "yellowCard"
+            : "greenCard",
+      to: ".",
+      filter: outstandingFilter,
+      metrics: [
+        {
+          label: "Orders",
+          value: kpis.outstandingCount,
+          to: ".",
+          filter: outstandingFilter,
+        },
+        {
+          label: "Mismatch",
+          value: kpis.mismatchCount,
+          icon: kpis.mismatchCount > 0 ? WarningOctagonIcon : undefined,
+          to: ".",
+          filter: mismatchFilter,
+        },
+      ],
+      title: `Orders with invoices still carrying a balance — ${compactCurrency(kpis.outstandingValue)} outstanding${kpis.mismatchCount > 0 ? `; ${kpis.mismatchCount} order(s) with a ${compactCurrency(kpis.mismatchValue)} paid-vs-applied payment mismatch` : ""}`,
     },
   ];
 }
