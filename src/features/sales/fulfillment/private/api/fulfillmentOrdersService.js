@@ -4,7 +4,10 @@ import {
   fetchRepNamesByCode,
   attachRep,
 } from "../../../orders/private/api/salesOrdersService";
-import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
+import {
+  exclusiveUpperBound,
+  toLocalDateString,
+} from "../../../../../functions/dateRangeFilters";
 
 /**
  * Read-only Fulfillment Tracker list, backed by
@@ -86,6 +89,8 @@ export async function fetchFulfillmentOrders({
       case "deliveryStatus":
         if (value === "delivered") {
           query = query.eq("is_fully_delivered", true);
+        } else if (value === "open") {
+          query = query.eq("is_fully_delivered", false);
         } else if (value === "partial") {
           query = query
             .gt("total_delivered_qty", 0)
@@ -95,12 +100,27 @@ export async function fetchFulfillmentOrders({
         }
         break;
 
+      // Pairs with the Overdue Delivery KPI tile -- an open order (per
+      // deliveryStatus's own is_fully_delivered signal) whose requested
+      // delivery_date has already passed. toLocalDateString, not
+      // exclusiveUpperBound: this is a lower-bound-style "< today" comparison
+      // against a single day, not an inclusive range end.
+      case "deliveryOverdueOnly":
+        if (value === "true") {
+          query = query
+            .eq("is_fully_delivered", false)
+            .lt("delivery_date", toLocalDateString(new Date()));
+        }
+        break;
+
       case "invoicedOnly":
         if (value === "true") query = query.gt("matched_invoice_count", 0);
+        else if (value === "none") query = query.eq("matched_invoice_count", 0);
         break;
 
       case "fullyPaidOnly":
         if (value === "true") query = query.eq("is_fully_paid", true);
+        else if (value === "none") query = query.eq("is_fully_paid", false);
         break;
 
       case "hasMismatchOnly":
@@ -161,4 +181,71 @@ export async function fetchFulfillmentOrderByDocEntry(docEntry) {
   if (!data) return null;
 
   return attachRep(data, repsByCode, namesByCode);
+}
+
+/**
+ * KPI figures for the Fulfillment Tracker's OverviewCards -- see
+ * supabase/sql_editor/get_fulfillment_overview_rpc.sql. Takes the SAME
+ * filters/search the paginated list already has, so the strip always
+ * summarizes exactly the filtered slice below it. Mirrors
+ * fetchInvoicesOverview.
+ *
+ * deliveryStatus/invoicedOnly/fullyPaidOnly/hasMismatchOnly/
+ * deliveryOverdueOnly are deliberately NOT forwarded -- they're what the
+ * tiles themselves set on the list when clicked, so feeding them back would
+ * be circular (see the RPC's own header comment).
+ */
+export async function fetchFulfillmentOverview({ filters, search } = {}) {
+  const FILTER_NULL = "__null__";
+
+  const rpcParams = {
+    p_customer_code: null,
+    p_sales_rep_code: null,
+    p_status_code: null,
+    p_is_cancelled: null,
+    p_lead_matched_only: null,
+    p_start_date: null,
+    p_end_date: null,
+    p_search: search || null,
+  };
+
+  Object.entries(filters || {}).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+
+    switch (key) {
+      case "customerCode":
+        rpcParams.p_customer_code = value === FILTER_NULL ? null : value;
+        break;
+      case "salesRepCode":
+        rpcParams.p_sales_rep_code = value === FILTER_NULL ? null : value;
+        break;
+      case "statusCode":
+        rpcParams.p_status_code = value === FILTER_NULL ? null : value;
+        break;
+      case "isCancelled":
+        rpcParams.p_is_cancelled = value === FILTER_NULL ? null : value;
+        break;
+      // null (not false) when off, so it matches the list's own no-op "All".
+      case "leadMatchedOnly":
+        rpcParams.p_lead_matched_only = value === "true" ? true : null;
+        break;
+      case "startDate":
+        rpcParams.p_start_date = value;
+        break;
+      case "endDate":
+        rpcParams.p_end_date = value;
+        break;
+      default:
+        break;
+    }
+  });
+
+  const { data, error } = await supabase.rpc(
+    "get_fulfillment_overview",
+    rpcParams,
+  );
+
+  if (error) throw error;
+
+  return data;
 }

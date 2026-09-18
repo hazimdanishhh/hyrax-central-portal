@@ -67,6 +67,15 @@ export function getFulfillmentOrdersFilterConfig({ salesReps }) {
         { label: "Not Started", value: "not_started" },
         { label: "Partial Delivery", value: "partial" },
         { label: "Fully Delivered", value: "delivered" },
+        { label: "Not Fully Delivered", value: "open" },
+      ],
+    },
+    {
+      key: "deliveryOverdueOnly",
+      label: "Delivery Overdue",
+      options: [
+        { label: "All", value: "false" },
+        { label: "Overdue Delivery Only", value: "true" },
       ],
     },
     {
@@ -75,6 +84,7 @@ export function getFulfillmentOrdersFilterConfig({ salesReps }) {
       options: [
         { label: "All", value: "false" },
         { label: "Invoiced Only", value: "true" },
+        { label: "Not Invoiced", value: "none" },
       ],
     },
     {
@@ -83,6 +93,7 @@ export function getFulfillmentOrdersFilterConfig({ salesReps }) {
       options: [
         { label: "All", value: "false" },
         { label: "Fully Paid Only", value: "true" },
+        { label: "Not Fully Paid", value: "none" },
       ],
     },
     {

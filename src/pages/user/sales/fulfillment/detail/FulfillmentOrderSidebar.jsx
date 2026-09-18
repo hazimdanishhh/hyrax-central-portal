@@ -27,7 +27,8 @@ import SalesOrderFulfillmentStage from "../../../../../components/sales/orders/s
 import InvoiceCard from "../../../../../components/finance/invoiceCard/InvoiceCard";
 import PaymentCard from "../../../../../components/finance/paymentCard/PaymentCard";
 import RouterButton from "../../../../../components/buttons/routerButton/RouterButton";
-import FulfillmentSummaryCard from "../../../../../components/fulfillmentSummaryCard/FulfillmentSummaryCard";
+import FulfillmentSummaryCard from "../../../../../components/sales/fulfillment/fulfillmentSummaryCard/FulfillmentSummaryCard";
+import FulfillmentOrderCard from "../../../../../components/sales/fulfillment/fulfillmentOrderCard/FulfillmentOrderCard";
 
 /**
  * Detail sidebar for the Fulfillment Tracker page -- graduated 2026-09 from
@@ -125,7 +126,7 @@ export default function FulfillmentOrderSidebar({ selectedRow }) {
         vertical
       />
 
-      <SalesOrderCard order={selectedRow} />
+      <FulfillmentOrderCard order={selectedRow} showStage={false} />
 
       {matchedLead && canAccess({ departments: ["SAL", "MGM"] }) && (
         <RouterButton
@@ -135,24 +136,6 @@ export default function FulfillmentOrderSidebar({ selectedRow }) {
           style="button buttonType4 textXXS"
         />
       )}
-
-      {/* FULFILLMENT SUMMARY -- rolled up across every matched invoice
-          (sap_sales_orders_with_fulfillment), not just the first one -- an
-          order can legitimately have several matched invoices (a split
-          order) and several payments spread across them. */}
-
-      <FulfillmentSummaryCard
-        isFullyDelivered={isFullyDelivered}
-        deliveryRecordCount={deliveryRecordCount}
-        matchedInvoiceCount={matchedInvoiceCount}
-        totalInvoiced={totalInvoiced}
-        totalPaid={totalPaid}
-        totalApplied={totalApplied}
-        totalOutstanding={totalOutstanding}
-        hasPaidMismatch={hasPaidMismatch}
-        isFullyPaid={isFullyPaid}
-        fulfillmentLoading={fulfillmentLoading}
-      />
 
       {/* ORDER LINES -- collapsible + lazy-loaded. */}
       <CardLayout style="generalCard cardPaddingSmall">

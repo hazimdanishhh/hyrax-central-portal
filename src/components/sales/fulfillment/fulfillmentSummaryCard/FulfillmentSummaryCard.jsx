@@ -1,11 +1,11 @@
 import { TruckIcon } from "@phosphor-icons/react";
-import { compactCurrency } from "../../functions/formatNumber";
-import StatusBox from "../status/statusBox/StatusBox";
+import { compactCurrency } from "../../../../functions/formatNumber";
+import StatusBox from "../../../status/statusBox/StatusBox";
 import "./FulfillmentSummaryCard.scss";
-import SectionHeader from "../sectionHeader/SectionHeader";
-import PageHeader from "../crud/pageHeader/PageHeader";
-import LoadingIcon from "../loadingIcon/LoadingIcon";
-import CardLayout from "../cardLayout/CardLayout";
+import SectionHeader from "../../../sectionHeader/SectionHeader";
+import PageHeader from "../../../crud/pageHeader/PageHeader";
+import LoadingIcon from "../../../loadingIcon/LoadingIcon";
+import CardLayout from "../../../cardLayout/CardLayout";
 
 function FulfillmentSummaryCard({
   isFullyDelivered,

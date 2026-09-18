@@ -31,11 +31,14 @@ import { getActionConfig } from "./constants/actionConfig";
 import { getFilterConfig } from "./constants/filterConfig";
 import { getLayoutConfig } from "./constants/layoutConfig";
 import { getSortConfig } from "./constants/sortConfig";
+import { getLeadsListOverviewConfig } from "./constants/overviewConfig";
 import { stageTabsConfig } from "./constants/tabConfig";
 import { leadsTableConfig } from "./constants/tableConfig";
 import { leadsExportColumns } from "./constants/exportConfig";
 import "./LeadsManagement.scss";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
+import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
+import { useLeadsListOverview } from "../../../../../features/sales/leads/private/hooks/useLeadsListOverview";
 
 /**
  * SALES Leads Management Page
@@ -143,6 +146,10 @@ export default function LeadsManagement() {
     isFetching: metadataFetching,
     error: metadataError,
   } = useLeadsMetadata();
+
+  const { kpis } = useLeadsListOverview(filters, search);
+  const overviewItems = getLeadsListOverviewConfig(kpis);
+
   const {
     createLead,
     updateLead,
@@ -392,6 +399,8 @@ export default function LeadsManagement() {
         title="Leads"
         subtitle="Manage your sales leads and opportunities"
       />
+
+      <OverviewCards items={overviewItems} style="overviewCard2" />
 
       {/* SEARCH AND FILTER BAR */}
       <SearchFilterBar

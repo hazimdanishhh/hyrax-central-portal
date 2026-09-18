@@ -33,7 +33,7 @@ const MotionLink = motion.create(Link);
  * query, unlike Sales Orders', is deliberately backed by that view (see
  * fulfillmentOrdersService.js).
  */
-function FulfillmentOrderCard({ order, to }) {
+function FulfillmentOrderCard({ order, to, showStage = true }) {
   const isOpen = order.status_code === "O";
   const total = order.total_amount_myr || 0;
   const gp = order.gross_profit;
@@ -74,7 +74,7 @@ function FulfillmentOrderCard({ order, to }) {
         className: "generalCard salesOrderCard fulfillmentOrderCard",
         initial: { y: 0 },
         whileHover: { y: -3 },
-        transition: { type: "spring", stiffness: 300, damping: 20 },
+        transition: { duration: 0.05 },
       }
     : {
         className: "generalCard salesOrderCard fulfillmentOrderCard",
@@ -114,28 +114,31 @@ function FulfillmentOrderCard({ order, to }) {
           />
         </div>
       </div>
-      <div className="fulfillmentOrderCardStageRow">
-        <SalesOrderFulfillmentStage
-          isCancelled={order.is_cancelled === "Y"}
-          hasMatchedLead={!!order.has_matched_lead}
-          isFullyDelivered={order.is_fully_delivered}
-          totalDeliveredQty={order.total_delivered_qty}
-          matchedInvoiceCount={order.matched_invoice_count}
-          isFullyPaid={order.is_fully_paid}
-          hasPaidMismatch={order.has_paid_mismatch}
-        />
 
-        <div className="fulfillmentOrderCardStageSummary">
-          <StatusBox status={stage} type={stageBadgeType} />
-          {flags.map((flag) => (
-            <StatusBox
-              key={flag.text}
-              status={flag.text}
-              type={flag.tone === "warning" ? "yellow" : "blue"}
-            />
-          ))}
+      {showStage && (
+        <div className="fulfillmentOrderCardStageRow">
+          <SalesOrderFulfillmentStage
+            isCancelled={order.is_cancelled === "Y"}
+            hasMatchedLead={!!order.has_matched_lead}
+            isFullyDelivered={order.is_fully_delivered}
+            totalDeliveredQty={order.total_delivered_qty}
+            matchedInvoiceCount={order.matched_invoice_count}
+            isFullyPaid={order.is_fully_paid}
+            hasPaidMismatch={order.has_paid_mismatch}
+          />
+
+          <div className="fulfillmentOrderCardStageSummary">
+            <StatusBox status={stage} type={stageBadgeType} />
+            {flags.map((flag) => (
+              <StatusBox
+                key={flag.text}
+                status={flag.text}
+                type={flag.tone === "warning" ? "yellow" : "blue"}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <CardLayout style="cardLayout2">
         <p className="textBold textXS">SO# {order.so_number}</p>
@@ -157,9 +160,9 @@ function FulfillmentOrderCard({ order, to }) {
           delivery_record_count, is informational-only per this view's own
           header comment and stays sidebar-only) since a raw quantity alone
           doesn't say whether that's a little or a lot of the order. */}
-      <div className="fulfillmentOrderCardFigures cardLayout2 cardGapSmall">
+      <div className="fulfillmentOrderCardFigures cardLayout2 cardGapSmall cardLayoutMin2">
         <p className="textLight textXXS">
-          <strong className="textBold">Total Order:</strong> RM{" "}
+          <strong className="textBold">Order:</strong> RM{" "}
           {Math.round(total).toLocaleString()}
         </p>
         <p className="textLight textXXS">
@@ -168,16 +171,16 @@ function FulfillmentOrderCard({ order, to }) {
         </p>
         <p className="textLight textXXS">
           <strong className="textBold">
-            Total Invoiced ({order.matched_invoice_count || 0}):
+            Invoiced ({order.matched_invoice_count || 0}):
           </strong>{" "}
           {compactCurrency(order.total_invoiced_myr)}
         </p>
         <p className="textLight textXXS">
-          <strong className="textBold">Total Paid:</strong>{" "}
+          <strong className="textBold">Paid:</strong>{" "}
           {compactCurrency(order.total_paid_myr)}
         </p>
         <p className="textLight textXXS">
-          <strong className="textBold">Total Outstanding:</strong>{" "}
+          <strong className="textBold">Outstanding:</strong>{" "}
           {compactCurrency(order.total_outstanding_myr)}
         </p>
         <p className="textLight textXXS">

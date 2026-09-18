@@ -15,6 +15,7 @@ import {
   HourglassHighIcon,
 } from "@phosphor-icons/react";
 import { getStatusVariant } from "../../../../../../functions/statusVariant";
+import { compactCurrency } from "../../../../../../functions/formatNumber";
 
 // Drill-through pass: `filters` is the Overview's own active owner/client/
 // leadSourceType/period (and any of stage/onHold/cancelled/productType that
@@ -41,7 +42,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
 
   const wonSublabel =
     targetRevenue > 0
-      ? `${pacingPercentage}% of RM ${targetRevenue.toLocaleString()} Target`
+      ? `${pacingPercentage}% of ${compactCurrency(targetRevenue).toLocaleString()} Target`
       : "Total Actual Revenue (No Target Set)";
 
   // Calculate percentage change function
@@ -131,7 +132,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       icon: CurrencyDollarIcon,
       label: "Active Pipeline",
       sublabel: "Total Active Expected Revenue",
-      value: `RM ${(kpis.activePipelineValue || 0).toLocaleString()}`,
+      value: compactCurrency(kpis.activePipelineValue || 0).toLocaleString(),
       variant: "blueCardFill",
       to: "../list",
       filter: { ...baseFilter, activePipelineOnly: "true" },
@@ -144,14 +145,18 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         },
         {
           label: "Weighted Pipeline",
-          value: `RM ${(kpis.weightedPipelineValue || 0).toLocaleString()}`,
+          value: compactCurrency(
+            kpis.weightedPipelineValue || 0,
+          ).toLocaleString(),
           icon: ScalesIcon,
           // Derived weighted sum (expected_revenue * probability) -- no
           // matching row-set, left unlinked.
         },
         {
           label: "In Negotiation",
-          value: `RM ${(kpis.negotiationPipeline || 0).toLocaleString()}`,
+          value: compactCurrency(
+            kpis.negotiationPipeline || 0,
+          ).toLocaleString(),
           icon: TargetIcon,
           to: "../list",
           filter: {
@@ -163,7 +168,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         },
         {
           label: "On-Hold Cash",
-          value: `RM ${(kpis.onHoldPipeline || 0).toLocaleString()}`,
+          value: compactCurrency(kpis.onHoldPipeline || 0).toLocaleString(),
           icon: PauseCircleIcon,
           to: "../list",
           filter: { ...baseFilter, activePipelineOnly: "true", onHold: "true" },
@@ -180,7 +185,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       icon: FunnelIcon,
       label: "Pipeline Generated",
       sublabel: "Total Generated Expected Revenue",
-      value: `RM ${(kpis.pipelineGenerated || 0).toLocaleString()}`,
+      value: compactCurrency(kpis.pipelineGenerated || 0).toLocaleString(),
       variant: "blueCard",
       to: "../list",
       filter: { ...baseFilter, ...periodFilter },
@@ -193,7 +198,9 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         },
         {
           label: "Avg. Deal Size",
-          value: `RM ${(kpis.avgGeneratedDealSize || 0).toLocaleString()}`,
+          value: compactCurrency(
+            kpis.avgGeneratedDealSize || 0,
+          ).toLocaleString(),
         },
         {
           label: "Avg. Probability",
@@ -232,9 +239,9 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       label: "Pipeline Attainment (CRM)",
       sublabel:
         targetRevenue > 0
-          ? `Self-Reported vs. Target Quota: RM ${targetRevenue.toLocaleString()}`
+          ? `Self-Reported vs. Target Quota: ${compactCurrency(targetRevenue).toLocaleString()}`
           : "No Target Set for Period",
-      value: `RM ${wonRevenue.toLocaleString()}`, // Keep the massive number as the actual cash
+      value: compactCurrency(wonRevenue).toLocaleString(), // Keep the massive number as the actual cash
       variant: revenueAttainmentStatus.variant,
       status: {
         icon: revenueAttainmentStatus.statusIcon,
@@ -249,7 +256,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
           label: "Prev. Period (Delta)", // Updated label to reflect the new data
           value:
             wonDelta !== null
-              ? `RM ${(kpis.prevWonRevenue || 0).toLocaleString()} (${wonDelta > 0 ? "+" : ""}${wonDelta}%)`
+              ? `${compactCurrency(kpis.prevWonRevenue || 0).toLocaleString()} (${wonDelta > 0 ? "+" : ""}${wonDelta}%)`
               : "N/A",
           icon:
             wonDelta === null
@@ -265,7 +272,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         },
         {
           label: "Forecast Variance", // Accuracy metric stays high up
-          value: `RM ${(kpis.forecastVariance || 0).toLocaleString()}`,
+          value: compactCurrency(kpis.forecastVariance || 0).toLocaleString(),
           icon: isVariancePositive ? TrendUpIcon : TrendDownIcon,
         },
         {
@@ -299,7 +306,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       icon: WarningCircleIcon,
       label: "Lost Revenue",
       sublabel: "Expected Revenue (Lost/Cancelled)",
-      value: `RM ${lostRevenue.toLocaleString()}`,
+      value: compactCurrency(lostRevenue).toLocaleString(),
       variant: lostRevenueStatus.variant,
       status: {
         icon: lostRevenueStatus.statusIcon,
@@ -325,7 +332,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         },
         {
           label: "Avg. Lost Deal Size",
-          value: `RM ${(kpis.avgLostDealSize || 0).toLocaleString()}`,
+          value: compactCurrency(kpis.avgLostDealSize || 0).toLocaleString(),
           // Computed off stage='LOST' only (NOT the cancelled union above --
           // a pre-existing inconsistency between sibling metrics on this
           // tile, in the RPC itself, not something introduced here) -- links

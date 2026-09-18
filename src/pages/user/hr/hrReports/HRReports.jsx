@@ -42,6 +42,7 @@ import {
   getHrReportsNeedsAttentionConfig,
   getHrReportsOverviewConfig,
 } from "./overviewConfig";
+import { useTheme } from "../../../../context/ThemeContext";
 
 // AI Summary plumbing -- not enabled live, matching Sales/Finance Reports'
 // current state (Finance has it fully wired but commented out, Sales
@@ -53,6 +54,7 @@ import {
 // import { useQueryClient } from "@tanstack/react-query";
 
 export default function HRReports() {
+  const { darkMode } = useTheme();
   const dashboardRef = useRef(null);
   const { canAccess } = useAccessControl();
 
@@ -97,7 +99,11 @@ export default function HRReports() {
   const isError = dashboardError || metadataError;
 
   const kpis = dashboard?.kpis ?? {};
-  const overviewItems = getHrReportsOverviewConfig(kpis, canAccessHrOps, filters);
+  const overviewItems = getHrReportsOverviewConfig(
+    kpis,
+    canAccessHrOps,
+    filters,
+  );
   const needsAttentionItems = getHrReportsNeedsAttentionConfig(
     kpis,
     canAccessHrOps,
@@ -150,7 +156,7 @@ export default function HRReports() {
     })) ?? [];
 
   return (
-    <section className="sectionLight">
+    <section className={darkMode ? `sectionDark` : `sectionLight`}>
       <div className="sectionWrapper">
         <div className="sectionContent">
           <Breadcrumbs icon={ChartBarIcon} current="HR Reports" />
@@ -167,10 +173,19 @@ export default function HRReports() {
               isError={isError}
             />
 
-            <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
+            <FiscalYearFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+            />
 
             {/* EXPORT */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.8rem" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "0.8rem",
+              }}
+            >
               {/* <GenerateAiButton type="hr" filters={filters} onComplete={handleAiComplete} /> */}
               <ExportActions
                 targetRef={dashboardRef}
@@ -187,7 +202,11 @@ export default function HRReports() {
 
             <div
               ref={dashboardRef}
-              style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.8rem",
+              }}
             >
               {hasActiveFilters && (
                 <ActiveFiltersBar
@@ -212,15 +231,23 @@ export default function HRReports() {
 
                   {/* 1. HR KPIs */}
                   <div className="pdfOverviewSection">
-                    <div style={{ justifyContent: "start", textAlign: "start" }}>
+                    <div
+                      style={{ justifyContent: "start", textAlign: "start" }}
+                    >
                       <div style={{ marginBottom: "1rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
                           <GaugeIcon size={24} />
                           <h2 className="textL textBold">HR KPIs</h2>
                         </div>
                         <p className="textXS textLight">
-                          Headcount, attendance, leave, and the employee lifecycle —
-                          the state of the workforce this period.
+                          Headcount, attendance, leave, and the employee
+                          lifecycle — the state of the workforce this period.
                         </p>
                       </div>
 
@@ -230,15 +257,25 @@ export default function HRReports() {
 
                   {/* 2. THE EMPLOYEE JOURNEY */}
                   <div className="pdfOverviewSection">
-                    <div style={{ justifyContent: "start", textAlign: "start" }}>
+                    <div
+                      style={{ justifyContent: "start", textAlign: "start" }}
+                    >
                       <div style={{ marginBottom: "1rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
                           <PathIcon size={24} />
-                          <h2 className="textL textBold">The Employee Journey</h2>
+                          <h2 className="textL textBold">
+                            The Employee Journey
+                          </h2>
                         </div>
                         <p className="textXS textLight">
-                          From first day to last day — how employees moved through
-                          onboarding and offboarding this period.
+                          From first day to last day — how employees moved
+                          through onboarding and offboarding this period.
                         </p>
                       </div>
 
@@ -247,7 +284,9 @@ export default function HRReports() {
                           title="Onboarding"
                           subtitle="Open, Completed, and Stuck Cases"
                           style="cardGapSmall"
-                          viewAllTo={canAccessHrOps ? "/app/hr/onboarding" : undefined}
+                          viewAllTo={
+                            canAccessHrOps ? "/app/hr/onboarding" : undefined
+                          }
                         >
                           <HorizontalBarChartRenderer
                             data={onboardingFunnelData}
@@ -258,7 +297,9 @@ export default function HRReports() {
                           title="Offboarding"
                           subtitle="Open, Completed, and Stuck Cases"
                           style="cardGapSmall"
-                          viewAllTo={canAccessHrOps ? "/app/hr/offboarding" : undefined}
+                          viewAllTo={
+                            canAccessHrOps ? "/app/hr/offboarding" : undefined
+                          }
                         >
                           <HorizontalBarChartRenderer
                             data={offboardingFunnelData}
@@ -271,15 +312,23 @@ export default function HRReports() {
 
                   {/* 3. NEEDS ATTENTION */}
                   <div className="pdfOverviewSection">
-                    <div style={{ justifyContent: "start", textAlign: "start" }}>
+                    <div
+                      style={{ justifyContent: "start", textAlign: "start" }}
+                    >
                       <div style={{ marginBottom: "1rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
                           <WarningCircleIcon size={24} />
                           <h2 className="textL textBold">Needs Attention</h2>
                         </div>
                         <p className="textXS textLight">
-                          Confirmations, contracts, and checklists that need HR or
-                          management follow-up.
+                          Confirmations, contracts, and checklists that need HR
+                          or management follow-up.
                         </p>
                       </div>
 
@@ -289,9 +338,17 @@ export default function HRReports() {
 
                   {/* 4. WORKFORCE COMPOSITION & MOVEMENT */}
                   <div className="pdfOverviewSection">
-                    <div style={{ justifyContent: "start", textAlign: "start" }}>
+                    <div
+                      style={{ justifyContent: "start", textAlign: "start" }}
+                    >
                       <div style={{ marginBottom: "1rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
                           <UsersFourIcon size={24} />
                           <h2 className="textL textBold">
                             Workforce Composition &amp; Movement
@@ -310,7 +367,9 @@ export default function HRReports() {
                         >
                           <LineChartRenderer
                             data={headcountTrendData}
-                            lines={[{ dataKey: "Headcount", color: BLUE_COLOR }]}
+                            lines={[
+                              { dataKey: "Headcount", color: BLUE_COLOR },
+                            ]}
                           />
                         </ChartCard>
                         <ChartCard
@@ -330,8 +389,15 @@ export default function HRReports() {
                           title="Department Composition"
                           subtitle="Active Headcount"
                           style="cardGapSmall"
-                          viewAllTo={canAccessHrOps ? "/app/hr/employees/list" : undefined}
-                          viewAllFilter={{ statusBucket: "active", ...chartBaseFilter }}
+                          viewAllTo={
+                            canAccessHrOps
+                              ? "/app/hr/employees/list"
+                              : undefined
+                          }
+                          viewAllFilter={{
+                            statusBucket: "active",
+                            ...chartBaseFilter,
+                          }}
                         >
                           <HorizontalBarChartRenderer
                             data={departmentCompositionData}
@@ -365,11 +431,21 @@ export default function HRReports() {
 
                   {/* 5. DAY-TO-DAY: ATTENDANCE & LEAVE */}
                   <div className="pdfOverviewSection">
-                    <div style={{ justifyContent: "start", textAlign: "start" }}>
+                    <div
+                      style={{ justifyContent: "start", textAlign: "start" }}
+                    >
                       <div style={{ marginBottom: "1rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
                           <ClockIcon size={24} />
-                          <h2 className="textL textBold">Day-to-Day: Attendance &amp; Leave</h2>
+                          <h2 className="textL textBold">
+                            Day-to-Day: Attendance &amp; Leave
+                          </h2>
                         </div>
                         <p className="textXS textLight">
                           How work actually happens day to day, and how leave is
@@ -385,7 +461,9 @@ export default function HRReports() {
                         >
                           <LineChartRenderer
                             data={attendanceRateTrendData}
-                            lines={[{ dataKey: "Attendance Rate", color: BLUE_COLOR }]}
+                            lines={[
+                              { dataKey: "Attendance Rate", color: BLUE_COLOR },
+                            ]}
                           />
                         </ChartCard>
                         <ChartCard
@@ -403,7 +481,11 @@ export default function HRReports() {
                           title="Leave by Type"
                           subtitle="Total Days, This Period"
                           style="cardGapSmall"
-                          viewAllTo={canAccessHrOps ? "/app/hr/attendance/list" : undefined}
+                          viewAllTo={
+                            canAccessHrOps
+                              ? "/app/hr/attendance/list"
+                              : undefined
+                          }
                           viewAllFilter={{
                             ...chartBaseFilter,
                             onLeave: "true",
@@ -419,7 +501,11 @@ export default function HRReports() {
                           title="Status Breakdown"
                           subtitle="By Record, This Period (Excludes Weekends)"
                           style="cardGapSmall"
-                          viewAllTo={canAccessHrOps ? "/app/hr/attendance/list" : undefined}
+                          viewAllTo={
+                            canAccessHrOps
+                              ? "/app/hr/attendance/list"
+                              : undefined
+                          }
                           viewAllFilter={{
                             ...chartBaseFilter,
                             dayType: "working",
@@ -438,11 +524,21 @@ export default function HRReports() {
 
                   {/* 6. BY DEPARTMENT & MANAGER */}
                   <div className="pdfOverviewSection">
-                    <div style={{ justifyContent: "start", textAlign: "start" }}>
+                    <div
+                      style={{ justifyContent: "start", textAlign: "start" }}
+                    >
                       <div style={{ marginBottom: "1rem" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
+                        >
                           <RankingIcon size={24} />
-                          <h2 className="textL textBold">By Department &amp; Manager</h2>
+                          <h2 className="textL textBold">
+                            By Department &amp; Manager
+                          </h2>
                         </div>
                         <p className="textXS textLight">
                           Attendance and attrition by department, and who's
@@ -455,7 +551,11 @@ export default function HRReports() {
                           title="Attendance Rate by Department"
                           subtitle="This Period (%)"
                           style="cardGapSmall"
-                          viewAllTo={canAccessHrOps ? "/app/hr/attendance/list" : undefined}
+                          viewAllTo={
+                            canAccessHrOps
+                              ? "/app/hr/attendance/list"
+                              : undefined
+                          }
                           viewAllFilter={{
                             ...chartBaseFilter,
                             dayType: "working",
@@ -481,7 +581,11 @@ export default function HRReports() {
                           title="Top Managers by Team Size"
                           subtitle="Active Direct Reports"
                           style="cardGapSmall"
-                          viewAllTo={canAccessHrOps ? "/app/hr/employees/list" : undefined}
+                          viewAllTo={
+                            canAccessHrOps
+                              ? "/app/hr/employees/list"
+                              : undefined
+                          }
                         >
                           <HorizontalBarChartRenderer
                             data={topManagersData}

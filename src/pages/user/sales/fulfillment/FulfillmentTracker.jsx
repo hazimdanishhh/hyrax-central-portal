@@ -18,9 +18,11 @@ import { useFulfillmentOrder } from "../../../../features/sales/fulfillment/priv
 import { useSalesOrdersMetadata } from "../../../../features/sales/orders/private/hooks/useSalesOrdersMetadata";
 import { getFulfillmentOrdersFilterConfig } from "./filterConfig";
 import { getFulfillmentOrdersSortConfig } from "./sortConfig";
+import { getFulfillmentOverviewConfig } from "./overviewConfig";
+import { useFulfillmentOverview } from "../../../../features/sales/fulfillment/private/hooks/useFulfillmentOverview";
+import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 import FulfillmentOrderCard from "../../../../components/sales/fulfillment/fulfillmentOrderCard/FulfillmentOrderCard";
 import FulfillmentOrderSidebar from "./detail/FulfillmentOrderSidebar";
-import PageTitle from "../../../../components/pageTitle/PageTitle";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { useTheme } from "../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
@@ -100,6 +102,9 @@ export default function FulfillmentTracker() {
 
   const sidebarOpen = !!selectedRow;
 
+  const { kpis } = useFulfillmentOverview(filters, search);
+  const overviewItems = getFulfillmentOverviewConfig(kpis);
+
   const filterConfig = getFulfillmentOrdersFilterConfig({ salesReps });
   const sortOptions = getFulfillmentOrdersSortConfig();
 
@@ -119,6 +124,8 @@ export default function FulfillmentTracker() {
           <Breadcrumbs icon={TruckIcon} current="Fulfillment Tracker" />
 
           <CardWrapper>
+            <OverviewCards items={overviewItems} style="overviewCard2" />
+
             <SearchFilterBar
               search={search}
               onSearchChange={setSearch}
@@ -174,7 +181,7 @@ export default function FulfillmentTracker() {
               ) : error ? (
                 <NoResult title="Error loading results" />
               ) : (
-                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+                <CardLayout style="cardLayout2 cardPaddingSmall cardGapSmall">
                   {fulfillmentOrders.map((order) => (
                     <FulfillmentOrderCard
                       key={order.doc_entry}

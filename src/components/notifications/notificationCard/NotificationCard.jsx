@@ -29,10 +29,7 @@ function NotificationCard({
       title={message}
       onClick={onClick}
     >
-      <Link
-        to={to}
-        className={`notificationCard ${read ? "read" : "unread"}`}
-      >
+      <Link to={to} className={`notificationCard ${read ? "read" : "unread"}`}>
         <div
           className={
             type === "info"

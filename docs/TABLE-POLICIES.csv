@@ -33,6 +33,11 @@ public,attendance_activities,table,true,false,HR CRUD,ALL,true,{authenticated},"
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))","(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))"
+public,attendance_activities,table,true,false,MGM Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text) AND (r.name = 'manager'::text))))",null
 public,attendance_activities,table,true,false,Only Managers can CRUD Team Attendance,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM employees e
   WHERE ((e.id = attendance_activities.employee_id) AND (e.manager_id = ( SELECT employees.id
@@ -53,6 +58,11 @@ public,attendance_logs,table,true,false,Employees can view own scan logs,SELECT,
 public,attendance_logs,table,true,false,HR can view all scan logs,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))",null
+public,attendance_logs,table,true,false,MGM Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text) AND (r.name = 'manager'::text))))",null
 public,attendance_logs,table,true,false,Managers can view subordinates' scan logs,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM employees sub
   WHERE ((sub.employee_id = attendance_logs.employee_id) AND (sub.manager_id = current_employee_id()))))",null
@@ -92,11 +102,21 @@ public,employee_lifecycle_case_items,table,true,false,Employee can view own visi
    FROM employee_lifecycle_cases c
   WHERE ((c.id = employee_lifecycle_case_items.case_id) AND (c.employee_id = current_employee_id()) AND (c.employee_can_view = true)))))",null
 public,employee_lifecycle_case_items,table,true,false,HR and IT can view all lifecycle case items,SELECT,true,{authenticated},(is_department('HR'::text) OR is_department('IT'::text)),null
+public,employee_lifecycle_case_items,table,true,false,MGM Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text) AND (r.name = 'manager'::text))))",null
 public,employee_lifecycle_case_items,table,true,false,Owning department can update their items,UPDATE,true,{authenticated},((owning_department_sub IS NOT NULL) AND is_department(owning_department_sub)),((owning_department_sub IS NOT NULL) AND is_department(owning_department_sub))
 public,employee_lifecycle_case_items,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
 public,employee_lifecycle_cases,table,true,false,Employee can view own visible case,SELECT,true,{authenticated},((employee_id = current_employee_id()) AND (employee_can_view = true)),null
 public,employee_lifecycle_cases,table,true,false,HR and IT can view all lifecycle cases,SELECT,true,{authenticated},(is_department('HR'::text) OR is_department('IT'::text)),null
 public,employee_lifecycle_cases,table,true,false,HR can update lifecycle cases,UPDATE,true,{authenticated},is_department('HR'::text),is_department('HR'::text)
+public,employee_lifecycle_cases,table,true,false,MGM Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text) AND (r.name = 'manager'::text))))",null
 public,employee_lifecycle_cases,table,true,false,Superadmin CRUD,ALL,true,{authenticated},is_superadmin(),is_superadmin()
 public,employee_sales_rep_mapping,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
@@ -115,6 +135,11 @@ public,employees,table,true,false,HR CRUD,ALL,true,{authenticated},"(EXISTS ( SE
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))","(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))"
+public,employees,table,true,false,MGM Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text) AND (r.name = 'manager'::text))))",null
 public,employees,table,true,false,Managers can view their direct reports,SELECT,true,{authenticated},(manager_id = current_employee_id()),null
 public,employees,table,true,false,Only Superadmin can CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
@@ -150,6 +175,11 @@ public,leave_ledger_entries,table,true,false,Employees can view own leave record
 public,leave_ledger_entries,table,true,false,HR can view all leave records,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))",null
+public,leave_ledger_entries,table,true,false,MGM Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM ((profiles p
+     JOIN roles r ON ((r.id = p.role_id)))
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text) AND (r.name = 'manager'::text))))",null
 public,leave_ledger_entries,table,true,false,Managers can view subordinates' leave records,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM employees sub
   WHERE ((sub.id = leave_ledger_entries.employee_id) AND (sub.manager_id = current_employee_id()))))",null
@@ -425,9 +455,10 @@ public,sap_gl_accounts,table,true,false,Finance Department VIEW,SELECT,true,{aut
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_gl_accounts,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_gl_accounts,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_gl_accounts,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -437,9 +468,10 @@ public,sap_gl_journal_entries,table,true,false,Finance Department VIEW,SELECT,tr
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_gl_journal_entries,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_gl_journal_entries,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_gl_journal_entries,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -449,9 +481,10 @@ public,sap_gl_journal_lines,table,true,false,Finance Department VIEW,SELECT,true
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_gl_journal_lines,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_gl_journal_lines,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_gl_journal_lines,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -461,9 +494,10 @@ public,sap_invoice_lines,table,true,false,Finance Department VIEW,SELECT,true,{a
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_invoice_lines,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_invoice_lines,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_invoice_lines,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
@@ -480,9 +514,10 @@ public,sap_invoices,table,true,false,Finance Department VIEW,SELECT,true,{authen
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_invoices,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_invoices,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_invoices,table,true,false,Operations Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
@@ -544,9 +579,10 @@ public,sap_payment_applications,table,true,false,Finance Department VIEW,SELECT,
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_payment_applications,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_payment_applications,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_payment_applications,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
@@ -559,9 +595,10 @@ public,sap_payments,table,true,false,Finance Department VIEW,SELECT,true,{authen
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_payments,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_payments,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_payments,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
@@ -637,9 +674,10 @@ public,sap_vendor_bill_lines,table,true,false,Finance Department VIEW,SELECT,tru
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_vendor_bill_lines,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_vendor_bill_lines,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_vendor_bill_lines,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -649,9 +687,10 @@ public,sap_vendor_bills,table,true,false,Finance Department VIEW,SELECT,true,{au
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_vendor_bills,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_vendor_bills,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_vendor_bills,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -661,9 +700,10 @@ public,sap_vendor_payment_applications,table,true,false,Finance Department VIEW,
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_vendor_payment_applications,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_vendor_payment_applications,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_vendor_payment_applications,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -673,9 +713,10 @@ public,sap_vendor_payments,table,true,false,Finance Department VIEW,SELECT,true,
    FROM (profiles p
      JOIN departments d ON ((d.id = p.department_id)))
   WHERE ((p.id = auth.uid()) AND (d.sub = 'FIN'::text))))",null
-public,sap_vendor_payments,table,true,false,Management VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM profiles
-  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 14))))",null
+public,sap_vendor_payments,table,true,false,MGM Department VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM (profiles p
+     JOIN departments d ON ((d.id = p.department_id)))
+  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text))))",null
 public,sap_vendor_payments,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1

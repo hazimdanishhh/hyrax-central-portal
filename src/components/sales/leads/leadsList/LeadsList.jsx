@@ -131,6 +131,7 @@ export default function LeadsList({
             icon={WarningIcon}
             style="textXXS textBold red"
             weight="fill"
+            title="SAP Sales Admin has not created the Sales Order for this Lead / the PO number isn't matched"
           />
         )}
       </div>
@@ -181,7 +182,7 @@ export default function LeadsList({
       </div>
 
       {/* FIGURES -- bordered-off, mirrors fulfillmentOrderCardFigures. */}
-      <div className="leadsListCardFigures cardLayout2 cardGapSmall">
+      <div className="leadsListCardFigures cardLayout2 cardGapSmall cardLayoutMin2">
         <p className="textLight textXXS">
           <strong className="textBold">Probability:</strong>{" "}
           {lead.close_probability}%
