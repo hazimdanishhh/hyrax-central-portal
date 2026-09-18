@@ -64,11 +64,16 @@
 -- address was used without a second round trip. Both are nullable --
 -- resolvedEmail/emailSource are null when both are blank, which the
 -- frontend must treat as "no email on file," never a silent failure.
+-- p_work_location_id added 2026-09 -- unified_daily_attendance/employees
+-- both already carry work_location_id, this just exposes it as a filter
+-- (PayrollExport.jsx's filterConfig.js previously noted this parameter
+-- didn't exist yet).
 create or replace function get_payroll_period_summary(
-    p_start_date    date,
-    p_end_date      date,
-    p_department_id bigint default null,
-    p_employee_id   uuid default null
+    p_start_date       date,
+    p_end_date         date,
+    p_department_id    bigint default null,
+    p_employee_id      uuid default null,
+    p_work_location_id bigint default null
 )
 returns json
 language plpgsql
@@ -101,6 +106,7 @@ with period_rows as materialized (
     from unified_daily_attendance uda
     where (p_department_id is null or uda.department_id = p_department_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
     and uda.work_date >= p_start_date
     and uda.work_date <= p_end_date
 ),
@@ -124,6 +130,7 @@ employee_leave_rows as (
     join employees e on e.id = le.employee_id
     where (p_department_id is null or e.department_id = p_department_id)
     and (p_employee_id is null or le.employee_id = p_employee_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and le.leave_date >= p_start_date
     and le.leave_date <= p_end_date
 ),

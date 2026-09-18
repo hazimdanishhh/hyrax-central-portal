@@ -23,6 +23,7 @@ export async function fetchPayrollPeriodSummary({ filters } = {}) {
     p_end_date: f.endDate || null,
     p_department_id: f.department || null,
     p_employee_id: f.employee || null,
+    p_work_location_id: f.workLocation || null,
   });
 
   if (error) throw error;

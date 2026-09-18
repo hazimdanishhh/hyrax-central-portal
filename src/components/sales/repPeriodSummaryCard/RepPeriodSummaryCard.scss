@@ -1,0 +1,27 @@
+.repPeriodSummaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 100%;
+  min-width: 0;
+  text-align: start;
+  cursor: pointer;
+
+  .repPeriodSummaryCardHeader {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+
+    p {
+      min-width: 0;
+    }
+  }
+
+  .repPeriodSummaryCardRevenue {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+}

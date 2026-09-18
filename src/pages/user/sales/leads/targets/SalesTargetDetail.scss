@@ -1,0 +1,52 @@
+.salesQuotaSidebarContainer {
+  margin: 0.8rem;
+  margin-top: 0;
+}
+
+.salesQuotaSidebarHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.4rem;
+}
+
+.salesQuotaYearSwitcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+
+  p {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+.salesQuotaTotalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem;
+  margin: 0.4rem 0.8rem 0;
+  border-top: 1px solid rgb($dark, 0.15);
+}
+
+.salesQuotaMonthRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+
+  p:first-child {
+    min-width: 3.2rem;
+  }
+
+  p:nth-child(2) {
+    flex: 1;
+  }
+
+  input[type="number"] {
+    flex: 1;
+    min-width: 0;
+  }
+}

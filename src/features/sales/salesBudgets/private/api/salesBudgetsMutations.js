@@ -5,14 +5,20 @@ import { normalizeFields } from "@/features/_shared/normalizeFields";
  * Normalize a budget_month to the first of its month. get_sales_reports_
  * dashboard's budget_math already date_truncs this defensively, but keep the
  * stored value canonical for consistency with sales_targets.
+ *
+ * Plain string parsing, not a Date roundtrip -- see
+ * salesTargetsMutations.js's normalizeTargetMonth for why (`new Date(...)
+ * .getFullYear()/.getMonth()` are LOCAL-time getters against a
+ * UTC-midnight date-only string, unsafe for any viewer in a negative UTC
+ * offset). budget_month is always already "YYYY-MM-DD" (constructed by
+ * monthGrid.js's buildMonthDate on the drill-in page).
  */
 function normalizeBudgetMonth(fields) {
   if (!fields.budget_month) return fields;
 
-  const date = new Date(fields.budget_month);
-  const firstOfMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+  const [year, month] = String(fields.budget_month).split("-");
 
-  return { ...fields, budget_month: firstOfMonth };
+  return { ...fields, budget_month: `${year}-${month}-01` };
 }
 
 /**

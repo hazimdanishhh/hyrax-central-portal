@@ -1,15 +1,14 @@
 // pages/user/hr/attendanceManagement/payrollExport/filterConfig.js
 
-// Deliberately department/employee only (no Work Location) -- unlike
-// overview/filterConfig.js, get_payroll_period_summary_rpc.sql has no
-// p_work_location_id parameter, so offering that filter here would silently
-// do nothing.
+// department/employee/workLocation all forward straight to
+// get_payroll_period_summary_rpc.sql's matching p_* parameters (see
+// payrollPeriodSummaryService.js).
 //
 // "Needs Reconciliation" is different -- it's a client-side-only post-filter
 // over rows the RPC already returned (see rowNeedsReconciliation below), not
 // something forwarded to the RPC, so it's safe to offer here even though
 // get_payroll_period_summary_rpc.sql has no matching parameter either.
-export function getPayrollExportFilterConfig({ departments, employees }) {
+export function getPayrollExportFilterConfig({ departments, employees, workLocations }) {
   return [
     {
       key: "department",
@@ -20,6 +19,11 @@ export function getPayrollExportFilterConfig({ departments, employees }) {
       key: "employee",
       label: "Employee",
       options: (employees || []).map((e) => ({ label: e.full_name, value: e.id })),
+    },
+    {
+      key: "workLocation",
+      label: "Work Location",
+      options: (workLocations || []).map((w) => ({ label: w.name, value: w.id })),
     },
     {
       // Single-option toggle -- same convention as employeeManagement/list/

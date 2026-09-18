@@ -95,7 +95,14 @@ export default (
         <Route path=":leadId" element={null} />
       </Route>
 
-      {/* TARGETS (Forecast 1 -- CRM pipeline quota per rep) */}
+      {/* TARGETS (Forecast 1 -- CRM pipeline quota per rep) -- master view
+          is grouped by rep then year (tiles). Clicking a tile opens a
+          sidebar (not a full-page navigate) for that rep+year's 12 months,
+          URL-driven via :ownerId/:year -- same "sidebar open state lives
+          in the URL, child route element={null}" pattern as :leadId/
+          :docEntry elsewhere in this app. "new" opens a rep+year picker
+          sidebar instead (no DB write), replacing the old ambiguous
+          :targetId-that-might-be-"new" catch-all. */}
       <Route
         path="targets"
         element={
@@ -104,7 +111,8 @@ export default (
           </AccessRoute>
         }
       >
-        <Route path=":targetId" element={null} />
+        <Route path="new" element={null} />
+        <Route path=":ownerId/:year" element={null} />
       </Route>
     </Route>
 
@@ -140,7 +148,10 @@ export default (
 
       {/* BUDGETS (Forecast 2 -- SAP invoice quota per rep) -- stays
           manager-gated; reads sales_budgets/sales_targets, not
-          sap_sales_orders, so it's outside the R3 reclassification above. */}
+          sap_sales_orders, so it's outside the R3 reclassification above.
+          Same grouped-master + URL-driven-sidebar shape as Targets above
+          (:repCode/:year); "new" opens a rep+year picker sidebar, no DB
+          write. */}
       <Route
         path="budgets"
         element={
@@ -149,7 +160,8 @@ export default (
           </AccessRoute>
         }
       >
-        <Route path=":budgetId" element={null} />
+        <Route path="new" element={null} />
+        <Route path=":repCode/:year" element={null} />
       </Route>
     </Route>
 

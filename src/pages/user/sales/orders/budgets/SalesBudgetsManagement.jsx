@@ -1,143 +1,120 @@
 // pages/user/sales/orders/budgets/SalesBudgetsManagement.jsx
 import { useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useMatch, useParams, useSearchParams } from "react-router-dom";
+import Select from "react-select";
 import { AnimatePresence } from "framer-motion";
-import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
+import { PlusCircleIcon, CaretRightIcon, WalletIcon } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
-import DataTable from "../../../../../components/dataTable/DataTable";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
-import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
 import PageActions from "../../../../../components/crud/pageActions/PageActions";
-import PageResult from "../../../../../components/crud/pageResult/PageResult";
-import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
-import useCrudActionState from "../../../../../hooks/useCrudActionState";
-import { fetchSalesBudgets } from "../../../../../features/sales/salesBudgets/private/api/salesBudgetsService";
-import { useSalesBudgetsMetadata } from "../../../../../features/sales/salesBudgets/private/hooks/useSalesBudgetsMetadata";
-import useSalesBudgetsMutations from "../../../../../features/sales/salesBudgets/private/hooks/useSalesBudgetsMutations";
-import { useSalesBudgetById } from "../../../../../features/sales/salesBudgets/private/hooks/useSalesBudgetById";
-import { salesBudgetsTableConfig } from "./tableConfig";
-import { getSalesBudgetsFilterConfig } from "./filterConfig";
+import Button from "../../../../../components/buttons/button/Button";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
+import RepPeriodSummaryCard from "../../../../../components/sales/repPeriodSummaryCard/RepPeriodSummaryCard";
+import SalesBudgetDetail from "./SalesBudgetDetail";
+import { useAllSalesBudgets } from "../../../../../features/sales/salesBudgets/private/hooks/useAllSalesBudgets";
+import { useSalesBudgetsMetadata } from "../../../../../features/sales/salesBudgets/private/hooks/useSalesBudgetsMetadata";
+import { groupRowsByRepYear } from "../../../../../features/_shared/groupRowsByRepYear";
+import { getSalesBudgetsFilterConfig } from "./filterConfig";
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = [
+  CURRENT_YEAR - 1,
+  CURRENT_YEAR,
+  CURRENT_YEAR + 1,
+  CURRENT_YEAR + 2,
+];
 
 /**
  * Sales Budgets management (Forecast 2 -- SAP invoice quota per rep).
- * Sales-manager-only, per sales_rep_code + budget_month. Small settings-style
- * table -- no card/table layout toggle, no bulk actions.
+ * Sales-manager-only. Grouped by (sales_rep_code, year) -- mirrors
+ * SalesTargetsManagement.jsx exactly, keyed by the SAP-side rep identity
+ * (bigint, via the eagerly-fetched sap_sales_persons list) instead of the
+ * CRM-side lead_owner_id -- see that file's own header comment for why
+ * this replaced the old flat row-per-month table + free date picker.
  */
 export default function SalesBudgetsManagement() {
   const navigate = useNavigate();
-  const { budgetId } = useParams();
-  const [searchParams] = useSearchParams();
+  const isAddingOpen = !!useMatch("/app/sales/orders/budgets/new");
+  const { repCode, year } = useParams();
+  const detailOpen = !!(repCode && year);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const {
-    modalOpen,
-    selectedRowId,
-    modalType,
-    pendingSaveRow,
-    handleRequestSave,
-    handleRequestDelete,
-    closeActionModal,
-  } = useCrudActionState();
-
-  const {
-    data: salesBudgets,
-    totalCount,
-    page,
-    totalPages,
-    filters,
-    activeFilters,
-    hasActiveFilters,
-    setPage,
-    setFilters,
-    resetParams,
-    isLoading: budgetsLoading,
-    isFetching: budgetsFetching,
-    error: budgetsError,
-  } = usePaginatedQuery({
-    queryKey: "sales_budgets",
-    queryFn: fetchSalesBudgets,
-    pageSize: 20,
-    defaultSortBy: "budget_month",
-    defaultSortOrder: "descending",
-  });
-
+  const { budgets, isLoading: budgetsLoading, isFetching, error } = useAllSalesBudgets();
   const {
     salesReps,
     isLoading: metadataLoading,
-    isFetching: metadataFetching,
-    error: metadataError,
   } = useSalesBudgetsMetadata();
 
-  const {
-    createSalesBudget,
-    updateSalesBudget,
-    deleteSalesBudget,
-    creating,
-    updating,
-    deleting,
-  } = useSalesBudgetsMutations();
-
-  const filterConfig = getSalesBudgetsFilterConfig({ salesReps });
-  const columns = salesBudgetsTableConfig({ salesReps });
-  const tableColumns = columns.filter((c) => c.key !== "id");
-
   const isLoading = budgetsLoading || metadataLoading;
-  const isFetching = budgetsFetching || metadataFetching;
-  const error = budgetsError || metadataError;
-  const isSaving = creating || updating;
-  const hasData = salesBudgets.length > 0;
 
-  // URL-driven (:budgetId), same pattern as EmployeeManagement.jsx -- check
-  // the already-loaded page first, else fall back to useSalesBudgetById for
-  // a deep link to a row not on the current page. Sidebar is always in
-  // edit mode whenever open (no view-only state), so isEditing just
-  // mirrors sidebarOpen.
-  const { data: fetchedBudget } = useSalesBudgetById(budgetId);
+  const repCodeFilter = searchParams.get("salesRepCode") || "";
+  const filters = useMemo(() => ({ salesRepCode: repCodeFilter }), [repCodeFilter]);
 
-  const selectedRow = useMemo(() => {
-    if (budgetId === "new") return {};
-    if (!budgetId) return null;
-
-    const budgetInList = salesBudgets?.find((b) => b.id === budgetId);
-    if (budgetInList) return budgetInList;
-
-    return fetchedBudget || null;
-  }, [budgetId, salesBudgets, fetchedBudget]);
-
-  const sidebarOpen = !!selectedRow;
-
-  function handleOpenSidebar(row) {
-    navigate(`${row.id}?${searchParams.toString()}`);
+  function setFilters(next) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      Object.entries(next).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === "") {
+          params.delete(key);
+        } else {
+          params.set(key, String(value));
+        }
+      });
+      return params;
+    });
   }
 
-  function handleCloseSidebar() {
+  function resetParams() {
+    setSearchParams(new URLSearchParams());
+  }
+
+  const filterConfig = getSalesBudgetsFilterConfig({ salesReps });
+  // ActiveFiltersBar expects [key, value] entries (mirrors
+  // usePaginatedQuery's own activeFilters shape), not the plain filters
+  // object SearchFilterBar/setFilters use.
+  const activeFilters = useMemo(
+    () => Object.entries(filters).filter(([, value]) => value !== "" && value != null),
+    [filters],
+  );
+  const hasActiveFilters = activeFilters.length > 0;
+
+  const groups = useMemo(() => {
+    const filtered = repCodeFilter
+      ? budgets.filter((b) => String(b.sales_rep_code) === repCodeFilter)
+      : budgets;
+
+    return groupRowsByRepYear({
+      rows: filtered,
+      getRepKey: (b) => b.sales_rep_code,
+      getRepLabel: (b) => b.sales_rep?.sales_rep_name || "Unknown",
+      getMonthDate: (b) => b.budget_month,
+      getRevenue: (b) => b.budget_revenue,
+    });
+  }, [budgets, repCodeFilter]);
+
+  const hasData = groups.length > 0;
+
+  const repOptions = salesReps.map((r) => ({
+    value: r.sales_rep_code,
+    label: r.sales_rep_name,
+  }));
+
+  const [pickedRep, setPickedRep] = useState(null);
+  const [pickedYear, setPickedYear] = useState(CURRENT_YEAR);
+
+  function handleCloseAdd() {
+    setPickedRep(null);
+    setPickedYear(CURRENT_YEAR);
     navigate(`/app/sales/orders/budgets?${searchParams.toString()}`);
   }
 
-  async function handleConfirmAction() {
-    try {
-      if (modalType === "delete") {
-        await deleteSalesBudget(selectedRowId);
-      }
-
-      if (modalType === "save") {
-        if (pendingSaveRow.id) {
-          await updateSalesBudget(pendingSaveRow);
-        } else {
-          await createSalesBudget(pendingSaveRow);
-        }
-      }
-
-      closeActionModal();
-      handleCloseSidebar();
-    } catch (err) {
-      console.error(err);
-    }
+  function handleCloseDetail() {
+    navigate(`/app/sales/orders/budgets?${searchParams.toString()}`);
   }
 
   return (
@@ -178,68 +155,102 @@ export default function SalesBudgetsManagement() {
         />
       )}
 
-      <PageResult
-        data={salesBudgets}
-        totalCount={totalCount}
-        page={page}
-        setPage={setPage}
-        totalPages={totalPages}
-        error={error}
-      />
-
       <div className="cardWrapperScroll">
         {isLoading || isFetching ? (
           <CardLayout style="cardLayoutFlexFull">
             <LoadingIcon />
           </CardLayout>
         ) : !hasData ? (
-          <NoResult title="No budgets set for this period yet." />
+          <NoResult title="No budgets set for this rep/year yet." />
         ) : error ? (
           <NoResult title="Error loading results" />
         ) : (
-          <DataTable
-            data={salesBudgets}
-            columns={tableColumns}
-            rowKey="id"
-            onRowClick={handleOpenSidebar}
-          />
+          <CardLayout style="cardLayout2 cardGapSmall">
+            {groups.map((group) => (
+              <RepPeriodSummaryCard
+                key={`${group.repKey}::${group.year}`}
+                repLabel={group.repLabel}
+                year={group.year}
+                totalRevenue={group.totalRevenue}
+                filledMonths={group.filledMonths}
+                revenueLabel="Total Revenue Budget"
+                onClick={() =>
+                  navigate(`${group.repKey}/${group.year}?${searchParams.toString()}`)
+                }
+              />
+            ))}
+          </CardLayout>
         )}
       </div>
 
       <AnimatePresence>
-        {sidebarOpen && (
+        {isAddingOpen && (
           <DataSidebar
-            title={selectedRow?.id ? "Edit Budget" : "Add Budget"}
-            icon={PencilSimpleLineIcon}
-            open={sidebarOpen}
-            onClose={handleCloseSidebar}
-            rowData={selectedRow}
-            columns={columns}
-            onSave={handleRequestSave}
-            onDelete={handleRequestDelete}
-            saving={isSaving}
-            deleting={deleting}
-            creating={!selectedRow?.id}
-            isEditing={sidebarOpen}
-            onCancel={handleCloseSidebar}
-          />
+            title="Add Budget"
+            icon={WalletIcon}
+            open={isAddingOpen}
+            onClose={handleCloseAdd}
+            isEditing={false}
+            hideDelete
+          >
+            <div className="dataSidebarSection" style={{ margin: "0.8rem", display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+              <p className="textRegular textXS">
+                Pick a rep and a year to open its monthly budgets.
+              </p>
+
+              <Select
+                unstyled
+                className="selectContainer"
+                classNamePrefix="reactSelect"
+                options={repOptions}
+                value={pickedRep}
+                onChange={setPickedRep}
+                placeholder="Select rep..."
+              />
+
+              <select
+                className="selectContainer"
+                value={pickedYear}
+                onChange={(e) => setPickedYear(Number(e.target.value))}
+              >
+                {YEAR_OPTIONS.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+
+              <Button
+                name="Go to Months"
+                icon={CaretRightIcon}
+                style="button buttonType5 greenFill buttonFull textXXS"
+                disabled={!pickedRep}
+                onClick={() => {
+                  const target = `${pickedRep.value}/${pickedYear}?${searchParams.toString()}`;
+                  setPickedRep(null);
+                  setPickedYear(CURRENT_YEAR);
+                  navigate(target);
+                }}
+              />
+            </div>
+          </DataSidebar>
         )}
       </AnimatePresence>
 
-      <ActionModal
-        open={modalOpen}
-        onClose={closeActionModal}
-        title={modalType === "save" ? "Save Budget" : "Delete Budget"}
-        description={
-          modalType === "save"
-            ? "Are you sure you want to save these changes?"
-            : "Are you sure you want to delete this budget?"
-        }
-        confirmText={modalType === "save" ? "Save" : "Delete"}
-        loading={modalType === "save" ? isSaving : deleting}
-        onConfirm={handleConfirmAction}
-        modalType={modalType}
-      />
+      <AnimatePresence>
+        {detailOpen && (
+          <DataSidebar
+            title="Monthly Budgets"
+            icon={WalletIcon}
+            open={detailOpen}
+            onClose={handleCloseDetail}
+            isEditing={false}
+            hideDelete
+          >
+            <SalesBudgetDetail repCode={repCode} year={year} />
+          </DataSidebar>
+        )}
+      </AnimatePresence>
     </>
   );
 }

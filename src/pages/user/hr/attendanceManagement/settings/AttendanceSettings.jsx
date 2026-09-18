@@ -1,13 +1,14 @@
 // pages/user/hr/attendanceManagement/settings/AttendanceSettings.jsx
 import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
 import NoResult from "@/components/crud/noResult/NoResult";
 import PageHeader from "@/components/crud/pageHeader/PageHeader";
 import PageActions from "@/components/crud/pageActions/PageActions";
+import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
 import DataSidebar from "@/components/dataSidebar/DataSidebar";
 import ActionModal from "@/components/modals/actionModal/ActionModal";
 import PublicHolidayCard from "@/components/attendance/publicHolidayCard/PublicHolidayCard";
@@ -16,6 +17,7 @@ import { useAttendanceActivitiesMetadata } from "@/features/hr/attendance/privat
 import usePublicHolidays from "@/features/hr/attendance/private/hooks/usePublicHolidays";
 import usePublicHolidayMutations from "@/features/hr/attendance/private/hooks/usePublicHolidayMutations";
 import { publicHolidayTableConfig } from "./tableConfig";
+import { getHolidaysFilterConfig } from "./filterConfig";
 
 /**
  * Attendance > Settings tab -- HR-managed public holiday / company off-day
@@ -24,9 +26,11 @@ import { publicHolidayTableConfig } from "./tableConfig";
  * is_public_holiday/hr_flag directly -- see
  * docs/ATTENDANCE-SELF-SERVICE-ARCHITECTURE.md.
  *
- * Deliberately no pagination/search/sort bar (unlike the Attendance List
- * tab) -- a year's holiday calendar is a small, complete list (~30 rows) HR
- * wants to see all at once, already ordered by date server-side.
+ * Deliberately no pagination/sort bar (unlike the Attendance List tab) -- a
+ * year's holiday calendar is a small, complete list (~30 rows) HR wants to
+ * see all at once, already ordered by date server-side. Search/category/
+ * work-location filtering (see filterConfig.js) is client-side only, since
+ * the whole calendar is already loaded -- no service/RPC change needed.
  */
 export default function AttendanceSettings() {
   const navigate = useNavigate();
@@ -55,9 +59,47 @@ export default function AttendanceSettings() {
   } = usePublicHolidayMutations();
 
   const isSaving = creating || updating;
-  const hasData = holidays.length > 0;
 
   const columns = publicHolidayTableConfig({ workLocations });
+
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({ category: "", workLocation: "" });
+  const filterConfig = getHolidaysFilterConfig({ workLocations });
+
+  // Client-side only -- see filterConfig.js's header comment for why (the
+  // whole calendar is already loaded, no service/RPC round trip to filter
+  // through).
+  const filteredHolidays = useMemo(() => {
+    const q = search.trim().toLowerCase();
+
+    return holidays.filter((holiday) => {
+      if (q) {
+        const matchesSearch =
+          holiday.name?.toLowerCase().includes(q) ||
+          holiday.code?.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
+
+      if (filters.category && holiday.category !== filters.category) {
+        return false;
+      }
+
+      // A location-specific filter still shows universal holidays
+      // (work_location null = "applies to all locations") -- those apply
+      // regardless of which location HR is looking at.
+      if (
+        filters.workLocation &&
+        holiday.work_location != null &&
+        String(holiday.work_location.id) !== filters.workLocation
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [holidays, search, filters]);
+
+  const hasData = filteredHolidays.length > 0;
 
   // URL-driven (:holidayId), same pattern as EmployeeManagement.jsx -- no
   // separate by-id fallback fetch needed here (unlike most other pages in
@@ -126,6 +168,15 @@ export default function AttendanceSettings() {
         />
       </PageHeader>
 
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search by holiday name or code..."
+      />
+
       <CardLayout style="cardWrapperScroll">
         {isLoading || isFetching ? (
           <CardLayout style="cardLayoutFlexFull">
@@ -135,7 +186,7 @@ export default function AttendanceSettings() {
           <NoResult />
         ) : (
           <CardLayout style="cardLayout1 cardGapSmall">
-            {holidays.map((holiday) => (
+            {filteredHolidays.map((holiday) => (
               <PublicHolidayCard
                 key={holiday.id}
                 holiday={holiday}

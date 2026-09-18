@@ -6,14 +6,20 @@ import { normalizeFields } from "@/features/_shared/normalizeFields";
  * RPC (get_sales_reports_dashboard's pipeline_target_math) uses
  * t.target_month directly without a date_trunc safety net, unlike
  * sales_budgets' budget_math, so the stored value must already be the 1st.
+ *
+ * Plain string parsing, not a Date roundtrip -- `new Date(...).getFullYear()/
+ * .getMonth()` are LOCAL-time getters against a UTC-midnight date-only
+ * string, which silently rolls back a day for any viewer in a negative UTC
+ * offset. target_month is always already "YYYY-MM-DD" (constructed by
+ * monthGrid.js's buildMonthDate on the drill-in page), so this only ever
+ * needs to force the day segment, never re-derive year/month from a Date.
  */
 function normalizeTargetMonth(fields) {
   if (!fields.target_month) return fields;
 
-  const date = new Date(fields.target_month);
-  const firstOfMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+  const [year, month] = String(fields.target_month).split("-");
 
-  return { ...fields, target_month: firstOfMonth };
+  return { ...fields, target_month: `${year}-${month}-01` };
 }
 
 /**

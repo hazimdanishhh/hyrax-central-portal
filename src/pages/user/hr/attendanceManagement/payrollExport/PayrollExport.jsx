@@ -80,8 +80,8 @@ export default function PayrollExport() {
     [setSearchParams],
   );
 
-  const { employees, departments } = useAttendanceActivitiesMetadata();
-  const filterConfig = getPayrollExportFilterConfig({ departments, employees });
+  const { employees, departments, workLocations } = useAttendanceActivitiesMetadata();
+  const filterConfig = getPayrollExportFilterConfig({ departments, employees, workLocations });
 
   const { rows, isLoading, isFetching, error, hasPeriod } =
     usePayrollPeriodSummary(filters);
