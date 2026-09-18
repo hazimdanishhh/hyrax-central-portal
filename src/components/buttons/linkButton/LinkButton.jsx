@@ -10,6 +10,7 @@ export default function LinkButton({ href, name, icon, onClick, style, size }) {
       onClick={onClick}
       target="_blank"
       rel="noopener noreferrer"
+      title={name}
     >
       {name}
       {icon && <Icon size={size ?? (name ? "20" : "24")} />}
