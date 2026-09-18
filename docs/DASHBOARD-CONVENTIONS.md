@@ -154,6 +154,18 @@ Static-hero/informational tiles never call `getStatusVariant` — they keep hard
 
 **Numeric thresholds are documented estimates, not audited business targets.** Where a dynamic tile needed a real cutoff with no existing target/budget on the page (margin floors, DSO targets, attrition/absenteeism benchmarks, etc.), the threshold is commented inline in that tile's config as a starting point, tunable by Finance/HR/Sales without needing to touch the shared utility.
 
+## 5. Department module boundaries — no inter-departmental linking (added 2026-09)
+
+**The rule:** a department's own pages must never navigate into another department's module. Most users are department-scoped (only MGM/superadmin cross department lines), so a cross-department link is either dead on arrival for the viewer, or — even when it happens to resolve — drops them into a UI shaped for someone else's job, not theirs.
+
+**If department A needs something that conceptually belongs to department B:**
+- If A already has read access (RLS) to the underlying table/view, A builds its **own** tailored view over it — mirroring §3's existing pattern (Sales/Finance/HR/Operations Reports are each a separately-coded RPC over shared tables, never one Reports page shared across two departments).
+- If A does **not** yet have read access, that's a real gap to close with a small RLS policy addition — this codebase already has a repeated, low-risk precedent for exactly this (the `*_access_parity_fix.sql`/`*_access_fix.sql` migrations under `supabase/policies/`) — never a reason to link out to B's page instead.
+
+**Corollary:** no page should gate on two different *operating* departments together (e.g. `departments={["FIN","OPS"]}`). The only legitimate second entry in any department gate is `MGM` (company-wide observer, not a second stakeholder). Two operating departments needing the same underlying data get two separate, tailored views, not one shared page.
+
+**Case study (fixed 2026-09):** `InvoiceSidebar.jsx`'s "Matched Sales Order(s)" block used to render Sales' own `SalesOrderCard` with a click-through gated to Sales access — a Finance page reaching into Sales' module. Fixed by rendering `FulfillmentOrderCard` inline with no link at all: Finance's real need (see this order's status) doesn't require browsing Sales' own page, so no click-through and no new Finance-owned "orders" page were needed. Separately, `SAPCustomerCard` used to resolve to Sales' SAP Clients page even when rendered on Finance's own Invoice/Payment cards, for any MGM viewer — fixed by resolving the destination from the *current page's* own department context first, not just the viewer's access, so Finance's pages always resolve to Finance's own Business Partners page.
+
 ---
 
 ### What this app owns vs. what it doesn't

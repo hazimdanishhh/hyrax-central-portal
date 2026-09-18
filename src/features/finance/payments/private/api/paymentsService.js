@@ -1,5 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
-import { fetchInvoicesForSalesOrder } from "../../../invoices/private/api/invoicesService";
+import { resolveInvoiceIdsForSalesOrder } from "../../../invoices/private/api/invoicesService";
 import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
 
 /**
@@ -41,6 +41,25 @@ export async function fetchPayments({
     query = query.or(orQuery);
   }
 
+  // --- SALES ORDER (reverse link from the Sales Order Fulfillment
+  // sidebar's "View all payments" button) -- resolves via the same
+  // SO->invoice->payment-application transitive join
+  // fetchPaymentsForSalesOrder uses, extracted into
+  // resolvePaymentIdsForInvoices/resolveInvoiceIdsForSalesOrder so both
+  // share one implementation. Handled outside the synchronous filter switch
+  // below since it needs an async resolve first -- same shape as
+  // invoicesService.js's own salesOrderDocEntry filter.
+  if (filters?.salesOrderDocEntry) {
+    const invoiceIds = await resolveInvoiceIdsForSalesOrder(
+      Number(filters.salesOrderDocEntry),
+    );
+    const matchingIds =
+      invoiceIds.length > 0
+        ? await resolvePaymentIdsForInvoices(invoiceIds)
+        : [];
+    query = query.in("doc_entry", matchingIds.length > 0 ? matchingIds : [-1]);
+  }
+
   // --- FILTERS ---
   Object.entries(filters || {}).forEach(([key, value]) => {
     if (value === undefined || value === "") return;
@@ -48,22 +67,6 @@ export async function fetchPayments({
     switch (key) {
       case "customerCode":
         if (value !== FILTER_NULL) query = query.eq("customer_code", value);
-        break;
-
-      // Backs the Sales Order Fulfillment sidebar's "View All Payments"
-      // button, scoping the list to exactly this order's own matched
-      // payment doc_entrys (resolved client-side via
-      // fetchPaymentsForSalesOrder's SO -> invoice -> payment-application
-      // transitive join), not an approximation. Mirrors invoicesService.js's
-      // own docEntries case.
-      case "docEntries":
-        if (value)
-          query = query.in(
-            "doc_entry",
-            String(value)
-              .split(",")
-              .map(Number),
-          );
         break;
 
       case "isCancelled":
@@ -86,7 +89,7 @@ export async function fetchPayments({
         break;
 
       default:
-        break;
+        break; // salesOrderDocEntry already resolved above
     }
   });
 
@@ -213,15 +216,14 @@ export async function fetchPaymentsForInvoice(invoiceDocEntry) {
 }
 
 /**
- * Generalizes fetchPaymentsForInvoice above to a list of invoices -- same
- * two-step shape (payment_applications -> dedupe payment_ref -> sap_payments
- * .in()), just querying sap_payment_applications.doc_entry with .in() instead
- * of .eq(). Backs fetchPaymentsForSalesOrder below. The final .in() naturally
- * returns each payment once even if it was referenced via multiple invoices'
- * payment_ref entries, since paymentDocEntries is deduped into a Set first --
- * no extra dedupe pass needed for the flat-list use case.
+ * Resolves the payment doc_entrys applied against a set of invoices, via
+ * sap_payment_applications (payment_ref -> sap_payments.doc_entry, filtered
+ * inv_type=13) -- shared by fetchPaymentsForInvoices below (full payment
+ * objects) and fetchPayments' salesOrderDocEntry filter above (ids only).
+ * The final Set dedupe naturally handles a payment referenced via multiple
+ * invoices' payment_ref entries -- no extra dedupe pass needed.
  */
-export async function fetchPaymentsForInvoices(invoiceDocEntries) {
+async function resolvePaymentIdsForInvoices(invoiceDocEntries) {
   if (!invoiceDocEntries || invoiceDocEntries.length === 0) return [];
 
   const { data: applications, error: applicationsError } = await supabase
@@ -232,15 +234,24 @@ export async function fetchPaymentsForInvoices(invoiceDocEntries) {
 
   if (applicationsError) throw applicationsError;
 
-  const paymentDocEntries = [
+  return [
     ...new Set((applications || []).map((application) => application.payment_ref)),
   ];
+}
+
+/**
+ * Generalizes fetchPaymentsForInvoice above to a list of invoices. Backs
+ * fetchPaymentsForSalesOrder below.
+ */
+export async function fetchPaymentsForInvoices(invoiceDocEntries) {
+  const paymentDocEntries = await resolvePaymentIdsForInvoices(invoiceDocEntries);
   if (paymentDocEntries.length === 0) return [];
 
   const { data: payments, error: paymentsError } = await supabase
     .from("sap_payments")
     .select("*")
-    .in("doc_entry", paymentDocEntries);
+    .in("doc_entry", paymentDocEntries)
+    .order("payment_date", { ascending: false });
 
   if (paymentsError) throw paymentsError;
 
@@ -251,17 +262,24 @@ export async function fetchPaymentsForInvoices(invoiceDocEntries) {
  * Backs the Sales Order Sidebar's "MATCHED PAYMENT(S)" block. SAP has no
  * direct SO->Payment link -- a payment only ever applies to an invoice -- so
  * this is a transitive join: SO -> matched invoice(s) (reusing
- * fetchInvoicesForSalesOrder's own base_entry/base_type document trail,
- * rather than re-deriving it) -> payment(s) applied to those invoices. Flat
- * list, same as fetchPaymentsForInvoice -- a payment's own detail page
- * already shows exactly which invoice(s) it applied to for anyone who needs
- * that level of detail.
+ * resolveInvoiceIdsForSalesOrder's own base_entry/base_type document trail,
+ * rather than re-deriving it) -> payment(s) applied to those invoices.
+ * Capped to the 5 most recent matches, same shape as
+ * fetchInvoicesForSalesOrder's own cap -- `totalCount` is the TRUE match
+ * count, used by the "View all N payments" button, which links through the
+ * salesOrderDocEntry filter above rather than the capped preview's own
+ * doc_entrys.
  */
 export async function fetchPaymentsForSalesOrder(soDocEntry) {
-  if (!soDocEntry) return [];
+  if (!soDocEntry) return { data: [], totalCount: 0 };
 
-  const invoices = await fetchInvoicesForSalesOrder(soDocEntry);
-  if (invoices.length === 0) return [];
+  const invoiceIds = await resolveInvoiceIdsForSalesOrder(soDocEntry);
+  if (invoiceIds.length === 0) return { data: [], totalCount: 0 };
 
-  return fetchPaymentsForInvoices(invoices.map((invoice) => invoice.doc_entry));
+  const payments = await fetchPaymentsForInvoices(invoiceIds);
+
+  return {
+    data: payments.slice(0, 5),
+    totalCount: payments.length,
+  };
 }

@@ -238,9 +238,20 @@ export async function fetchSalesOrdersForInvoice(invoiceDocEntry) {
   const soIds = [...new Set([...directSoIds, ...soIdsViaDelivery])];
   if (soIds.length === 0) return [];
 
+  // sap_sales_orders_with_fulfillment, not the raw table -- so a matched
+  // order card rendered inside an Invoice sidebar shows real
+  // is_fully_delivered/matched_invoice_count/total_invoiced_myr/
+  // total_paid_myr/total_outstanding_myr/has_paid_mismatch figures instead
+  // of silently defaulting to 0/false. Same gap class already fixed on the
+  // reverse SO->Invoice direction (see fetchInvoicesForSalesOrder's own
+  // comment) -- this direction had the identical bug, just not caught
+  // until InvoiceSidebar started rendering FulfillmentOrderCard here too.
   const [{ data: orders, error: ordersError }, repsByCode, namesByCode] =
     await Promise.all([
-      supabase.from("sap_sales_orders").select("*").in("doc_entry", soIds),
+      supabase
+        .from("sap_sales_orders_with_fulfillment")
+        .select("*")
+        .in("doc_entry", soIds),
       fetchRepsByCode(),
       fetchRepNamesByCode(),
     ]);

@@ -13,7 +13,6 @@ import SectionHeader from "../../../../../components/sectionHeader/SectionHeader
 import MatchConnector from "../../../../../components/matchConnector/MatchConnector";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import buildFilterUrl from "../../../../../functions/convertFilter";
 import { useFulfillmentOrder } from "../../../../../features/sales/orders/private/hooks/useFulfillmentOrder";
 import { useSalesOrderLines } from "../../../../../features/sales/orders/private/hooks/useSalesOrderLines";
 import { useLeadByPoNumber } from "../../../../../features/sales/leads/private/hooks/useLeadByPoNumber";
@@ -68,17 +67,25 @@ export default function SalesOrderSidebar({ selectedRow }) {
   // tracker above needs this immediately, not just an expanded section.
   const { data: matchedLead } = useLeadByPoNumber(selectedRow?.customer_ref);
 
+  // Capped to the 5 most recent matches server-side (see
+  // fetchInvoicesForSalesOrder's own comment) -- totalCount is the TRUE
+  // match count, used below for the "View all N" button label, since the
+  // capped preview array's own length would under-report past 5.
   const {
-    data: matchedInvoices = [],
+    data: matchedInvoicesResult,
     isLoading: matchedInvoicesLoading,
     error: matchedInvoicesError,
   } = useInvoicesForSalesOrder(selectedRow?.doc_entry, invoicesOpen);
+  const matchedInvoices = matchedInvoicesResult?.data || [];
+  const matchedInvoicesTotal = matchedInvoicesResult?.totalCount || 0;
 
   const {
-    data: matchedPayments = [],
+    data: matchedPaymentsResult,
     isLoading: matchedPaymentsLoading,
     error: matchedPaymentsError,
   } = usePaymentsForSalesOrder(selectedRow?.doc_entry, paymentsOpen);
+  const matchedPayments = matchedPaymentsResult?.data || [];
+  const matchedPaymentsTotal = matchedPaymentsResult?.totalCount || 0;
 
   const hasLineData = lines?.length > 0;
 
@@ -89,13 +96,6 @@ export default function SalesOrderSidebar({ selectedRow }) {
   const isFullyPaid = fulfillmentOrder?.is_fully_paid ?? false;
 
   const canAccessFinance = canAccess({ departments: ["FIN", "MGM"] });
-
-  const invoicesFilterUrl = buildFilterUrl({
-    docEntries: matchedInvoices.map((invoice) => invoice.doc_entry),
-  });
-  const paymentsFilterUrl = buildFilterUrl({
-    docEntries: matchedPayments.map((payment) => payment.doc_entry),
-  });
 
   return (
     <div className="salesOrderSidebar">
@@ -214,10 +214,10 @@ export default function SalesOrderSidebar({ selectedRow }) {
                   </CardLayout>
                   {canAccessFinance && (
                     <RouterButton
-                      to={`/app/finance/invoices/list${invoicesFilterUrl}`}
+                      to={`/app/finance/invoices/list?salesOrderDocEntry=${selectedRow.doc_entry}`}
                       style="textRegular textXXS button buttonType4"
                       icon={CaretRightIcon}
-                      name={`View all ${matchedInvoices.length} invoice${matchedInvoices.length === 1 ? "" : "s"}`}
+                      name={`View all ${matchedInvoicesTotal} invoice${matchedInvoicesTotal === 1 ? "" : "s"}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     />
@@ -279,10 +279,10 @@ export default function SalesOrderSidebar({ selectedRow }) {
                   </CardLayout>
                   {canAccessFinance && (
                     <RouterButton
-                      to={`/app/finance/invoices/payments${paymentsFilterUrl}`}
+                      to={`/app/finance/invoices/payments?salesOrderDocEntry=${selectedRow.doc_entry}`}
                       style="textRegular textXXS button buttonType4"
                       icon={CaretRightIcon}
-                      name={`View all ${matchedPayments.length} payment${matchedPayments.length === 1 ? "" : "s"}`}
+                      name={`View all ${matchedPaymentsTotal} payment${matchedPaymentsTotal === 1 ? "" : "s"}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     />

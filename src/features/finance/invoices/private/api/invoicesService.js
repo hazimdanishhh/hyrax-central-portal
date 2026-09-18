@@ -56,6 +56,21 @@ export async function fetchInvoices({
     query = query.or(orQuery);
   }
 
+  // --- SALES ORDER (reverse link from Invoice Sidebar's "Matched Sales
+  // Order(s)" -- "View all invoices for this order") -- resolves via the
+  // same base_entry/base_type document trail fetchInvoicesForSalesOrder
+  // uses, extracted into resolveInvoiceIdsForSalesOrder so both share one
+  // implementation. Handled outside the synchronous filter switch below
+  // since it needs an async resolve first -- same shape as
+  // journalEntriesService.js's accountCode filter. [-1] sentinel keeps a
+  // genuine zero-match filter returning zero rows.
+  if (filters?.salesOrderDocEntry) {
+    const matchingIds = await resolveInvoiceIdsForSalesOrder(
+      Number(filters.salesOrderDocEntry),
+    );
+    query = query.in("doc_entry", matchingIds.length > 0 ? matchingIds : [-1]);
+  }
+
   // --- FILTERS ---
   Object.entries(filters || {}).forEach(([key, value]) => {
     if (value === undefined || value === "") return;
@@ -71,21 +86,6 @@ export async function fetchInvoices({
       // comma-joined string (buildFilterUrl's existing array serialization).
       case "customerCodes":
         if (value) query = query.in("customer_code", String(value).split(","));
-        break;
-
-      // Same shape as customerCodes above -- backs the Sales Order
-      // Fulfillment sidebar's "View All Invoices" button, scoping the list
-      // to exactly this order's own matched invoice doc_entrys (resolved
-      // client-side via fetchInvoicesForSalesOrder), not an approximation
-      // like customer+date range.
-      case "docEntries":
-        if (value)
-          query = query.in(
-            "doc_entry",
-            String(value)
-              .split(",")
-              .map(Number),
-          );
         break;
 
       case "salesRepCode":
@@ -151,7 +151,7 @@ export async function fetchInvoices({
         break;
 
       default:
-        break;
+        break; // salesOrderDocEntry already resolved above
     }
   });
 
@@ -200,19 +200,22 @@ export async function fetchInvoiceByDocEntry(docEntry) {
 }
 
 /**
- * Reverse of useSalesOrdersForInvoice.js's fetchSalesOrdersForInvoice --
- * resolves the invoice(s) generated from a sales order via SAP's real
- * document trail (sap_invoice_lines' base_entry/base_type), not the
- * free-typed PO number. Two confirmed branches: base_type=17 (direct from
- * this sales order) and base_type=15 (via a delivery in between, resolved
- * through sap_delivery_lines). A live data check (2026-08) confirmed
+ * Resolves the invoice doc_entrys generated from a sales order via SAP's
+ * real document trail (sap_invoice_lines' base_entry/base_type) -- shared
+ * by fetchInvoicesForSalesOrder below (full invoice objects, for the Sales
+ * Order Sidebar's "Matched Invoice(s)" preview) and fetchInvoices'
+ * salesOrderDocEntry filter above (ids only, for the Invoice Sidebar's
+ * plain "View all invoices for this order" link -- no preview data
+ * needed there, so no reason to fetch full rows just to discard them).
+ * Two confirmed branches: base_type=17 (direct from this sales order) and
+ * base_type=15 (via a delivery in between, resolved through
+ * sap_delivery_lines). A live data check (2026-08) confirmed
  * sap_deliveries has no rows after 2022-05-25, and no invoice has used the
  * base_type=15 path since that same date -- so the delivery hop below is
  * included for historical correctness but will only ever resolve pre-2022
- * sales orders in practice. No uniqueness constraint exists anywhere in this
- * chain, so this can resolve to 0, 1, or many rows.
+ * sales orders in practice.
  */
-export async function fetchInvoicesForSalesOrder(soDocEntry) {
+export async function resolveInvoiceIdsForSalesOrder(soDocEntry) {
   if (!soDocEntry) return [];
 
   const [{ data: directLines, error: directLinesError }, { data: deliveryLines, error: deliveryLinesError }] =
@@ -253,10 +256,26 @@ export async function fetchInvoicesForSalesOrder(soDocEntry) {
     );
   }
 
-  const invoiceIds = [
-    ...new Set([...directInvoiceIds, ...invoiceIdsViaDelivery]),
-  ];
-  if (invoiceIds.length === 0) return [];
+  return [...new Set([...directInvoiceIds, ...invoiceIdsViaDelivery])];
+}
+
+/**
+ * Reverse of useSalesOrdersForInvoice.js's fetchSalesOrdersForInvoice --
+ * backs the Sales Order Sidebar's "Matched Invoice(s)" preview. Capped to
+ * the 5 most recent matches (same shape as the Business Partner Sidebar's
+ * preview hooks, e.g. useInvoicesForCustomer.js) -- `totalCount` is the
+ * TRUE match count (cheap: it's just resolveInvoiceIdsForSalesOrder's own
+ * id-list length, no second count query needed), used by the "View all N
+ * invoices" button, which links through the salesOrderDocEntry filter above
+ * rather than the capped preview's own doc_entrys -- otherwise "View all"
+ * would silently drop anything past the first 5. No uniqueness constraint
+ * exists anywhere in the underlying document trail (see
+ * resolveInvoiceIdsForSalesOrder above), so this can resolve to 0, 1, or
+ * many rows.
+ */
+export async function fetchInvoicesForSalesOrder(soDocEntry) {
+  const invoiceIds = await resolveInvoiceIdsForSalesOrder(soDocEntry);
+  if (invoiceIds.length === 0) return { data: [], totalCount: 0 };
 
   // sap_invoices_with_balance, not the raw table -- so a matched invoice
   // card rendered inside a Sales Order sidebar shows real outstanding_
@@ -268,7 +287,9 @@ export async function fetchInvoicesForSalesOrder(soDocEntry) {
       supabase
         .from("sap_invoices_with_balance")
         .select("*")
-        .in("doc_entry", invoiceIds),
+        .in("doc_entry", invoiceIds)
+        .order("invoice_date", { ascending: false })
+        .limit(5),
       fetchRepsByCode(),
       fetchRepNamesByCode(),
     ]);
@@ -280,9 +301,12 @@ export async function fetchInvoicesForSalesOrder(soDocEntry) {
   // the bare sales_rep_code ("unmapped rep #") for every matched invoice in
   // a Sales Order's sidebar, regardless of whether that rep actually has a
   // mapping (a real gap: this fetch never attached `rep` at all).
-  return (invoices || []).map((invoice) =>
-    attachRep(invoice, repsByCode, namesByCode),
-  );
+  return {
+    data: (invoices || []).map((invoice) =>
+      attachRep(invoice, repsByCode, namesByCode),
+    ),
+    totalCount: invoiceIds.length,
+  };
 }
 
 /**
