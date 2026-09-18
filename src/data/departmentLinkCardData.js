@@ -8,7 +8,6 @@ import {
   WalletIcon,
   FileTextIcon,
   ClipboardTextIcon,
-  CoinsIcon,
   TruckIcon,
   AddressBookIcon,
   UsersFourIcon,
@@ -18,7 +17,6 @@ import {
   AppWindowIcon,
   ReceiptIcon,
   InvoiceIcon,
-  HandCoinsIcon,
   BookOpenIcon,
   TreeStructureIcon,
   ArrowsClockwiseIcon,
@@ -26,6 +24,7 @@ import {
   ChartLineUpIcon,
   CalendarIcon,
   DoorOpenIcon,
+  IdentificationBadgeIcon,
 } from "@phosphor-icons/react";
 
 // Config-driven "department link cards" shown on the Dashboard homepage.
@@ -168,10 +167,14 @@ export const departmentLinkCardData = [
       // contributor page per docs/DASHBOARD-CONVENTIONS.md, matches
       // FinanceRoutes.jsx's AccessRoute gate exactly. MGM added company-wide
       // 2026-09, mirroring Sales' own 2026-09 MGM reversal on Clients/Leads/
-      // Orders -- see FinanceRoutes.jsx's own comment on this route.
+      // Orders -- see FinanceRoutes.jsx's own comment on this route. Merged
+      // with the old standalone "Incoming Payments" card 2026-09
+      // (standardization pass, Finance Phase 1) -- one card per grouped
+      // page-tab module, same convention as the single "Sales Orders" card
+      // above (which doesn't get a separate "Budgets" card either).
       {
-        label: "Invoices",
-        description: "View and track outstanding customer invoices.",
+        label: "Invoices & A/R",
+        description: "View outstanding customer invoices and incoming payments.",
         icon: FileTextIcon,
         path: "finance/invoices",
 
@@ -179,10 +182,12 @@ export const departmentLinkCardData = [
       },
 
       // Matches finance/bills' AccessRoute gate exactly (mirrors Invoices'
-      // route gate above -- department-only, no role restriction).
+      // route gate above -- department-only, no role restriction). Merged
+      // with the old standalone "Outgoing Payments" card 2026-09, same
+      // rationale as Invoices & A/R above.
       {
-        label: "Bills",
-        description: "View and track outstanding vendor bills.",
+        label: "Bills & A/P",
+        description: "View outstanding vendor bills and outgoing payments.",
         icon: InvoiceIcon,
         path: "finance/bills",
 
@@ -197,26 +202,6 @@ export const departmentLinkCardData = [
 
       //   departments: ["FIN", "MGM"],
       // },
-
-      {
-        label: "Incoming Payments",
-        description: "Review incoming customer payments.",
-        icon: CoinsIcon,
-        path: "finance/payments",
-
-        departments: ["FIN", "MGM"],
-      },
-
-      // Matches finance/vendor-payments' AccessRoute gate exactly (department
-      // only, no role restriction).
-      {
-        label: "Outgoing Payments",
-        description: "Review outgoing payments to vendors.",
-        icon: HandCoinsIcon,
-        path: "finance/vendor-payments",
-
-        departments: ["FIN", "MGM"],
-      },
 
       // Matches finance/journal-entries'/finance/chart-of-accounts'
       // AccessRoute gate exactly (department-only, no role restriction --
@@ -235,6 +220,17 @@ export const departmentLinkCardData = [
         description: "Reference list of Hyrax's chart of accounts.",
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
+
+        departments: ["FIN", "MGM"],
+      },
+
+      // Added 2026-09 alongside the Finance standardization pass -- same
+      // gate as Journal Entries/Chart of Accounts above.
+      {
+        label: "Business Partners",
+        description: "Look up a customer or vendor's contact and balance info.",
+        icon: IdentificationBadgeIcon,
+        path: "finance/business-partners",
 
         departments: ["FIN", "MGM"],
       },

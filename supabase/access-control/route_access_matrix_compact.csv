@@ -45,11 +45,14 @@
 "HR","/app/hr/training",,
 "Finance","/app/finance",,
 "Finance","/app/finance/invoices",,"FIN"
-"Finance","/app/finance/payments",,"FIN"
+"Finance","/app/finance/invoices/list",,"FIN"
+"Finance","/app/finance/invoices/payments",,"FIN"
 "Finance","/app/finance/bills",,"FIN"
-"Finance","/app/finance/vendor-payments",,"FIN"
+"Finance","/app/finance/bills/list",,"FIN"
+"Finance","/app/finance/bills/vendor-payments",,"FIN"
 "Finance","/app/finance/journal-entries",,"FIN"
 "Finance","/app/finance/chart-of-accounts",,"FIN"
+"Finance","/app/finance/business-partners",,"FIN;MGM"
 "Finance","/app/finance/claims-management",,"FIN"
 "Finance","/app/finance/reports","manager","FIN;MGM"
 "Operations","/app/operations",,

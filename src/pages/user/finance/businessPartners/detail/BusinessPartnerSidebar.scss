@@ -1,0 +1,26 @@
+.businessPartnerSidebarHeader {
+  display: flex;
+  flex-direction: column;
+  padding: 0.8rem;
+  padding-top: 0;
+  justify-content: center;
+  align-items: start;
+  width: 100%;
+  gap: 0.8rem;
+  text-align: start;
+
+  .businessPartnerSidebarStatusContainer {
+    display: flex;
+    width: 100%;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .businessPartnerSidebarDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    width: 100%;
+  }
+}

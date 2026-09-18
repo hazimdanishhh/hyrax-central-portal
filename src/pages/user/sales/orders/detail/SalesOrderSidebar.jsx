@@ -206,7 +206,7 @@ export default function SalesOrderSidebar({ selectedRow }) {
                         invoice={invoice}
                         to={
                           canAccessFinance
-                            ? `/app/finance/invoices/${invoice.doc_entry}?search=${invoice.invoice_number}`
+                            ? `/app/finance/invoices/list/${invoice.doc_entry}?search=${invoice.invoice_number}`
                             : undefined
                         }
                       />
@@ -214,7 +214,7 @@ export default function SalesOrderSidebar({ selectedRow }) {
                   </CardLayout>
                   {canAccessFinance && (
                     <RouterButton
-                      to={`/app/finance/invoices${invoicesFilterUrl}`}
+                      to={`/app/finance/invoices/list${invoicesFilterUrl}`}
                       style="textRegular textXXS button buttonType4"
                       icon={CaretRightIcon}
                       name={`View all ${matchedInvoices.length} invoice${matchedInvoices.length === 1 ? "" : "s"}`}
@@ -271,7 +271,7 @@ export default function SalesOrderSidebar({ selectedRow }) {
                         payment={payment}
                         to={
                           canAccessFinance
-                            ? `/app/finance/payments/${payment.doc_entry}?search=${payment.receipt_number}`
+                            ? `/app/finance/invoices/payments/${payment.doc_entry}?search=${payment.receipt_number}`
                             : undefined
                         }
                       />
@@ -279,7 +279,7 @@ export default function SalesOrderSidebar({ selectedRow }) {
                   </CardLayout>
                   {canAccessFinance && (
                     <RouterButton
-                      to={`/app/finance/payments${paymentsFilterUrl}`}
+                      to={`/app/finance/invoices/payments${paymentsFilterUrl}`}
                       style="textRegular textXXS button buttonType4"
                       icon={CaretRightIcon}
                       name={`View all ${matchedPayments.length} payment${matchedPayments.length === 1 ? "" : "s"}`}

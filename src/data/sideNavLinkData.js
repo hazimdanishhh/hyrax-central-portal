@@ -28,10 +28,8 @@ import {
   BookBookmarkIcon,
   AppWindowIcon,
   MonitorIcon,
-  CoinsIcon,
   ReceiptIcon,
   InvoiceIcon,
-  HandCoinsIcon,
   BookOpenIcon,
   TreeStructureIcon,
   ArrowsClockwiseIcon,
@@ -40,10 +38,13 @@ import {
   UserCheckIcon,
   LinkIcon,
   DoorOpenIcon,
+  IdentificationBadgeIcon,
 } from "@phosphor-icons/react";
 import { leadsPageTabs } from "../pages/user/sales/leads/leadsPageTabs";
 import { ordersPageTabs } from "../pages/user/sales/orders/ordersPageTabs";
 import { clientsPageTabs } from "../pages/user/sales/clients/clientsPageTabs";
+import { invoicesPageTabs } from "../pages/user/finance/invoices/invoicesPageTabs";
+import { billsPageTabs } from "../pages/user/finance/bills/billsPageTabs";
 import { attendancePageTabs as hrAttendancePageTabs } from "../pages/user/hr/attendanceManagement/attendancePageTabs";
 import { employeePageTabs } from "../pages/user/hr/employeeManagement/employeePageTabs";
 import { attendancePageTabs as myAttendancePageTabs } from "../pages/user/employee/attendance/attendancePageTabs";
@@ -345,25 +346,33 @@ export const sideNavLinkData = [
 
       // MGM added company-wide 2026-09, mirroring Sales' own 2026-09 MGM
       // reversal on Clients/Leads/Orders -- see FinanceRoutes.jsx's own
-      // comment on this route for the full rationale.
+      // comment on this route for the full rationale. Merged with the old
+      // standalone "Incoming Payments" entry 2026-09 (standardization pass,
+      // Finance Phase 1) -- same array InvoicesPageLayout.jsx renders as its
+      // own page-tab bar, see invoicesPageTabs.js's header comment.
       {
-        label: "Invoices",
+        label: "Invoices & A/R",
         icon: FileTextIcon,
         path: "finance/invoices",
 
         departments: ["FIN", "MGM"],
+        tabs: invoicesPageTabs,
       },
 
       // Gate matches finance/bills' AccessRoute exactly (department-only, no
-      // role restriction, same as Invoices/Payments -- these are Tier-1
+      // role restriction, same as Invoices -- these are Tier-1
       // individual-contributor pages per docs/DASHBOARD-CONVENTIONS.md).
       // MGM added company-wide 2026-09 -- see Invoices' own comment above.
+      // Merged with the old standalone "Outgoing Payments" entry 2026-09 --
+      // same array BillsPageLayout.jsx renders as its own page-tab bar, see
+      // billsPageTabs.js's header comment.
       {
-        label: "Bills",
+        label: "Bills & A/P",
         icon: InvoiceIcon,
         path: "finance/bills",
 
         departments: ["FIN", "MGM"],
+        tabs: billsPageTabs,
       },
 
       // {
@@ -373,23 +382,6 @@ export const sideNavLinkData = [
 
       //   departments: ["FIN", "MGM"],
       // },
-
-      {
-        label: "Incoming Payments",
-        icon: CoinsIcon,
-        path: "finance/payments",
-        departments: ["FIN", "MGM"],
-      },
-
-      // Gate matches finance/vendor-payments' AccessRoute exactly (department
-      // only, no role restriction). MGM added company-wide 2026-09 -- see
-      // Invoices' own comment above.
-      {
-        label: "Outgoing Payments",
-        icon: HandCoinsIcon,
-        path: "finance/vendor-payments",
-        departments: ["FIN", "MGM"],
-      },
 
       // Gate matches finance/journal-entries'/finance/chart-of-accounts'
       // AccessRoute exactly (department-only, no role restriction -- same
@@ -407,6 +399,18 @@ export const sideNavLinkData = [
         label: "Chart of Accounts",
         icon: TreeStructureIcon,
         path: "finance/chart-of-accounts",
+
+        departments: ["FIN", "MGM"],
+      },
+
+      // Added 2026-09 alongside the Finance standardization pass -- same
+      // department-only gate as Journal Entries/Chart of Accounts. Also
+      // the destination SAPCustomerCard.jsx/SAPVendorCard.jsx now link a
+      // customer/vendor badge to for any viewer without Sales access.
+      {
+        label: "Business Partners",
+        icon: IdentificationBadgeIcon,
+        path: "finance/business-partners",
 
         departments: ["FIN", "MGM"],
       },

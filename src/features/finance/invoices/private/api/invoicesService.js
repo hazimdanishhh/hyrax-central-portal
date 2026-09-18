@@ -175,7 +175,7 @@ export async function fetchInvoices({
 }
 
 /**
- * Fetch-by-id fallback for the /app/finance/invoices/:docEntry detail route
+ * Fetch-by-id fallback for the /app/finance/invoices/list/:docEntry detail route
  * -- covers a direct/shared URL where the invoice isn't already in the
  * in-memory paginated list. Mirrors salesOrdersService.js's
  * fetchFulfillmentOrderByDocEntry, including the same sales-rep enrichment join.

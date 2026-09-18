@@ -2,10 +2,7 @@ import { useMemo } from "react";
 import { CoinsIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { useTheme } from "../../../../context/ThemeContext";
-import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
-import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -33,7 +30,6 @@ import OverviewCards from "../../../../components/crud/overviewCards/OverviewCar
  * Cash Collected KPI and the Unallocated Payments chart.
  */
 export default function Payments() {
-  const { darkMode } = useTheme();
   const navigate = useNavigate();
   const { docEntry } = useParams();
   const [searchParams] = useSearchParams();
@@ -93,86 +89,75 @@ export default function Payments() {
   const hasData = payments.length > 0;
 
   function handleCloseSidebar() {
-    navigate(`/app/finance/payments?${searchParams.toString()}`);
+    navigate(`/app/finance/invoices/payments?${searchParams.toString()}`);
   }
 
   return (
-    <section className={darkMode ? "sectionDark" : "sectionLight"}>
-      <div className="sectionWrapper">
-        <div className="sectionContent">
-          <Breadcrumbs icon={CoinsIcon} current="Payments" />
+    <>
+      <OverviewCards items={overviewItems} />
 
-          <CardWrapper>
-            <OverviewCards items={overviewItems} />
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search by Receipt# or Customer Name..."
+        enableDateRange
+      />
 
-            <SearchFilterBar
-              search={search}
-              onSearchChange={setSearch}
-              filters={filters}
-              onFilterChange={setFilters}
-              filterConfig={filterConfig}
-              placeholder="Search by Receipt# or Customer Name..."
-              enableDateRange
-            />
+      <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
-            <FiscalYearFilterBar
-              filters={filters}
-              onFilterChange={setFilters}
-            />
+      {hasActiveFilters && (
+        <ActiveFiltersBar
+          search={search}
+          setSearch={setSearch}
+          filters={activeFilters}
+          setFilters={setFilters}
+          filterConfig={filterConfig}
+          resetParams={resetParams}
+        />
+      )}
 
-            {hasActiveFilters && (
-              <ActiveFiltersBar
-                search={search}
-                setSearch={setSearch}
-                filters={activeFilters}
-                setFilters={setFilters}
-                filterConfig={filterConfig}
-                resetParams={resetParams}
+      <PageHeader>
+        <SortBar
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOptions={sortOptions}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+        />
+      </PageHeader>
+
+      <PageResult
+        data={payments}
+        totalCount={totalCount}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+        error={error}
+      />
+
+      <div className="cardWrapperScroll">
+        {isLoading || isFetching ? (
+          <CardLayout style="cardLayoutFlexFull">
+            <LoadingIcon />
+          </CardLayout>
+        ) : !hasData ? (
+          <NoResult />
+        ) : error ? (
+          <NoResult title="Error loading results" />
+        ) : (
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+            {payments.map((payment) => (
+              <PaymentCard
+                key={payment.doc_entry}
+                payment={payment}
+                to={`${payment.doc_entry}?${searchParams.toString()}`}
               />
-            )}
-
-            <PageHeader>
-              <SortBar
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortOptions={sortOptions}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-              />
-            </PageHeader>
-
-            <PageResult
-              data={payments}
-              totalCount={totalCount}
-              page={page}
-              setPage={setPage}
-              totalPages={totalPages}
-              error={error}
-            />
-
-            <div className="cardWrapperScroll">
-              {isLoading || isFetching ? (
-                <CardLayout style="cardLayoutFlexFull">
-                  <LoadingIcon />
-                </CardLayout>
-              ) : !hasData ? (
-                <NoResult />
-              ) : error ? (
-                <NoResult title="Error loading results" />
-              ) : (
-                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
-                  {payments.map((payment) => (
-                    <PaymentCard
-                      key={payment.doc_entry}
-                      payment={payment}
-                      to={`${payment.doc_entry}?${searchParams.toString()}`}
-                    />
-                  ))}
-                </CardLayout>
-              )}
-            </div>
-          </CardWrapper>
-        </div>
+            ))}
+          </CardLayout>
+        )}
       </div>
 
       <AnimatePresence>
@@ -188,6 +173,6 @@ export default function Payments() {
           </DataSidebar>
         )}
       </AnimatePresence>
-    </section>
+    </>
   );
 }

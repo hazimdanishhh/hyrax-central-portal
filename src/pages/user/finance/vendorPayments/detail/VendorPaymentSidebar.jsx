@@ -42,8 +42,10 @@ export default function VendorPaymentSidebar({ selectedRow }) {
                 application={application}
                 to={
                   application.bill
-                    ? `/app/finance/bills/${application.bill.doc_entry}?search=${application.bill.bill_number}`
-                    : undefined
+                    ? `/app/finance/bills/list/${application.bill.doc_entry}?search=${application.bill.bill_number}`
+                    : application.inv_entry === 0
+                      ? `/app/finance/business-partners/${selectedRow.vendor_code}`
+                      : undefined
                 }
               />
             ))}

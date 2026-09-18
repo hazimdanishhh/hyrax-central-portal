@@ -103,7 +103,7 @@ Not a second RPC — a second RPC would let the individual and department pages 
 
 **Dropped entirely**: Order Book by Rep and Gross Profit by Rep charts — literal by-rep rankings that collapse to one bar at n=1. Gross Profit folds in as a one-line sub-metric instead.
 
-**Cross-module links**: `sales/orders` links work (real improvement — that route is already `SAL`-gated). Links to `/app/finance/invoices`/`/app/finance/payments` use the exact degrade-to-non-clickable pattern this page already applies to `MGM` viewers today (`to: canAccessX ? path : null`) — no new Finance-adjacent pages built.
+**Cross-module links**: `sales/orders` links work (real improvement — that route is already `SAL`-gated). Links to `/app/finance/invoices/list`/`/app/finance/invoices/payments` (the Invoices/Payments tabs of the merged Invoices & A/R page, 2026-09) use the exact degrade-to-non-clickable pattern this page already applies to `MGM` viewers today (`to: canAccessX ? path : null`) — no new Finance-adjacent pages built.
 
 ---
 

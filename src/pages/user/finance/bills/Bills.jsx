@@ -2,10 +2,7 @@ import { useMemo } from "react";
 import { InvoiceIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { useTheme } from "../../../../context/ThemeContext";
-import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
-import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -34,7 +31,6 @@ import OverviewCards from "../../../../components/crud/overviewCards/OverviewCar
  * (Finance Expansion Phase 1, added 2026-07).
  */
 export default function Bills() {
-  const { darkMode } = useTheme();
   const navigate = useNavigate();
   const { docEntry } = useParams();
   const [searchParams] = useSearchParams();
@@ -94,86 +90,75 @@ export default function Bills() {
   const hasData = bills.length > 0;
 
   function handleCloseSidebar() {
-    navigate(`/app/finance/bills?${searchParams.toString()}`);
+    navigate(`/app/finance/bills/list?${searchParams.toString()}`);
   }
 
   return (
-    <section className={darkMode ? "sectionDark" : "sectionLight"}>
-      <div className="sectionWrapper">
-        <div className="sectionContent">
-          <Breadcrumbs icon={InvoiceIcon} current="Bills" />
+    <>
+      <OverviewCards items={overviewItems} style="overviewCard2" />
 
-          <CardWrapper>
-            <OverviewCards items={overviewItems} style="overviewCard2" />
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search by BILL# or Vendor Name..."
+        enableDateRange
+      />
 
-            <SearchFilterBar
-              search={search}
-              onSearchChange={setSearch}
-              filters={filters}
-              onFilterChange={setFilters}
-              filterConfig={filterConfig}
-              placeholder="Search by BILL# or Vendor Name..."
-              enableDateRange
-            />
+      <FiscalYearFilterBar filters={filters} onFilterChange={setFilters} />
 
-            <FiscalYearFilterBar
-              filters={filters}
-              onFilterChange={setFilters}
-            />
+      {hasActiveFilters && (
+        <ActiveFiltersBar
+          search={search}
+          setSearch={setSearch}
+          filters={activeFilters}
+          setFilters={setFilters}
+          filterConfig={filterConfig}
+          resetParams={resetParams}
+        />
+      )}
 
-            {hasActiveFilters && (
-              <ActiveFiltersBar
-                search={search}
-                setSearch={setSearch}
-                filters={activeFilters}
-                setFilters={setFilters}
-                filterConfig={filterConfig}
-                resetParams={resetParams}
+      <PageHeader>
+        <SortBar
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOptions={sortOptions}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+        />
+      </PageHeader>
+
+      <PageResult
+        data={bills}
+        totalCount={totalCount}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+        error={error}
+      />
+
+      <div className="cardWrapperScroll">
+        {isLoading || isFetching ? (
+          <CardLayout style="cardLayoutFlexFull">
+            <LoadingIcon />
+          </CardLayout>
+        ) : !hasData ? (
+          <NoResult />
+        ) : error ? (
+          <NoResult title="Error loading results" />
+        ) : (
+          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+            {bills.map((bill) => (
+              <BillCard
+                key={bill.doc_entry}
+                bill={bill}
+                to={`${bill.doc_entry}?${searchParams.toString()}`}
               />
-            )}
-
-            <PageHeader>
-              <SortBar
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortOptions={sortOptions}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-              />
-            </PageHeader>
-
-            <PageResult
-              data={bills}
-              totalCount={totalCount}
-              page={page}
-              setPage={setPage}
-              totalPages={totalPages}
-              error={error}
-            />
-
-            <div className="cardWrapperScroll">
-              {isLoading || isFetching ? (
-                <CardLayout style="cardLayoutFlexFull">
-                  <LoadingIcon />
-                </CardLayout>
-              ) : !hasData ? (
-                <NoResult />
-              ) : error ? (
-                <NoResult title="Error loading results" />
-              ) : (
-                <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
-                  {bills.map((bill) => (
-                    <BillCard
-                      key={bill.doc_entry}
-                      bill={bill}
-                      to={`${bill.doc_entry}?${searchParams.toString()}`}
-                    />
-                  ))}
-                </CardLayout>
-              )}
-            </div>
-          </CardWrapper>
-        </div>
+            ))}
+          </CardLayout>
+        )}
       </div>
 
       <AnimatePresence>
@@ -189,6 +174,6 @@ export default function Bills() {
           </DataSidebar>
         )}
       </AnimatePresence>
-    </section>
+    </>
   );
 }

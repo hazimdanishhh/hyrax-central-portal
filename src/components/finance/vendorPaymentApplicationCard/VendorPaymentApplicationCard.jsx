@@ -3,19 +3,23 @@ import StatusBox from "../../status/statusBox/StatusBox";
 
 // Read-only card for one sap_vendor_payment_applications row -- AP mirror of
 // PaymentApplicationCard. Resolved via fetchVendorPaymentApplications.js's
-// enrichment (doc_type=18 -> sap_vendor_bills). Falls back to the raw
-// Entry #/On Account display for anything that didn't resolve.
+// enrichment (doc_type=18 -> sap_vendor_bills). See PaymentApplicationCard's
+// own comment for the "On Account" -> Business Partner page link (`to`
+// built by VendorPaymentSidebar.jsx from the parent vendor payment's own
+// vendor_code). Falls back to the raw Entry # display for anything else
+// that didn't resolve.
 export default function VendorPaymentApplicationCard({ application, to }) {
   const amount = application.amount_applied_myr || 0;
   const bill = application.bill;
+  const isOnAccount = application.inv_entry === 0;
 
   const appliedToLabel = bill
     ? `BILL# ${bill.bill_number}`
-    : application.inv_entry === 0
+    : isOnAccount
       ? "On Account"
       : `Entry #${application.inv_entry}`;
 
-  const linkTo = bill ? to : undefined;
+  const linkTo = bill || isOnAccount ? to : undefined;
   const Wrapper = linkTo ? Link : "div";
   const wrapperProps = linkTo
     ? { to: linkTo, className: "generalCard salesOrderCard" }

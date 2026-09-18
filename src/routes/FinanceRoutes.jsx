@@ -1,13 +1,16 @@
 import { Navigate, Route } from "react-router";
 import AccessRoute from "./AccessRoute";
+import InvoicesPageLayout from "../pages/user/finance/invoices/InvoicesPageLayout";
 import Invoices from "../pages/user/finance/invoices/Invoices";
 import Payments from "../pages/user/finance/payments/Payments";
+import BillsPageLayout from "../pages/user/finance/bills/BillsPageLayout";
 import Bills from "../pages/user/finance/bills/Bills";
 import VendorPayments from "../pages/user/finance/vendorPayments/VendorPayments";
 import ClaimsManagement from "../pages/user/finance/claimsManagement/ClaimsManagement";
 import FinancialReports from "../pages/user/finance/financialReports/FinancialReports";
 import JournalEntries from "../pages/user/finance/journalEntries/JournalEntries";
 import ChartOfAccounts from "../pages/user/finance/chartOfAccounts/ChartOfAccounts";
+import BusinessPartners from "../pages/user/finance/businessPartners/BusinessPartners";
 import CashFlow from "../pages/user/finance/cashFlow/CashFlow";
 import BalanceSheet from "../pages/user/finance/balanceSheet/BalanceSheet";
 import IncomeStatement from "../pages/user/finance/incomeStatement/IncomeStatement";
@@ -17,10 +20,17 @@ export default (
     {/* INDEX */}
     <Route index element={<Navigate to="reports" replace />} />
 
-    {/* INVOICES -- :docEntry child route (2026-08) opens the detail sidebar
+    {/* INVOICES & A/R -- merged 2026-09 (standardization pass, Finance
+        Phase 1): Invoices and Payments are grouped under one page-tab
+        layout ("list"/"payments", matching this app's dominant tab-naming
+        convention -- Sales Orders' "all" is a one-off, not the pattern to
+        copy). :docEntry child routes on each tab open the detail sidebar
         via a real URL, mirroring Sales Orders'/Leads' :docEntry/:leadId
         pattern, so a matched-entity card elsewhere (e.g. a Sales Order's
-        "MATCHED INVOICE(S)" block) can deep-link straight to one invoice.
+        "MATCHED INVOICE(S)"/"MATCHED PAYMENT(S)" blocks, or Sales Reports'
+        drill-through tiles) can deep-link straight to one record --
+        see docs/DASHBOARD-ROADMAP.md's Finance section for the full list of
+        external call sites updated alongside this merge.
         MGM added company-wide (no role restriction) alongside FIN --
         reverses 2026-07's "Judgment call #4" the same way Sales' analogous
         2026-07 restriction was reversed in 2026-09 (see
@@ -34,56 +44,71 @@ export default (
       path="invoices"
       element={
         <AccessRoute departments={["FIN", "MGM"]}>
-          <Invoices />
+          <InvoicesPageLayout />
         </AccessRoute>
       }
     >
-      <Route path=":docEntry" element={null} />
+      <Route index element={<Navigate to="list" replace />} />
+      <Route
+        path="list"
+        element={
+          <AccessRoute departments={["FIN", "MGM"]}>
+            <Invoices />
+          </AccessRoute>
+        }
+      >
+        <Route path=":docEntry" element={null} />
+      </Route>
+      <Route
+        path="payments"
+        element={
+          <AccessRoute departments={["FIN", "MGM"]}>
+            <Payments />
+          </AccessRoute>
+        }
+      >
+        <Route path=":docEntry" element={null} />
+      </Route>
     </Route>
 
-    {/* PAYMENTS -- :docEntry child route (2026-08), same pattern as Invoices.
-        MGM parity -- see Invoices' own comment above. */}
-    <Route
-      path="payments"
-      element={
-        <AccessRoute departments={["FIN", "MGM"]}>
-          <Payments />
-        </AccessRoute>
-      }
-    >
-      <Route path=":docEntry" element={null} />
-    </Route>
-
-    {/* BILLS (Accounts Payable chain, added 2026-07, Finance Expansion Phase 1) --
-        access gate mirrors Invoices' exactly (department-only, no role
-        restriction), since Bills mirrors Invoices file-for-file. :docEntry
-        child route (2026-08), same pattern as Invoices. MGM parity -- see
-        Invoices' own comment above. */}
+    {/* BILLS & A/P (Accounts Payable chain, added 2026-07, Finance Expansion
+        Phase 1; merged into one page-tab layout 2026-09 alongside Invoices &
+        A/R above, same "list"/"vendor-payments" tab shape) -- access gate
+        mirrors Invoices' exactly (department-only, no role restriction),
+        since Bills mirrors Invoices file-for-file. :docEntry child routes,
+        same pattern as Invoices & A/R. MGM parity -- see Invoices' own
+        comment above. Unlike Invoices/Payments, Bills/Vendor Payments had
+        zero external deep-link consumers at merge time (confirmed via
+        repo-wide grep) -- this half of the merge carried no migration risk. */}
     <Route
       path="bills"
       element={
         <AccessRoute departments={["FIN", "MGM"]}>
-          <Bills />
+          <BillsPageLayout />
         </AccessRoute>
       }
     >
-      <Route path=":docEntry" element={null} />
-    </Route>
-
-    {/* VENDOR PAYMENTS (Accounts Payable chain, added 2026-07, Finance Expansion Phase 1) --
-        access gate mirrors Payments' exactly (department only, no role restriction),
-        since Vendor Payments mirrors Payments file-for-file. :docEntry child
-        route (2026-08), same pattern as Invoices. MGM parity -- see
-        Invoices' own comment above. */}
-    <Route
-      path="vendor-payments"
-      element={
-        <AccessRoute departments={["FIN", "MGM"]}>
-          <VendorPayments />
-        </AccessRoute>
-      }
-    >
-      <Route path=":docEntry" element={null} />
+      <Route index element={<Navigate to="list" replace />} />
+      <Route
+        path="list"
+        element={
+          <AccessRoute departments={["FIN", "MGM"]}>
+            <Bills />
+          </AccessRoute>
+        }
+      >
+        <Route path=":docEntry" element={null} />
+      </Route>
+      <Route
+        path="vendor-payments"
+        element={
+          <AccessRoute departments={["FIN", "MGM"]}>
+            <VendorPayments />
+          </AccessRoute>
+        }
+      >
+        <Route path=":docEntry" element={null} />
+      </Route>
     </Route>
 
     {/* JOURNAL ENTRIES (General Ledger, added 2026-07, Finance Expansion
@@ -116,6 +141,27 @@ export default (
         </AccessRoute>
       }
     />
+
+    {/* BUSINESS PARTNERS (unified sap_customers lookup, added 2026-09
+        alongside the Finance standardization pass) -- same access gate as
+        Journal Entries/Chart of Accounts. Finance's own view of the
+        Business Partner master, defaulting to Customer+Vendor (not
+        Customer+Lead like Sales' SAP Clients) -- see
+        businessPartnersService.js's own comment. This is also
+        SAPCustomerCard.jsx's/SAPVendorCard.jsx's link destination for any
+        viewer who can't reach Sales' SAP Clients page instead. :customerCode
+        child route opens the detail sidebar via a real URL, same pattern as
+        SAP Clients'/Invoices'/Bills' own :code/:docEntry routes. */}
+    <Route
+      path="business-partners"
+      element={
+        <AccessRoute departments={["FIN", "MGM"]}>
+          <BusinessPartners />
+        </AccessRoute>
+      }
+    >
+      <Route path=":customerCode" element={null} />
+    </Route>
 
     {/* CASH FLOW (Finance Expansion Phase 3, added 2026-08) -- KNOWN OPEN
         DISCREPANCY (found 2026-08 audit, left as-is pending a decision):

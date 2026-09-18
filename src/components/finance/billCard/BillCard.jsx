@@ -1,9 +1,11 @@
 import { ClockIcon } from "@phosphor-icons/react";
 import { Link } from "react-router";
 import { formatDate } from "../../../functions/formatDate";
+import { getDocumentStageSummary } from "../../../functions/documentStageSummary";
 import StatusBox from "../../status/statusBox/StatusBox";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import IconCard from "../../iconCard/IconCard";
+import SAPVendorCard from "../../client/sapVendorCard/SAPVendorCard";
 
 // Read-only card for a sap_vendor_bills row -- AP mirror of InvoiceCard. No
 // rep/employee avatar -- bills have no sales-rep concept. vendor_ref (SAP
@@ -30,6 +32,15 @@ export default function BillCard({ bill, to }) {
   // inline comparison for any fetch path that doesn't include it.
   const paidAppliedMismatch =
     bill.has_paid_mismatch ?? Math.abs(paid - appliedPayment) > 0.01;
+  // One coherent stage badge (Paid/Overdue/Due Soon/Open, mismatch layered
+  // in) instead of separate status/mismatch facts the reader had to combine
+  // themselves -- see documentStageSummary.js's own header comment.
+  const stageSummary = getDocumentStageSummary({
+    isCancelled: bill.is_cancelled === "Y",
+    outstanding,
+    dueDate: bill.due_date,
+    hasPaidMismatch: paidAppliedMismatch,
+  });
   const Wrapper = to ? Link : "div";
   const wrapperProps = to
     ? { to, className: "generalCard salesOrderCard" }
@@ -44,22 +55,14 @@ export default function BillCard({ bill, to }) {
               status={isOpen ? "Open" : "Closed"}
               type={isOpen ? "green" : "grey"}
             />
-            {bill.is_cancelled === "Y" && (
-              <StatusBox status="Cancelled" type="red" />
-            )}
+            <StatusBox status={stageSummary.stage} type={stageSummary.tone} />
           </div>
 
           <div className="salesOrderCardHeaderDetails">
             <p className="textBold textXS">BILL# {bill.bill_number}</p>
 
             <div className="salesOrderCustomer">
-              <StatusBox status={bill.vendor_code} type="blue" />
-              <p
-                className="textLight textXXS truncate"
-                title={bill.vendor_name}
-              >
-                {bill.vendor_name}
-              </p>
+              <SAPVendorCard row={bill} />
             </div>
 
             <StatusBox
@@ -100,9 +103,6 @@ export default function BillCard({ bill, to }) {
               <strong className="textBold">Applied Payment (RM):</strong> RM{" "}
               {Math.round(appliedPayment).toLocaleString()}
             </p>
-            {paidAppliedMismatch && (
-              <StatusBox status="Paid ≠ Applied" type="red" />
-            )}
           </div>
         </div>
       </div>

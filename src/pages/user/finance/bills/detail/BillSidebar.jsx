@@ -57,7 +57,7 @@ export default function BillSidebar({ selectedRow }) {
               <VendorPaymentCard
                 key={vendorPayment.doc_entry}
                 vendorPayment={vendorPayment}
-                to={`/app/finance/vendor-payments/${vendorPayment.doc_entry}?search=${vendorPayment.payment_number}`}
+                to={`/app/finance/bills/vendor-payments/${vendorPayment.doc_entry}?search=${vendorPayment.payment_number}`}
               />
             ))}
           </CardLayout>

@@ -104,7 +104,7 @@ export default function InvoiceSidebar({ selectedRow }) {
               <PaymentCard
                 key={payment.doc_entry}
                 payment={payment}
-                to={`/app/finance/payments/${payment.doc_entry}?search=${payment.receipt_number}`}
+                to={`/app/finance/invoices/payments/${payment.doc_entry}?search=${payment.receipt_number}`}
               />
             ))}
           </CardLayout>

@@ -5,7 +5,10 @@ import { supabase } from "../../../../../lib/supabaseClient";
  * sap_gl_journal_entries mirror table (OJDT headers). SAP is the system of
  * record for this data -- no create/update/delete here. Unlike
  * Invoices/Bills, there's no customer/vendor or open/closed status dimension
- * on a journal entry, so filtering here is date-range only.
+ * on a journal entry, so the only visible filters (SearchFilterBar/Fiscal
+ * Year) are date-range only -- accountCode (below) is a second, URL-only
+ * filter with no SearchFilterBar control of its own, reached exclusively via
+ * Chart of Accounts' own "View Journal Entries" reverse link.
  */
 export async function fetchJournalEntries({
   page,
@@ -30,6 +33,30 @@ export async function fetchJournalEntries({
     );
   }
 
+  // --- ACCOUNT CODE (reverse link from Chart of Accounts) --- sap_gl_
+  // journal_entries (this header list) has no account_code column of its
+  // own -- account_code only lives on sap_gl_journal_lines. Resolve which
+  // trans_ids touched this account first, same "resolve ids, then .in()"
+  // shape as invoicesService.js's docEntries/customerCodes filters. The
+  // [-1] sentinel keeps a genuine zero-match filter returning zero rows
+  // instead of leaving `.in()` to an empty array's inconsistent behavior.
+  if (filters?.accountCode) {
+    const { data: matchingLines, error: linesError } = await supabase
+      .from("sap_gl_journal_lines")
+      .select("trans_id")
+      .eq("account_code", filters.accountCode);
+
+    if (linesError) throw linesError;
+
+    const matchingTransIds = [
+      ...new Set((matchingLines || []).map((line) => line.trans_id)),
+    ];
+    query = query.in(
+      "trans_id",
+      matchingTransIds.length > 0 ? matchingTransIds : [-1],
+    );
+  }
+
   // --- FILTERS ---
   Object.entries(filters || {}).forEach(([key, value]) => {
     if (value === undefined || value === "") return;
@@ -44,7 +71,7 @@ export async function fetchJournalEntries({
         break;
 
       default:
-        break;
+        break; // accountCode already resolved above
     }
   });
 

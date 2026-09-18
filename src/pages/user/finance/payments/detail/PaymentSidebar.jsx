@@ -42,8 +42,10 @@ export default function PaymentSidebar({ selectedRow }) {
                 application={application}
                 to={
                   application.invoice
-                    ? `/app/finance/invoices/${application.invoice.doc_entry}?search=${application.invoice.invoice_number}`
-                    : undefined
+                    ? `/app/finance/invoices/list/${application.invoice.doc_entry}?search=${application.invoice.invoice_number}`
+                    : application.inv_entry === 0
+                      ? `/app/finance/business-partners/${selectedRow.customer_code}`
+                      : undefined
                 }
               />
             ))}

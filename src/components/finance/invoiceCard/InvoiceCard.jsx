@@ -1,4 +1,5 @@
 import { formatDate } from "../../../functions/formatDate";
+import { getDocumentStageSummary } from "../../../functions/documentStageSummary";
 import "./InvoiceCard.scss";
 import IconCard from "../../iconCard/IconCard";
 import { ClockIcon } from "@phosphor-icons/react";
@@ -37,6 +38,15 @@ export default function InvoiceCard({ invoice, to }) {
   // inline comparison for any fetch path that doesn't include it.
   const paidAppliedMismatch =
     invoice.has_paid_mismatch ?? Math.abs(paid - appliedPayment) > 0.01;
+  // One coherent stage badge (Paid/Overdue/Due Soon/Open, mismatch layered
+  // in) instead of separate status/mismatch facts the reader had to combine
+  // themselves -- see documentStageSummary.js's own header comment.
+  const stageSummary = getDocumentStageSummary({
+    isCancelled: invoice.is_cancelled === "Y",
+    outstanding,
+    dueDate: invoice.due_date,
+    hasPaidMismatch: paidAppliedMismatch,
+  });
   const gp = invoice.gross_profit;
   const grossProfitDisplay =
     gp == null || Math.abs(gp) > Math.abs(total) * 5
@@ -66,12 +76,7 @@ export default function InvoiceCard({ invoice, to }) {
               status={isOpen ? "Open" : "Closed"}
               type={isOpen ? "green" : "grey"}
             />
-            {invoice.is_cancelled === "Y" && (
-              <StatusBox status="Cancelled" type="red" />
-            )}
-            {paidAppliedMismatch && (
-              <StatusBox status="Paid ≠ Applied" type="red" />
-            )}
+            <StatusBox status={stageSummary.stage} type={stageSummary.tone} />
           </div>
 
           <div className="salesOrderCardHeaderDetails">

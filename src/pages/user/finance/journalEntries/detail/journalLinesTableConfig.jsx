@@ -35,8 +35,11 @@ export const journalLinesTableConfig = () => [
   },
   {
     key: "bp_code",
-    label: "BP Code",
-    getValue: (row) => row.bp_code || "",
+    label: "Business Partner",
+    // bp_name is resolved client-side against sap_customers (see
+    // fetchJournalEntryLines.js) -- falls back to the raw code whenever it
+    // doesn't resolve (no match, or no bp_code on this line at all).
+    getValue: (row) => row.bp_name || row.bp_code || "",
     editable: false,
   },
 ];

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchInvoiceByDocEntry } from "../api/invoicesService";
 
-// Fetch-by-id fallback for the /app/finance/invoices/:docEntry detail route
+// Fetch-by-id fallback for the /app/finance/invoices/list/:docEntry detail route
 // -- covers a direct/shared URL where the invoice isn't already in the
 // in-memory paginated list. Mirrors useSalesOrder.js's role for Orders.jsx
 // exactly.

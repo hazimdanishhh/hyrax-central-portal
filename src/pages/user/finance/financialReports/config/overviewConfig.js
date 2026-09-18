@@ -221,13 +221,13 @@ export function getFinanceOverviewConfig(
       // Only a real link for viewers who can actually open finance/invoices
       // (FIN department, MGM excluded per R3) -- otherwise falls back to
       // OverviewCards' plain non-clickable card.
-      to: canAccessFinanceOps ? "../invoices" : null,
+      to: canAccessFinanceOps ? "../invoices/list" : null,
       filter: { ...arFilter, ...periodFilter },
       metrics: [
         {
           label: "Invoices Issued",
           value: kpis.periodInvoiceCount || 0,
-          to: canAccessFinanceOps ? "../invoices" : null,
+          to: canAccessFinanceOps ? "../invoices/list" : null,
           filter: { ...arFilter, ...periodFilter },
         },
         {
@@ -274,7 +274,7 @@ export function getFinanceOverviewConfig(
           value: formatRM(kpis.periodGrossProfit),
           // The one non-GL figure on this tile -- invoice-line GP is a real
           // Invoices-table sum, unlike the GL-sourced headline above.
-          to: canAccessFinanceOps ? "../invoices" : null,
+          to: canAccessFinanceOps ? "../invoices/list" : null,
           filter: { ...arFilter, ...periodFilter },
         },
         {
@@ -365,7 +365,7 @@ export function getFinanceOverviewConfig(
       },
       // Only a real link for viewers who can open finance/payments (same
       // FIN-only gate as Invoices/Bills/Vendor Payments, MGM excluded per R3).
-      to: canAccessFinanceOps ? "../payments" : null,
+      to: canAccessFinanceOps ? "../invoices/payments" : null,
       filter: { ...paymentsFilter, ...periodFilter },
       metrics: [
         {
@@ -398,7 +398,7 @@ export function getFinanceOverviewConfig(
         icon: overdueRiskStatus.statusIcon,
         label: overdueRiskStatus.statusLabel,
       },
-      to: canAccessFinanceOps ? "../invoices" : null,
+      to: canAccessFinanceOps ? "../invoices/list" : null,
       // statusCode:"O" (literal, after the spread) always wins over
       // arFilter's own copy -- this tile is inherently about open invoices,
       // regardless of what statusCode the page filter happens to be set to.
@@ -408,7 +408,7 @@ export function getFinanceOverviewConfig(
           label: "Overdue Invoices",
           value: kpis.overdueInvoiceCount || 0,
           icon: HourglassHighIcon,
-          to: canAccessFinanceOps ? "../invoices" : null,
+          to: canAccessFinanceOps ? "../invoices/list" : null,
           filter: { ...arFilter, statusCode: "O", overdueOnly: "true" },
         },
       ],

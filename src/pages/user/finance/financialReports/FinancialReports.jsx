@@ -764,7 +764,7 @@ export default function FinancialReports() {
                           subtitle="As of today — not affected by date filter"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../invoices" : undefined
+                            canAccessFinanceOps ? "../invoices/list" : undefined
                           }
                           viewAllFilter={{ ...chartArFilter, statusCode: "O" }}
                         >
@@ -779,7 +779,7 @@ export default function FinancialReports() {
                           subtitle="Outstanding AR (RM)"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../invoices" : undefined
+                            canAccessFinanceOps ? "../invoices/list" : undefined
                           }
                           viewAllFilter={{
                             ...chartArFilter,
@@ -842,7 +842,7 @@ export default function FinancialReports() {
                           subtitle="Customers sitting on unapplied cash (RM)"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../payments" : undefined
+                            canAccessFinanceOps ? "../invoices/payments" : undefined
                           }
                           viewAllFilter={{
                             ...chartPaymentsFilter,
@@ -889,7 +889,7 @@ export default function FinancialReports() {
                           subtitle="As of today — not affected by date filter"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../bills" : undefined
+                            canAccessFinanceOps ? "../bills/list" : undefined
                           }
                           viewAllFilter={{ ...chartApFilter, statusCode: "O" }}
                         >
@@ -904,7 +904,7 @@ export default function FinancialReports() {
                           subtitle="Outstanding AP (RM)"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../bills" : undefined
+                            canAccessFinanceOps ? "../bills/list" : undefined
                           }
                           viewAllFilter={{
                             ...chartApFilter,
@@ -923,7 +923,7 @@ export default function FinancialReports() {
                           subtitle="Billed (RM)"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../bills" : undefined
+                            canAccessFinanceOps ? "../bills/list" : undefined
                           }
                           viewAllFilter={{
                             ...chartApFilter,
@@ -942,7 +942,7 @@ export default function FinancialReports() {
                           style="cardGapSmall"
                           viewAllTo={
                             canAccessFinanceOps
-                              ? "../vendor-payments"
+                              ? "../bills/vendor-payments"
                               : undefined
                           }
                           viewAllFilter={{
@@ -1026,7 +1026,7 @@ export default function FinancialReports() {
                           subtitle="Invoiced (RM)"
                           style="cardGapSmall"
                           viewAllTo={
-                            canAccessFinanceOps ? "../invoices" : undefined
+                            canAccessFinanceOps ? "../invoices/list" : undefined
                           }
                           viewAllFilter={{
                             ...chartArFilter,

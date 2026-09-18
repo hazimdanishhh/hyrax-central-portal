@@ -4,6 +4,7 @@ import { formatDate } from "../../../functions/formatDate";
 import StatusBox from "../../status/statusBox/StatusBox";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import IconCard from "../../iconCard/IconCard";
+import SAPVendorCard from "../../client/sapVendorCard/SAPVendorCard";
 
 // Read-only card for a sap_vendor_payments row -- AP mirror of PaymentCard.
 export default function VendorPaymentCard({ vendorPayment, to }) {
@@ -32,13 +33,7 @@ export default function VendorPaymentCard({ vendorPayment, to }) {
             </p>
 
             <div className="salesOrderCustomer">
-              <StatusBox status={vendorPayment.vendor_code} type="blue" />
-              <p
-                className="textLight textXXS truncate"
-                title={vendorPayment.vendor_name}
-              >
-                {vendorPayment.vendor_name}
-              </p>
+              <SAPVendorCard row={vendorPayment} />
             </div>
 
             <StatusBox

@@ -293,13 +293,13 @@ export function getSalesReportsOverviewConfig(
       // Only a real link for viewers who can actually open finance/invoices
       // (FIN department) -- otherwise falls back to OverviewCards' plain
       // non-clickable card.
-      to: canAccessInvoices ? "/app/finance/invoices" : null,
+      to: canAccessInvoices ? "/app/finance/invoices/list" : null,
       filter: { ...periodFilter },
       metrics: [
         {
           label: "Invoiced Revenue",
           value: compactCurrency(kpis.totalInvoiced),
-          to: canAccessInvoices ? "/app/finance/invoices" : null,
+          to: canAccessInvoices ? "/app/finance/invoices/list" : null,
           filter: { ...periodFilter },
         },
         {
@@ -323,7 +323,7 @@ export function getSalesReportsOverviewConfig(
         icon: paymentsCollectedStatus.statusIcon,
         label: paymentsCollectedStatus.statusLabel,
       },
-      to: canAccessPayments ? "/app/finance/payments" : null,
+      to: canAccessPayments ? "/app/finance/invoices/payments" : null,
       filter: { ...periodFilter },
       metrics: [
         {
@@ -455,7 +455,7 @@ export function getSalesReportsOverviewConfig(
         label: concentrationStatus.statusLabel,
       },
       // customerCodes (plural) links all 5 at once -- see invoicesService.js.
-      to: canAccessInvoices ? "/app/finance/invoices" : null,
+      to: canAccessInvoices ? "/app/finance/invoices/list" : null,
       filter: {
         customerCodes: top5Invoiced.map((c) => c.customer_code).join(","),
         ...periodFilter,
@@ -464,7 +464,7 @@ export function getSalesReportsOverviewConfig(
         {
           label: "Top 5 Revenue",
           value: compactCurrency(top5InvoicedRevenue),
-          to: canAccessInvoices ? "/app/finance/invoices" : null,
+          to: canAccessInvoices ? "/app/finance/invoices/list" : null,
           filter: {
             customerCodes: top5Invoiced.map((c) => c.customer_code).join(","),
             ...periodFilter,
@@ -475,7 +475,7 @@ export function getSalesReportsOverviewConfig(
           value: topInvoicedCustomers[0]?.customer_name ?? "—",
           to:
             canAccessInvoices && topInvoicedCustomers[0]?.customer_code
-              ? "/app/finance/invoices"
+              ? "/app/finance/invoices/list"
               : null,
           filter: {
             customerCode: topInvoicedCustomers[0]?.customer_code,

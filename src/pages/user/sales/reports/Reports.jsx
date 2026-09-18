@@ -781,7 +781,7 @@ function Reports() {
                           style="cardGapSmall"
                           viewAllTo={
                             canAccessInvoices
-                              ? "/app/finance/invoices"
+                              ? "/app/finance/invoices/list"
                               : undefined
                           }
                           viewAllFilter={{ ...chartPeriodFilter }}
@@ -809,7 +809,7 @@ function Reports() {
                           style="cardGapSmall"
                           viewAllTo={
                             canAccessInvoices
-                              ? "/app/finance/invoices"
+                              ? "/app/finance/invoices/list"
                               : undefined
                           }
                           viewAllFilter={{ ...chartPeriodFilter }}

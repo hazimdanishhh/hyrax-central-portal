@@ -1,4 +1,5 @@
 import { TreeStructureIcon } from "@phosphor-icons/react";
+import { useNavigate } from "react-router";
 import { useTheme } from "../../../../context/ThemeContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -21,10 +22,15 @@ import { chartOfAccountsTableConfig } from "./tableConfig";
  * alongside the Journal Entries list page -- pairs naturally with it (e.g.
  * looking up what an account_code on a journal line actually means). Flat
  * reference/master data, not transactional, so no date-range filter and no
- * line-level drill-down.
+ * line-level drill-down of its own -- clicking a postable account instead
+ * jumps to Journal Entries, pre-filtered to that account (accountCode
+ * filter, see journalEntriesService.js) -- "what GL activity produced this
+ * balance." Non-postable summary/title accounts (is_postable='N') aren't
+ * clickable -- they never have journal lines posted directly to them.
  */
 export default function ChartOfAccounts() {
   const { darkMode } = useTheme();
+  const navigate = useNavigate();
 
   const {
     data: accounts,
@@ -53,6 +59,11 @@ export default function ChartOfAccounts() {
   const filterConfig = getChartOfAccountsFilterConfig();
   const columns = chartOfAccountsTableConfig();
   const hasData = accounts.length > 0;
+
+  function handleRowClick(account) {
+    if (account.is_postable !== "Y") return;
+    navigate(`/app/finance/journal-entries?accountCode=${account.account_code}`);
+  }
 
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -104,6 +115,7 @@ export default function ChartOfAccounts() {
                   data={accounts}
                   columns={columns}
                   rowKey="account_code"
+                  onRowClick={handleRowClick}
                 />
               )}
             </div>
