@@ -7,10 +7,11 @@ A living tracker of what each Finance module lets users do today vs. what's stil
 **What it lets users do today**
 
 - Unified stage badge per row (Paid / Overdue / Due Soon / Open / Paid (Verify)) computed from `outstanding_balance` + `has_paid_mismatch` + `due_date`, collapsing what used to be several separate facts into one glance.
-- Rep badge and a link through to the Matched Sales Order.
+- Rep badge and a rich inline summary of the Matched Sales Order (stage, delivery, invoiced/paid figures) — deliberately not a click-through into Sales' own module (see `docs/DASHBOARD-CONVENTIONS.md` §5); a "View all invoices for this order" link stays within Finance's own Invoices list instead.
 - Outstanding-balance KPI tiles and full AR aging/DSO on Financial Reports.
 - Tabbed Invoices + Payments under one page (`/app/finance/invoices/list`, `/app/finance/invoices/payments`) — no separate nav item needed to open either.
-- Filterable by `customerCode` (single) and `customerCodes` (multi, used by the Sales Order deep-link).
+- Sidebar sections (Line Items, Matched Payment(s)) are collapsible + lazy-loaded; Line Items comes first, Matched Sales Order(s) stays always expanded since it's the primary reason the invoice exists (see `docs/DASHBOARD-CONVENTIONS.md` §6).
+- Filterable by `customerCode` (single), `customerCodes` (multi, used by the Sales Order deep-link), and `salesOrderDocEntry` (resolves via the same base_entry/base_type document trail, backing the "View all invoices for this order" link).
 
 **What's missing / not yet built**
 
