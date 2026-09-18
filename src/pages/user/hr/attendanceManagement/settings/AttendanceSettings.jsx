@@ -153,6 +153,15 @@ export default function AttendanceSettings() {
 
   return (
     <>
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search by holiday name or code..."
+      />
+
       <PageHeader>
         <PageActions
           actionButtons={[
@@ -167,15 +176,6 @@ export default function AttendanceSettings() {
           ]}
         />
       </PageHeader>
-
-      <SearchFilterBar
-        search={search}
-        onSearchChange={setSearch}
-        filters={filters}
-        onFilterChange={setFilters}
-        filterConfig={filterConfig}
-        placeholder="Search by holiday name or code..."
-      />
 
       <CardLayout style="cardWrapperScroll">
         {isLoading || isFetching ? (

@@ -31,6 +31,8 @@ BI/SaaS products almost universally separate reporting surfaces into four altitu
 >
 > A submodule's Overview should never try to be a mini-Reports page, and a Reports page should never just be one submodule's Overview relabeled.
 
+**A 5th shape sits outside this ladder on purpose: the Statement page** (Finance's Cash Flow, Balance Sheet, Income Statement). These are single-page financial statements, not an entity with a List — there's no row-level record to page through, so forcing a List/Overview split onto them would invent a tab with nothing to show. Don't try to retrofit one; a Statement page is a recognized, self-contained shape.
+
 ---
 
 ## 2. When a submodule earns its own Overview + List
@@ -41,6 +43,20 @@ A submodule gets the `PageLayout` + tab-bar pattern (Overview _and_ List as sibl
 2. Its List is a genuinely active, maintained operational record set — not a stub, not a pass-through to somewhere else.
 
 Don't migrate a page to the RPC-driven pattern below just to "match the others" — reserve it for pages with real cross-table joins and period-over-period deltas. Small, single-table entities (e.g. headcount-scale lists) are genuinely fine with client-side aggregation.
+
+---
+
+## 2a. When a List earns its own KPI-card strip (added 2026-09)
+
+A List page doesn't need an Overview to still deserve a small `OverviewCards` strip of its own — the two are independent decisions. As of 2026-09, 14 pages carry a strip; only 7 have a full Overview.
+
+**Add a strip when the list is an actively-worked operational queue with a real urgency/actionability dimension** — overdue, at-risk, aging, unassigned, awaiting-action, anomalous. The test: is "what in this list needs my attention right now" a meaningful daily question, distinct from "show me everything"? If yes, it earns a strip regardless of whether it also has an Overview.
+
+**Every tile must resolve to a filter on that same list.** This is the load-bearing rule, not a nicety — confirmed true of all 14 existing tiles today (each `onClick` narrows the same list it sits above; see `Orders.jsx`/`overviewConfig.js` for the canonical shape). A number that can't be expressed as a filter on this list belongs on that entity's Overview or on the department's Reports page instead — don't stretch a strip to hold it.
+
+**Skip it** for flat reference/master data with no urgency dimension (a chart of accounts, a rep-mapping table, a document index). A strip there is decoration, not decision support — matches Odoo's own list-vs-dashboard split (plain lists for bulk review, dashboards reserved for modules with real analytical value).
+
+**Cross-cutting rule for Overview-owning modules — mirror urgency tiles down to the List.** If an entity already has an Overview, check its own tiles against the same test above: any tile that's itself an urgency-filter (a "Pending Approvals," "Data Gaps," "Risk Assets," "Anomalies," "Unassigned" — anything answerable as a filter) belongs on the List too, not just the Overview. **Sales Leads is the reference implementation**: `LeadsManagement.jsx`'s (List) 4 tiles are deliberately "what needs action today," while `LeadsOverview.jsx`'s 5 tiles + charts are analytical — see that list page's own header comment. Don't build a second, unrelated tile set from scratch when evaluating a module that already has an Overview — start by asking which of its existing Overview tiles are secretly list filters already.
 
 ---
 
