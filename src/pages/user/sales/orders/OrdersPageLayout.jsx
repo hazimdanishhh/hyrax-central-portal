@@ -1,11 +1,20 @@
 import { useTheme } from "../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import { ListIcon, ReceiptIcon, WalletIcon } from "@phosphor-icons/react";
+import { ReceiptIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { NavLink, Outlet } from "react-router";
+import { useAccessControl } from "../../../../context/AccessControlContext";
+import { ordersPageTabs } from "./ordersPageTabs";
 
 export default function OrdersPageLayout() {
   const { darkMode } = useTheme();
+  const { canAccess } = useAccessControl();
+
+  // Single source of truth shared with this link's sidenav sub-links --
+  // see ordersPageTabs.js's own header comment.
+  const visibleTabs = ordersPageTabs.filter((tab) =>
+    canAccess({ roles: tab.roles, departments: tab.departments }),
+  );
 
   return (
     <section className={darkMode ? "sectionDark" : "sectionLight"}>
@@ -15,35 +24,25 @@ export default function OrdersPageLayout() {
 
           <CardWrapper>
             <div className="pageTabContainer">
-              {/* ALL ORDERS */}
-              <NavLink
-                to="/app/sales/orders/all"
-                className={({ isActive }) =>
-                  `button buttonTypeTab textRegular textXS ${
-                    isActive ? "active" : ""
-                  }`
-                }
-              >
-                <div className="pageTabIcon">
-                  <ListIcon size={15} />
-                </div>
-                All Orders
-              </NavLink>
-
-              {/* BUDGETS */}
-              <NavLink
-                to="/app/sales/orders/budgets"
-                className={({ isActive }) =>
-                  `button buttonTypeTab textRegular textXS ${
-                    isActive ? "active" : ""
-                  }`
-                }
-              >
-                <div className="pageTabIcon">
-                  <WalletIcon size={15} />
-                </div>
-                Budgets
-              </NavLink>
+              {visibleTabs.map((tab) => {
+                const TabIcon = tab.icon;
+                return (
+                  <NavLink
+                    key={tab.path}
+                    to={`/app/sales/orders/${tab.path}`}
+                    className={({ isActive }) =>
+                      `button buttonTypeTab textRegular textXS ${
+                        isActive ? "active" : ""
+                      }`
+                    }
+                  >
+                    <div className="pageTabIcon">
+                      <TabIcon size={15} />
+                    </div>
+                    {tab.label}
+                  </NavLink>
+                );
+              })}
             </div>
             <Outlet />
           </CardWrapper>

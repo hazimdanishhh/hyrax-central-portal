@@ -565,7 +565,7 @@ export default function AttendanceManagement() {
           // grouping anymore: every page is already exactly one day, so
           // grouping-by-date (the source of the old "overflow to next page"
           // bug) no longer applies.
-          <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
+          <CardLayout style="cardLayout1 cardGapSmall">
             {activities.map((activity) => (
               <AttendanceCard
                 key={activity.id}

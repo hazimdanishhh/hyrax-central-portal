@@ -1,4 +1,6 @@
 .sideNavLinkSegment {
+  padding-top: 0.8rem;
+
   p {
     min-width: max-content;
     margin-bottom: 0.5rem;
@@ -9,14 +11,25 @@
     text-align: center;
   }
   .sideNavLinkWrapper {
+    .sideNavLinkRow {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+
+      &.isClosed {
+        justify-content: center;
+      }
+    }
+
     .sideNavLink {
       display: flex;
       justify-content: start;
       align-items: center;
-      gap: 0.8rem;
-      padding: 0.8rem;
+      gap: 0.4rem;
+      padding: 0.4rem 0.6rem;
       border-radius: 10px;
       width: 100%;
+      flex: 1;
       transition: background-color 0.15s ease;
       min-width: max-content;
 
@@ -33,6 +46,69 @@
 
       &.isClosed {
         justify-content: center;
+        // aspect-ratio: 1/1;
+      }
+    }
+
+    .sideNavExpandToggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      // Pushes the button to the far end of its flex row regardless of how
+      // short the label is -- justify-content on the row alone can't do
+      // this once there's a 3rd flex child (icon, label, button), since gap
+      // only controls spacing *between* items, not leftover space at the end.
+      margin-left: auto;
+      padding: 0.4rem;
+      border-radius: 6px;
+      background: transparent;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background-color: rgb($dark, 0.6);
+        color: $light;
+      }
+
+      svg {
+        transition: transform 0.15s ease;
+      }
+
+      &.expanded svg {
+        transform: rotate(180deg);
+      }
+    }
+
+    .sideNavSubLinks {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      margin: 0.2rem 0 0.4rem 0.4rem;
+      padding-left: 0.6rem;
+      border-left: 2px solid rgb($dark, 0.15);
+
+      .sideNavSubLink {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 0.6rem;
+        border-radius: 8px;
+        opacity: 0.85;
+        min-width: max-content;
+        transition: background-color 0.15s ease;
+
+        &:hover {
+          background-color: rgb($dark, 0.6);
+          color: $light;
+          opacity: 1;
+        }
+
+        &.active {
+          background-color: rgb($dark, 0.8);
+          color: $light;
+          font-weight: 600;
+          opacity: 1;
+        }
       }
     }
   }
@@ -67,8 +143,36 @@
   padding: 6px 10px;
   border-radius: 6px;
   white-space: nowrap;
-  pointer-events: none;
+  // auto, not none -- a link with tabs renders its sub-links as clickable
+  // lines inside this tooltip while the sidenav rail is collapsed (see
+  // .sideNavTooltipWithTabs below), so it needs to accept pointer events.
+  pointer-events: auto;
   z-index: 9000;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   opacity: 0.95;
+}
+
+.sideNavTooltipWithTabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  .sideNavTooltipTitle {
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .sideNavTooltipTabLink {
+    padding: 0.2rem 0;
+    opacity: 0.85;
+
+    &:hover {
+      text-decoration: underline;
+      opacity: 1;
+    }
+  }
 }

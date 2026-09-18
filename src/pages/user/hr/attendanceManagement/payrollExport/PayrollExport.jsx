@@ -28,7 +28,7 @@ import { payrollPeriodSummaryExportColumns } from "./exportConfig";
  * employee for the selected cycle (hours worked, overtime, absences,
  * holiday/weekend work, paid/unpaid leave, and every unresolved
  * reconciliation flag), previewed on-screen and downloadable as CSV for
- * handoff to payroll. Read-only -- no CRUD, unlike the Settings tab.
+ * handoff to payroll. Read-only -- no CRUD, unlike the Holidays tab.
  *
  * Filters are fully URL-synced (added 2026-09-15) -- department/employee/
  * needsReconciliation/startDate/endDate all read from and write back to the

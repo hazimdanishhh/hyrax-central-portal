@@ -64,11 +64,16 @@ export default function AttendanceSettings() {
   // this pass): usePublicHolidays() deliberately has no pagination/filter
   // at all, the whole calendar is always loaded in one shot, so any valid
   // holidayId is always already present in `holidays` once it's loaded.
+  // String(h.id) -- public_holidays.id is a bigint (see
+  // public_holidays_migration.sql), which comes back from Supabase as a JS
+  // number, while useParams() always yields a string; comparing them
+  // directly never matched, so the sidebar never opened despite the URL
+  // correctly carrying the id.
   const selectedRow = useMemo(() => {
     if (holidayId === "new") return {};
     if (!holidayId) return null;
 
-    return holidays?.find((h) => h.id === holidayId) || null;
+    return holidays?.find((h) => String(h.id) === holidayId) || null;
   }, [holidayId, holidays]);
 
   const sidebarOpen = !!selectedRow;

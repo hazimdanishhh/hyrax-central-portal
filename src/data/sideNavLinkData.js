@@ -41,6 +41,15 @@ import {
   LinkIcon,
   DoorOpenIcon,
 } from "@phosphor-icons/react";
+import { leadsPageTabs } from "../pages/user/sales/leads/leadsPageTabs";
+import { ordersPageTabs } from "../pages/user/sales/orders/ordersPageTabs";
+import { clientsPageTabs } from "../pages/user/sales/clients/clientsPageTabs";
+import { attendancePageTabs as hrAttendancePageTabs } from "../pages/user/hr/attendanceManagement/attendancePageTabs";
+import { employeePageTabs } from "../pages/user/hr/employeeManagement/employeePageTabs";
+import { attendancePageTabs as myAttendancePageTabs } from "../pages/user/employee/attendance/attendancePageTabs";
+import { teamAttendancePageTabs } from "../pages/user/employee/teamAttendance/teamAttendancePageTabs";
+import { itAssetsPageTabs } from "../pages/user/it/ITAssetManagement/itAssetsPageTabs";
+import { helpCategories } from "./help/helpCategories";
 
 export const sideNavLinkData = [
   // =================================================
@@ -137,6 +146,11 @@ export const sideNavLinkData = [
         label: "My Attendance",
         icon: ClipboardTextIcon,
         path: "employee/attendance",
+
+        // Same array AttendancePageLayout.jsx (employee module) renders as
+        // its own page-tab bar -- see its attendancePageTabs.js header
+        // comment.
+        tabs: myAttendancePageTabs,
       },
 
       {
@@ -145,6 +159,9 @@ export const sideNavLinkData = [
         path: "employee/team-attendance",
 
         roles: ["manager"],
+        // Same array TeamAttendancePageLayout.jsx renders as its own
+        // page-tab bar -- see teamAttendancePageTabs.js's header comment.
+        tabs: teamAttendancePageTabs,
       },
 
       // Self-service onboarding/offboarding -- read-only views of the
@@ -204,6 +221,9 @@ export const sideNavLinkData = [
         path: "sales/clients",
 
         departments: ["SAL", "MGM"],
+        // Same array ClientsPageLayout.jsx renders as its own page-tab bar
+        // -- see clientsPageTabs.js's header comment.
+        tabs: clientsPageTabs,
       },
 
       {
@@ -212,6 +232,10 @@ export const sideNavLinkData = [
         path: "sales/leads",
 
         departments: ["SAL", "MGM"],
+        // Same array LeadsPageLayout.jsx renders as its own page-tab bar --
+        // see leadsPageTabs.js's header comment for why there's only one
+        // list to keep in sync.
+        tabs: leadsPageTabs,
       },
 
       {
@@ -220,6 +244,9 @@ export const sideNavLinkData = [
         path: "sales/orders",
 
         departments: ["SAL", "MGM"],
+        // Same array OrdersPageLayout.jsx renders as its own page-tab bar --
+        // see ordersPageTabs.js's header comment.
+        tabs: ordersPageTabs,
       },
 
       {
@@ -431,6 +458,9 @@ export const sideNavLinkData = [
         path: "hr/employees",
 
         departments: ["HR"],
+        // Same array EmployeePageLayout.jsx renders as its own page-tab bar
+        // -- see employeePageTabs.js's header comment.
+        tabs: employeePageTabs,
       },
 
       // {
@@ -448,6 +478,9 @@ export const sideNavLinkData = [
         path: "hr/attendance",
 
         departments: ["HR"],
+        // Same array AttendancePageLayout.jsx renders as its own page-tab
+        // bar -- see attendancePageTabs.js's header comment.
+        tabs: hrAttendancePageTabs,
       },
 
       {
@@ -538,6 +571,9 @@ export const sideNavLinkData = [
         path: "it/assets",
 
         departments: ["IT"],
+        // Same array ITAssetsPageLayout.jsx renders as its own page-tab bar
+        // -- see itAssetsPageTabs.js's header comment.
+        tabs: itAssetsPageTabs,
       },
 
       {
@@ -620,6 +656,12 @@ export const sideNavLinkData = [
         label: "Help & Support",
         icon: QuestionIcon,
         path: "help",
+
+        // Reuses HelpPageLayout.jsx's own tab data directly (already the
+        // exact {label, icon, path} shape) -- Help is universal (R2, no
+        // AccessRoute anywhere in HelpRoutes.jsx), so no roles/departments
+        // needed on these tabs either.
+        tabs: helpCategories,
       },
 
       {

@@ -52,12 +52,26 @@ export function AccessControlProvider({ children }) {
 
     return allSegments
       .map((segment) => {
-        const filteredLinks = segment.links.filter((link) =>
-          canAccess({
-            roles: link.roles,
-            departments: link.departments,
-          }),
-        );
+        const filteredLinks = segment.links
+          .filter((link) =>
+            canAccess({
+              roles: link.roles,
+              departments: link.departments,
+            }),
+          )
+          .map((link) => {
+            if (!link.tabs) return link;
+
+            return {
+              ...link,
+              tabs: link.tabs.filter((tab) =>
+                canAccess({
+                  roles: tab.roles,
+                  departments: tab.departments,
+                }),
+              ),
+            };
+          });
 
         return {
           ...segment,

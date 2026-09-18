@@ -52,6 +52,10 @@
   justify-content: center;
   align-items: center;
   gap: 0.4rem;
+
+  @media screen and (max-width: 320px) {
+    flex-wrap: wrap;
+  }
 }
 
 .searchInputWrapper {

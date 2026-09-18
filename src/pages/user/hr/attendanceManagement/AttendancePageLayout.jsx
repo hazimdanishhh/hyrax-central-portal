@@ -1,19 +1,21 @@
 import React from "react";
 import { useTheme } from "../../../../context/ThemeContext";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import {
-  ChartLineIcon,
-  CurrencyCircleDollarIcon,
-  DesktopIcon,
-  GearIcon,
-  ListIcon,
-  UsersFourIcon,
-} from "@phosphor-icons/react";
+import { UsersFourIcon } from "@phosphor-icons/react";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { Link, NavLink, Outlet } from "react-router";
+import { useAccessControl } from "../../../../context/AccessControlContext";
+import { attendancePageTabs } from "./attendancePageTabs";
 
 export default function AttendancePageLayout() {
   const { darkMode } = useTheme();
+  const { canAccess } = useAccessControl();
+
+  // Single source of truth shared with this link's sidenav sub-links --
+  // see attendancePageTabs.js's own header comment.
+  const visibleTabs = attendancePageTabs.filter((tab) =>
+    canAccess({ roles: tab.roles, departments: tab.departments }),
+  );
 
   return (
     <>
@@ -24,61 +26,25 @@ export default function AttendancePageLayout() {
 
             <CardWrapper>
               <div className="pageTabContainer">
-                <NavLink
-                  to="/app/hr/attendance/overview"
-                  className={({ isActive }) =>
-                    `button buttonTypeTab textRegular textXS ${
-                      isActive ? "active" : ""
-                    }`
-                  }
-                >
-                  <div className="pageTabIcon">
-                    <ChartLineIcon size={15} />
-                  </div>
-                  Overview
-                </NavLink>
-
-                <NavLink
-                  to="/app/hr/attendance/list"
-                  className={({ isActive }) =>
-                    `button buttonTypeTab textRegular textXS ${
-                      isActive ? "active" : ""
-                    }`
-                  }
-                >
-                  <div className="pageTabIcon">
-                    <ListIcon size={15} />
-                  </div>
-                  Attendance List
-                </NavLink>
-
-                <NavLink
-                  to="/app/hr/attendance/settings"
-                  className={({ isActive }) =>
-                    `button buttonTypeTab textRegular textXS ${
-                      isActive ? "active" : ""
-                    }`
-                  }
-                >
-                  <div className="pageTabIcon">
-                    <GearIcon size={15} />
-                  </div>
-                  Settings
-                </NavLink>
-
-                <NavLink
-                  to="/app/hr/attendance/payroll-export"
-                  className={({ isActive }) =>
-                    `button buttonTypeTab textRegular textXS ${
-                      isActive ? "active" : ""
-                    }`
-                  }
-                >
-                  <div className="pageTabIcon">
-                    <CurrencyCircleDollarIcon size={15} />
-                  </div>
-                  Payroll Export
-                </NavLink>
+                {visibleTabs.map((tab) => {
+                  const TabIcon = tab.icon;
+                  return (
+                    <NavLink
+                      key={tab.path}
+                      to={`/app/hr/attendance/${tab.path}`}
+                      className={({ isActive }) =>
+                        `button buttonTypeTab textRegular textXS ${
+                          isActive ? "active" : ""
+                        }`
+                      }
+                    >
+                      <div className="pageTabIcon">
+                        <TabIcon size={15} />
+                      </div>
+                      {tab.label}
+                    </NavLink>
+                  );
+                })}
               </div>
               <Outlet />
             </CardWrapper>
