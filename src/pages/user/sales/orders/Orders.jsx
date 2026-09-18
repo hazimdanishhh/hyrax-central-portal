@@ -20,10 +20,12 @@ import { useSalesOrdersMetadata } from "../../../../features/sales/orders/privat
 import { getSalesOrdersFilterConfig } from "./filterConfig";
 import { getSalesOrdersOverviewConfig } from "./overviewConfig";
 import { getSalesOrdersSortConfig } from "./sortConfig";
+import { getSalesOrdersTabsConfig } from "./tabConfig";
 import FulfillmentOrderCard from "../../../../components/sales/orders/fulfillmentOrderCard/FulfillmentOrderCard";
 import SalesOrderSidebar from "./detail/SalesOrderSidebar";
 import PageTitle from "../../../../components/pageTitle/PageTitle";
 import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
+import StatusTab from "../../../../components/crud/statusTab/StatusTab";
 
 /**
  * Sales Orders -- SAP is the system of record, so there's no create/edit/
@@ -110,6 +112,8 @@ export default function Orders() {
   const filterConfig = getSalesOrdersFilterConfig({ salesReps });
   const sortOptions = getSalesOrdersSortConfig();
 
+  const statusTabs = getSalesOrdersTabsConfig(searchParams);
+
   const isLoading = ordersLoading || metadataLoading;
   const isFetching = ordersFetching || metadataFetching;
   const error = ordersError || metadataError;
@@ -169,6 +173,18 @@ export default function Orders() {
         totalPages={totalPages}
         error={error}
       />
+
+      <div className="statusTabsRow scrollbar">
+        {statusTabs.map((tab) => (
+          <StatusTab
+            key={tab.label}
+            to={tab.to}
+            label={tab.label}
+            themeType={tab.themeType}
+            isActive={tab.isActive}
+          />
+        ))}
+      </div>
 
       <div className="cardWrapperScroll">
         {isLoading || isFetching ? (
