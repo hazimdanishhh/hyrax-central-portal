@@ -5,6 +5,7 @@ import {
   attachRep,
 } from "../../../../sales/orders/private/api/salesOrdersService";
 import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
+import { fetchAllSupabaseRows } from "../../../../../functions/fetchAllSupabaseRows";
 
 /**
  * Read-only invoice list, backed directly by the sap_invoices mirror table.
@@ -218,42 +219,48 @@ export async function fetchInvoiceByDocEntry(docEntry) {
 export async function resolveInvoiceIdsForSalesOrder(soDocEntry) {
   if (!soDocEntry) return [];
 
-  const [{ data: directLines, error: directLinesError }, { data: deliveryLines, error: deliveryLinesError }] =
-    await Promise.all([
+  // fetchAllSupabaseRows (added 2026-09) rather than a single unbounded
+  // .select() -- same latent truncation risk journalEntriesService.js's
+  // resolveTransIdsByLineColumn had (confirmed live for a high-volume GL
+  // account); low real-world odds here since one sales order's own lines
+  // are naturally few, but the fix is free and keeps this correct
+  // regardless. Ordered by doc_entry for deterministic pagination.
+  const [directLines, deliveryLines] = await Promise.all([
+    fetchAllSupabaseRows(() =>
       supabase
         .from("sap_invoice_lines")
         .select("doc_entry")
         .eq("base_entry", soDocEntry)
-        .eq("base_type", 17),
+        .eq("base_type", 17)
+        .order("doc_entry", { ascending: true }),
+    ),
+    fetchAllSupabaseRows(() =>
       supabase
         .from("sap_delivery_lines")
         .select("doc_entry")
         .eq("base_entry", soDocEntry)
-        .eq("base_type", 17),
-    ]);
+        .eq("base_type", 17)
+        .order("doc_entry", { ascending: true }),
+    ),
+  ]);
 
-  if (directLinesError) throw directLinesError;
-  if (deliveryLinesError) throw deliveryLinesError;
-
-  const directInvoiceIds = (directLines || []).map((line) => line.doc_entry);
+  const directInvoiceIds = directLines.map((line) => line.doc_entry);
 
   const deliveryIds = [
-    ...new Set((deliveryLines || []).map((line) => line.doc_entry)),
+    ...new Set(deliveryLines.map((line) => line.doc_entry)),
   ];
 
   let invoiceIdsViaDelivery = [];
   if (deliveryIds.length > 0) {
-    const { data: viaDeliveryLines, error: viaDeliveryLinesError } =
-      await supabase
+    const viaDeliveryLines = await fetchAllSupabaseRows(() =>
+      supabase
         .from("sap_invoice_lines")
         .select("doc_entry")
         .in("base_entry", deliveryIds)
-        .eq("base_type", 15);
-
-    if (viaDeliveryLinesError) throw viaDeliveryLinesError;
-    invoiceIdsViaDelivery = (viaDeliveryLines || []).map(
-      (line) => line.doc_entry,
+        .eq("base_type", 15)
+        .order("doc_entry", { ascending: true }),
     );
+    invoiceIdsViaDelivery = viaDeliveryLines.map((line) => line.doc_entry);
   }
 
   return [...new Set([...directInvoiceIds, ...invoiceIdsViaDelivery])];

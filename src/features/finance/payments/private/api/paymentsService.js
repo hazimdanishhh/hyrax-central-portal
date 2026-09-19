@@ -1,6 +1,7 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 import { resolveInvoiceIdsForSalesOrder } from "../../../invoices/private/api/invoicesService";
 import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
+import { fetchAllSupabaseRows } from "../../../../../functions/fetchAllSupabaseRows";
 
 /**
  * Read-only payment list, backed directly by the sap_payments mirror table
@@ -200,27 +201,32 @@ export async function fetchPaymentByDocEntry(docEntry) {
 export async function fetchPaymentsForInvoice(invoiceDocEntry) {
   if (!invoiceDocEntry) return [];
 
-  const { data: applications, error: applicationsError } = await supabase
-    .from("sap_payment_applications")
-    .select("payment_ref")
-    .eq("doc_entry", invoiceDocEntry)
-    .eq("inv_type", 13);
-
-  if (applicationsError) throw applicationsError;
+  // fetchAllSupabaseRows (added 2026-09) rather than a single unbounded
+  // .select() on either query -- same latent truncation risk
+  // resolvePaymentIdsForInvoices below already had fixed (confirmed live
+  // for a high-volume GL account); low real-world odds for one invoice's
+  // own applications, but free to keep correct regardless.
+  const applications = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_payment_applications")
+      .select("payment_ref")
+      .eq("doc_entry", invoiceDocEntry)
+      .eq("inv_type", 13)
+      .order("payment_ref", { ascending: true }),
+  );
 
   const paymentDocEntries = [
-    ...new Set((applications || []).map((application) => application.payment_ref)),
+    ...new Set(applications.map((application) => application.payment_ref)),
   ];
   if (paymentDocEntries.length === 0) return [];
 
-  const { data: payments, error: paymentsError } = await supabase
-    .from("sap_payments")
-    .select("*")
-    .in("doc_entry", paymentDocEntries);
-
-  if (paymentsError) throw paymentsError;
-
-  return payments || [];
+  return fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_payments")
+      .select("*")
+      .in("doc_entry", paymentDocEntries)
+      .order("doc_entry", { ascending: true }),
+  );
 }
 
 /**
@@ -230,21 +236,29 @@ export async function fetchPaymentsForInvoice(invoiceDocEntry) {
  * objects) and fetchPayments' salesOrderDocEntry filter above (ids only).
  * The final Set dedupe naturally handles a payment referenced via multiple
  * invoices' payment_ref entries -- no extra dedupe pass needed.
+ *
+ * fetchAllSupabaseRows (added 2026-09) rather than a single unbounded
+ * .select() -- same latent truncation risk journalEntriesService.js's
+ * resolveTransIdsByLineColumn had (confirmed live for a high-volume GL
+ * account); low real-world odds here since a handful of invoices' own
+ * applications are naturally few, but the fix is free and keeps this
+ * correct regardless. Ordered by (doc_entry, payment_ref) for deterministic
+ * pagination.
  */
 async function resolvePaymentIdsForInvoices(invoiceDocEntries) {
   if (!invoiceDocEntries || invoiceDocEntries.length === 0) return [];
 
-  const { data: applications, error: applicationsError } = await supabase
-    .from("sap_payment_applications")
-    .select("payment_ref")
-    .in("doc_entry", invoiceDocEntries)
-    .eq("inv_type", 13);
+  const applications = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_payment_applications")
+      .select("payment_ref")
+      .in("doc_entry", invoiceDocEntries)
+      .eq("inv_type", 13)
+      .order("doc_entry", { ascending: true })
+      .order("payment_ref", { ascending: true }),
+  );
 
-  if (applicationsError) throw applicationsError;
-
-  return [
-    ...new Set((applications || []).map((application) => application.payment_ref)),
-  ];
+  return [...new Set(applications.map((application) => application.payment_ref))];
 }
 
 /**

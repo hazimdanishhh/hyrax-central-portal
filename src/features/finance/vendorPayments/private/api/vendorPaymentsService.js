@@ -1,5 +1,6 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
+import { fetchAllSupabaseRows } from "../../../../../functions/fetchAllSupabaseRows";
 
 /**
  * Read-only vendor payment list, backed directly by the sap_vendor_payments
@@ -179,25 +180,30 @@ export async function fetchVendorPaymentByDocEntry(docEntry) {
 export async function fetchVendorPaymentsForBill(billDocEntry) {
   if (!billDocEntry) return [];
 
-  const { data: applications, error: applicationsError } = await supabase
-    .from("sap_vendor_payment_applications")
-    .select("payment_ref")
-    .eq("doc_entry", billDocEntry)
-    .eq("doc_type", 18);
-
-  if (applicationsError) throw applicationsError;
+  // fetchAllSupabaseRows (added 2026-09) rather than a single unbounded
+  // .select() on either query -- same latent truncation risk
+  // journalEntriesService.js's resolveTransIdsByLineColumn had (confirmed
+  // live for a high-volume GL account); low real-world odds for one bill's
+  // own applications, but free to keep correct regardless.
+  const applications = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_vendor_payment_applications")
+      .select("payment_ref")
+      .eq("doc_entry", billDocEntry)
+      .eq("doc_type", 18)
+      .order("payment_ref", { ascending: true }),
+  );
 
   const vendorPaymentDocEntries = [
-    ...new Set((applications || []).map((application) => application.payment_ref)),
+    ...new Set(applications.map((application) => application.payment_ref)),
   ];
   if (vendorPaymentDocEntries.length === 0) return [];
 
-  const { data: vendorPayments, error: vendorPaymentsError } = await supabase
-    .from("sap_vendor_payments")
-    .select("*")
-    .in("doc_entry", vendorPaymentDocEntries);
-
-  if (vendorPaymentsError) throw vendorPaymentsError;
-
-  return vendorPayments || [];
+  return fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_vendor_payments")
+      .select("*")
+      .in("doc_entry", vendorPaymentDocEntries)
+      .order("doc_entry", { ascending: true }),
+  );
 }

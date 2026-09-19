@@ -546,6 +546,16 @@ gl_agg as (
         -- account with different wording would silently fall through this
         -- filter. Revisit if this proves materially wrong against a real
         -- P&L review.
+        --
+        -- WATCH ITEM (found in the 2026-09 full sap_gl_accounts audit, see
+        -- docs/finance/GL-ACCOUNTS-AUDIT-2026-09.md): this filter has no
+        -- drawer restriction, and one match -- account 100120 "ROU Building
+        -- - Acc Amortisation" -- sits on the BALANCE SHEET side (drawer 1, a
+        -- contra-asset), not the P&L side. It's zero-balance/no postings as
+        -- of the audit, so this is currently harmless -- but if that account
+        -- ever receives real activity, its postings would silently flow into
+        -- this P&L/EBITDA figure despite being a Balance Sheet account.
+        -- Revisit if ROU amortization activity ever appears.
         coalesce(sum(debit_amount_myr - credit_amount_myr) filter (where
             (bl.account_name ilike '%depreciation%' or bl.account_name ilike '%amorti%')
             and (p_start_date is null or bl.posting_date::date >= p_start_date)

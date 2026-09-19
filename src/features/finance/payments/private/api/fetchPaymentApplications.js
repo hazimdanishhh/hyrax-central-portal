@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { fetchAllSupabaseRows } from "../../../../../functions/fetchAllSupabaseRows";
 
 /**
  * Read-only "what was this payment applied to" list, backed by
@@ -19,14 +20,18 @@ import { supabase } from "../../../../../lib/supabaseClient";
 export async function fetchPaymentApplications(paymentDocEntry) {
   if (!paymentDocEntry) return [];
 
-  const { data, error } = await supabase
-    .from("sap_payment_applications")
-    .select("*")
-    .eq("payment_ref", paymentDocEntry);
-
-  if (error) throw error;
-
-  const applications = data || [];
+  // fetchAllSupabaseRows (added 2026-09) rather than a single unbounded
+  // .select() -- same latent truncation risk journalEntriesService.js's
+  // resolveTransIdsByLineColumn had (confirmed live for a high-volume GL
+  // account); low real-world odds for one payment's own applications, but
+  // free to keep correct regardless.
+  const applications = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_payment_applications")
+      .select("*")
+      .eq("payment_ref", paymentDocEntry)
+      .order("doc_entry", { ascending: true }),
+  );
 
   const invoiceDocEntries = [
     ...new Set(
@@ -43,15 +48,16 @@ export async function fetchPaymentApplications(paymentDocEntry) {
     }));
   }
 
-  const { data: invoices, error: invoicesError } = await supabase
-    .from("sap_invoices")
-    .select("doc_entry, invoice_number, customer_name, total_amount_myr")
-    .in("doc_entry", invoiceDocEntries);
-
-  if (invoicesError) throw invoicesError;
+  const invoices = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_invoices")
+      .select("doc_entry, invoice_number, customer_name, total_amount_myr")
+      .in("doc_entry", invoiceDocEntries)
+      .order("doc_entry", { ascending: true }),
+  );
 
   const invoicesByDocEntry = {};
-  (invoices || []).forEach((invoice) => {
+  invoices.forEach((invoice) => {
     invoicesByDocEntry[invoice.doc_entry] = invoice;
   });
 

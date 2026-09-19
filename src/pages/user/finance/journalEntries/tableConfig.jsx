@@ -35,6 +35,28 @@ export const journalEntriesTableConfig = () => [
     editable: false,
   },
   {
+    key: "total_debit_myr",
+    label: "Total Debit (RM)",
+    // Sourced from sap_gl_journal_entries_with_flags (see
+    // finance_gl_entry_flags_view.sql) -- the same per-entry line-sum
+    // already computed for the Unbalanced row flag, just also shown here
+    // instead of only backing that badge.
+    getValue: (row) =>
+      row.total_debit_myr
+        ? `RM ${Math.round(row.total_debit_myr).toLocaleString()}`
+        : "",
+    editable: false,
+  },
+  {
+    key: "total_credit_myr",
+    label: "Total Credit (RM)",
+    getValue: (row) =>
+      row.total_credit_myr
+        ? `RM ${Math.round(row.total_credit_myr).toLocaleString()}`
+        : "",
+    editable: false,
+  },
+  {
     key: "due_date",
     label: "Due Date",
     getValue: (row) => formatDate(row.due_date),

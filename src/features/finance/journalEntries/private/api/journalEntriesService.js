@@ -1,19 +1,30 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { fetchAllSupabaseRows } from "../../../../../functions/fetchAllSupabaseRows";
 
 // sap_gl_journal_entries (this header list) has no account_code/bp_code
 // column of its own -- both only live on sap_gl_journal_lines. Resolves
 // which trans_ids touched a given value on the given column. The [-1]
 // sentinel keeps a genuine zero-match filter returning zero rows instead of
 // leaving `.in()` to an empty array's inconsistent behavior.
+//
+// Uses fetchAllSupabaseRows (added 2026-09) rather than a single unbounded
+// .select() -- confirmed live that a high-volume account (7000120,
+// "Salaries, bonus & allowance") has 1,946 real matching lines spanning to
+// 2026, but an unbounded fetch silently truncated at a server-side default
+// row cap, making the drill-through look like it stopped in 2021. Ordered
+// by (trans_id, line_id), the table's natural composite key, for
+// deterministic pagination.
 async function resolveTransIdsByLineColumn(column, value) {
-  const { data, error } = await supabase
-    .from("sap_gl_journal_lines")
-    .select("trans_id")
-    .eq(column, value);
+  const data = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_gl_journal_lines")
+      .select("trans_id")
+      .eq(column, value)
+      .order("trans_id", { ascending: true })
+      .order("line_id", { ascending: true }),
+  );
 
-  if (error) throw error;
-
-  const ids = [...new Set((data || []).map((line) => line.trans_id))];
+  const ids = [...new Set(data.map((line) => line.trans_id))];
   return ids.length > 0 ? ids : [-1];
 }
 

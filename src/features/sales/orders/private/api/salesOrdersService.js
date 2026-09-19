@@ -1,5 +1,6 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 import { exclusiveUpperBound } from "../../../../../functions/dateRangeFilters";
+import { fetchAllSupabaseRows } from "../../../../../functions/fetchAllSupabaseRows";
 
 /**
  * Resolves a sap_* row's sales_rep_code -> the owning employee. Exported --
@@ -203,13 +204,21 @@ export async function fetchSalesOrders({
 export async function fetchSalesOrdersForInvoice(invoiceDocEntry) {
   if (!invoiceDocEntry) return [];
 
-  const { data: lines, error: linesError } = await supabase
-    .from("sap_invoice_lines")
-    .select("base_entry, base_type")
-    .eq("doc_entry", invoiceDocEntry);
+  // fetchAllSupabaseRows (added 2026-09) on every query below rather than a
+  // single unbounded .select() -- same latent truncation risk
+  // journalEntriesService.js's resolveTransIdsByLineColumn had (confirmed
+  // live for a high-volume GL account); low real-world odds for one
+  // invoice's own lines/matched documents, but free to keep correct
+  // regardless.
+  const lines = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_invoice_lines")
+      .select("base_entry, base_type")
+      .eq("doc_entry", invoiceDocEntry)
+      .order("base_entry", { ascending: true }),
+  );
 
-  if (linesError) throw linesError;
-  if (!lines?.length) return [];
+  if (!lines.length) return [];
 
   const directSoIds = lines
     .filter((line) => line.base_type === 17)
@@ -225,14 +234,15 @@ export async function fetchSalesOrdersForInvoice(invoiceDocEntry) {
 
   let soIdsViaDelivery = [];
   if (deliveryIds.length > 0) {
-    const { data: deliveryLines, error: deliveryLinesError } = await supabase
-      .from("sap_delivery_lines")
-      .select("base_entry")
-      .in("doc_entry", deliveryIds)
-      .eq("base_type", 17);
-
-    if (deliveryLinesError) throw deliveryLinesError;
-    soIdsViaDelivery = (deliveryLines || []).map((line) => line.base_entry);
+    const deliveryLines = await fetchAllSupabaseRows(() =>
+      supabase
+        .from("sap_delivery_lines")
+        .select("base_entry")
+        .in("doc_entry", deliveryIds)
+        .eq("base_type", 17)
+        .order("base_entry", { ascending: true }),
+    );
+    soIdsViaDelivery = deliveryLines.map((line) => line.base_entry);
   }
 
   const soIds = [...new Set([...directSoIds, ...soIdsViaDelivery])];
@@ -246,19 +256,17 @@ export async function fetchSalesOrdersForInvoice(invoiceDocEntry) {
   // reverse SO->Invoice direction (see fetchInvoicesForSalesOrder's own
   // comment) -- this direction had the identical bug, just not caught
   // until InvoiceSidebar started rendering FulfillmentOrderCard here too.
-  const [{ data: orders, error: ordersError }, repsByCode, namesByCode] =
-    await Promise.all([
+  const [orders, repsByCode, namesByCode] = await Promise.all([
+    fetchAllSupabaseRows(() =>
       supabase
         .from("sap_sales_orders_with_fulfillment")
         .select("*")
-        .in("doc_entry", soIds),
-      fetchRepsByCode(),
-      fetchRepNamesByCode(),
-    ]);
+        .in("doc_entry", soIds)
+        .order("doc_entry", { ascending: true }),
+    ),
+    fetchRepsByCode(),
+    fetchRepNamesByCode(),
+  ]);
 
-  if (ordersError) throw ordersError;
-
-  return (orders || []).map((order) =>
-    attachRep(order, repsByCode, namesByCode),
-  );
+  return orders.map((order) => attachRep(order, repsByCode, namesByCode));
 }

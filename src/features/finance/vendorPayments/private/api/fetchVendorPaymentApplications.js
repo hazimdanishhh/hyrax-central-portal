@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabaseClient";
+import { fetchAllSupabaseRows } from "../../../../../functions/fetchAllSupabaseRows";
 
 /**
  * Read-only "what was this vendor payment applied to" list, backed by
@@ -21,14 +22,18 @@ import { supabase } from "../../../../../lib/supabaseClient";
 export async function fetchVendorPaymentApplications(vendorPaymentDocEntry) {
   if (!vendorPaymentDocEntry) return [];
 
-  const { data, error } = await supabase
-    .from("sap_vendor_payment_applications")
-    .select("*")
-    .eq("payment_ref", vendorPaymentDocEntry);
-
-  if (error) throw error;
-
-  const applications = data || [];
+  // fetchAllSupabaseRows (added 2026-09) rather than a single unbounded
+  // .select() -- same latent truncation risk journalEntriesService.js's
+  // resolveTransIdsByLineColumn had (confirmed live for a high-volume GL
+  // account); low real-world odds for one vendor payment's own
+  // applications, but free to keep correct regardless.
+  const applications = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_vendor_payment_applications")
+      .select("*")
+      .eq("payment_ref", vendorPaymentDocEntry)
+      .order("doc_entry", { ascending: true }),
+  );
 
   const billDocEntries = [
     ...new Set(
@@ -42,15 +47,16 @@ export async function fetchVendorPaymentApplications(vendorPaymentDocEntry) {
     return applications.map((application) => ({ ...application, bill: null }));
   }
 
-  const { data: bills, error: billsError } = await supabase
-    .from("sap_vendor_bills")
-    .select("doc_entry, bill_number, vendor_name, total_amount_myr")
-    .in("doc_entry", billDocEntries);
-
-  if (billsError) throw billsError;
+  const bills = await fetchAllSupabaseRows(() =>
+    supabase
+      .from("sap_vendor_bills")
+      .select("doc_entry, bill_number, vendor_name, total_amount_myr")
+      .in("doc_entry", billDocEntries)
+      .order("doc_entry", { ascending: true }),
+  );
 
   const billsByDocEntry = {};
-  (bills || []).forEach((bill) => {
+  bills.forEach((bill) => {
     billsByDocEntry[bill.doc_entry] = bill;
   });
 
