@@ -10,6 +10,7 @@ import ClaimsManagement from "../pages/user/finance/claimsManagement/ClaimsManag
 import FinancialReports from "../pages/user/finance/financialReports/FinancialReports";
 import JournalEntries from "../pages/user/finance/journalEntries/JournalEntries";
 import ChartOfAccounts from "../pages/user/finance/chartOfAccounts/ChartOfAccounts";
+import AccountLedger from "../pages/user/finance/chartOfAccounts/accountLedger/AccountLedger";
 import BusinessPartners from "../pages/user/finance/businessPartners/BusinessPartners";
 import CashFlow from "../pages/user/finance/cashFlow/CashFlow";
 import BalanceSheet from "../pages/user/finance/balanceSheet/BalanceSheet";
@@ -141,6 +142,29 @@ export default (
         </AccessRoute>
       }
     />
+
+    {/* ACCOUNT LEDGER (added 2026-09) -- a single account's own GL lines,
+        opened from Chart of Accounts' row click (replacing its previous
+        jump straight into Journal Entries filtered by accountCode -- see
+        ChartOfAccounts.jsx's own header comment for why) and from Financial
+        Reports' Operating Expense Breakdown bars. Same access gate as Chart
+        of Accounts itself -- deliberately NOT get_finance_dashboard's
+        stricter FIN/MGM-manager-only gate (see
+        get_account_monthly_summary_rpc.sql's own comment), since this is
+        reachable from Chart of Accounts' own looser gate. :transId child
+        route opens the existing JournalEntrySidebar for a clicked line's
+        full parent entry -- same pattern as Journal Entries' own :transId
+        route. */}
+    <Route
+      path="chart-of-accounts/:accountCode"
+      element={
+        <AccessRoute departments={["FIN", "MGM"]}>
+          <AccountLedger />
+        </AccessRoute>
+      }
+    >
+      <Route path=":transId" element={null} />
+    </Route>
 
     {/* BUSINESS PARTNERS (unified sap_customers lookup, added 2026-09
         alongside the Finance standardization pass) -- same access gate as

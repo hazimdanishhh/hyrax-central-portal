@@ -1516,10 +1516,16 @@ select json_build_object(
     -- lookup's "7200" node) -- only 7200 is confirmed as a Level-3 node under
     -- Expenses/drawer 6; other expense categories may or may not have their
     -- own, so grouping by leaf account is the always-correct choice here.
+    -- account_code added 2026-09 (previously only account_name) so
+    -- Financial Reports can link each bar to its Account Ledger page
+    -- (see get_account_monthly_summary_rpc.sql/sap_gl_journal_lines_with_
+    -- entry_info_view.sql) -- purely additive, doesn't change amount_myr's
+    -- own grouping/ordering.
     'opexBreakdownData', (
         select coalesce(json_agg(x), '[]'::json)
         from (
             select
+                account_code,
                 account_name,
                 sum(debit_amount_myr - credit_amount_myr) as amount_myr
             from base_gl_lines

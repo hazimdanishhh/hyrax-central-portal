@@ -9,9 +9,11 @@ Two small, additive follow-ups from the CoA/JE/Business-Partners work:
 1. A Journal Entry line's Account Code isn't clickable, unlike its Business Partner column (fixed in the same round) — the same gap, same fix.
 2. The Business Partners page already previews a partner's Invoices/Payments (customers) or Bills/Vendor Payments (vendors), each as a collapsible "capped preview + true count" section. Since `bp_code` on a GL journal line resolves against the exact same `sap_customers` table this page reads (confirmed during the bp_code bug fix), adding a "Journal Entries" preview section here is a natural, low-risk extension of an already-established pattern — not new architecture.
 
-## 1. Account Code → Chart of Accounts link
+## 1. Account Code → Account Ledger link
 
-`src/pages/user/finance/journalEntries/detail/journalLinesTableConfig.jsx`: give the `account_code` column the same `render` treatment the `bp_code` column already has — wrap the value in a `<Link to={`/app/finance/chart-of-accounts?search=${row.account_code}`}>`. No ambiguity to resolve here (unlike `bp_code`, `account_code` on a GL line is always a real GL account, confirmed by the existing `sap_gl_accounts(account_name)` embed already used for this exact column) — simpler than the `bp_code` fix.
+**Updated 2026-09 (Account Ledger shipped after this spec was written):** the destination below is now `/app/finance/chart-of-accounts/${row.account_code}` (the new Account Ledger page — see `docs/finance/FINANCE-MODULE-CAPABILITIES.md`), not a search-filtered Chart of Accounts list as originally drafted. Account Ledger is a strictly better landing spot — it shows this account's own line-level activity directly, the exact thing a user clicking an account code from a journal line would actually want, rather than a flat reference-list search result.
+
+`src/pages/user/finance/journalEntries/detail/journalLinesTableConfig.jsx`: give the `account_code` column the same `render` treatment the `bp_code` column already has — wrap the value in a `<Link to={`/app/finance/chart-of-accounts/${row.account_code}`}>`. No ambiguity to resolve here (unlike `bp_code`, `account_code` on a GL line is always a real GL account, confirmed by the existing `sap_gl_accounts(account_name)` embed already used for this exact column) — simpler than the `bp_code` fix.
 
 ## 2. Journal Entries preview on Business Partners
 
@@ -31,5 +33,5 @@ Mirrors the existing Invoices/Payments/Bills/Vendor Payments sections in `Busine
 ## Verification (when picked up)
 
 1. `npm run lint` — confirm no new errors.
-2. Open a Journal Entry with at least one line, confirm the Account Code now links to Chart of Accounts (search-filtered to that code), same visual treatment as the Business Partner column.
+2. Open a Journal Entry with at least one line, confirm the Account Code now links to that account's Account Ledger page, same visual treatment as the Business Partner column.
 3. Open a Business Partner (both a customer and a vendor, if known test data exists) that has GL activity, confirm the new "Journal Entries" section shows up to 5 recent entries, the "View all N" link goes to Journal Entries filtered by that partner, and an entry with an exception flag (if one exists) shows its badge on the card.

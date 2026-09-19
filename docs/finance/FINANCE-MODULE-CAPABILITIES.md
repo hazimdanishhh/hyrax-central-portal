@@ -43,10 +43,10 @@ A living tracker of what each Finance module lets users do today vs. what's stil
 
 - Read-only General Ledger audit trail mirroring SAP's OJDT/JDT1.
 - Each line's `bp_code` resolves to a real name and links to the correct destination (added 2026-09, fixing a bug from the initial resolve-only-against-customers version): a business partner (Business Partners page) when it genuinely is one, or — since SAP's underlying field can also hold a GL account code instead, found live after the first version shipped — the matching Chart of Accounts entry, labeled "(Account)" so it's never mistaken for a real company. This repo has no live-SAP-data query tool to confirm the exact rule (see CLAUDE.md's research-discipline section), so the resolution is empirical: try `sap_customers` first, `sap_gl_accounts` second.
-- Filterable by Business Partner, Account Code (added 2026-09 — previously reachable only via Chart of Accounts' reverse link, now a real filter control too), Date Range, Fiscal Year, and Entry Type (closing entries).
+- Filterable by Business Partner, Account Code, Date Range, Fiscal Year, and Entry Type (closing entries).
 - Row-level exception flags (added 2026-09, via a new `sap_gl_journal_entries_with_flags` view): "Unbalanced" — this mirrored entry's debit/credit lines don't sum to zero, framed as a data-sync completeness signal (SAP enforces balanced postings at entry time, so this means the mirror is missing a line, not that SAP itself posted something unbalanced) — and "Posts to a Non-Postable Account," a data-integrity signal.
-- Reachable via Chart of Accounts' reverse `accountCode` filter link ("what GL activity produced this account's balance").
 - Sortable column headers (added 2026-09 — Posting Date/Total Debit/Total Credit/Due Date), via `get_journal_entries_overview`'s own filter-matching "Total" summary line (count + gross debit/credit for whatever's currently filtered) — shown as **plain text, deliberately not an OverviewCards tile**, since this page is structurally an audit trail, not an operational queue (see "What's missing" below and `DASHBOARD-CONVENTIONS.md` §2a).
+- No longer the destination for "what GL activity produced this account's balance" (changed 2026-09) — that's now Account Ledger (see below). Journal Entries' own `accountCode`/`bpCode` filters still work as page controls for browsing whole entries by account/partner, but Chart of Accounts and Financial Reports no longer link here for a single-account view.
 
 **What's missing / not yet built**
 
@@ -54,6 +54,7 @@ A living tracker of what each Finance module lets users do today vs. what's stil
 - Structurally can never get a "needs action" KPI strip like Invoices did — it's a historical audit trail, not an operational queue, so this is a ceiling, not an oversight. The exception flags above narrow this gap without contradicting it (a row badge, not a strip) — but a broader compliance-reporting layer (regulatory reports, control attestations) still isn't built.
 - `trans_type` label mapping is scoped to only the one verified code (`"-3"`, closing entry) — every other code is shown raw pending verification, rather than guessed.
 - Whether Finance/accounting staff actually use the new exception flags day-to-day hasn't been validated with real users — this closes a documented capability gap, not a confirmed operational pain point (see `docs/PORTAL-PURPOSE-AND-DEPARTMENT-VALUE.md`'s own honesty convention on this).
+- The Total tile's `line_totals` sum is a confirmed, still-open bug when `accountCode`/`bpCode` is filtered — it sums every line of a matching multi-account entry, not just the filtered account/partner's own lines (parked at `docs/claude-plans/2026-09-je-total-line-sum-bug-DEFERRED.md`, deliberately not yet fixed). Account Ledger (below) doesn't have this bug — it never aggregates whole entries.
 
 ## Chart of Accounts
 
@@ -61,12 +62,32 @@ A living tracker of what each Finance module lets users do today vs. what's stil
 
 - Read-only mirror of SAP's OACT chart of accounts, with sign-corrected balances (added 2026-09) — `current_balance_myr` is stored debit-positive, so Liabilities/Equity/Revenue accounts now display as positive, human-readable amounts instead of SAP's raw negative stored value (fixes a real display bug; reuses `get_finance_dashboard_rpc.sql`'s own already-verified sign convention).
 - Default view (added 2026-09) is a parent-child hierarchy tree using `father_code`/`level`, with title/summary accounts showing a rolled-up balance computed from their postable descendants — falls back to the existing flat, paginated, filterable list the instant a search term or filter is applied.
-- Clicking a postable account (`is_postable = 'Y'`) jumps straight to its Journal Entries, pre-filtered to that account.
+- Clicking a postable account (`is_postable = 'Y'`) opens its **Account Ledger** (changed 2026-09 — previously jumped straight to Journal Entries filtered by `accountCode`; see Account Ledger below for why that changed).
 
 **What's missing / not yet built**
 
-- No balance-trend chart — this app has no historized/snapshot layer (no dbt-style materialization), only the live current balance, so a trend view isn't realistic without new data infrastructure.
 - The hierarchy tree fetches the full account list unpaginated — a bounded master list at current scale (hundreds of rows, not thousands), so not expected to be an issue, but worth revisiting if the chart of accounts ever grows unusually large.
+
+## Account Ledger (new page, added 2026-09)
+
+Not a tab of Chart of Accounts — a separate route (`/app/finance/chart-of-accounts/:accountCode`) opened by clicking a postable account there, or by clicking a bar on Financial Reports' Operating Expense Breakdown chart. Built to fix a real bug: Chart of Accounts used to jump straight to Journal Entries filtered by `accountCode`, but that filter resolves to whole multi-account journal *entries* that merely contain a line touching the account — then shows entry-wide fields (including the entry's Total Debit/Credit, which bundles every OTHER account's lines in the same entry too), not this account's own activity. Confirmed live, not just a design concern: filtering Journal Entries by "Salaries, bonus & allowance" for FY2026-2027 showed Total Debit = Total Credit = 1,956,551 (a symmetric figure only possible when summing whole balanced entries), while Financial Reports' own per-account Opex Breakdown figure for the same account/period was 567,669.
+
+**What it lets users do today**
+
+- A genuine line-level ledger — one row per posting to this specific account (via a new `sap_gl_journal_lines_with_entry_info` view, joining `sap_gl_journal_lines` to its parent entry for date/memo/reference), each with that line's own debit/credit, not the parent entry's total. Paginated, sortable, filterable by date range/fiscal year, same recipe as every other list page in this app.
+- Clicking a ledger row opens the existing Journal Entry detail sidebar (reused as-is, no duplicate component) for that line's full parent entry, if the user wants the multi-line context.
+- Business Partner column resolves the same way Journal Entries' own line-items table does (`resolveBpNames.js`, extracted this session as a shared helper once both needed the identical rule) — a real business partner, a GL account (labeled "(Account)"), or the raw code with no link.
+- Two charts, side by side, both sourced from one guarded RPC (`get_account_monthly_summary`, reading `private.mv_gl_monthly_account_summary` — not reachable directly from the frontend, same as `get_finance_dashboard_rpc`'s own reasoning) and one always-unbounded fetch sliced/grouped client-side (added 2026-09):
+  - **Monthly Balance** — net monthly debit/credit activity, scoped to the page's own date-range/fiscal-year filter (defaults to trailing 12 months when nothing is selected).
+  - **Per Annum** — the same monthly figures summed into fiscal years (April–March, same convention as `FiscalYearFilterBar`/`fiscalYearPresets.js` elsewhere in this app), every year on record, ignoring the filter above.
+  - An all-time, ungrouped monthly view was built and then dropped during layout review — the RPC/hook still fetch full unbounded history (used by Per Annum's own grouping), just not rendered as its own chart.
+  - Both show net debit-credit *flow* for the period shown, not a running point-in-time balance — correct for a P&L account's "how much was spent/earned," but for a Balance Sheet account (Assets/Liabilities/Equity) this is the year's/month's own net movement, not a cumulative balance.
+- General-purpose by construction, not one-off wired to either caller — the route takes just `accountCode` (+ optional date range), so any future per-account link elsewhere in the app can point here too, same access gate as Chart of Accounts itself (FIN/MGM department, no role restriction — deliberately looser than `get_finance_dashboard`'s FIN/MGM-manager-only gate).
+
+**What's missing / not yet built**
+
+- No page-level "Total" line (count/gross debit/credit for the currently-filtered lines) — Journal Entries has one via `get_journal_entries_overview`, but that RPC has its own confirmed bug when account-filtered (see Journal Entries' "What's missing" above); Account Ledger doesn't reuse it and hasn't grown an equivalent of its own yet.
+- The two charts' flow-vs-balance distinction (noted above) isn't surfaced anywhere except the subtitle text — a Balance Sheet account viewed here could be misread as showing a running balance when it's actually net movement per period.
 
 ## Financial Reports
 
@@ -74,10 +95,12 @@ A living tracker of what each Finance module lets users do today vs. what's stil
 
 - Company-wide AR/AP KPIs, full aging, DSO/DPO (via `get_finance_dashboard_rpc`).
 - Every tile/chart correctly deep-links into the right Invoices/Payments/Bills/Vendor Payments tab (a set of stale relative-path links here were just fixed).
+- Operating Expense Breakdown's bars are individually clickable (added 2026-09) — unlike every other chart here, this one shows 10 different *accounts* as separate bars, so a single whole-card "View All" link (the mechanism every other chart/tile above uses) couldn't point anywhere meaningful; each bar now drills into that account's own Account Ledger (see above), scoped to the currently-selected fiscal year/period. Required adding `account_code` to `opexBreakdownData`'s RPC output (previously only `account_name`) and a new optional `onBarClick` prop on `HorizontalBarChartRenderer`.
 
 **What's missing / not yet built**
 
-- None currently identified beyond what's listed under the modules it links into above.
+- P&L Breakdown / Balance Sheet Snapshot charts are aggregate statement lines (Revenue, COGS, Net Profit), not individual accounts, so they keep their existing whole-card "View All" link to the relevant statement page — no per-bar drill-through for those, unlike Operating Expense Breakdown.
+- Otherwise none currently identified beyond what's listed under the modules it links into above.
 
 ## Business Partners
 

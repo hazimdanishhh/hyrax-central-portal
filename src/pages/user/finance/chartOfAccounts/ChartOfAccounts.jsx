@@ -27,12 +27,25 @@ import { chartOfAccountsTableConfig } from "./tableConfig";
  * search/filter/sort/paginate over sap_gl_accounts (OACT). Added 2026-07
  * alongside the Journal Entries list page -- pairs naturally with it (e.g.
  * looking up what an account_code on a journal line actually means). Flat
- * reference/master data, not transactional, so no date-range filter and no
- * line-level drill-down of its own -- clicking a postable account instead
- * jumps to Journal Entries, pre-filtered to that account (accountCode
- * filter, see journalEntriesService.js) -- "what GL activity produced this
- * balance." Non-postable summary/title accounts (is_postable='N') aren't
+ * reference/master data, not transactional, so no date-range filter of its
+ * own. Non-postable summary/title accounts (is_postable='N') aren't
  * clickable -- they never have journal lines posted directly to them.
+ *
+ * Clicking a postable account opens its Account Ledger (added 2026-09,
+ * replacing this page's previous "jump to Journal Entries filtered by
+ * accountCode" behavior). That filter resolved to whole multi-account
+ * entries that merely CONTAINED a line touching the account -- then showed
+ * entry-wide fields (including the entry's Total Debit/Credit, which
+ * bundles every OTHER account's lines in the same entry too), not this
+ * account's own activity. Confirmed as a real bug, not just a design
+ * preference: filtering by "Salaries, bonus & allowance" showed Total
+ * Debit = Total Credit = 1,956,551 for FY2026-2027, a symmetric figure only
+ * possible when summing whole balanced entries -- while Financial Reports'
+ * own per-account Opex Breakdown figure for the same account/period was
+ * 567,669. Account Ledger (see accountLedger/AccountLedger.jsx) instead
+ * lists this account's own LINES directly, via
+ * sap_gl_journal_lines_with_entry_info -- the real "what GL activity
+ * produced this balance" answer.
  */
 export default function ChartOfAccounts() {
   const { darkMode } = useTheme();
@@ -87,7 +100,7 @@ export default function ChartOfAccounts() {
 
   function handleRowClick(account) {
     if (account.is_postable !== "Y") return;
-    navigate(`/app/finance/journal-entries?accountCode=${account.account_code}`);
+    navigate(`/app/finance/chart-of-accounts/${account.account_code}`);
   }
 
   return (

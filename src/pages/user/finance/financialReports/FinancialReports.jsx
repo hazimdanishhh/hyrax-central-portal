@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   GaugeIcon,
@@ -42,6 +43,7 @@ import { useTheme } from "../../../../context/ThemeContext";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { formatDateTime } from "../../../../functions/formatDate";
+import buildFilterUrl from "../../../../functions/convertFilter";
 
 // Text-only good/bad/neutral coloring for the Cash Flow reconciliation
 // card below -- see CashFlow.jsx's identical helper for why this maps
@@ -59,6 +61,7 @@ const colorFor = (value, options) =>
 export default function FinancialReports() {
   const { darkMode } = useTheme();
   const { canAccess } = useAccessControl();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const dashboardRef = useRef(null);
 
@@ -271,11 +274,29 @@ export default function FinancialReports() {
     })) ?? [];
 
   // Added 2026-07: top 10 leaf expense accounts by amount, period-bound.
+  // accountCode carried through (added 2026-09) so each bar can drill into
+  // its own Account Ledger -- see handleOpexBarClick below.
   const opexBreakdownData =
     dashboard?.opexBreakdownData?.map((d) => ({
       name: d.account_name,
       value: d.amount_myr,
+      accountCode: d.account_code,
     })) ?? [];
+
+  // Per-bar drill-through (added 2026-09) -- unlike every other chart on
+  // this page, Operating Expense Breakdown shows 10 different ACCOUNTS as
+  // separate bars, so a single whole-card "View All" link (ChartCard's own
+  // viewAllTo/viewAllFilter, used everywhere else here) can't point
+  // anywhere meaningful -- each bar needs its own destination. Reuses
+  // buildFilterUrl the same way ChartCard itself does, and the same
+  // chartPeriodFilter every other GL chart's "View All" link already uses,
+  // so the ledger opens scoped to whatever period is currently selected.
+  function handleOpexBarClick(entry) {
+    if (!entry?.accountCode) return;
+    navigate(
+      `/app/finance/chart-of-accounts/${entry.accountCode}${buildFilterUrl(chartPeriodFilter)}`,
+    );
+  }
 
   // Added 2026-07: same 4 series as plTrendData, bucketed by fiscal year
   // instead of month -- NOT affected by the date filter (always full
@@ -545,12 +566,13 @@ export default function FinancialReports() {
 
                         <ChartCard
                           title="Operating Expense Breakdown"
-                          subtitle="Top 10 expense accounts this period (RM) — General Ledger postings"
+                          subtitle="Top 10 expense accounts this period (RM) — General Ledger postings. Click a bar for that account's own Ledger."
                           style="cardGapSmall"
                         >
                           <HorizontalBarChartRenderer
                             data={opexBreakdownData}
                             colorMap={RED_COLOR}
+                            onBarClick={handleOpexBarClick}
                           />
                         </ChartCard>
                       </CardLayout>
