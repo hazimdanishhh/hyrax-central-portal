@@ -312,9 +312,16 @@ export async function fetchInvoicesForSalesOrder(soDocEntry) {
 /**
  * Backs the Invoices list page's OverviewCards -- see
  * get_invoices_overview_rpc.sql's own comment for why this is a plain (not
- * security definer) RPC, and for why overdueOnly/dueSoonOnly/
- * criticallyOverdueOnly are deliberately NOT forwarded here. Param mapping
- * mirrors fetchFinanceDashboard.js's own filters -> rpcParams switch.
+ * security definer) RPC. overdueOnly/dueSoonOnly/criticallyOverdueOnly/
+ * hasBalanceOnly/paidMismatchOnly/customerCodes (added 2026-09) ARE forwarded
+ * now -- they feed the RPC's totals_scope CTE for the Total tile only, never
+ * base_invoices, so the Outstanding/Due Soon/Overdue/Critically Overdue tiles
+ * stay exactly as filter-blind as before (see that SQL file's own comment).
+ * salesOrderDocEntry is NOT forwarded -- no RPC param exists for it (would
+ * need porting fetchInvoices' async sales-order document-trail resolve into
+ * SQL for a legacy-only drill-through path; not worth it). Param mapping
+ * otherwise mirrors fetchFinanceDashboard.js's own filters -> rpcParams
+ * switch.
  */
 export async function fetchInvoicesOverview({ filters, search } = {}) {
   const FILTER_NULL = "__null__";
@@ -327,6 +334,12 @@ export async function fetchInvoicesOverview({ filters, search } = {}) {
     p_start_date: null,
     p_end_date: null,
     p_search: search || null,
+    p_has_balance_only: null,
+    p_paid_mismatch_only: null,
+    p_overdue_only: null,
+    p_due_soon_only: null,
+    p_critically_overdue_only: null,
+    p_customer_codes: null,
   };
 
   Object.entries(filters || {}).forEach(([key, value]) => {
@@ -355,6 +368,30 @@ export async function fetchInvoicesOverview({ filters, search } = {}) {
 
       case "endDate":
         rpcParams.p_end_date = value;
+        break;
+
+      case "hasBalanceOnly":
+        rpcParams.p_has_balance_only = value === "true" ? true : null;
+        break;
+
+      case "paidMismatchOnly":
+        rpcParams.p_paid_mismatch_only = value === "true" ? true : null;
+        break;
+
+      case "overdueOnly":
+        rpcParams.p_overdue_only = value === "true" ? true : null;
+        break;
+
+      case "dueSoonOnly":
+        rpcParams.p_due_soon_only = value === "true" ? true : null;
+        break;
+
+      case "criticallyOverdueOnly":
+        rpcParams.p_critically_overdue_only = value === "true" ? true : null;
+        break;
+
+      case "customerCodes":
+        rpcParams.p_customer_codes = value || null;
         break;
 
       default:

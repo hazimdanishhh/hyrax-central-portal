@@ -17,10 +17,25 @@ import "./EmployeeMultiSelectEditor.scss";
  * optional avatarUrl.
  */
 const EmployeeMultiSelectEditor = forwardRef(
-  ({ value, onChange, options = [], placeholder = "Add people...", readOnly, name, onBlur }, ref) => {
+  (
+    {
+      value,
+      onChange,
+      options = [],
+      placeholder = "Add people...",
+      readOnly,
+      name,
+      onBlur,
+    },
+    ref,
+  ) => {
     const selectedIds = Array.isArray(value) ? value : [];
-    const selectedOptions = options.filter((opt) => selectedIds.some((v) => String(v) === String(opt.value)));
-    const addableOptions = options.filter((opt) => !selectedIds.some((v) => String(v) === String(opt.value)));
+    const selectedOptions = options.filter((opt) =>
+      selectedIds.some((v) => String(v) === String(opt.value)),
+    );
+    const addableOptions = options.filter(
+      (opt) => !selectedIds.some((v) => String(v) === String(opt.value)),
+    );
 
     function handleAdd(selectedOptionsFromPicker) {
       const newIds = (selectedOptionsFromPicker || []).map((opt) => opt.value);
@@ -38,11 +53,18 @@ const EmployeeMultiSelectEditor = forwardRef(
             {selectedOptions.map((opt) => (
               <li key={opt.value} className="employeeMultiSelectEditorItem">
                 {opt.avatarUrl ? (
-                  <img src={opt.avatarUrl} alt="" className="employeeMultiSelectEditorAvatar" />
+                  <img
+                    src={opt.avatarUrl}
+                    alt=""
+                    className="employeeMultiSelectEditorAvatar"
+                  />
                 ) : (
                   <UserCircleIcon size={20} />
                 )}
-                <span className="textXXS truncate employeeMultiSelectEditorName" title={opt.label}>
+                <span
+                  className="textXXS employeeMultiSelectEditorName"
+                  title={opt.label}
+                >
                   {opt.label}
                 </span>
                 {!readOnly && (

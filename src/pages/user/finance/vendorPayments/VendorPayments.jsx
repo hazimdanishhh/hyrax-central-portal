@@ -95,7 +95,7 @@ export default function VendorPayments() {
 
   return (
     <>
-      <OverviewCards items={overviewItems} />
+      <OverviewCards items={overviewItems} style="overviewCard2" />
 
       <SearchFilterBar
         search={search}

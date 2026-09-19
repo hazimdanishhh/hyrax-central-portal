@@ -1,4 +1,5 @@
 import {
+  StackIcon,
   InvoiceIcon,
   ClockIcon,
   WarningCircleIcon,
@@ -7,9 +8,9 @@ import {
 import { compactCurrency } from "../../../../functions/formatNumber";
 
 /**
- * AP mirror of finance/invoices/overviewConfig.js -- same four-tile shape
- * (Outstanding / Due Soon / Overdue / Critically Overdue), same reasoning
- * throughout.
+ * AP mirror of finance/invoices/overviewConfig.js -- same five-tile shape
+ * (Total, then Outstanding / Due Soon / Overdue / Critically Overdue), same
+ * reasoning throughout.
  */
 export function getBillsOverviewConfig(kpis) {
   // hasBalanceOnly matters here -- every tile below also requires
@@ -43,6 +44,19 @@ export function getBillsOverviewConfig(kpis) {
           value: kpis.outstandingCount,
           to: ".",
           filter: baseFilter,
+        },
+        {
+          // Total (added 2026-09): gross total_amount_myr across every bill
+          // matching the CURRENT filters -- including toggles the tiles below
+          // deliberately never react to (see get_bills_overview_rpc.sql's
+          // totals_scope comment). No `to`/`filter`: see
+          // finance/invoices/overviewConfig.js's own comment for why -- same
+          // deliberate exception to DASHBOARD-CONVENTIONS.md §2a.
+          icon: StackIcon,
+          label: "Total Bills",
+          value: `${compactCurrency(kpis.totalValue)} (${kpis.totalCount})`,
+          to: null,
+          title: `Total billed amount across every bill matching the current filters — ${compactCurrency(kpis.totalValue)}`,
         },
       ],
       title: `Outstanding balance across open bills, as of today — ${compactCurrency(kpis.outstandingValue)}`,

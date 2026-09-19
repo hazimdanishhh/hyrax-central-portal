@@ -1,4 +1,5 @@
 import {
+  StackIcon,
   FileTextIcon,
   ClockIcon,
   WarningCircleIcon,
@@ -7,12 +8,12 @@ import {
 import { compactCurrency } from "../../../../functions/formatNumber";
 
 /**
- * Four tiles (Outstanding / Due Soon / Overdue / Critically Overdue), same
- * two-tier RM+count shape as FinancialReports.jsx's own "Overdue Risk"/
- * "Outstanding AR" tiles -- this is the same underlying figure, just scoped
- * to this list page instead of the full dashboard. `to: "."` on every
- * tile/metric, not omitted -- see getSalesOrdersOverviewConfig's own comment
- * for why.
+ * Five tiles: Total, then Outstanding / Due Soon / Overdue / Critically
+ * Overdue, same two-tier RM+count shape as FinancialReports.jsx's own
+ * "Overdue Risk"/"Outstanding AR" tiles -- this is the same underlying
+ * figure, just scoped to this list page instead of the full dashboard.
+ * `to: "."` on every tile/metric, not omitted -- see
+ * getSalesOrdersOverviewConfig's own comment for why.
  */
 export function getInvoicesOverviewConfig(kpis) {
   // hasBalanceOnly matters here -- every tile below also requires
@@ -46,6 +47,23 @@ export function getInvoicesOverviewConfig(kpis) {
           value: kpis.outstandingCount,
           to: ".",
           filter: baseFilter,
+        },
+        {
+          // Total (added 2026-09): gross total_amount_myr across every invoice
+          // matching the CURRENT filters -- including toggles the tiles below
+          // deliberately never react to (see get_invoices_overview_rpc.sql's
+          // totals_scope comment). No `to`/`filter`: unlike every other tile
+          // here, Total already represents "everything currently shown," so
+          // there's no fixed filter object this static config could link to
+          // that would stay correct as the page's own filters change -- a
+          // deliberate exception to this app's "every tile resolves to a filter"
+          // convention (DASHBOARD-CONVENTIONS.md §2a), matching the
+          // "Informational" static-tile pattern in §4 instead.
+          icon: StackIcon,
+          label: "Total Invoices",
+          value: `${compactCurrency(kpis.totalValue)} (${kpis.totalCount})`,
+          to: null,
+          title: `Total invoiced amount across every invoice matching the current filters — ${compactCurrency(kpis.totalValue)}`,
         },
       ],
       title: `Outstanding balance across open invoices, as of today — ${compactCurrency(kpis.outstandingValue)}`,

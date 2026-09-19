@@ -89,9 +89,12 @@ export async function fetchVendorPayments({
 /**
  * Backs the Vendor Payments list page's OverviewCards -- see
  * get_vendor_payments_overview_rpc.sql's own comment for why this is a plain
- * (not security definer) RPC, and for why unallocatedOnly is deliberately NOT
- * forwarded here. Param mapping mirrors fetchFinanceDashboard.js's own
- * filters -> rpcParams switch.
+ * (not security definer) RPC. unallocatedOnly (added 2026-09) IS forwarded
+ * now -- it feeds the RPC's totals_scope CTE for the Total tile only, never
+ * base_vendor_payments, so the Unallocated/This Week/This Month tiles stay
+ * exactly as filter-blind as before (see that SQL file's own comment). Param
+ * mapping otherwise mirrors fetchFinanceDashboard.js's own filters ->
+ * rpcParams switch.
  */
 export async function fetchVendorPaymentsOverview({ filters, search } = {}) {
   const FILTER_NULL = "__null__";
@@ -102,6 +105,7 @@ export async function fetchVendorPaymentsOverview({ filters, search } = {}) {
     p_start_date: null,
     p_end_date: null,
     p_search: search || null,
+    p_unallocated_only: null,
   };
 
   Object.entries(filters || {}).forEach(([key, value]) => {
@@ -122,6 +126,10 @@ export async function fetchVendorPaymentsOverview({ filters, search } = {}) {
 
       case "endDate":
         rpcParams.p_end_date = value;
+        break;
+
+      case "unallocatedOnly":
+        rpcParams.p_unallocated_only = value === "true" ? true : null;
         break;
 
       default:

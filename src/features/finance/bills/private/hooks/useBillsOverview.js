@@ -8,6 +8,8 @@ const EMPTY_KPIS = {
   dueSoonValue: 0,
   overdueCount: 0,
   overdueValue: 0,
+  totalCount: 0,
+  totalValue: 0,
 };
 
 /**

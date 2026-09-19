@@ -8,6 +8,8 @@ const EMPTY_KPIS = {
   thisWeekValue: 0,
   thisMonthCount: 0,
   thisMonthValue: 0,
+  totalCount: 0,
+  totalValue: 0,
 };
 
 /**

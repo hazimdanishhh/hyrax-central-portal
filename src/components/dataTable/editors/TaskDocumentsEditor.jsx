@@ -19,107 +19,124 @@ import "./TaskDocumentsEditor.scss";
  * or to no task at all) -- distinct from the Drive picker below, which
  * ATTACHES a brand-new file to the project's library.
  */
-const TaskDocumentsEditor = forwardRef(({ value, onChange, options = [], readOnly }, ref) => {
-  const documents = Array.isArray(value) ? value : [];
-  const linkedDocumentIds = new Set(documents.map((d) => d.document_id).filter(Boolean));
-  const linkableOptions = options
-    .filter((opt) => !linkedDocumentIds.has(opt.id))
-    .map((opt) => ({ value: opt.id, label: opt.name, document: opt }));
-
-  function handleLinkExisting(selectedOptions) {
-    const additions = (selectedOptions || []).map((opt) => ({
-      document_id: opt.document.id,
-      drive_file_id: opt.document.drive_file_id,
-      name: opt.document.name,
-      url: opt.document.url,
-      mime_type: opt.document.mime_type,
-      icon_url: opt.document.icon_url,
-    }));
-    onChange([...documents, ...additions]);
-  }
-
-  function handlePickedNew(files) {
-    const picked = Array.isArray(files) ? files : [files];
-    const existingDriveIds = new Set([
-      ...documents.map((d) => d.drive_file_id),
-      ...options.map((o) => o.drive_file_id),
-    ]);
-    const additions = picked
-      .filter((f) => !existingDriveIds.has(f.id))
-      .map((f) => ({
-        drive_file_id: f.id,
-        name: f.name,
-        url: f.url,
-        mime_type: f.mimeType,
-        icon_url: f.iconUrl,
-      }));
-    if (additions.length) onChange([...documents, ...additions]);
-  }
-
-  function handleRemove(entry) {
-    onChange(
-      documents.filter((d) =>
-        entry.document_id ? d.document_id !== entry.document_id : d.drive_file_id !== entry.drive_file_id,
-      ),
+const TaskDocumentsEditor = forwardRef(
+  ({ value, onChange, options = [], readOnly }, ref) => {
+    const documents = Array.isArray(value) ? value : [];
+    const linkedDocumentIds = new Set(
+      documents.map((d) => d.document_id).filter(Boolean),
     );
-  }
+    const linkableOptions = options
+      .filter((opt) => !linkedDocumentIds.has(opt.id))
+      .map((opt) => ({ value: opt.id, label: opt.name, document: opt }));
 
-  return (
-    <div className="taskDocumentsEditor" ref={ref}>
-      {documents.length > 0 && (
-        <ul className="taskDocumentsEditorList">
-          {documents.map((doc) => (
-            <li key={doc.document_id || doc.drive_file_id} className="taskDocumentsEditorItem">
-              {doc.icon_url ? (
-                <img src={doc.icon_url} alt="" className="taskDocumentsEditorIcon" />
-              ) : (
-                <FileIcon size={16} />
-              )}
-              <a
-                href={doc.url}
-                target="_blank"
-                rel="noreferrer"
-                className="textXXS truncate taskDocumentsEditorName"
-                title={doc.name}
+    function handleLinkExisting(selectedOptions) {
+      const additions = (selectedOptions || []).map((opt) => ({
+        document_id: opt.document.id,
+        drive_file_id: opt.document.drive_file_id,
+        name: opt.document.name,
+        url: opt.document.url,
+        mime_type: opt.document.mime_type,
+        icon_url: opt.document.icon_url,
+      }));
+      onChange([...documents, ...additions]);
+    }
+
+    function handlePickedNew(files) {
+      const picked = Array.isArray(files) ? files : [files];
+      const existingDriveIds = new Set([
+        ...documents.map((d) => d.drive_file_id),
+        ...options.map((o) => o.drive_file_id),
+      ]);
+      const additions = picked
+        .filter((f) => !existingDriveIds.has(f.id))
+        .map((f) => ({
+          drive_file_id: f.id,
+          name: f.name,
+          url: f.url,
+          mime_type: f.mimeType,
+          icon_url: f.iconUrl,
+        }));
+      if (additions.length) onChange([...documents, ...additions]);
+    }
+
+    function handleRemove(entry) {
+      onChange(
+        documents.filter((d) =>
+          entry.document_id
+            ? d.document_id !== entry.document_id
+            : d.drive_file_id !== entry.drive_file_id,
+        ),
+      );
+    }
+
+    return (
+      <div className="taskDocumentsEditor" ref={ref}>
+        {documents.length > 0 && (
+          <ul className="taskDocumentsEditorList">
+            {documents.map((doc) => (
+              <li
+                key={doc.document_id || doc.drive_file_id}
+                className="taskDocumentsEditorItem"
               >
-                {doc.name}
-              </a>
-              {!readOnly && (
-                <button
-                  type="button"
-                  className="taskDocumentsEditorRemove"
-                  onClick={() => handleRemove(doc)}
-                  title="Remove"
+                {doc.icon_url ? (
+                  <img
+                    src={doc.icon_url}
+                    alt=""
+                    className="taskDocumentsEditorIcon"
+                  />
+                ) : (
+                  <FileIcon size={16} />
+                )}
+                <a
+                  href={doc.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="textXXS taskDocumentsEditorName textStart"
+                  title={doc.name}
                 >
-                  <XIcon size={12} />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                  {doc.name}
+                </a>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="taskDocumentsEditorRemove"
+                    onClick={() => handleRemove(doc)}
+                    title="Remove"
+                  >
+                    <XIcon size={12} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
 
-      {!readOnly && (
-        <>
-          {linkableOptions.length > 0 && (
-            <Select
-              unstyled
-              isMulti
-              className="selectContainer"
-              classNamePrefix="reactSelect"
-              placeholder="Link an existing project document..."
-              options={linkableOptions}
-              value={[]}
-              onChange={handleLinkExisting}
+        {!readOnly && (
+          <>
+            {linkableOptions.length > 0 && (
+              <Select
+                unstyled
+                isMulti
+                className="selectContainer"
+                classNamePrefix="reactSelect"
+                placeholder="Link an existing project document..."
+                options={linkableOptions}
+                value={[]}
+                onChange={handleLinkExisting}
+              />
+            )}
+
+            <GoogleDrivePicker
+              multiple
+              label="Attach from Drive"
+              onSelect={handlePickedNew}
             />
-          )}
-
-          <GoogleDrivePicker multiple label="Attach from Drive" onSelect={handlePickedNew} />
-        </>
-      )}
-    </div>
-  );
-});
+          </>
+        )}
+      </div>
+    );
+  },
+);
 
 TaskDocumentsEditor.displayName = "TaskDocumentsEditor";
 export default TaskDocumentsEditor;

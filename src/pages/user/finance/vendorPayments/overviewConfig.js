@@ -1,4 +1,5 @@
 import {
+  StackIcon,
   HandCoinsIcon,
   ClockIcon,
   CalendarBlankIcon,
@@ -7,8 +8,9 @@ import { compactCurrency } from "../../../../functions/formatNumber";
 import { toLocalDateString } from "../../../../functions/dateRangeFilters";
 
 /**
- * AP mirror of finance/payments/overviewConfig.js -- same three-tile shape
- * (Unallocated Cash / This Week / This Month), same reasoning throughout.
+ * AP mirror of finance/payments/overviewConfig.js -- same four-tile shape
+ * (Total, then Unallocated Cash / This Week / This Month), same reasoning
+ * throughout.
  */
 export function getVendorPaymentsOverviewConfig(kpis) {
   // isCancelled: "N" matters here -- get_vendor_payments_overview_rpc.sql's
@@ -30,6 +32,22 @@ export function getVendorPaymentsOverviewConfig(kpis) {
   };
 
   return [
+    {
+      // Total (added 2026-09): total_amount_myr across every vendor payment
+      // matching the CURRENT filters -- including unallocatedOnly, which the
+      // tile below deliberately never reacts to (see
+      // get_vendor_payments_overview_rpc.sql's totals_scope comment). No
+      // `to`/`filter`: see finance/invoices/overviewConfig.js's own comment
+      // for why -- same deliberate exception to DASHBOARD-CONVENTIONS.md
+      // §2a.
+      icon: StackIcon,
+      label: "Total Vendor Payments",
+      value: compactCurrency(kpis.totalValue),
+      variant: "blueCardFill",
+      to: null,
+      metrics: [{ label: "Payments", value: kpis.totalCount }],
+      title: `Total paid across every vendor payment matching the current filters — ${compactCurrency(kpis.totalValue)}`,
+    },
     {
       icon: HandCoinsIcon,
       label: "Unallocated Cash",
