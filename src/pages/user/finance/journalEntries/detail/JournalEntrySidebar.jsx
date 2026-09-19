@@ -25,7 +25,7 @@ export default function JournalEntrySidebar({ selectedRow }) {
   const hasData = lines?.length > 0;
 
   return (
-    <>
+    <div className="sidebarContainer">
       <CardLayout style="cardLayout1 generalCard cardPadding">
         <DetailFieldGrid
           fields={[
@@ -55,6 +55,6 @@ export default function JournalEntrySidebar({ selectedRow }) {
           <DataTable data={lines} columns={columns} rowKey="line_id" />
         )}
       </CardLayout>
-    </>
+    </div>
   );
 }

@@ -17,12 +17,14 @@ import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchJournalEntries } from "../../../../features/finance/journalEntries/private/api/journalEntriesService";
 import { useJournalEntry } from "../../../../features/finance/journalEntries/private/hooks/useJournalEntry";
+import { useJournalEntriesOverview } from "../../../../features/finance/journalEntries/private/hooks/useJournalEntriesOverview";
 import {
   getJournalEntriesFilterConfig,
   getJournalEntryRowFlags,
 } from "./filterConfig";
 import { journalEntriesTableConfig } from "./tableConfig";
 import JournalEntrySidebar from "./detail/JournalEntrySidebar";
+import "./JournalEntries.scss";
 
 /**
  * Read-only General Ledger journal entries list -- SAP is the system of
@@ -32,6 +34,22 @@ import JournalEntrySidebar from "./detail/JournalEntrySidebar";
  * Phase 2 -- until now, GL data was only visible as aggregate dashboard
  * figures on Finance Reports, with no way to browse individual
  * transactions.
+ *
+ * Deliberately NO OverviewCards strip here (added 2026-09, alongside the
+ * new "Total" summary below) -- this page is a documented historical audit
+ * trail, not an operational queue (docs/finance/FINANCE-MODULE-CAPABILITIES
+ * .md), and DASHBOARD-CONVENTIONS.md §2a is explicit that a KPI-card strip
+ * on flat/audit-trail data is "decoration, not decision support." The Total
+ * count/debit/credit is still genuinely useful information, so it's shown
+ * as a plain text line (see get_journal_entries_overview_rpc.sql) instead
+ * of a card -- same underlying number Invoices/Bills would put on a Total
+ * tile, different presentation because this page's own nature differs from
+ * theirs. Sorting uses TanStack's sortable column headers (`sorting`/
+ * `setSorting`/`manualSorting` below), not a legacy SortBar dropdown --
+ * this page already renders as a real DataTable (Invoices/Bills render as
+ * card lists instead, where a sortable header has no equivalent), and
+ * sortable headers are this app's own preferred convention over SortBar
+ * for anything that's already a table.
  */
 export default function JournalEntries() {
   const { darkMode } = useTheme();
@@ -48,6 +66,8 @@ export default function JournalEntries() {
     filters,
     activeFilters,
     hasActiveFilters,
+    sorting,
+    setSorting,
     setPage,
     setSearch,
     setFilters,
@@ -62,6 +82,8 @@ export default function JournalEntries() {
     defaultSortBy: "posting_date",
     defaultSortOrder: "descending",
   });
+
+  const { kpis: overviewKpis } = useJournalEntriesOverview(filters, search);
 
   const { data: fetchedJournalEntry } = useJournalEntry(transId);
 
@@ -136,6 +158,25 @@ export default function JournalEntries() {
               error={error}
             />
 
+            {/* Plain text, not an OverviewCards tile -- see this page's own
+                header comment for why. Always shown (matches every
+                overview's total figure regardless of filter state), even
+                though the unfiltered case aggregates this page's full
+                history -- see get_journal_entries_overview_rpc.sql's own
+                performance-caution comment. */}
+
+            <div className="journalEntriesTotalContainer">
+              <p className="textXXS">
+                <span className="textBold">Total Debit: </span>{" "}
+                {Math.round(overviewKpis.totalDebitMyr).toLocaleString()}
+              </p>
+
+              <p className="textXXS">
+                <span className="textBold">Total Credit: </span>{" "}
+                {Math.round(overviewKpis.totalCreditMyr).toLocaleString()}
+              </p>
+            </div>
+
             <div className="cardWrapperScroll">
               {isLoading || isFetching ? (
                 <CardLayout style="cardLayoutFlexFull">
@@ -153,6 +194,9 @@ export default function JournalEntries() {
                   onRowClick={handleOpenSidebar}
                   getRowFlags={getJournalEntryRowFlags}
                   flagTooltipTitle="Exceptions"
+                  sorting={sorting}
+                  onSortingChange={setSorting}
+                  manualSorting
                 />
               )}
             </div>

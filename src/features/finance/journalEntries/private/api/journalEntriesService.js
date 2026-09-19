@@ -145,6 +145,66 @@ export async function fetchJournalEntries({
 }
 
 /**
+ * Backs the Journal Entries list page's "Total" summary -- see
+ * get_journal_entries_overview_rpc.sql's own comment for the full
+ * reasoning, including why this is shown as plain text on the page rather
+ * than an OverviewCards KPI card (this page is a documented audit trail,
+ * not an operational queue -- a card strip here would be decoration, not
+ * decision support, per this codebase's own DASHBOARD-CONVENTIONS.md §2a).
+ * Param mapping mirrors fetchJournalEntries' own filters -> query switch
+ * exactly, so the total always matches what the table itself would show
+ * for the same filters.
+ */
+export async function fetchJournalEntriesOverview({ filters, search } = {}) {
+  const rpcParams = {
+    p_search: search || null,
+    p_start_date: null,
+    p_end_date: null,
+    p_entry_type: null,
+    p_account_code: null,
+    p_bp_code: null,
+  };
+
+  Object.entries(filters || {}).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+
+    switch (key) {
+      case "startDate":
+        rpcParams.p_start_date = value;
+        break;
+
+      case "endDate":
+        rpcParams.p_end_date = value;
+        break;
+
+      case "entryType":
+        rpcParams.p_entry_type = value;
+        break;
+
+      case "accountCode":
+        rpcParams.p_account_code = value;
+        break;
+
+      case "bpCode":
+        rpcParams.p_bp_code = value;
+        break;
+
+      default:
+        break;
+    }
+  });
+
+  const { data, error } = await supabase.rpc(
+    "get_journal_entries_overview",
+    rpcParams,
+  );
+
+  if (error) throw error;
+
+  return data;
+}
+
+/**
  * Fetch-by-id fallback for the /app/finance/journal-entries/:transId detail
  * route -- covers a direct/shared URL where the journal entry isn't already
  * in the in-memory paginated list. Keyed by trans_id, not doc_entry --

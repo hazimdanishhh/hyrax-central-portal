@@ -560,3 +560,12 @@ li {
     transition: 0.3s;
   }
 }
+
+.sidebarContainer {
+  display: flex;
+  flex-direction: column;
+  padding: 0.8rem;
+  padding-top: 0;
+  gap: 0.8rem;
+  overflow-x: hidden;
+}

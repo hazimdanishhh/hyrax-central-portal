@@ -104,7 +104,8 @@ export default function DataTable({
     });
   }
 
-  const resolveRowFlags = getRowFlags || (showCompleteness ? getMissingFields : null);
+  const resolveRowFlags =
+    getRowFlags || (showCompleteness ? getMissingFields : null);
   const hasFlagColumn = Boolean(resolveRowFlags);
   // Keep the original "Missing fields" heading for the showCompleteness
   // sugar path when the caller doesn't override it; a custom getRowFlags

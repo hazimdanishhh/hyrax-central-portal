@@ -240,3 +240,14 @@
 .required {
   color: $error600;
 }
+
+.detailFieldGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+
+  .detailFieldLabel {
+    display: flex;
+    flex-direction: column;
+  }
+}

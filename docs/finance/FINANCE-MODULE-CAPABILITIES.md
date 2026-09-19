@@ -46,6 +46,7 @@ A living tracker of what each Finance module lets users do today vs. what's stil
 - Filterable by Business Partner, Account Code (added 2026-09 — previously reachable only via Chart of Accounts' reverse link, now a real filter control too), Date Range, Fiscal Year, and Entry Type (closing entries).
 - Row-level exception flags (added 2026-09, via a new `sap_gl_journal_entries_with_flags` view): "Unbalanced" — this mirrored entry's debit/credit lines don't sum to zero, framed as a data-sync completeness signal (SAP enforces balanced postings at entry time, so this means the mirror is missing a line, not that SAP itself posted something unbalanced) — and "Posts to a Non-Postable Account," a data-integrity signal.
 - Reachable via Chart of Accounts' reverse `accountCode` filter link ("what GL activity produced this account's balance").
+- Sortable column headers (added 2026-09 — Posting Date/Total Debit/Total Credit/Due Date), via `get_journal_entries_overview`'s own filter-matching "Total" summary line (count + gross debit/credit for whatever's currently filtered) — shown as **plain text, deliberately not an OverviewCards tile**, since this page is structurally an audit trail, not an operational queue (see "What's missing" below and `DASHBOARD-CONVENTIONS.md` §2a).
 
 **What's missing / not yet built**
 

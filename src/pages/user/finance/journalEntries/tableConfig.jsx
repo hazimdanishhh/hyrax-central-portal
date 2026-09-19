@@ -4,12 +4,23 @@
 
 import { formatDate } from "../../../../functions/formatDate";
 
+// Sortable columns (added 2026-09) -- date/amount only, same scope
+// Invoices' own sortConfig.js uses (Invoice Date/Due Date/Amount), not every
+// column -- text fields like Memo/Reference/Trans. Type are low-value to
+// sort and excluded, matching that precedent. Uses TanStack's own sortable
+// headers (DataTable's `sorting`/`onSortingChange`/`manualSorting` props),
+// not a legacy SortBar dropdown -- Journal Entries already renders as a
+// real DataTable (unlike Invoices' card list, where a table-header click
+// target doesn't exist), and this app's own convention is to prefer
+// sortable headers over SortBar for anything that already is a table (see
+// Employee Management, the reference implementation).
 export const journalEntriesTableConfig = () => [
   {
     key: "posting_date",
     label: "Posting Date",
     getValue: (row) => formatDate(row.posting_date),
     editable: false,
+    sortable: true,
   },
   {
     key: "memo",
@@ -46,6 +57,7 @@ export const journalEntriesTableConfig = () => [
         ? `RM ${Math.round(row.total_debit_myr).toLocaleString()}`
         : "",
     editable: false,
+    sortable: true,
   },
   {
     key: "total_credit_myr",
@@ -55,11 +67,13 @@ export const journalEntriesTableConfig = () => [
         ? `RM ${Math.round(row.total_credit_myr).toLocaleString()}`
         : "",
     editable: false,
+    sortable: true,
   },
   {
     key: "due_date",
     label: "Due Date",
     getValue: (row) => formatDate(row.due_date),
     editable: false,
+    sortable: true,
   },
 ];

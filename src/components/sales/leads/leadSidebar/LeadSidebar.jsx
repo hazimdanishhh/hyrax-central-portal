@@ -1,45 +1,36 @@
-import { useState } from "react";
-import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
-import StatusBox from "../../../status/statusBox/StatusBox";
-import "./LeadSidebar.scss";
-import LeadStage from "../leadStage/LeadStage";
-import useLeadMutations from "../../../../features/sales/leads/private/hooks/useLeadMutations";
-import Button from "../../../buttons/button/Button";
 import {
-  LEAD_STAGE_LABELS,
-  LEAD_STAGE_TRANSITIONS,
-} from "../../../../pages/user/sales/leads/list/constants/leadStageTransitions";
-import {
-  BriefcaseIcon,
   CheckCircleIcon,
   ClockClockwiseIcon,
-  ClockCounterClockwiseIcon,
   ClockIcon,
   DropIcon,
   FilePdfIcon,
   PauseCircleIcon,
   PencilSimpleLineIcon,
-  PencilSimpleSlashIcon,
   PlayCircleIcon,
   ReceiptIcon,
-  TextTIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
-import CardLayout from "../../../cardLayout/CardLayout";
-import IconCard from "../../../iconCard/IconCard";
-import RouterButton from "../../../buttons/routerButton/RouterButton";
-import StatusIcon from "../../../status/statusIcon/StatusIcon";
+import { useState } from "react";
 import { useAccessControl } from "../../../../context/AccessControlContext";
-import { useSalesOrdersByCustomerCode } from "../../../../features/sales/orders/private/hooks/useSalesOrdersByCustomerCode";
 import { useSalesOrderByPoNumber } from "../../../../features/sales/orders/private/hooks/useSalesOrderByPoNumber";
+import { useSalesOrdersByCustomerCode } from "../../../../features/sales/orders/private/hooks/useSalesOrdersByCustomerCode";
+import {
+  LEAD_STAGE_LABELS,
+  LEAD_STAGE_TRANSITIONS,
+} from "../../../../pages/user/sales/leads/list/constants/leadStageTransitions";
 import { salesOrdersTableConfig } from "../../../../pages/user/sales/orders/tableConfig";
-import DataTable from "../../../dataTable/DataTable";
-import NoResult from "../../../crud/noResult/NoResult";
-import LoadingIcon from "../../../loadingIcon/LoadingIcon";
-import DetailFieldGrid from "../../../dataSidebar/DetailFieldGrid";
-import { formatDate } from "../../../../functions/formatDate";
-import SalesOrderCard from "../../orders/salesOrderCard/SalesOrderCard";
+import Button from "../../../buttons/button/Button";
+import CardLayout from "../../../cardLayout/CardLayout";
 import SAPCustomerCard from "../../../client/sapCustomerCard/SAPCustomerCard";
+import NoResult from "../../../crud/noResult/NoResult";
+import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
+import IconCard from "../../../iconCard/IconCard";
+import LoadingIcon from "../../../loadingIcon/LoadingIcon";
+import StatusBox from "../../../status/statusBox/StatusBox";
+import StatusIcon from "../../../status/statusIcon/StatusIcon";
+import SalesOrderCard from "../../orders/salesOrderCard/SalesOrderCard";
+import LeadStage from "../leadStage/LeadStage";
+import "./LeadSidebar.scss";
 
 export default function LeadSidebar({
   selectedRow,
