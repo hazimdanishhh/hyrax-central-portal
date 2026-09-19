@@ -60,3 +60,21 @@ export function buildAccountHierarchy(accounts) {
 
   return roots;
 }
+
+/**
+ * Finds one node by account_code within a tree buildAccountHierarchy()
+ * returned -- a plain DFS, since the function above only exposes the root
+ * array (its internal byCode Map is local, not returned). Used by
+ * CategoryDetail.jsx to locate the clicked category and read its own
+ * `children` for the direct-children list.
+ */
+export function findAccountNode(tree, accountCode) {
+  for (const node of tree) {
+    if (node.account_code === accountCode) return node;
+
+    const found = findAccountNode(node.children, accountCode);
+    if (found) return found;
+  }
+
+  return null;
+}

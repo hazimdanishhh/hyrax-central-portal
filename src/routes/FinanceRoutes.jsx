@@ -10,7 +10,7 @@ import ClaimsManagement from "../pages/user/finance/claimsManagement/ClaimsManag
 import FinancialReports from "../pages/user/finance/financialReports/FinancialReports";
 import JournalEntries from "../pages/user/finance/journalEntries/JournalEntries";
 import ChartOfAccounts from "../pages/user/finance/chartOfAccounts/ChartOfAccounts";
-import AccountLedger from "../pages/user/finance/chartOfAccounts/accountLedger/AccountLedger";
+import AccountDetail from "../pages/user/finance/chartOfAccounts/AccountDetail";
 import BusinessPartners from "../pages/user/finance/businessPartners/BusinessPartners";
 import CashFlow from "../pages/user/finance/cashFlow/CashFlow";
 import BalanceSheet from "../pages/user/finance/balanceSheet/BalanceSheet";
@@ -143,23 +143,29 @@ export default (
       }
     />
 
-    {/* ACCOUNT LEDGER (added 2026-09) -- a single account's own GL lines,
-        opened from Chart of Accounts' row click (replacing its previous
-        jump straight into Journal Entries filtered by accountCode -- see
-        ChartOfAccounts.jsx's own header comment for why) and from Financial
-        Reports' Operating Expense Breakdown bars. Same access gate as Chart
-        of Accounts itself -- deliberately NOT get_finance_dashboard's
-        stricter FIN/MGM-manager-only gate (see
-        get_account_monthly_summary_rpc.sql's own comment), since this is
-        reachable from Chart of Accounts' own looser gate. :transId child
-        route opens the existing JournalEntrySidebar for a clicked line's
-        full parent entry -- same pattern as Journal Entries' own :transId
-        route. */}
+    {/* ACCOUNT DETAIL (added 2026-09) -- one route, one "tell me about this
+        GL account" contract, opened from Chart of Accounts' row click
+        (replacing its previous jump straight into Journal Entries filtered
+        by accountCode -- see ChartOfAccounts.jsx's own header comment for
+        why) and from Financial Reports' Operating Expense Breakdown bars.
+        AccountDetail.jsx itself branches on is_postable: a postable account
+        renders Account Ledger (that account's own GL lines); a non-postable
+        title/category account renders Category Detail (its direct children
+        + rolled-up movement charts, added 2026-09 as a follow-up -- see
+        CategoryDetail.jsx's own header comment for why direct-children-only,
+        not a flattened every-descendant view). Same access gate as Chart of
+        Accounts itself -- deliberately NOT get_finance_dashboard's stricter
+        FIN/MGM-manager-only gate (see get_account_monthly_summary_rpc.sql's
+        own comment), since this is reachable from Chart of Accounts' own
+        looser gate. :transId child route opens the existing
+        JournalEntrySidebar for a clicked line's full parent entry -- only
+        meaningful when AccountDetail resolves to Account Ledger, same
+        pattern as Journal Entries' own :transId route. */}
     <Route
       path="chart-of-accounts/:accountCode"
       element={
         <AccessRoute departments={["FIN", "MGM"]}>
-          <AccountLedger />
+          <AccountDetail />
         </AccessRoute>
       }
     >

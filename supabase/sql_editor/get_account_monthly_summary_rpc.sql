@@ -1,16 +1,29 @@
 -- Run this once in the Supabase SQL editor.
 --
--- Backs the new Account Ledger page's monthly trend chart -- "how much is
--- this account per month," for a single GL account. Added 2026-09 alongside
--- sap_gl_journal_lines_with_entry_info_view.sql, as part of the same
--- Chart of Accounts / Financial Reports drill-down feature.
+-- Backs the Account Ledger AND Category Detail pages' monthly trend charts
+-- -- "how much is this account (or category) per month." Added 2026-09
+-- alongside sap_gl_journal_lines_with_entry_info_view.sql, as part of the
+-- same Chart of Accounts / Financial Reports drill-down feature.
+--
+-- GENERALIZED 2026-09 (same signature, no DROP needed) to sum over every
+-- POSTABLE DESCENDANT of p_account_code, not just p_account_code itself --
+-- built for the new Category Detail page (non-postable/title accounts),
+-- which needs a whole category's aggregate movement, not one account's.
+-- This is a strict superset of the original behavior: a postable leaf
+-- account has no children, so "every postable descendant of X" trivially
+-- resolves to just X -- Account Ledger's own already-shipped numbers are
+-- unaffected. The descendant walk mirrors get_finance_dashboard_rpc.sql's
+-- own gl_account_ancestry_raw CTE, just inverted -- that one walks UPWARD
+-- from a postable leaf to its Level-2/3 ancestor via father_code; this one
+-- walks DOWNWARD from any account (leaf or category) to every postable
+-- descendant.
 --
 -- Reads private.mv_gl_monthly_account_summary (month + account_code grain,
 -- excludes SAP B1's period-end closing entries at the view level -- see
 -- get_finance_dashboard_rpc.sql's own base_gl_lines comment) instead of a
 -- live join across sap_gl_journal_lines/sap_gl_journal_entries -- same
--- reasoning as that RPC's own base_gl_lines CTE, just scoped to one account
--- instead of every account.
+-- reasoning as that RPC's own base_gl_lines CTE, just scoped to one
+-- account's descendant set instead of every account.
 --
 -- SECURITY INVOKER (not DEFINER) -- mirrors get_finance_dashboard's own
 -- comment exactly: private isn't in PostgREST's exposed-schemas list, so it
@@ -61,16 +74,37 @@ begin
     -- Sign convention matches glBalanceSign.js/get_finance_dashboard_rpc.sql
     -- exactly: mv_gl_monthly_account_summary's debit/credit columns are
     -- debit-positive; Liabilities/Equity/Revenue (drawers 2/3/4) negate.
+    -- Every descendant shares p_account_code's own drawer, so one lookup
+    -- covers the whole set below.
     select drawer into v_drawer
     from public.sap_gl_accounts
     where account_code = p_account_code;
 
-    with monthly as (
+    with recursive descendants as (
+        -- Seed on the clicked account itself, then walk DOWNWARD via
+        -- father_code -- inverted from gl_account_ancestry_raw's own upward
+        -- walk in get_finance_dashboard_rpc.sql. Includes p_account_code
+        -- itself so a postable leaf (no children) still resolves to its own
+        -- single row.
+        select account_code, is_postable
+        from public.sap_gl_accounts
+        where account_code = p_account_code
+
+        union all
+
+        select a.account_code, a.is_postable
+        from public.sap_gl_accounts a
+        join descendants d on a.father_code = d.account_code
+    ),
+    postable_descendants as (
+        select account_code from descendants where is_postable = 'Y'
+    ),
+    monthly as (
         select
             month,
             sum(debit_amount_myr - credit_amount_myr) as raw_balance_myr
         from private.mv_gl_monthly_account_summary
-        where account_code = p_account_code
+        where account_code in (select account_code from postable_descendants)
           and (p_start_date is null or month >= date_trunc('month', p_start_date))
           and (p_end_date is null or month <= date_trunc('month', p_end_date))
         group by month

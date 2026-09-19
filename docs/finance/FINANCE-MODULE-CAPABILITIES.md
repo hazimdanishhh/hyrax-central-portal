@@ -62,7 +62,7 @@ A living tracker of what each Finance module lets users do today vs. what's stil
 
 - Read-only mirror of SAP's OACT chart of accounts, with sign-corrected balances (added 2026-09) — `current_balance_myr` is stored debit-positive, so Liabilities/Equity/Revenue accounts now display as positive, human-readable amounts instead of SAP's raw negative stored value (fixes a real display bug; reuses `get_finance_dashboard_rpc.sql`'s own already-verified sign convention).
 - Default view (added 2026-09) is a parent-child hierarchy tree using `father_code`/`level`, with title/summary accounts showing a rolled-up balance computed from their postable descendants — falls back to the existing flat, paginated, filterable list the instant a search term or filter is applied.
-- Clicking a postable account (`is_postable = 'Y'`) opens its **Account Ledger** (changed 2026-09 — previously jumped straight to Journal Entries filtered by `accountCode`; see Account Ledger below for why that changed).
+- Every row is clickable (added 2026-09 for non-postable rows — previously a dead end) and opens **Account Detail**, one route (`/app/finance/chart-of-accounts/:accountCode`) that branches on `is_postable`: a postable account opens **Account Ledger** (changed 2026-09 — previously jumped straight to Journal Entries filtered by `accountCode`; see Account Ledger below for why that changed), a non-postable title/category account opens **Category Detail** (added 2026-09, see below).
 
 **What's missing / not yet built**
 
@@ -70,7 +70,7 @@ A living tracker of what each Finance module lets users do today vs. what's stil
 
 ## Account Ledger (new page, added 2026-09)
 
-Not a tab of Chart of Accounts — a separate route (`/app/finance/chart-of-accounts/:accountCode`) opened by clicking a postable account there, or by clicking a bar on Financial Reports' Operating Expense Breakdown chart. Built to fix a real bug: Chart of Accounts used to jump straight to Journal Entries filtered by `accountCode`, but that filter resolves to whole multi-account journal *entries* that merely contain a line touching the account — then shows entry-wide fields (including the entry's Total Debit/Credit, which bundles every OTHER account's lines in the same entry too), not this account's own activity. Confirmed live, not just a design concern: filtering Journal Entries by "Salaries, bonus & allowance" for FY2026-2027 showed Total Debit = Total Credit = 1,956,551 (a symmetric figure only possible when summing whole balanced entries), while Financial Reports' own per-account Opex Breakdown figure for the same account/period was 567,669.
+Not a tab of Chart of Accounts — reached via the shared `/app/finance/chart-of-accounts/:accountCode` route (see `AccountDetail.jsx`'s branch), opened by clicking a postable account there, or by clicking a bar on Financial Reports' Operating Expense Breakdown chart. Built to fix a real bug: Chart of Accounts used to jump straight to Journal Entries filtered by `accountCode`, but that filter resolves to whole multi-account journal *entries* that merely contain a line touching the account — then shows entry-wide fields (including the entry's Total Debit/Credit, which bundles every OTHER account's lines in the same entry too), not this account's own activity. Confirmed live, not just a design concern: filtering Journal Entries by "Salaries, bonus & allowance" for FY2026-2027 showed Total Debit = Total Credit = 1,956,551 (a symmetric figure only possible when summing whole balanced entries), while Financial Reports' own per-account Opex Breakdown figure for the same account/period was 567,669.
 
 **What it lets users do today**
 
@@ -88,6 +88,22 @@ Not a tab of Chart of Accounts — a separate route (`/app/finance/chart-of-acco
 
 - No page-level "Total" line (count/gross debit/credit for the currently-filtered lines) — Journal Entries has one via `get_journal_entries_overview`, but that RPC has its own confirmed bug when account-filtered (see Journal Entries' "What's missing" above); Account Ledger doesn't reuse it and hasn't grown an equivalent of its own yet.
 - The two charts' flow-vs-balance distinction (noted above) isn't surfaced anywhere except the subtitle text — a Balance Sheet account viewed here could be misread as showing a running balance when it's actually net movement per period.
+
+## Category Detail (new page, added 2026-09)
+
+The other branch of the shared `AccountDetail.jsx` gate — what a non-postable (title/summary) account opens instead of Account Ledger, since it has no lines of its own, only child accounts and a rolled-up balance. Previously these rows did nothing at all when clicked; this closes that gap.
+
+Resolved through explicit research before building, not guessed: direct-children-only navigation (recurse one level at a time, matching the tree structure) rather than a flattened "every descendant regardless of depth" view — confirmed against both SAP Business One's own native Chart of Accounts drill-down (drawer → title → subordinate accounts, navigated hierarchically) and independent accounting UX best practice (FreshBooks/PlotPath/Knecht: keep hierarchy drill-down shallow and progressive), both of which agree with this app's own existing "inverted pyramid" drill-down philosophy. Full-page treatment (not a sidebar) for the same reason Account Ledger is a full page — no sidebar in this app carries a real filter bar plus charts.
+
+**What it lets users do today**
+
+- A direct-children table — the category's immediate children (postable accounts or further sub-categories), each with its own balance, reusing `chartOfAccountsTableConfig()` and `buildAccountHierarchy()`'s already-computed tree (a new `findAccountNode()` helper just locates the clicked node). Clicking a postable child opens its Account Ledger; clicking a sub-category recurses into its own Category Detail page via the same shared route.
+- The same two charts Account Ledger has (Monthly Balance scoped to the page's own filter, Per Annum) — but summed across every **postable descendant** of the category, not just its direct children. Backed by generalizing `get_account_monthly_summary` (same function, same signature, no new RPC) to walk downward via `father_code` from the clicked account to every postable descendant, mirroring `get_finance_dashboard_rpc.sql`'s own `gl_account_ancestry_raw` CTE inverted. For a postable leaf account this trivially resolves to just itself, so Account Ledger's own already-shipped numbers are unaffected.
+
+**What's missing / not yet built**
+
+- No "top contributors" ranking within a category (e.g. "which 3 of these 8 accounts actually drive this balance") — just the flat children list; a magnitude-ranked view could be added later if the flat list proves hard to scan for a category with many children.
+- Same flow-vs-balance caveat as Account Ledger (see above) — the two charts show net movement, not a running balance, for Balance Sheet categories.
 
 ## Financial Reports
 

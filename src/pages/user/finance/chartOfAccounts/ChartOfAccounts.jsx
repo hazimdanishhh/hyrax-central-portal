@@ -28,24 +28,32 @@ import { chartOfAccountsTableConfig } from "./tableConfig";
  * alongside the Journal Entries list page -- pairs naturally with it (e.g.
  * looking up what an account_code on a journal line actually means). Flat
  * reference/master data, not transactional, so no date-range filter of its
- * own. Non-postable summary/title accounts (is_postable='N') aren't
- * clickable -- they never have journal lines posted directly to them.
+ * own.
  *
- * Clicking a postable account opens its Account Ledger (added 2026-09,
- * replacing this page's previous "jump to Journal Entries filtered by
- * accountCode" behavior). That filter resolved to whole multi-account
- * entries that merely CONTAINED a line touching the account -- then showed
- * entry-wide fields (including the entry's Total Debit/Credit, which
- * bundles every OTHER account's lines in the same entry too), not this
- * account's own activity. Confirmed as a real bug, not just a design
- * preference: filtering by "Salaries, bonus & allowance" showed Total
- * Debit = Total Credit = 1,956,551 for FY2026-2027, a symmetric figure only
- * possible when summing whole balanced entries -- while Financial Reports'
- * own per-account Opex Breakdown figure for the same account/period was
- * 567,669. Account Ledger (see accountLedger/AccountLedger.jsx) instead
- * lists this account's own LINES directly, via
- * sap_gl_journal_lines_with_entry_info -- the real "what GL activity
- * produced this balance" answer.
+ * Every row is clickable (added 2026-09 for non-postable rows -- previously
+ * a dead end, since is_postable='N' summary/title accounts never have
+ * journal lines posted directly to them). Both destinations live at the
+ * same route, `AccountDetail.jsx` branching on `is_postable`:
+ * - Postable account -> Account Ledger (added 2026-09, replacing this
+ *   page's previous "jump to Journal Entries filtered by accountCode"
+ *   behavior). That filter resolved to whole multi-account entries that
+ *   merely CONTAINED a line touching the account -- then showed entry-wide
+ *   fields (including the entry's Total Debit/Credit, which bundles every
+ *   OTHER account's lines in the same entry too), not this account's own
+ *   activity. Confirmed as a real bug, not just a design preference:
+ *   filtering by "Salaries, bonus & allowance" showed Total Debit = Total
+ *   Credit = 1,956,551 for FY2026-2027, a symmetric figure only possible
+ *   when summing whole balanced entries -- while Financial Reports' own
+ *   per-account Opex Breakdown figure for the same account/period was
+ *   567,669. Account Ledger instead lists this account's own LINES
+ *   directly, via sap_gl_journal_lines_with_entry_info.
+ * - Non-postable/title account -> Category Detail (added 2026-09) -- its
+ *   direct children (postable or further sub-categories) plus the same two
+ *   movement charts Account Ledger has, summed across every postable
+ *   descendant. Deliberately shows direct children only, not a flattened
+ *   every-descendant view -- matches both SAP Business One's own native
+ *   drill-down (drawer -> title -> subordinate accounts, one level at a
+ *   time) and general accounting UX best practice.
  */
 export default function ChartOfAccounts() {
   const { darkMode } = useTheme();
@@ -99,7 +107,6 @@ export default function ChartOfAccounts() {
   const hasData = isTreeMode ? accountTree.length > 0 : accounts.length > 0;
 
   function handleRowClick(account) {
-    if (account.is_postable !== "Y") return;
     navigate(`/app/finance/chart-of-accounts/${account.account_code}`);
   }
 
