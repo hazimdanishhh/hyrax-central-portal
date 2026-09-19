@@ -1,14 +1,87 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
+// sap_gl_journal_entries (this header list) has no account_code/bp_code
+// column of its own -- both only live on sap_gl_journal_lines. Resolves
+// which trans_ids touched a given value on the given column. The [-1]
+// sentinel keeps a genuine zero-match filter returning zero rows instead of
+// leaving `.in()` to an empty array's inconsistent behavior.
+async function resolveTransIdsByLineColumn(column, value) {
+  const { data, error } = await supabase
+    .from("sap_gl_journal_lines")
+    .select("trans_id")
+    .eq(column, value);
+
+  if (error) throw error;
+
+  const ids = [...new Set((data || []).map((line) => line.trans_id))];
+  return ids.length > 0 ? ids : [-1];
+}
+
+// Every filter here reads a column that exists on BOTH
+// sap_gl_journal_entries (the raw base table) and
+// sap_gl_journal_entries_with_flags (the enriched view) -- unlike Sales
+// Orders' fulfillmentOrdersService.js, Journal Entries currently has no
+// filter that ONLY exists on the enriched view (is_unbalanced/
+// has_nonpostable_posting back a display-only row-flag badge today, not a
+// filter), so this one function is safe to apply to both the count query
+// and the data query below with no enriched/base branching needed. If a
+// filter on those two columns is ever added, mirror
+// fulfillmentOrdersService.js's own hasEnrichedFilter/applyEnrichedFilters
+// split instead of just bolting it on here.
+function applyJournalEntryFilters(query, { search, filters, accountTransIds, bpTransIds }) {
+  let q = query;
+
+  if (search) {
+    q = q.or(`memo.ilike.%${search}%,reference_1.ilike.%${search}%`);
+  }
+
+  if (accountTransIds) q = q.in("trans_id", accountTransIds);
+  if (bpTransIds) q = q.in("trans_id", bpTransIds);
+
+  Object.entries(filters || {}).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+
+    switch (key) {
+      case "startDate":
+        q = q.gte("posting_date", value);
+        break;
+
+      case "endDate":
+        q = q.lte("posting_date", value);
+        break;
+
+      // Only "-3" (SAP B1's reserved period-end closing entry) is a
+      // verified trans_type code in this codebase -- see filterConfig.js's
+      // own comment for why other codes aren't mapped/filtered here yet.
+      case "entryType":
+        if (value === "closingOnly") q = q.eq("trans_type", "-3");
+        else if (value === "excludeClosing") q = q.neq("trans_type", "-3");
+        break;
+
+      default:
+        break; // accountCode/bpCode already resolved into *TransIds above
+    }
+  });
+
+  return q;
+}
+
 /**
- * Read-only General Ledger journal entry list, backed directly by the
- * sap_gl_journal_entries mirror table (OJDT headers). SAP is the system of
- * record for this data -- no create/update/delete here. Unlike
- * Invoices/Bills, there's no customer/vendor or open/closed status dimension
- * on a journal entry, so the only visible filters (SearchFilterBar/Fiscal
- * Year) are date-range only -- accountCode (below) is a second, URL-only
- * filter with no SearchFilterBar control of its own, reached exclusively via
- * Chart of Accounts' own "View Journal Entries" reverse link.
+ * Read-only General Ledger journal entry list. SAP is the system of record
+ * for this data -- no create/update/delete here.
+ *
+ * COUNT always runs against the raw sap_gl_journal_entries table, never
+ * sap_gl_journal_entries_with_flags -- found 2026-09: the view's
+ * left-join-lateral aggregate (over sap_gl_journal_lines, confirmed 620K+
+ * rows and growing daily per get_finance_dashboard_rpc.sql's own comment)
+ * has to run once per row just to produce an exact count, which timed out
+ * (real prior 57014 precedent on these exact tables). DATA still reads the
+ * enriched view -- cheap, since the lateral join there only ever has to run
+ * for the `pageSize` rows `.range()` actually returns, not the whole
+ * filtered set. Mirrors fulfillmentOrdersService.js's own count-splitting
+ * fix for sap_sales_orders_with_fulfillment, simplified per
+ * applyJournalEntryFilters' own comment (no enriched-only filter exists
+ * here today).
  */
 export async function fetchJournalEntries({
   page,
@@ -21,66 +94,38 @@ export async function fetchJournalEntries({
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = supabase
-    .from("sap_gl_journal_entries")
-    .select("*", { count: "exact" })
-    .order(sortBy, { ascending: sortOrder === "ascending" });
+  const [accountTransIds, bpTransIds] = await Promise.all([
+    filters?.accountCode
+      ? resolveTransIdsByLineColumn("account_code", filters.accountCode)
+      : Promise.resolve(null),
+    filters?.bpCode
+      ? resolveTransIdsByLineColumn("bp_code", filters.bpCode)
+      : Promise.resolve(null),
+  ]);
 
-  // --- SEARCH ---
-  if (search) {
-    query = query.or(
-      `memo.ilike.%${search}%,reference_1.ilike.%${search}%`,
-    );
-  }
+  const filterArgs = { search, filters, accountTransIds, bpTransIds };
 
-  // --- ACCOUNT CODE (reverse link from Chart of Accounts) --- sap_gl_
-  // journal_entries (this header list) has no account_code column of its
-  // own -- account_code only lives on sap_gl_journal_lines. Resolve which
-  // trans_ids touched this account first, same "resolve ids, then .in()"
-  // shape as invoicesService.js's docEntries/customerCodes filters. The
-  // [-1] sentinel keeps a genuine zero-match filter returning zero rows
-  // instead of leaving `.in()` to an empty array's inconsistent behavior.
-  if (filters?.accountCode) {
-    const { data: matchingLines, error: linesError } = await supabase
-      .from("sap_gl_journal_lines")
-      .select("trans_id")
-      .eq("account_code", filters.accountCode);
+  const countQuery = applyJournalEntryFilters(
+    supabase
+      .from("sap_gl_journal_entries")
+      .select("trans_id", { count: "exact", head: true }),
+    filterArgs,
+  );
 
-    if (linesError) throw linesError;
+  const dataQuery = applyJournalEntryFilters(
+    supabase.from("sap_gl_journal_entries_with_flags").select("*"),
+    filterArgs,
+  )
+    .order(sortBy, { ascending: sortOrder === "ascending" })
+    .range(from, to);
 
-    const matchingTransIds = [
-      ...new Set((matchingLines || []).map((line) => line.trans_id)),
-    ];
-    query = query.in(
-      "trans_id",
-      matchingTransIds.length > 0 ? matchingTransIds : [-1],
-    );
-  }
+  const [
+    { count, error: countError },
+    { data, error: dataError },
+  ] = await Promise.all([countQuery, dataQuery]);
 
-  // --- FILTERS ---
-  Object.entries(filters || {}).forEach(([key, value]) => {
-    if (value === undefined || value === "") return;
-
-    switch (key) {
-      case "startDate":
-        query = query.gte("posting_date", value);
-        break;
-
-      case "endDate":
-        query = query.lte("posting_date", value);
-        break;
-
-      default:
-        break; // accountCode already resolved above
-    }
-  });
-
-  // paginate LAST
-  query = query.range(from, to);
-
-  const { data, count, error } = await query;
-
-  if (error) throw error;
+  if (countError) throw countError;
+  if (dataError) throw dataError;
 
   return {
     data: data || [],
@@ -101,7 +146,7 @@ export async function fetchJournalEntryByTransId(transId) {
   if (!transId) return null;
 
   const { data, error } = await supabase
-    .from("sap_gl_journal_entries")
+    .from("sap_gl_journal_entries_with_flags")
     .select("*")
     .eq("trans_id", Number(transId))
     .maybeSingle();

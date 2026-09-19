@@ -26,7 +26,12 @@ export const journalEntriesTableConfig = () => [
   {
     key: "trans_type",
     label: "Trans. Type",
-    getValue: (row) => row.trans_type,
+    // "-3" is the one verified trans_type code in this codebase (SAP B1's
+    // reserved period-end closing entry, per get_finance_dashboard_rpc.sql's
+    // own comment) -- labeled for readability; every other code is shown
+    // raw rather than guessed (see filterConfig.js's Entry Type filter for
+    // the same scoping).
+    getValue: (row) => (row.trans_type === "-3" ? "Closing Entry" : row.trans_type),
     editable: false,
   },
   {

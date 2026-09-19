@@ -17,7 +17,10 @@ import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
 import { fetchJournalEntries } from "../../../../features/finance/journalEntries/private/api/journalEntriesService";
 import { useJournalEntry } from "../../../../features/finance/journalEntries/private/hooks/useJournalEntry";
-import { getJournalEntriesFilterConfig } from "./filterConfig";
+import {
+  getJournalEntriesFilterConfig,
+  getJournalEntryRowFlags,
+} from "./filterConfig";
 import { journalEntriesTableConfig } from "./tableConfig";
 import JournalEntrySidebar from "./detail/JournalEntrySidebar";
 
@@ -148,6 +151,8 @@ export default function JournalEntries() {
                   columns={columns}
                   rowKey="trans_id"
                   onRowClick={handleOpenSidebar}
+                  getRowFlags={getJournalEntryRowFlags}
+                  flagTooltipTitle="Exceptions"
                 />
               )}
             </div>

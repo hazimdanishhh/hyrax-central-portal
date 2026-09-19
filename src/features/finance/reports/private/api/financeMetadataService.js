@@ -155,3 +155,52 @@ export async function getSapVendorByCode(code) {
     value: data.customer_code,
   };
 }
+
+/**
+ * Search SAP GL accounts for async select (added 2026-09, Journal Entries'
+ * Account Code filter -- promotes what was previously only a URL-only
+ * reverse link from Chart of Accounts into a real filter control of its
+ * own).
+ */
+export async function searchSapGlAccounts(search = "") {
+  let query = supabase
+    .from("sap_gl_accounts")
+    .select("account_code, account_name")
+    .order("account_code")
+    .limit(20);
+
+  if (search?.trim()) {
+    query = query.or(
+      `account_name.ilike.%${search}%,account_code.ilike.%${search}%`,
+    );
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+
+  return (data || []).map((account) => ({
+    value: account.account_code,
+    label: `${account.account_code} — ${account.account_name}`,
+  }));
+}
+
+/**
+ * Get SAP GL account by code for async select filter
+ */
+export async function getSapGlAccountByCode(code) {
+  if (!code) return null;
+
+  const { data, error } = await supabase
+    .from("sap_gl_accounts")
+    .select("account_code, account_name")
+    .eq("account_code", code)
+    .single();
+
+  if (error || !data) return null;
+
+  return {
+    label: `${data.account_code} — ${data.account_name}`,
+    value: data.account_code,
+  };
+}

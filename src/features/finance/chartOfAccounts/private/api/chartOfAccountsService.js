@@ -60,3 +60,24 @@ export async function fetchChartOfAccounts({
     totalCount: count || 0,
   };
 }
+
+/**
+ * Full, unpaginated account list -- backs the hierarchy/tree view on the
+ * default (no search, no filter) view of the page. A chart of accounts is a
+ * bounded master list (hundreds of rows at most, not tens of thousands), and
+ * every mainstream accounting product (QuickBooks, Xero, SAP B1's own native
+ * CoA view) never paginates this view either -- the whole point of a tree is
+ * seeing the full parent-child structure at once. The moment a search/filter
+ * narrows the view, the page falls back to fetchChartOfAccounts' existing
+ * paginated flat list instead -- see ChartOfAccounts.jsx.
+ */
+export async function fetchAllChartOfAccounts() {
+  const { data, error } = await supabase
+    .from("sap_gl_accounts")
+    .select("*")
+    .order("account_code");
+
+  if (error) throw error;
+
+  return data || [];
+}

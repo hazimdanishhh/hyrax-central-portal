@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { TreeStructureIcon } from "@phosphor-icons/react";
 import { useNavigate } from "react-router";
 import { useTheme } from "../../../../context/ThemeContext";
@@ -11,7 +13,11 @@ import DataTable from "../../../../components/dataTable/DataTable";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
 import usePaginatedQuery from "../../../../hooks/usePaginatedQuery";
-import { fetchChartOfAccounts } from "../../../../features/finance/chartOfAccounts/private/api/chartOfAccountsService";
+import {
+  fetchChartOfAccounts,
+  fetchAllChartOfAccounts,
+} from "../../../../features/finance/chartOfAccounts/private/api/chartOfAccountsService";
+import { buildAccountHierarchy } from "../../../../functions/buildAccountHierarchy";
 import { getChartOfAccountsFilterConfig } from "./filterConfig";
 import { chartOfAccountsTableConfig } from "./tableConfig";
 
@@ -56,9 +62,28 @@ export default function ChartOfAccounts() {
     defaultSortOrder: "ascending",
   });
 
+  // Hierarchy/tree view (added 2026-09) -- only in the default (no search,
+  // no filter) view; the moment either is active, fall back to the existing
+  // flat/paginated/filtered list above exactly as before. See
+  // fetchAllChartOfAccounts' own comment for why a full unpaginated fetch is
+  // the right call for this page specifically.
+  const isTreeMode = !hasActiveFilters;
+
+  const { data: allAccounts, isLoading: isTreeLoading } = useQuery({
+    queryKey: ["finance_chart_of_accounts", "tree"],
+    queryFn: fetchAllChartOfAccounts,
+    enabled: isTreeMode,
+    staleTime: 1000 * 60,
+  });
+
+  const accountTree = useMemo(
+    () => (allAccounts ? buildAccountHierarchy(allAccounts) : []),
+    [allAccounts],
+  );
+
   const filterConfig = getChartOfAccountsFilterConfig();
   const columns = chartOfAccountsTableConfig();
-  const hasData = accounts.length > 0;
+  const hasData = isTreeMode ? accountTree.length > 0 : accounts.length > 0;
 
   function handleRowClick(account) {
     if (account.is_postable !== "Y") return;
@@ -92,17 +117,24 @@ export default function ChartOfAccounts() {
               />
             )}
 
-            <PageResult
-              data={accounts}
-              totalCount={totalCount}
-              page={page}
-              setPage={setPage}
-              totalPages={totalPages}
-              error={error}
-            />
+            {isTreeMode ? (
+              <p className="textXXS textLight" style={{ padding: "8px 4px" }}>
+                Showing the full account hierarchy ({allAccounts?.length || 0}{" "}
+                accounts). Search or filter to switch to a flat list.
+              </p>
+            ) : (
+              <PageResult
+                data={accounts}
+                totalCount={totalCount}
+                page={page}
+                setPage={setPage}
+                totalPages={totalPages}
+                error={error}
+              />
+            )}
 
             <div className="cardWrapperScroll">
-              {isLoading || isFetching ? (
+              {(isTreeMode ? isTreeLoading : isLoading || isFetching) ? (
                 <CardLayout style="cardLayoutFlexFull">
                   <LoadingIcon />
                 </CardLayout>
@@ -110,6 +142,14 @@ export default function ChartOfAccounts() {
                 <NoResult />
               ) : error ? (
                 <NoResult title="Error loading results" />
+              ) : isTreeMode ? (
+                <DataTable
+                  data={accountTree}
+                  columns={columns}
+                  rowKey="account_code"
+                  onRowClick={handleRowClick}
+                  getSubRows={(row) => row.children}
+                />
               ) : (
                 <DataTable
                   data={accounts}

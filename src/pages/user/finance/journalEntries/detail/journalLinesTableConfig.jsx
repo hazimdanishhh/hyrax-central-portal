@@ -2,6 +2,8 @@
 // Read-only columns for a journal entry's nested line items
 // (sap_gl_journal_lines).
 
+import { Link } from "react-router";
+
 export const journalLinesTableConfig = () => [
   {
     key: "account_code",
@@ -36,10 +38,37 @@ export const journalLinesTableConfig = () => [
   {
     key: "bp_code",
     label: "Business Partner",
-    // bp_name is resolved client-side against sap_customers (see
-    // fetchJournalEntryLines.js) -- falls back to the raw code whenever it
-    // doesn't resolve (no match, or no bp_code on this line at all).
+    // bp_name/bp_link_type are resolved client-side (see
+    // fetchJournalEntryLines.js) -- bp_code isn't always a real business
+    // partner (some are GL account codes), so this tries sap_customers
+    // first, sap_gl_accounts second, and falls back to the raw code with no
+    // link at all if neither matches.
     getValue: (row) => row.bp_name || row.bp_code || "",
+    // " (Account)" suffix when it resolved as a GL account, not a business
+    // partner -- per DASHBOARD-CONVENTIONS.md's source-labeling convention
+    // ("never a generic word that could mean more than one thing"), so a
+    // GL account never gets mistaken for an actual company in this column.
+    render: (value, row) => {
+      if (!row.bp_code) return <span>{value || "—"}</span>;
+
+      if (row.bp_link_type === "business-partner") {
+        return (
+          <Link to={`/app/finance/business-partners/${row.bp_code}`}>
+            {value}
+          </Link>
+        );
+      }
+
+      if (row.bp_link_type === "account") {
+        return (
+          <Link to={`/app/finance/chart-of-accounts?search=${row.bp_code}`}>
+            {value} (Account)
+          </Link>
+        );
+      }
+
+      return <span>{value}</span>;
+    },
     editable: false,
   },
 ];
