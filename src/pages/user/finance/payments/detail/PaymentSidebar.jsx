@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FileTextIcon, CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
+import {
+  FileTextIcon,
+  CaretDownIcon,
+  CaretUpIcon,
+} from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import SectionHeader from "../../../../../components/sectionHeader/SectionHeader";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
@@ -52,6 +56,7 @@ export default function PaymentSidebar({ selectedRow }) {
               animate={{ opacity: 1, height: "auto", y: 0 }}
               exit={{ opacity: 0, height: 0, y: -5 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
+              style={{ width: "100%" }}
             >
               {isLoading ? (
                 <LoadingIcon />

@@ -70,6 +70,7 @@ export default function BillSidebar({ selectedRow }) {
               animate={{ opacity: 1, height: "auto", y: 0 }}
               exit={{ opacity: 0, height: 0, y: -5 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
+              style={{ width: "100%" }}
             >
               {isLoading ? (
                 <LoadingIcon />
@@ -100,7 +101,10 @@ export default function BillSidebar({ selectedRow }) {
           className="salesOrderSidebarSectionToggle"
           onClick={() => setVendorPaymentsOpen((open) => !open)}
         >
-          <MatchConnector label="Matched Vendor Payment(s)" icon={InvoiceIcon} />
+          <MatchConnector
+            label="Matched Vendor Payment(s)"
+            icon={InvoiceIcon}
+          />
           {vendorPaymentsOpen ? (
             <CaretUpIcon size={18} />
           ) : (
