@@ -89,6 +89,7 @@ export default function InvoiceSidebar({ selectedRow }) {
               animate={{ opacity: 1, height: "auto", y: 0 }}
               exit={{ opacity: 0, height: 0, y: -5 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
+              style={{ width: "100%" }}
             >
               {isLoading ? (
                 <LoadingIcon />
