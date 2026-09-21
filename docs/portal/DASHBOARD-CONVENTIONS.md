@@ -174,6 +174,37 @@ Static-hero/informational tiles never call `getStatusVariant` — they keep hard
 
 **Capped preview + true count.** A "preview a related list, then link to the full filtered list" section (Business Partner Sidebar's Invoices/Payments/Bills/Vendor Payments; Sales Order Sidebar's Matched Invoice(s)/Payment(s)) caps its own fetch to the 5 most relevant rows, but returns `{data, totalCount}` rather than a plain array — `totalCount` is the *true* match count (cheap to get: it's the length of an id-resolution step that already has to happen, not a second `count` query), and the "View all N" button/link always uses `totalCount`, never the capped preview array's own length, and always links through a real server-side filter (e.g. `salesOrderDocEntry`), never a doc-entry list built from the capped preview — otherwise "View all" would silently drop anything past the 5th row. See `fetchInvoicesForSalesOrder`'s/`fetchPaymentsForSalesOrder`'s own comments in `invoicesService.js`/`paymentsService.js` for the canonical version.
 
+## 7. List-card conventions (added 2026-09)
+
+### 7a. Card-is-a-Link + URL-driven sidebar
+
+Every list page's card is now a `react-router` `Link` (or plain element when there's nowhere to go), not a `<button onClick>` — so a card is ctrl/cmd/middle-click-openable in a new tab, same as any other link. The shape, established across `InvoiceCard`/`SalesOrderCard`/`FulfillmentOrderCard`/`PaymentCard`/`BillCard`/`VendorPaymentCard` and brought to `LeadsList`/`AttendanceCard`/`LeaveCard` in 2026-09:
+
+```jsx
+const Wrapper = to ? Link : "div"; // or MotionLink/motion.div where the card animates
+const wrapperProps = to ? { to, className: "..." } : { className: "..." };
+return <Wrapper {...wrapperProps}>...</Wrapper>;
+```
+
+`to` is always parent-supplied, never hardcoded inside the card — the parent page builds it as `` `${row.id}?${searchParams.toString()}` `` (relative to the list route, preserving active filters). The detail sidebar's open/selected state is derived entirely from that URL param (`useParams()` for the id, `useMemo` to resolve the row from the already-loaded list or a fallback fetch-by-id for deep links, `sidebarOpen = !!selectedRow`) rather than local `useState` — the list route's own `:id` child route renders `element={null}`, since the parent page reads the param itself instead of routing to a separate component. This is why a card with no `to` (e.g. a read-only summary already inside its own open sidebar) correctly renders as a non-link `div` instead of omitting the click handler.
+
+### 7b. Avoiding nested `<a>` — the `nestedLink` prop
+
+A card that's itself a `Link` cannot legally nest another `<a>`/`Link` inside it (invalid HTML, breaks the inner element's click target, and duplicate/absorbed navigation). Four shared components that render their own link — `SAPCustomerCard`, `SAPVendorCard`, `EmployeeImage`, `LinkButton` — accept a `nestedLink` prop (default `true` = render as a real link/anchor; `false` = render identical content as a non-anchor element, `LinkButton` becoming a `<button>` that `stopPropagation()`s and opens the URL via `window.open`). **The rule, applied everywhere:** pass `nestedLink={!to}` down from the card's own `to` — content is only allowed to be an independently-clickable link when the card wrapping it is *not itself* a link. A card component that itself hosts one of these four (e.g. `LeadsList`) exposes its own `nestedLink` prop with the same default (`nestedLink = !to`) so it composes correctly whether it's rendered as the clickable list card or reused as a plain summary block inside an already-open sidebar (see `LeadSidebar.jsx`'s reuse of `LeadsList`).
+
+### 7c. Shared 3-row card layout
+
+`FulfillmentOrderCard`'s row rhythm — **status + dates** header, a **details** row (document #, PO/ref badge, customer/vendor badge, rep badge if any), then a bordered-off **figures** row (the money trail as plain text lines) — is the standard shape for every document-list card, not just Sales Orders. `documentCardHeader`/`documentCardStatus`/`documentCardDates`/`documentCardFigures` (nested under the shared `.salesOrderCard` class in `SalesOrderCard.scss`, neutrally named so non-order cards carrying them don't read as fulfillment-specific) are reused by `InvoiceCard`/`PaymentCard`/`BillCard`/`VendorPaymentCard`. `SalesOrderCard.jsx` itself keeps its older two-column header (`salesOrderCardHeader`/`HeaderLeft`/`HeaderDetails`) — it's only ever rendered by `LeadSidebar.jsx`'s matched-order mini-cards, not a list page, so it was deliberately left out of this migration.
+
+### 7d. List-card figure-tone convention
+
+Distinct from §4's KPI-tile `getStatusVariant` (which colors `OverviewCards` tiles): a list card's own **figures row** (Paid/Outstanding/Applied Payment/Gross Profit/Unallocated/etc.) is colored via `src/functions/documentFigureTone.js`, reused by `InvoiceCard`/`BillCard`/`PaymentCard`/`VendorPaymentCard`/`FulfillmentOrderCard`/`LeadsList` — same `.red`/`.green`/`.yellow`/`.blue` text-color utilities (`styles/fonts.scss`), different computation because a figure here is one plain number, not a KPI with a companion trend/threshold already in `kpis`:
+
+- **`getAmountTone(actual, total)`** — green when fully (or over-) settled, yellow when partially, red when nothing yet. For "is this paid/invoiced/delivered" figures (Paid, Applied Payment, Invoiced, Delivered QTY) — a partial state is real and distinct from "not started," so this is always 3-tier, never a plain boolean.
+- **`getBalanceTone(balance)`** — green at zero, red otherwise. For figures that should simply be zero (Outstanding, Unallocated) — no meaningful partial state, so binary is correct here, not a missing tier.
+- **`getMarginTone(profit, total)`** — for Gross Profit specifically. `blue` when the figure is null or fails the existing "implausible GP" guard (`abs(gp) > abs(total) * 5`, the same SAP master-data-defect guard used everywhere else GP is shown/summed — see §3's watch-outs) — a "no reliable figure" state must never render as if it were evaluated. Otherwise: `green` at/above a **15% gross-margin threshold**, `yellow` for a thin-but-positive margin, `red` for a loss. **15% is deliberately below the ~50%+ "healthy margin" figure often quoted as a general rule of thumb** — oil & gas trading/distribution (this company's actual business) is a structurally thin-margin industry (commodity pricing, pass-through costs, heavy competition), commonly benchmarked in the 10-20% gross-margin range, not retail/software/manufacturing's much higher bands. Like §4's own documented thresholds, this is a documented estimate, tunable in `documentFigureTone.js` if Finance sets a different internal target.
+- A figure with no natural "good/bad" reading (Total/Order, Expected Revenue) stays uncolored — coloring every number regardless of whether it has a real polarity would dilute the ones that do.
+
 ---
 
 ### What this app owns vs. what it doesn't

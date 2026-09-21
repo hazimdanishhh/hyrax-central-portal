@@ -20,11 +20,7 @@ export default function SalesRepBadge({ rep, repCode }) {
   if (!repCode) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <img
-          className="salesOrderRepAvatar"
-          src={avatarUrl}
-          alt="Unassigned"
-        />
+        <img className="salesOrderRepAvatar" src={avatarUrl} alt="Unassigned" />
         <p className="textLight textXXS">Unassigned</p>
       </div>
     );

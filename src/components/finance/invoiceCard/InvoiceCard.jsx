@@ -1,5 +1,10 @@
 import { formatDate } from "../../../functions/formatDate";
 import { getDocumentStageSummary } from "../../../functions/documentStageSummary";
+import {
+  getAmountTone,
+  getBalanceTone,
+  getMarginTone,
+} from "../../../functions/documentFigureTone";
 import "./InvoiceCard.scss";
 import IconCard from "../../iconCard/IconCard";
 import { ClockIcon } from "@phosphor-icons/react";
@@ -69,81 +74,74 @@ export default function InvoiceCard({ invoice, to }) {
 
   return (
     <Wrapper {...wrapperProps}>
-      <div className="salesOrderCardHeader">
-        <div className="salesOrderCardHeaderLeft">
-          <div className="salesOrderStatus">
-            <StatusBadge
-              status={isOpen ? "Open" : "Closed"}
-              type={isOpen ? "green" : "grey"}
-            />
-            <StatusBox status={stageSummary.stage} type={stageSummary.tone} />
-          </div>
-
-          <div className="salesOrderCardHeaderDetails">
-            <p className="textBold textXS">INV# {invoice.invoice_number}</p>
-
-            <SAPCustomerCard row={invoice} nestedLink={!to} />
-
-            <StatusBox
-              status={
-                invoice.customer_ref ? `PO: ${invoice.customer_ref}` : "PO: —"
-              }
-              type={invoice.customer_ref ? "green" : "grey"}
-            />
-          </div>
+      <div className="documentCardHeader">
+        <div className="documentCardStatus">
+          <StatusBadge
+            status={isOpen ? "Open" : "Closed"}
+            type={isOpen ? "green" : "grey"}
+          />
+          <StatusBox status={stageSummary.stage} type={stageSummary.tone} />
         </div>
 
-        <div className="salesOrderCardRight">
-          <div className="salesOrderCardDates">
-            <IconCard
-              icon={ClockIcon}
-              weight="fill"
-              name={
-                invoice.invoice_date
-                  ? `Invoice: ${formatDate(invoice.invoice_date)}`
-                  : "—"
-              }
-              style="blue textXXXS textBold"
-            />
-            <IconCard
-              icon={ClockIcon}
-              weight="fill"
-              name={
-                invoice.due_date ? `Due: ${formatDate(invoice.due_date)}` : "—"
-              }
-              style="yellow textXXXS textBold"
-            />
-          </div>
-
-          <div className="salesOrderCardHeaderDetails">
-            <p className="textLight textXXS">
-              <strong className="textBold">Total (RM):</strong> RM{" "}
-              {Math.round(total).toLocaleString()}
-            </p>
-            <p className="textLight textXXS">
-              <strong className="textBold">Paid (RM):</strong> RM{" "}
-              {Math.round(paid).toLocaleString()}
-            </p>
-            <p className="textLight textXXS">
-              <strong className="textBold">Outstanding (RM):</strong> RM{" "}
-              {Math.round(outstanding).toLocaleString()}
-            </p>
-            <p className="textLight textXXS">
-              <strong className="textBold">Applied Payment (RM):</strong> RM{" "}
-              {Math.round(appliedPayment).toLocaleString()}
-            </p>
-
-            <p className="textLight textXXS">
-              <strong className="textBold">Gross Profit (RM):</strong>{" "}
-              {grossProfitDisplay}
-            </p>
-            <StatusBox
-              status={`Tax: RM ${invoice.tax_amount ? invoice.tax_amount : "-"}`}
-              type="yellow"
-            />
-            <SalesRepBadge rep={rep} repCode={invoice.sales_rep_code} />
-          </div>
+        <div className="documentCardDates">
+          <IconCard
+            icon={ClockIcon}
+            weight="fill"
+            name={
+              invoice.invoice_date
+                ? `Invoice: ${formatDate(invoice.invoice_date)}`
+                : "—"
+            }
+            style="blue textXXXS textBold"
+          />
+          <IconCard
+            icon={ClockIcon}
+            weight="fill"
+            name={
+              invoice.due_date ? `Due: ${formatDate(invoice.due_date)}` : "—"
+            }
+            style="yellow textXXXS textBold"
+          />
         </div>
+      </div>
+
+      <CardLayout style="cardLayout2">
+        <p className="textBold textXS">INV# {invoice.invoice_number}</p>
+
+        <p className="textBold textXS">PO# {invoice.customer_ref || `—`}</p>
+
+        <SAPCustomerCard row={invoice} nestedLink={!to} />
+
+        <SalesRepBadge rep={rep} repCode={invoice.sales_rep_code} />
+      </CardLayout>
+
+      <div className="documentCardFigures cardLayout2 cardGapSmall cardLayoutMin2">
+        <p className="textLight textXXS">
+          <strong className="textBold">Total:</strong> RM{" "}
+          {Math.round(total).toLocaleString()}
+        </p>
+        <p className={`textLight textXXS ${getAmountTone(paid, total)}`}>
+          <strong className="textBold">Paid:</strong> RM{" "}
+          {Math.round(paid).toLocaleString()}
+        </p>
+        <p className={`textLight textXXS ${getBalanceTone(outstanding)}`}>
+          <strong className="textBold">Outstanding:</strong> RM{" "}
+          {Math.round(outstanding).toLocaleString()}
+        </p>
+        <p
+          className={`textLight textXXS ${getAmountTone(appliedPayment, total)}`}
+        >
+          <strong className="textBold">Applied Payment:</strong> RM{" "}
+          {Math.round(appliedPayment).toLocaleString()}
+        </p>
+        <p className={`textLight textXXS ${getMarginTone(gp, total)}`}>
+          <strong className="textBold">Gross Profit:</strong>{" "}
+          {grossProfitDisplay}
+        </p>
+        <p className="textLight textXXS">
+          <strong className="textBold">Tax:</strong> RM{" "}
+          {invoice.tax_amount ? invoice.tax_amount : "-"}
+        </p>
       </div>
     </Wrapper>
   );

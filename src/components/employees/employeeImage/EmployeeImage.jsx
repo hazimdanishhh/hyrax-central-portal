@@ -62,7 +62,7 @@ function EmployeeImage({
         </AnimatePresence>
 
         {displayName && (
-          <p className="textRegular textXS" style={{ textAlign: "start" }}>
+          <p className="textBold textXS" style={{ textAlign: "start" }}>
             {employee.employee_name || employee.full_name}
           </p>
         )}
@@ -116,7 +116,7 @@ function EmployeeImage({
       </AnimatePresence>
 
       {displayName && (
-        <p className="textRegular textXS" style={{ textAlign: "start" }}>
+        <p className="textBold textXS" style={{ textAlign: "start" }}>
           {employee.employee_name || employee.full_name}
         </p>
       )}

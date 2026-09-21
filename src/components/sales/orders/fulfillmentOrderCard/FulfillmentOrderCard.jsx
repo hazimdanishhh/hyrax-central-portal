@@ -13,6 +13,11 @@ import SalesOrderFulfillmentStage, {
 } from "../salesOrderFulfillmentStage/SalesOrderFulfillmentStage";
 import { compactCurrency } from "../../../../functions/formatNumber";
 import CardLayout from "../../../cardLayout/CardLayout";
+import {
+  getAmountTone,
+  getBalanceTone,
+  getMarginTone,
+} from "../../../../functions/documentFigureTone";
 
 const MotionLink = motion.create(Link);
 
@@ -143,13 +148,10 @@ function FulfillmentOrderCard({ order, to, showStage = true }) {
 
       <CardLayout style="cardLayout2">
         <p className="textBold textXS">SO# {order.so_number}</p>
+        <p className="textBold textXS">PO# {order.customer_ref || "—"}</p>
 
         <SAPCustomerCard row={order} nestedLink={!to} />
 
-        <StatusBox
-          status={order.customer_ref ? `PO: ${order.customer_ref}` : "PO: —"}
-          type={order.customer_ref ? "green" : "grey"}
-        />
         <SalesRepBadge rep={rep} repCode={order.sales_rep_code} />
       </CardLayout>
 
@@ -166,25 +168,33 @@ function FulfillmentOrderCard({ order, to, showStage = true }) {
           <strong className="textBold">Order:</strong> RM{" "}
           {Math.round(total).toLocaleString()}
         </p>
-        <p className="textLight textXXS">
+        <p
+          className={`textLight textXXS ${getAmountTone(order.total_delivered_qty, totalQty)}`}
+        >
           <strong className="textBold">Delivered QTY:</strong>{" "}
           {deliveredQtyDisplay}
         </p>
-        <p className="textLight textXXS">
+        <p
+          className={`textLight textXXS ${getAmountTone(order.total_invoiced_myr, total)}`}
+        >
           <strong className="textBold">
             Invoiced ({order.matched_invoice_count || 0}):
           </strong>{" "}
           {compactCurrency(order.total_invoiced_myr)}
         </p>
-        <p className="textLight textXXS">
+        <p
+          className={`textLight textXXS ${getAmountTone(order.total_paid_myr, total)}`}
+        >
           <strong className="textBold">Paid:</strong>{" "}
           {compactCurrency(order.total_paid_myr)}
         </p>
-        <p className="textLight textXXS">
+        <p
+          className={`textLight textXXS ${getBalanceTone(order.total_outstanding_myr)}`}
+        >
           <strong className="textBold">Outstanding:</strong>{" "}
           {compactCurrency(order.total_outstanding_myr)}
         </p>
-        <p className="textLight textXXS">
+        <p className={`textLight textXXS ${getMarginTone(gp, total)}`}>
           <strong className="textBold">Gross Profit:</strong>{" "}
           {grossProfitDisplay}
         </p>

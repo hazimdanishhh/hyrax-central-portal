@@ -24,7 +24,21 @@ import { useMessage } from "../../../../context/MessageContext";
 import LinkButton from "../../../buttons/linkButton/LinkButton";
 import SAPCustomerCard from "../../../client/sapCustomerCard/SAPCustomerCard";
 import { compactCurrency } from "../../../../functions/formatNumber";
+import { getAmountTone } from "../../../../functions/documentFigureTone";
 import { Link } from "react-router";
+
+// Close-probability bands for the figures row below -- not reused
+// elsewhere (unlike getAmountTone/getBalanceTone/getMarginTone in
+// documentFigureTone.js), since this is a lead-forecast-confidence
+// concept, not a document-figure-vs-total one: >=70% is a likely close
+// (green), 40-69% is a real but unsettled chance (yellow), below that is
+// at-risk (red).
+function getProbabilityTone(probability) {
+  const value = probability ?? 0;
+  if (value >= 70) return "green";
+  if (value >= 40) return "yellow";
+  return "red";
+}
 
 /**
  * Read-only-shell list card -- restructured (2026-09) to match
@@ -177,17 +191,17 @@ export default function LeadsList({
 
           {lead.po_number && (
             <div className="leadPoNumberGroup">
-              <StatusBox
-                status={`PO Number: ${lead.po_number}`}
-                type="yellow"
-              />
-              <Button
-                onClick={handleCopyPoNumber}
-                icon={CopyIcon}
-                style="iconButton2"
-                size={14}
-                title="Copy PO Number"
-              />
+              <p className="textBold textXS">PO# {lead.po_number || "—"}</p>
+
+              {nestedLink && (
+                <Button
+                  onClick={handleCopyPoNumber}
+                  icon={CopyIcon}
+                  style="iconButton2"
+                  size={14}
+                  title="Copy PO Number"
+                />
+              )}
             </div>
           )}
         </CardLayout>
@@ -195,7 +209,9 @@ export default function LeadsList({
 
       {/* FIGURES -- bordered-off, mirrors fulfillmentOrderCardFigures. */}
       <div className="leadsListCardFigures cardLayout2 cardGapSmall cardLayoutMin2">
-        <p className="textLight textXXS">
+        <p
+          className={`textLight textXXS ${getProbabilityTone(lead.close_probability)}`}
+        >
           <strong className="textBold">Probability:</strong>{" "}
           {lead.close_probability}%
         </p>
@@ -204,7 +220,9 @@ export default function LeadsList({
           {compactCurrency(lead.expected_revenue)}
         </p>
         {lead.actual_revenue && (
-          <p className="textLight textXXS">
+          <p
+            className={`textLight textXXS ${getAmountTone(lead.actual_revenue, lead.expected_revenue)}`}
+          >
             <strong className="textBold">Actual Revenue:</strong>{" "}
             {compactCurrency(lead.actual_revenue)}
           </p>

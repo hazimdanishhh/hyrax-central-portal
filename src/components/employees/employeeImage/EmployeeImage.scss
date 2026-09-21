@@ -4,7 +4,7 @@
   gap: 8px; // Space between photo and name
   text-decoration: none;
   position: relative;
-  width: fit-content;
+  max-width: fit-content;
 
   .listEmployeePhoto {
     position: relative;

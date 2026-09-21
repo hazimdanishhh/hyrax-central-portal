@@ -52,6 +52,7 @@
     width: 100%;
     padding: 0.5rem 0;
     transition: justify-content 0.3s;
+    z-index: 999;
 
     &.isClosed {
       justify-content: center;

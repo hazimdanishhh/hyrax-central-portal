@@ -2,9 +2,14 @@ import { ClockIcon } from "@phosphor-icons/react";
 import { Link } from "react-router";
 import { formatDate } from "../../../functions/formatDate";
 import { getDocumentStageSummary } from "../../../functions/documentStageSummary";
+import {
+  getAmountTone,
+  getBalanceTone,
+} from "../../../functions/documentFigureTone";
 import StatusBox from "../../status/statusBox/StatusBox";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import IconCard from "../../iconCard/IconCard";
+import CardLayout from "../../cardLayout/CardLayout";
 import SAPVendorCard from "../../client/sapVendorCard/SAPVendorCard";
 
 // Read-only card for a sap_vendor_bills row -- AP mirror of InvoiceCard. No
@@ -48,63 +53,53 @@ export default function BillCard({ bill, to }) {
 
   return (
     <Wrapper {...wrapperProps}>
-      <div className="salesOrderCardHeader">
-        <div className="salesOrderCardHeaderLeft">
-          <div className="salesOrderStatus">
-            <StatusBadge
-              status={isOpen ? "Open" : "Closed"}
-              type={isOpen ? "green" : "grey"}
-            />
-            <StatusBox status={stageSummary.stage} type={stageSummary.tone} />
-          </div>
-
-          <div className="salesOrderCardHeaderDetails">
-            <p className="textBold textXS">BILL# {bill.bill_number}</p>
-
-            <div className="salesOrderCustomer">
-              <SAPVendorCard row={bill} nestedLink={!to} />
-            </div>
-
-            <StatusBox
-              status={bill.vendor_ref ? `PO: ${bill.vendor_ref}` : "PO: —"}
-              type={bill.vendor_ref ? "green" : "grey"}
-            />
-          </div>
+      <div className="documentCardHeader">
+        <div className="documentCardStatus">
+          <StatusBadge
+            status={isOpen ? "Open" : "Closed"}
+            type={isOpen ? "green" : "grey"}
+          />
+          <StatusBox status={stageSummary.stage} type={stageSummary.tone} />
         </div>
 
-        <div className="salesOrderCardRight">
-          <div className="salesOrderCardDates">
-            <IconCard
-              icon={ClockIcon}
-              weight="fill"
-              name={
-                bill.bill_date ? `Bill: ${formatDate(bill.bill_date)}` : "—"
-              }
-              style="blue textXXXS textBold"
-            />
-            <IconCard
-              icon={ClockIcon}
-              weight="fill"
-              name={bill.due_date ? `Due: ${formatDate(bill.due_date)}` : "—"}
-              style="yellow textXXXS textBold"
-            />
-          </div>
-
-          <div className="salesOrderCardHeaderDetails">
-            <p className="textLight textXXS">
-              <strong className="textBold">Total (RM):</strong> RM{" "}
-              {Math.round(total).toLocaleString()}
-            </p>
-            <p className="textLight textXXS">
-              <strong className="textBold">Outstanding (RM):</strong> RM{" "}
-              {Math.round(outstanding).toLocaleString()}
-            </p>
-            <p className="textLight textXXS">
-              <strong className="textBold">Applied Payment (RM):</strong> RM{" "}
-              {Math.round(appliedPayment).toLocaleString()}
-            </p>
-          </div>
+        <div className="documentCardDates">
+          <IconCard
+            icon={ClockIcon}
+            weight="fill"
+            name={bill.bill_date ? `Bill: ${formatDate(bill.bill_date)}` : "—"}
+            style="blue textXXXS textBold"
+          />
+          <IconCard
+            icon={ClockIcon}
+            weight="fill"
+            name={bill.due_date ? `Due: ${formatDate(bill.due_date)}` : "—"}
+            style="yellow textXXXS textBold"
+          />
         </div>
+      </div>
+
+      <CardLayout style="cardLayout2">
+        <p className="textBold textXS">BILL# {bill.bill_number}</p>
+        <p className="textBold textXS">PO# {bill.vendor_ref || `—`}</p>
+
+        <SAPVendorCard row={bill} nestedLink={!to} />
+      </CardLayout>
+
+      <div className="documentCardFigures cardLayout2 cardGapSmall cardLayoutMin2">
+        <p className="textLight textXXS">
+          <strong className="textBold">Total:</strong> RM{" "}
+          {Math.round(total).toLocaleString()}
+        </p>
+        <p className={`textLight textXXS ${getBalanceTone(outstanding)}`}>
+          <strong className="textBold">Outstanding:</strong> RM{" "}
+          {Math.round(outstanding).toLocaleString()}
+        </p>
+        <p
+          className={`textLight textXXS ${getAmountTone(appliedPayment, total)}`}
+        >
+          <strong className="textBold">Applied Payment:</strong> RM{" "}
+          {Math.round(appliedPayment).toLocaleString()}
+        </p>
       </div>
     </Wrapper>
   );

@@ -3,8 +3,12 @@
   flex-direction: column;
   gap: 0.8rem;
   width: 100%;
-  cursor: pointer;
+  // cursor: pointer;
   text-align: start;
+
+  &:hover {
+    border: 1px solid $primary;
+  }
 
   .salesOrderCardHeader {
     display: flex;
@@ -109,5 +113,49 @@
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
+  }
+
+  // Shared 3-row layout (status+dates / details / figures) -- mirrors
+  // FulfillmentOrderCard.scss's own header/figures rules under neutral
+  // names, since InvoiceCard/PaymentCard/BillCard/VendorPaymentCard reuse
+  // this shape too and aren't "fulfillment" cards.
+  .documentCardHeader {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+
+    @media screen and (max-width: 768px) {
+      flex-direction: column;
+    }
+
+    .documentCardStatus {
+      display: flex;
+      gap: 0.4rem;
+      align-items: start;
+      justify-content: start;
+      flex-wrap: wrap;
+
+      @media screen and (max-width: 768px) {
+        justify-content: space-between;
+      }
+    }
+
+    .documentCardDates {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+
+      @media screen and (max-width: 768px) {
+        justify-content: space-between;
+      }
+    }
+  }
+
+  .documentCardFigures {
+    width: 100%;
+    border-top: 1px solid rgba($neutral500, 0.3);
+    padding-top: 0.8rem;
   }
 }
