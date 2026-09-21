@@ -9,7 +9,9 @@ import VendorPayments from "../pages/user/finance/vendorPayments/VendorPayments"
 import ClaimsManagement from "../pages/user/finance/claimsManagement/ClaimsManagement";
 import FinancialReports from "../pages/user/finance/financialReports/FinancialReports";
 import JournalEntries from "../pages/user/finance/journalEntries/JournalEntries";
+import ChartOfAccountsPageLayout from "../pages/user/finance/chartOfAccounts/ChartOfAccountsPageLayout";
 import ChartOfAccounts from "../pages/user/finance/chartOfAccounts/ChartOfAccounts";
+import ChartOfAccountsOverview from "../pages/user/finance/chartOfAccounts/overview/ChartOfAccountsOverview";
 import AccountDetail from "../pages/user/finance/chartOfAccounts/AccountDetail";
 import BusinessPartners from "../pages/user/finance/businessPartners/BusinessPartners";
 import CashFlow from "../pages/user/finance/cashFlow/CashFlow";
@@ -133,15 +135,36 @@ export default (
         Finance Expansion Phase 2 follow-up) -- same access gate as Journal
         Entries, since it pairs directly with it (looking up what an
         account_code on a journal line means). MGM parity -- see Invoices'
-        own comment above. */}
+        own comment above. Grouped under one page-tab layout 2026-09 ("list"/
+        "overview", same shape as Invoices & A/R above) -- "List" is the
+        existing search/filter/tree reference view, unchanged; "Overview" is
+        the new per-annum-by-level-1-account view. */}
     <Route
       path="chart-of-accounts"
       element={
         <AccessRoute departments={["FIN", "MGM"]}>
-          <ChartOfAccounts />
+          <ChartOfAccountsPageLayout />
         </AccessRoute>
       }
-    />
+    >
+      <Route index element={<Navigate to="list" replace />} />
+      <Route
+        path="list"
+        element={
+          <AccessRoute departments={["FIN", "MGM"]}>
+            <ChartOfAccounts />
+          </AccessRoute>
+        }
+      />
+      <Route
+        path="overview"
+        element={
+          <AccessRoute departments={["FIN", "MGM"]}>
+            <ChartOfAccountsOverview />
+          </AccessRoute>
+        }
+      />
+    </Route>
 
     {/* ACCOUNT DETAIL (added 2026-09) -- one route, one "tell me about this
         GL account" contract, opened from Chart of Accounts' row click

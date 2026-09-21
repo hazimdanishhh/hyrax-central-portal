@@ -19,33 +19,20 @@ import NoResult from "../../../../../components/crud/noResult/NoResult";
 import { fetchAllChartOfAccounts } from "../../../../../features/finance/chartOfAccounts/private/api/chartOfAccountsService";
 import { useAccountMonthlySummary } from "../../../../../features/finance/chartOfAccounts/private/hooks/useAccountMonthlySummary";
 import { buildAccountHierarchy, findAccountNode } from "../../../../../functions/buildAccountHierarchy";
+import { monthLabel, groupByFiscalYear } from "../../../../../functions/glFiscalYearGrouping";
 import { DRAWER_LABELS } from "../drawerLabels";
 import { chartOfAccountsTableConfig } from "../tableConfig";
 
-// Same trailing-12-months default and fiscal-year grouping as
-// AccountLedger.jsx's own two charts -- kept as a local, near-identical copy
-// rather than a shared import, since AccountLedger.jsx is deliberately left
-// untouched by this feature (see this file's own header comment) and these
-// are three short, self-contained functions, not a growing shared concern.
+// Same trailing-12-months default as AccountLedger.jsx's own Monthly Balance
+// chart -- kept as a local copy since it's one short, self-contained
+// function (unlike the fiscal-year grouping above, now shared via
+// glFiscalYearGrouping.js once a 3rd consumer needed it).
 function getDefaultChartRange() {
   const end = new Date();
   const start = new Date();
   start.setMonth(start.getMonth() - 11);
   const toISO = (d) => d.toISOString().slice(0, 10);
   return { startDate: toISO(start), endDate: toISO(end) };
-}
-
-function monthLabel(monthDateStr) {
-  return new Date(monthDateStr).toLocaleDateString("en-MY", {
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function fiscalYearLabel(monthDateStr) {
-  const d = new Date(monthDateStr);
-  const startYear = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
-  return `${startYear}-${startYear + 1}`;
 }
 
 /**
@@ -143,21 +130,10 @@ export default function CategoryDetail() {
     [monthlySummary, periodStartDate, periodEndDate],
   );
 
-  const perAnnumChartData = useMemo(() => {
-    const totals = {};
-
-    (monthlySummary || []).forEach((row) => {
-      const label = fiscalYearLabel(row.month);
-      totals[label] = (totals[label] || 0) + row.balanceMyr;
-    });
-
-    return Object.entries(totals)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, balanceMyr]) => ({
-        name,
-        balanceMyr: Math.round(balanceMyr),
-      }));
-  }, [monthlySummary]);
+  const perAnnumChartData = useMemo(
+    () => groupByFiscalYear(monthlySummary),
+    [monthlySummary],
+  );
 
   function handleRowClick(child) {
     navigate(`/app/finance/chart-of-accounts/${child.account_code}`);

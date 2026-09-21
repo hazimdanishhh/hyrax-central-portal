@@ -18,3 +18,19 @@ export const DRAWER_LABELS = {
 export const DRAWER_OPTIONS = Object.entries(DRAWER_LABELS).map(
   ([value, label]) => ({ label, value }),
 );
+
+// One distinct color per drawer, for Chart of Accounts' Overview tab (added
+// 2026-09) -- a grid of one Per Annum chart per drawer reads faster when
+// each card has its own color instead of every bar being the same blue.
+// Pulled straight from CHART_PALETTE (chartColors.js) in drawer order, not a
+// new palette.
+export const DRAWER_CHART_COLORS = {
+  1: "#63d795",
+  2: "#63a7d7",
+  3: "#d7b663",
+  4: "#d76363",
+  5: "#d79b63",
+  6: "#6763d7",
+  7: "#a163d7",
+  8: "#ac41c7",
+};

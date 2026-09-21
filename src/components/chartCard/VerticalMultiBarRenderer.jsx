@@ -19,7 +19,7 @@ import { compactNumber } from "../../functions/formatNumber";
  * fiscal-year categories reads better as grouped vertical bars than as a
  * many-point line.
  */
-export default function VerticalMultiBarRenderer({ data, bars = [] }) {
+export default function VerticalMultiBarRenderer({ data, bars = [], onBarClick }) {
   const { darkMode } = useTheme();
 
   const axisColor = darkMode ? "#555" : "#ccc";
@@ -56,6 +56,11 @@ export default function VerticalMultiBarRenderer({ data, bars = [] }) {
             fill={bar.color}
             barSize={20}
             radius={[4, 4, 0, 0]}
+            // Optional per-bar click-through (added 2026-09, Chart of
+            // Accounts Overview tab) -- same no-op-by-default contract as
+            // HorizontalBarChartRenderer's own onBarClick.
+            onClick={onBarClick ? (entry) => onBarClick(entry) : undefined}
+            cursor={onBarClick ? "pointer" : undefined}
           />
         ))}
       </BarChart>

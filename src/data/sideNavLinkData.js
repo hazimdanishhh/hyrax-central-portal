@@ -44,6 +44,7 @@ import { leadsPageTabs } from "../pages/user/sales/leads/leadsPageTabs";
 import { ordersPageTabs } from "../pages/user/sales/orders/ordersPageTabs";
 import { clientsPageTabs } from "../pages/user/sales/clients/clientsPageTabs";
 import { invoicesPageTabs } from "../pages/user/finance/invoices/invoicesPageTabs";
+import { chartOfAccountsPageTabs } from "../pages/user/finance/chartOfAccounts/chartOfAccountsPageTabs";
 import { billsPageTabs } from "../pages/user/finance/bills/billsPageTabs";
 import { attendancePageTabs as hrAttendancePageTabs } from "../pages/user/hr/attendanceManagement/attendancePageTabs";
 import { employeePageTabs } from "../pages/user/hr/employeeManagement/employeePageTabs";
@@ -401,6 +402,9 @@ export const sideNavLinkData = [
         path: "finance/chart-of-accounts",
 
         departments: ["FIN", "MGM"],
+        // Same array ChartOfAccountsPageLayout.jsx renders as its own
+        // page-tab bar -- see chartOfAccountsPageTabs.js's header comment.
+        tabs: chartOfAccountsPageTabs,
       },
 
       // Added 2026-09 alongside the Finance standardization pass -- same

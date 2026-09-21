@@ -1,11 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TreeStructureIcon } from "@phosphor-icons/react";
 import { useNavigate } from "react-router";
-import { useTheme } from "../../../../context/ThemeContext";
-import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
-import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import ActiveFiltersBar from "../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import PageResult from "../../../../components/crud/pageResult/PageResult";
@@ -29,6 +25,11 @@ import { chartOfAccountsTableConfig } from "./tableConfig";
  * looking up what an account_code on a journal line actually means). Flat
  * reference/master data, not transactional, so no date-range filter of its
  * own.
+ *
+ * Renders as the "List" tab under ChartOfAccountsPageLayout.jsx (added
+ * 2026-09 alongside the "Overview" tab) -- no section/CardWrapper/
+ * Breadcrumbs wrapper of its own, same as Invoices.jsx's own tab-content
+ * shape, since the layout already supplies those.
  *
  * Every row is clickable (added 2026-09 for non-postable rows -- previously
  * a dead end, since is_postable='N' summary/title accounts never have
@@ -56,7 +57,6 @@ import { chartOfAccountsTableConfig } from "./tableConfig";
  *   time) and general accounting UX best practice.
  */
 export default function ChartOfAccounts() {
-  const { darkMode } = useTheme();
   const navigate = useNavigate();
 
   const {
@@ -111,77 +111,69 @@ export default function ChartOfAccounts() {
   }
 
   return (
-    <section className={darkMode ? "sectionDark" : "sectionLight"}>
-      <div className="sectionWrapper">
-        <div className="sectionContent">
-          <Breadcrumbs icon={TreeStructureIcon} current="Chart of Accounts" />
+    <>
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search chart of accounts..."
+      />
 
-          <CardWrapper>
-            <SearchFilterBar
-              search={search}
-              onSearchChange={setSearch}
-              filters={filters}
-              onFilterChange={setFilters}
-              filterConfig={filterConfig}
-              placeholder="Search chart of accounts..."
-            />
+      {hasActiveFilters && (
+        <ActiveFiltersBar
+          search={search}
+          setSearch={setSearch}
+          filters={activeFilters}
+          setFilters={setFilters}
+          filterConfig={filterConfig}
+          resetParams={resetParams}
+        />
+      )}
 
-            {hasActiveFilters && (
-              <ActiveFiltersBar
-                search={search}
-                setSearch={setSearch}
-                filters={activeFilters}
-                setFilters={setFilters}
-                filterConfig={filterConfig}
-                resetParams={resetParams}
-              />
-            )}
+      {isTreeMode ? (
+        <p className="textXXS textLight" style={{ padding: "8px 4px" }}>
+          Showing the full account hierarchy ({allAccounts?.length || 0}{" "}
+          accounts). Search or filter to switch to a flat list.
+        </p>
+      ) : (
+        <PageResult
+          data={accounts}
+          totalCount={totalCount}
+          page={page}
+          setPage={setPage}
+          totalPages={totalPages}
+          error={error}
+        />
+      )}
 
-            {isTreeMode ? (
-              <p className="textXXS textLight" style={{ padding: "8px 4px" }}>
-                Showing the full account hierarchy ({allAccounts?.length || 0}{" "}
-                accounts). Search or filter to switch to a flat list.
-              </p>
-            ) : (
-              <PageResult
-                data={accounts}
-                totalCount={totalCount}
-                page={page}
-                setPage={setPage}
-                totalPages={totalPages}
-                error={error}
-              />
-            )}
-
-            <div className="cardWrapperScroll">
-              {(isTreeMode ? isTreeLoading : isLoading || isFetching) ? (
-                <CardLayout style="cardLayoutFlexFull">
-                  <LoadingIcon />
-                </CardLayout>
-              ) : !hasData ? (
-                <NoResult />
-              ) : error ? (
-                <NoResult title="Error loading results" />
-              ) : isTreeMode ? (
-                <DataTable
-                  data={accountTree}
-                  columns={columns}
-                  rowKey="account_code"
-                  onRowClick={handleRowClick}
-                  getSubRows={(row) => row.children}
-                />
-              ) : (
-                <DataTable
-                  data={accounts}
-                  columns={columns}
-                  rowKey="account_code"
-                  onRowClick={handleRowClick}
-                />
-              )}
-            </div>
-          </CardWrapper>
-        </div>
+      <div className="cardWrapperScroll">
+        {(isTreeMode ? isTreeLoading : isLoading || isFetching) ? (
+          <CardLayout style="cardLayoutFlexFull">
+            <LoadingIcon />
+          </CardLayout>
+        ) : !hasData ? (
+          <NoResult />
+        ) : error ? (
+          <NoResult title="Error loading results" />
+        ) : isTreeMode ? (
+          <DataTable
+            data={accountTree}
+            columns={columns}
+            rowKey="account_code"
+            onRowClick={handleRowClick}
+            getSubRows={(row) => row.children}
+          />
+        ) : (
+          <DataTable
+            data={accounts}
+            columns={columns}
+            rowKey="account_code"
+            onRowClick={handleRowClick}
+          />
+        )}
       </div>
-    </section>
+    </>
   );
 }

@@ -31,6 +31,7 @@ import JournalEntrySidebar from "../../journalEntries/detail/JournalEntrySidebar
 import { DRAWER_LABELS } from "../drawerLabels";
 import { accountLedgerTableConfig } from "./tableConfig";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
+import { monthLabel, groupByFiscalYear } from "../../../../../functions/glFiscalYearGrouping";
 
 // Trailing 12 months from today -- only used when the URL has no explicit
 // date-range filter (e.g. opened fresh from Chart of Accounts). When
@@ -48,24 +49,6 @@ function getDefaultChartRange() {
   start.setMonth(start.getMonth() - 11);
   const toISO = (d) => d.toISOString().slice(0, 10);
   return { startDate: toISO(start), endDate: toISO(end) };
-}
-
-function monthLabel(monthDateStr) {
-  return new Date(monthDateStr).toLocaleDateString("en-MY", {
-    month: "short",
-    year: "numeric",
-  });
-}
-
-// April (month index 3) onward belongs to the fiscal year starting this
-// calendar year -- same April-March rule as fiscalYearPresets.js's own
-// getCurrentFiscalYearStartYear, just applied to an arbitrary month instead
-// of "today", and kept local since it's one line -- see that file for the
-// canonical version this mirrors.
-function fiscalYearLabel(monthDateStr) {
-  const d = new Date(monthDateStr);
-  const startYear = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
-  return `${startYear}-${startYear + 1}`;
 }
 
 /**
@@ -145,28 +128,13 @@ export default function AccountLedger() {
 
   // Chart 2: Per Annum -- all-time monthly rows grouped into fiscal years
   // (April-March, same convention as FiscalYearFilterBar/
-  // fiscalYearPresets.js elsewhere in this app). Each month's net
-  // debit-credit activity is SUMMED into its fiscal year -- correct for a
-  // flow figure (an expense/revenue account's yearly total spend/earned);
-  // for a balance-sheet account (Assets/Liabilities/Equity), this shows the
-  // year's own net movement, not a running point-in-time balance -- same
-  // flow-based figure the Monthly Balance/All-Time Monthly charts already
-  // show per month, just rolled up to a year.
-  const perAnnumChartData = useMemo(() => {
-    const totals = {};
-
-    (monthlySummary || []).forEach((row) => {
-      const label = fiscalYearLabel(row.month);
-      totals[label] = (totals[label] || 0) + row.balanceMyr;
-    });
-
-    return Object.entries(totals)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, balanceMyr]) => ({
-        name,
-        balanceMyr: Math.round(balanceMyr),
-      }));
-  }, [monthlySummary]);
+  // fiscalYearPresets.js elsewhere in this app). See
+  // glFiscalYearGrouping.js's own comment for why this is a flow figure
+  // (year's own net movement) even for a balance-sheet account.
+  const perAnnumChartData = useMemo(
+    () => groupByFiscalYear(monthlySummary),
+    [monthlySummary],
+  );
 
   const { data: fetchedJournalEntry } = useJournalEntry(transId);
 
