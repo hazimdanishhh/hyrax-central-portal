@@ -1,5 +1,6 @@
 // pages/user/hr/attendanceManagement/list/AttendanceManagement.jsx
 import {
+  CalendarPlusIcon,
   CaretLeftIcon,
   CaretRightIcon,
   PencilSimpleLineIcon,
@@ -11,6 +12,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "../../../../../components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "../../../../../components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
+import AttendanceBackfillWizard from "../../../../../components/attendance/attendanceBackfillWizard/AttendanceBackfillWizard";
 import Button from "../../../../../components/buttons/button/Button";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -26,10 +28,12 @@ import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import { useMessage } from "../../../../../context/MessageContext";
+import { useEmployee } from "../../../../../context/EmployeeContext";
 import { useAttendanceActivitiesMetadata } from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import useAttendanceActivityMutations from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 import useAttendanceDailyList from "../../../../../features/hr/attendance/private/hooks/useAttendanceDailyList";
 import { useAttendanceActivityById } from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityById";
+import useAttendanceAdjustmentReasons from "../../../../../features/hr/attendance/private/hooks/useAttendanceAdjustmentReasons";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { supabase } from "../../../../../lib/supabaseClient";
@@ -105,7 +109,10 @@ export default function AttendanceManagement() {
   const { attendanceId } = useParams();
   const [layout, setLayout] = useState(1); // 1: Card, 2: Table
   const [selectedId, setSelectedId] = useState(null);
+  const [backfillOpen, setBackfillOpen] = useState(false);
   const { showMessage } = useMessage();
+  const { employee } = useEmployee();
+  const { adjustmentReasons } = useAttendanceAdjustmentReasons();
 
   const {
     modalOpen,
@@ -222,6 +229,7 @@ export default function AttendanceManagement() {
   const createFormColumns = createAttendanceActivityFormConfig({
     employees,
     attendanceTypes,
+    adjustmentReasons,
   });
   const filterConfig = getAttendanceActivitiesFilterConfig({
     employees,
@@ -371,9 +379,34 @@ export default function AttendanceManagement() {
         if (data.id) {
           await updateRow(data);
         } else {
+          // work_date is a FORM-ONLY field: it exists so the two `time`
+          // editors have a calendar date to anchor to (via each column's
+          // getReferenceDate), and both clocked_in_at/clocked_out_at already
+          // carry it baked in. attendance_activities has no work_date column,
+          // so sending it would be a PostgREST 400.
+          const { work_date: _workDate, ...insertData } = data;
+
           await createRow({
-            ...data,
-            approval_status: "Pending",
+            ...insertData,
+            // Provenance. This form is a manual HR entry by definition --
+            // nothing reaches it from a live clock-in. Without this the row
+            // would inherit the 'self_clock_in' column default and wrongly
+            // claim the employee clocked themselves in, which would also fire
+            // the "You are now clocked in" notification at them.
+            entry_method: "hr_backfill",
+            created_by: employee?.id ?? null,
+            // Approved, NOT Pending -- deliberately matching
+            // create_attendance_backfill's own rule for hr_backfill rather
+            // than contradicting it. Whoever is using this form is already an
+            // authorised approver for this employee under approve_attendance's
+            // rules, so routing it back to themselves is a null control; and
+            // leaving it Pending would flip hr_flag to 'Pending App Approval'
+            // on the very day HR just corrected. Both created_by and
+            // approved_by are recorded, so the audit trail shows plainly that
+            // the same person did both.
+            approval_status: "Approved",
+            approved_by: employee?.id ?? null,
+            approved_at: new Date().toISOString(),
           });
         }
       }
@@ -426,12 +459,22 @@ export default function AttendanceManagement() {
           // options={layoutOptions}
           actionButtons={[
             {
-              name: "Add Attendance",
+              name: "Backfill Attendance",
+              icon: CalendarPlusIcon,
+              onClick: () => setBackfillOpen(true),
+              style: "button buttonType5 greenFill buttonFull textXXS",
+            },
+            {
+              // Kept alongside the bulk wizard rather than replaced by it:
+              // this is the only path that can attach an attendance PHOTO
+              // (see handleConfirmAction's uploadAttendancePhoto branch),
+              // which the wizard has no concept of.
+              name: "Add Single Activity",
               icon: PlusCircleIcon,
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
               },
-              style: "button buttonType5 greenFill buttonFull textXXS",
+              style: "button buttonType5 buttonFull textXXS",
             },
           ]}
         />
@@ -668,6 +711,21 @@ export default function AttendanceManagement() {
           handleConfirmAction(formValues);
         }}
         modalType={modalType}
+      />
+
+      {/* Bulk backfill. Scope "hr" only decides which employees are OFFERED --
+          create_attendance_backfill re-derives the caller's rights per row
+          from auth.uid() using approve_attendance's own three-branch test, so
+          opening this page does not itself grant anything. */}
+      <AttendanceBackfillWizard
+        open={backfillOpen}
+        onClose={() => setBackfillOpen(false)}
+        scope="hr"
+        employeeOptions={employees.map((e) => ({
+          value: e.id,
+          label: e.full_name,
+        }))}
+        attendanceTypes={attendanceTypes}
       />
     </>
   );

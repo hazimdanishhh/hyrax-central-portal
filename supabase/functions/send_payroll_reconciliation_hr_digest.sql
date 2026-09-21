@@ -44,21 +44,49 @@ begin
         v_period_end   := (date_trunc('month', v_today_myt) - interval '1 day')::date;
 
         with period_rows as materialized (
-            select uda.employee_uuid, uda.hr_flag, uda.is_weekend, uda.is_public_holiday,
+            select uda.employee_uuid, uda.work_date, uda.hr_flag, uda.is_weekend,
+                   uda.is_public_holiday,
                    uda.is_leave_attendance_conflict, uda.is_insufficient_half_day_hours,
                    uda.has_leave_fraction_error
             from public.unified_daily_attendance uda
             where uda.work_date >= v_period_start and uda.work_date <= v_period_end
         ),
+        -- Already-resolved flags. This digest computes has_absent /
+        -- has_insufficient_half_day directly from the view rather than through
+        -- get_payroll_reconciliation_rows(), so it needs its own copy of the
+        -- suppression -- otherwise HR's weekly digest would keep reporting
+        -- outstanding counts for days that have been acknowledged and no longer
+        -- appear in the drilldown, the email, or the employee's own reminder.
+        acknowledged as (
+            select ack.employee_id, ack.work_date, ack.category
+            from public.attendance_reconciliation_acknowledgements ack
+            where ack.work_date >= v_period_start and ack.work_date <= v_period_end
+        ),
         flagged as (
             select
-                employee_uuid,
-                bool_or(hr_flag = 'Absent' and not is_weekend and not is_public_holiday) as has_absent,
-                bool_or(is_leave_attendance_conflict) as has_leave_conflict,
-                bool_or(is_insufficient_half_day_hours) as has_insufficient_half_day,
-                bool_or(has_leave_fraction_error) as has_leave_fraction_error
-            from period_rows
-            group by employee_uuid
+                p.employee_uuid,
+                bool_or(
+                    p.hr_flag = 'Absent' and not p.is_weekend and not p.is_public_holiday
+                    and not exists (
+                        select 1 from acknowledged a
+                        where a.employee_id = p.employee_uuid
+                          and a.work_date = p.work_date
+                          and a.category = 'absent'
+                    )
+                ) as has_absent,
+                bool_or(p.is_leave_attendance_conflict) as has_leave_conflict,
+                bool_or(
+                    p.is_insufficient_half_day_hours
+                    and not exists (
+                        select 1 from acknowledged a
+                        where a.employee_id = p.employee_uuid
+                          and a.work_date = p.work_date
+                          and a.category = 'insufficient_half_day'
+                    )
+                ) as has_insufficient_half_day,
+                bool_or(p.has_leave_fraction_error) as has_leave_fraction_error
+            from period_rows p
+            group by p.employee_uuid
         ),
         flagged_with_email as (
             select f.*, coalesce(e.email_work, e.email_personal) as resolved_email

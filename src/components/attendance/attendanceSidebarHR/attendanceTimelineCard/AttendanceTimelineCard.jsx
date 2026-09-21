@@ -36,6 +36,16 @@ function formatMinutesDuration(totalMinutes) {
   return `${hours}h ${minutes}m`;
 }
 
+// How a manually-entered row is labelled on its timeline card.
+// `self_clock_in` is absent on purpose -- that's the ordinary case and needs
+// no badge, so a missing/unknown entry_method (an older row from before the
+// column existed) correctly renders nothing rather than "Unknown".
+const ENTRY_METHOD_LABELS = {
+  hr_backfill: "Added by HR",
+  manager_backfill: "Added by Manager",
+  employee_reconciliation: "Self-Reported",
+};
+
 // "8:36 AM - 12:01 PM (3h 25m)" -- HR auditing needs the actual duration of
 // each inferred in/out pair spelled out, not just visible on a bar segment's
 // hover tooltip.
@@ -56,9 +66,20 @@ export default function AttendanceTimelineCard({
   mode = "hr", // "hr" (HR Attendance Management, full access) | "self" (My
   // Attendance -- view + self clock-out only) | "manager" (Team Attendance
   // -- view + approve/reject direct reports only, no edit)
+
+  // Day-level anomaly flags, but resolved by the PARENT to the single card
+  // that actually produced each one (see AttendanceSidebarHR's
+  // earliestActivityId/latestActivityId memo) -- this component never derives
+  // them itself, because one card has no visibility into the rest of the day.
+  // Default false so any caller that doesn't pass them (e.g.
+  // TodayAttendanceCard's mode="readonly") renders exactly as before.
+  isLateArrival = false,
+  isEarlyLeave = false,
 }) {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState("none"); // "none" | "edit" | "clockIn" | "clockOut"
+
+  const entryMethodLabel = ENTRY_METHOD_LABELS[activity.entry_method];
 
   // Scan-log verification -- unconditional across every mode (hr/self/
   // manager/readonly), purely read-only, so it isn't gated like the action
@@ -284,6 +305,29 @@ export default function AttendanceTimelineCard({
         </div>
       </div>
 
+      {/* PROVENANCE -- were these times OBSERVED (a live clock-in, a scan) or
+          ASSERTED (typed in afterwards)? Only shown when they were asserted,
+          so an ordinary clock-in card is unchanged.
+
+          This is what makes a backfilled "Office" app card tellable apart
+          from a real Office scan card on the same day -- the two now carry the
+          same attendance_type name by design, since HR needs to be able to
+          reconcile a failed-scanner day to the correct physical site.
+          Deliberately grey, not red: a reconciled record is a legitimate
+          record, not an error. */}
+      {entryMethodLabel && (
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+          <StatusBox
+            status={
+              activity.adjustment_reason_label
+                ? `${entryMethodLabel} — ${activity.adjustment_reason_label}`
+                : entryMethodLabel
+            }
+            type="grey"
+          />
+        </div>
+      )}
+
       {/* TIMING TABLE */}
       <div
         style={{
@@ -297,8 +341,16 @@ export default function AttendanceTimelineCard({
       >
         {/* <p className="textBold textXXS mb-1">{activity.event_source} Data</p> */}
 
-        <AttendanceClock time={activity.check_in_time_only} type="clockin" />
-        <AttendanceClock time={activity.check_out_time_only} type="clockout" />
+        <AttendanceClock
+          time={activity.check_in_time_only}
+          type="clockin"
+          isAnomaly={isLateArrival}
+        />
+        <AttendanceClock
+          time={activity.check_out_time_only}
+          type="clockout"
+          isAnomaly={isEarlyLeave}
+        />
       </div>
 
       {/* ODD/EVEN IN-OUT PAIR BREAKDOWN -- for Hardware, this card's
@@ -367,6 +419,46 @@ export default function AttendanceTimelineCard({
             </div>
           </>
         )
+      )}
+
+      {/* NOTES & PHOTO -- App rows only (photo_url/notes are NULL by
+          construction on Hardware/Leave/Holiday branches of
+          attendance_activity_audit). Both columns have been on that view
+          since the "Edit form was missing its own data" fix, but were only
+          ever readable by opening the Edit form -- which meant an attendance
+          photo, whose entire purpose is after-the-fact verification, was
+          invisible on the surface where verification actually happens.
+          Notes deliberately reuse the Leave branch's exact class string
+          above, so the two free-text renders can't drift apart visually. */}
+      {activity.event_source === "App" && (activity.notes || activity.photo_url) && (
+        <>
+          {activity.notes && (
+            <p className="textRegular textXS textLight">{activity.notes}</p>
+          )}
+
+          {/* photo_url is a public getPublicUrl() result from
+              uploadAttendancePhoto.js (bucket "attendance"), not a signed
+              URL, so a plain <img> is enough. loading="lazy" matters here:
+              the sidebar can render several cards at once and these are
+              ~1080px JPEGs. The anchor gives HR the full-resolution image
+              without needing a lightbox component (none exists in this
+              codebase, and adding one is out of scope). */}
+          {activity.photo_url && (
+            <a
+              href={activity.photo_url}
+              target="_blank"
+              rel="noreferrer"
+              className="attendanceTimelinePhotoLink"
+            >
+              <img
+                src={activity.photo_url}
+                alt="Attendance photo"
+                loading="lazy"
+                className="attendanceTimelinePhoto"
+              />
+            </a>
+          )}
+        </>
       )}
 
       {/* SCAN-LOG VERIFICATION -- the fully raw, ungrouped scan list this

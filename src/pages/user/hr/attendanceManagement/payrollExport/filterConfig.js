@@ -42,9 +42,22 @@ export function getPayrollExportFilterConfig({ departments, employees, workLocat
 // row-flag badge (see PayrollExport.jsx) agree on exactly the same rule.
 export function getRowReconciliationFlags(row) {
   const flags = [];
-  const days = row.daysAbsentCount || 0;
+  // OUTSTANDING counts, not the raw ones. daysAbsentCount /
+  // insufficientHalfDayHoursCount stay whole for payroll -- an acknowledged
+  // absence is still an absence and still an unpaid day -- so the reconciliation
+  // badge reads the unacknowledged* counterparts instead. Reading the raw counts
+  // here would leave a resolved day flagged forever, which is the exact problem
+  // acknowledgement exists to fix.
+  //
+  // The other two categories have no unacknowledged* variant because they are
+  // not acknowledgeable: both clear themselves once corrected leave arrives in
+  // the next HR2000 sync.
+  const days = row.unacknowledgedAbsenceCount ?? row.daysAbsentCount ?? 0;
   const conflicts = row.leaveAttendanceConflictCount || 0;
-  const insufficientHalfDays = row.insufficientHalfDayHoursCount || 0;
+  const insufficientHalfDays =
+    row.unacknowledgedInsufficientHalfDayCount ??
+    row.insufficientHalfDayHoursCount ??
+    0;
   const leaveErrors = row.leaveFractionErrorCount || 0;
 
   if (days > 0) {

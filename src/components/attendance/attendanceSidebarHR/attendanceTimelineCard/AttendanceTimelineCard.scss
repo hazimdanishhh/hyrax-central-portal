@@ -5,3 +5,19 @@
   align-items: flex-start;
   gap: 0.4rem;
 }
+
+// Inline attendance photo on an App timeline card. Capped in height rather
+// than shown full-size: several cards can render in one sidebar, and the
+// stored images are ~1080px. The anchor wrapping it opens the original.
+.attendanceTimelinePhotoLink {
+  display: block;
+  width: 100%;
+}
+
+.attendanceTimelinePhoto {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}

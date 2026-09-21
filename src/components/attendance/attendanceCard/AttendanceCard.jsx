@@ -11,10 +11,15 @@ import AttendanceClock from "../attendanceClock/AttendanceClock";
 import StatusBox from "../../status/statusBox/StatusBox";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import { getDisplayAttendanceFlag } from "../../../functions/attendanceFlagStatus";
+import { formatHours } from "../../../functions/formatDate";
 
 // GENERAL REUSABLE ATTENDANCE CARD
 // WITH PHOTO, ATTENDANCE TYPE ICONS, CLOCK IN/OUT AND APPROVAL STATUS
-function AttendanceCard({ activity, to }) {
+// `target`/`rel` are forwarded to the underlying <Link> so a caller can open
+// the day in a new tab -- PayrollReconciliationSidebar deliberately does, so HR
+// can check a figure without losing their place in the payroll run. Mirrors
+// RouterButton's own API rather than inventing a different one.
+function AttendanceCard({ activity, to, target, rel }) {
   const [showName, setShowName] = useState(false);
 
   // hr_flag no longer distinguishes an unworked weekend from a genuine
@@ -35,7 +40,7 @@ function AttendanceCard({ activity, to }) {
 
   const Wrapper = to ? Link : "div";
   const wrapperProps = to
-    ? { to, className: "generalCard cardPaddingSmall attendanceCard" }
+    ? { to, target, rel, className: "generalCard cardPaddingSmall attendanceCard" }
     : { className: "generalCard cardPaddingSmall attendanceCard" };
 
   return (
@@ -108,24 +113,34 @@ function AttendanceCard({ activity, to }) {
         </div>
       </div>
 
-      {(activity.last_out_time || activity.first_in_time) && (
-        <div className="attendanceCardClockWrapper">
-          {activity.first_in_time && (
-            <AttendanceClock
-              time={activity.first_in_time}
-              type="clockin"
-              isAnomaly={activity.is_late_arrival}
-            />
-          )}
-          {activity.last_out_time && (
-            <AttendanceClock
-              time={activity.last_out_time}
-              type="clockout"
-              isAnomaly={activity.is_early_leave}
-            />
-          )}
-        </div>
-      )}
+      {/* Hours worked sits alongside the clock chips rather than in the badge
+        cluster above -- AttendanceSidebarHR.jsx pairs it with
+        AttendanceAnomalyBadges, but this card already renders those badges in
+        its own top-right cluster, so copying that block wholesale would give
+        the card two badge rows. Deliberately OUTSIDE the first_in/last_out
+        gate: a day with no clock times at all still has a meaningful (0h)
+        figure, and hiding it would make an absent day look like a day whose
+        hours simply weren't loaded. */}
+      <div className="attendanceCardClockWrapper">
+        {activity.first_in_time && (
+          <AttendanceClock
+            time={activity.first_in_time}
+            type="clockin"
+            isAnomaly={activity.is_late_arrival}
+          />
+        )}
+        {activity.last_out_time && (
+          <AttendanceClock
+            time={activity.last_out_time}
+            type="clockout"
+            isAnomaly={activity.is_early_leave}
+          />
+        )}
+
+        <p className="textBold textXXS attendanceCardHours">
+          {formatHours(activity.hours_worked)} worked
+        </p>
+      </div>
     </Wrapper>
   );
 }

@@ -34,3 +34,34 @@ export function buildHrAttendanceListLink({ employeeUuid, code, startDate, endDa
   const flagQuery = params ? `&${params}` : "";
   return `/app/hr/attendance/list?employee=${employeeUuid}${flagQuery}&startDate=${startDate}&endDate=${endDate}`;
 }
+
+/**
+ * Deep link straight to ONE day's detail sidebar, rather than to a filtered
+ * list the user then has to click through.
+ *
+ * `:attendanceId` is the synthetic row id normalizeUnifiedAttendance builds as
+ * `${employee_uuid}_${work_date}`, and fetchAttendanceActivityById splits it
+ * back apart and fetches that exact row -- so this resolves even when the day
+ * isn't on the currently-loaded page. All three attendance list routes declare
+ * the `:attendanceId` child, so it works on HR, My and Team Attendance alike.
+ *
+ * This is what makes the reconciliation loop one click: a flagged day links to
+ * the day itself, where it can actually be fixed or acknowledged. The
+ * list-level builder above stays for the per-section "View all N days" links,
+ * which genuinely do want a filtered list.
+ *
+ * `workDate` MUST be the raw ISO date. In PayrollReconciliationSidebar the raw
+ * (`sectionRow.workDate`) and the formatted copy sit a few lines apart under
+ * near-identical names -- passing the formatted one produces a URL that looks
+ * fine and resolves to nothing.
+ */
+export function buildAttendanceDayLink({ employeeUuid, workDate, scope = "hr" }) {
+  if (!employeeUuid || !workDate) return null;
+
+  const base =
+    scope === "self"
+      ? "/app/employee/attendance/list"
+      : "/app/hr/attendance/list";
+
+  return `${base}/${employeeUuid}_${workDate}`;
+}

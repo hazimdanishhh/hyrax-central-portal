@@ -1,0 +1,61 @@
+// Inline day-level actions rendered inside a day's Activity Timeline:
+// adding a missing activity, and acknowledging a flag that is correct as-is.
+
+.dayActionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.dayActionHeaderButtons {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.dayActionForm {
+  width: 100%;
+}
+
+.dayActionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.dayActionButtons {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.dayActionShapeSelect {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 6px;
+}
+
+.dayActionTimeInput {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 6px;
+  width: 6rem;
+}
+
+.dayActionWarning {
+  color: #b45309;
+}
+
+.dayActionAcknowledged {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+}

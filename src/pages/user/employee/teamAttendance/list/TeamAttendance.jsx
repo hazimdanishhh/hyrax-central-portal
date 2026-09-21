@@ -1,5 +1,6 @@
 // pages/user/employee/teamAttendance/list/TeamAttendance.jsx
 import {
+  CalendarPlusIcon,
   CaretLeftIcon,
   CaretRightIcon,
   PencilSimpleLineIcon,
@@ -10,6 +11,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "@/components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "@/components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
+import AttendanceBackfillWizard from "@/components/attendance/attendanceBackfillWizard/AttendanceBackfillWizard";
 import Button from "@/components/buttons/button/Button";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import ActiveFiltersBar from "@/components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -86,6 +88,7 @@ export default function TeamAttendance() {
   const { showMessage } = useMessage();
   const { employee } = useEmployee();
   const [layout, setLayout] = useState(1); // 1: Card, 2: Table
+  const [backfillOpen, setBackfillOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState(null); // "approve" | "reject"
@@ -146,7 +149,7 @@ export default function TeamAttendance() {
   // Only workLocations is needed from this hook here -- reused rather than
   // adding a second, narrower fetch just for one filter dropdown, same
   // technique this app's other Overview/List pages already use.
-  const { workLocations } = useAttendanceActivitiesMetadata();
+  const { workLocations, attendanceTypes } = useAttendanceActivitiesMetadata();
 
   // ==============
   // CONFIG
@@ -271,21 +274,24 @@ export default function TeamAttendance() {
         enableDateRange
       />
 
-      {/* <PageHeader>
+      {/* The layout toggle and SortBar stay commented out (the Table layout
+          is unreachable on this page), but the header itself is needed for the
+          backfill action -- a manager correcting a direct report's day. */}
+      <PageHeader>
         <PageActions
-          layout={layout}
-          setLayout={setLayout}
-          options={layoutOptions}
+          actionButtons={[
+            {
+              // Declaring, not correcting -- see MyAttendance's note. A
+              // manager fixing a report's broken day does it from that day's
+              // sidebar.
+              name: "Add Attendance",
+              icon: CalendarPlusIcon,
+              onClick: () => setBackfillOpen(true),
+              style: "button buttonType5 greenFill buttonFull textXXS",
+            },
+          ]}
         />
-
-        <SortBar
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOptions={sortOptions}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-        />
-      </PageHeader> */}
+      </PageHeader>
 
       {hasActiveFilters && (
         <ActiveFiltersBar
@@ -446,6 +452,22 @@ export default function TeamAttendance() {
         }
         onConfirm={handleConfirmAction}
         modalType={modalType}
+      />
+
+      {/* Scope "team" offers only this manager's direct reports.
+          create_attendance_backfill independently re-checks
+          employees.manager_id per row against auth.uid(), so the picker is a
+          convenience, not the access control. */}
+      <AttendanceBackfillWizard
+        open={backfillOpen}
+        onClose={() => setBackfillOpen(false)}
+        scope="team"
+        employeeOptions={subordinates.map((e) => ({
+          value: e.id,
+          label: e.full_name,
+          avatarUrl: e.avatar_url,
+        }))}
+        attendanceTypes={attendanceTypes}
       />
     </>
   );

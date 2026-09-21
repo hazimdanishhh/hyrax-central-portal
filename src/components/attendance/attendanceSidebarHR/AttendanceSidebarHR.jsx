@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import AttendanceType from "../attendanceType/AttendanceType";
@@ -8,6 +8,7 @@ import {
   XIcon,
   WarningCircleIcon,
   CheckCircleIcon,
+  PlusCircleIcon,
 } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
 import "./AttendanceSidebarHR.scss";
@@ -19,8 +20,14 @@ import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineCard";
 import AttendanceDayTimelineBar from "../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
-import { getDisplayAttendanceFlag } from "../../../functions/attendanceFlagStatus";
+import {
+  getDisplayAttendanceFlag,
+  getAnomalyAnchorActivityIds,
+} from "../../../functions/attendanceFlagStatus";
 import { formatHours } from "../../../functions/formatDate";
+import AddActivityForm from "./dayActions/AddActivityForm";
+import AcknowledgeDayPanel from "./dayActions/AcknowledgeDayPanel";
+import "./dayActions/DayActions.scss";
 
 export default function AttendanceSidebarHR({
   selectedRow, // This is now the Daily Summary Row
@@ -30,19 +37,26 @@ export default function AttendanceSidebarHR({
   clockOutAttendanceActivity,
   mode = "hr", // "hr" | "self" | "manager" -- see AttendanceTimelineCard for what each mode shows
 }) {
+  // The RAW ISO work date. selectedRow.work_date is NOT usable for this --
+  // normalizeUnifiedAttendance overwrites it with a formatted display string
+  // ("15 Sep 2026"). The synthetic `id` is built as
+  // `${employee_uuid}_${work_date}` on the line BEFORE that overwrite, so it
+  // holds the only surviving ISO copy on this row.
+  //
+  // This also fixes a latent bug: fetchEmployeeDayDetails below used to be
+  // passed the formatted string, and worked only because Postgres happens to
+  // parse "15 Sep 2026" as a date.
+  const workDateIso = useMemo(
+    () => selectedRow?.id?.split("_")[1] ?? null,
+    [selectedRow?.id],
+  );
+
   // 1. Fetch the granular timeline for THIS employee on THIS day
   const { data: timelineData, isLoading } = useQuery({
-    queryKey: [
-      "attendance_activities",
-      selectedRow?.employee_uuid,
-      selectedRow?.work_date,
-    ],
+    queryKey: ["attendance_activities", selectedRow?.employee_uuid, workDateIso],
     queryFn: () =>
-      fetchEmployeeDayDetails(
-        selectedRow?.employee_uuid,
-        selectedRow?.work_date,
-      ),
-    enabled: !!selectedRow?.employee_uuid && !!selectedRow?.work_date,
+      fetchEmployeeDayDetails(selectedRow?.employee_uuid, workDateIso),
+    enabled: !!selectedRow?.employee_uuid && !!workDateIso,
   });
 
   // hr_flag no longer distinguishes an unworked weekend from a genuine
@@ -58,6 +72,27 @@ export default function AttendanceSidebarHR({
   // above, so this only fires when hr_flag isn't "Absent".
   const showWorkedWeekendTag =
     selectedRow?.is_weekend && selectedRow?.hr_flag !== "Absent";
+
+  const [addingActivity, setAddingActivity] = useState(false);
+
+  // Only a real absence on a real working day is acknowledgeable. The
+  // not-weekend / not-holiday guards are load-bearing, not defensive: since
+  // weekend became an independent is_weekend flag, hr_flag = 'Absent' also
+  // matches every unworked Saturday, and offering to "acknowledge an absence"
+  // on a Sunday would be nonsense. Mirrors get_payroll_reconciliation_rows()'s
+  // own predicate exactly.
+  const isAbsentWorkingDay =
+    selectedRow?.hr_flag === "Absent" &&
+    !selectedRow?.is_weekend &&
+    !selectedRow?.is_public_holiday;
+
+  // Which single timeline card produced this day's late-arrival /
+  // early-leave flags -- see getAnomalyAnchorActivityIds for why only one
+  // card may carry each.
+  const { earliestActivityId, latestActivityId } = React.useMemo(
+    () => getAnomalyAnchorActivityIds(timelineData),
+    [timelineData],
+  );
 
   return (
     <div className="attendanceCardSidebarContainer">
@@ -123,10 +158,18 @@ export default function AttendanceSidebarHR({
         }}
       >
         {selectedRow.first_in_time && (
-          <AttendanceClock time={selectedRow.first_in_time} type="clockin" />
+          <AttendanceClock
+            time={selectedRow.first_in_time}
+            type="clockin"
+            isAnomaly={selectedRow.is_late_arrival}
+          />
         )}
         {selectedRow.last_out_time && (
-          <AttendanceClock time={selectedRow.last_out_time} type="clockout" />
+          <AttendanceClock
+            time={selectedRow.last_out_time}
+            type="clockout"
+            isAnomaly={selectedRow.is_early_leave}
+          />
         )}
       </div>
 
@@ -149,7 +192,62 @@ export default function AttendanceSidebarHR({
       </div>
 
       <div className="divider"></div>
-      <p className="textBold textS mb-2">Activity Timeline</p>
+
+      {/* DAY-LEVEL ACTIONS -- the fixing surface. These live here rather than
+          on a timeline card because AttendanceTimelineCard early-returns for
+          Leave/Holiday rows and gates on event_source === "App": on an absent
+          day (exactly the day reconciliation cares about) there is no card at
+          all to hang a button off. */}
+      <div className="dayActionHeader">
+        <p className="textBold textS">Activity Timeline</p>
+
+        {!addingActivity && workDateIso && (
+          <div className="dayActionHeaderButtons">
+            <Button
+              name={mode === "self" ? "Report Missing Activity" : "Add Activity"}
+              icon={PlusCircleIcon}
+              style="button buttonType4 textBold textXXS"
+              onClick={() => setAddingActivity(true)}
+            />
+          </div>
+        )}
+      </div>
+
+      {addingActivity && workDateIso && (
+        <AddActivityForm
+          employeeId={selectedRow.employee_uuid}
+          workDateIso={workDateIso}
+          isSelf={mode === "self"}
+          onCancel={() => setAddingActivity(false)}
+          onSaved={() => setAddingActivity(false)}
+        />
+      )}
+
+      {/* Acknowledging a flag that is CORRECT as it stands -- overwhelmingly,
+          confirming a real absence so it stops being an open payroll item.
+          Absences: employee, manager or HR. Short half-day hours: HR only,
+          since waving that one away is to the employee's advantage. */}
+      {workDateIso && isAbsentWorkingDay && (
+        <AcknowledgeDayPanel
+          employeeId={selectedRow.employee_uuid}
+          workDateIso={workDateIso}
+          category="absent"
+          canAcknowledge
+          canRevoke={mode === "hr"}
+        />
+      )}
+
+      {workDateIso &&
+        mode === "hr" &&
+        selectedRow?.is_insufficient_half_day_hours && (
+          <AcknowledgeDayPanel
+            employeeId={selectedRow.employee_uuid}
+            workDateIso={workDateIso}
+            category="insufficient_half_day"
+            canAcknowledge
+            canRevoke
+          />
+        )}
 
       {/* LOADING STATE */}
       {isLoading ? (
@@ -170,6 +268,14 @@ export default function AttendanceSidebarHR({
               setSelectedId={setSelectedId}
               clockOutAttendanceActivity={clockOutAttendanceActivity}
               mode={mode}
+              isLateArrival={
+                !!selectedRow?.is_late_arrival &&
+                activity.activity_id === earliestActivityId
+              }
+              isEarlyLeave={
+                !!selectedRow?.is_early_leave &&
+                activity.activity_id === latestActivityId
+              }
             />
           ))}
         </div>

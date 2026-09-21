@@ -284,3 +284,440 @@ The "Edit Clock In"/"Edit Clock Out" sub-forms used to use `editor: "dateTime"` 
 **Payroll Period Summary export**: the actual "buildable now" artifact from the payroll doc's own phasing section — one row per active employee, per selected cycle, of everything this app can correctly and reliably compute. New RPC `get_payroll_period_summary_rpc.sql` structurally mirrors `get_attendance_dashboard_rpc.sql`'s `period_rows`/`employee_leave_rows` CTEs and its HR/superadmin authorization guard (no self-service branch — this only ever powers the new HR-only tab), but **`GROUP BY employee_uuid`, not `full_name`** — `get_attendance_dashboard_rpc.sql`'s own `topOvertimeData`/`topAbsenteeismData` group by `full_name`, a real latent bug (two employees sharing a name would silently merge) that payroll data must never repeat. Per-employee output: `hoursWorkedTotal`, `overtimeHoursTotal`, `daysAbsentCount` (using the payroll doc's own documented-correct definition — `hr_flag = 'Absent' AND NOT is_weekend AND NOT is_public_holiday`, not `hr_flag = 'Absent'` alone), `holidayDaysWorkedCount`/`holidayHoursWorkedTotal`, `weekendDaysWorkedCount`/`weekendHoursWorkedTotal`, `paidLeaveDaysTotal`/`unpaidLeaveDaysTotal`, and three anomaly-flag counts (`leaveAttendanceConflictCount`/`insufficientHalfDayHoursCount`/`leaveFractionErrorCount`) — everything phasing item 1 asked for. Every active employee already has one `unified_daily_attendance` row per day in range (including zero-activity days, per the existing date-spine), so a plain `GROUP BY` over the period's rows yields the correct roster with no separate employee-roster join needed.
 
 New feature folder `src/features/hr/payroll/private/` (`api/payrollPeriodSummaryService.js`, `hooks/usePayrollPeriodSummary.js`) — the service is deliberately always-unpaginated (the RPC already returns every active employee for the period in one shot, same "headcount-bounded" precedent as `fetchUnifiedAttendance`'s Day mode), and accepts `search`/`sortBy`/`sortOrder`/`isExport` only for drop-in compatibility with `CsvExportButton`'s `fetchFn` contract — they're otherwise unused. Filter keys (`startDate`/`endDate`/`department`/`employee`) deliberately match the convention every other Attendance filter bar already writes (`fetchAttendanceDashboard.js`'s `buildAttendanceDashboardParams`), so the new **Payroll Export** tab (`src/pages/user/hr/attendanceManagement/payrollExport/`, 4th tab alongside Overview/List/Settings, route `hr/attendance/payroll-export`) could reuse `SearchFilterBar` (date range + Department/Employee filters + its existing `enableExport`/`exportFetchFn`/`exportColumns` props, exactly as Sales Leads already does — zero changes to either component) and `PayrollCycleFilterBar` as-is, stacked the same way `AttendanceOverview.jsx` already stacks them. The on-screen preview (`DataTable` + `tableConfig.jsx`) and the CSV export (`exportConfig.js`) intentionally share the same field set, so the downloaded file always matches what HR just reviewed on screen.
+
+## Manual attendance entry — closing the reconciliation loop
+
+Payroll Export already told HR which employee-days needed reconciling, and
+already emailed the employee about them (`queue_payroll_reconciliation_email_rpc.sql`).
+**Nothing could record the answer.** `payroll_reconciliation_glossary` instructs
+the employee to "account for the working half of the day" or "confirm whether
+this was planned leave", but My Attendance was view + self-clock-out only, Team
+Attendance was approve/reject only, and HR's own "Add Attendance" form had no
+date or time fields at all — it relied on `clocked_in_at DEFAULT now()` and left
+`clocked_out_at` null, so it could only ever create a still-open session dated
+today. An employee who received the reconciliation email had nowhere to go.
+
+### Two orthogonal dimensions, not one
+
+The design question was whether "the scanner failed" belongs in `attendance_types`.
+It does not:
+
+| | Answers | Consumed by |
+| --- | --- | --- |
+| `attendance_types` | *What the person was doing* | The future claims layer — `trip_allowance_claims` must be able to ask "did attendance record an Overseas Trip on this date?" |
+| `entry_method` (new) | *How this record got here* | HR/payroll judging whether hours are **observed** (scan/app) or **asserted** (typed in) |
+
+An Office day backfilled by HR is still an Office day for `hours_worked`,
+`overtime_hours`, `is_worked_on_holiday` and every statutory rate-tier estimate.
+Encoding provenance as a *type* would corrupt the exact field the claims layer
+reads — a milder version of the mistake that got the self-selectable `Overtime`
+type deleted (`attendance_types_cleanup_migration.sql`), which
+`OVERTIME-WEEKEND-HOLIDAY-CLAIMS-DESIGN.md` explicitly warns not to repeat.
+
+`entry_method text not null default 'self_clock_in'` — `self_clock_in` /
+`employee_reconciliation` / `manager_backfill` / `hr_backfill`. The default is
+correct for every historical row, not merely convenient: until this change the
+app had exactly one insert path into `attendance_activities`.
+
+`adjustment_reason_id` points at a new **lookup table**
+(`attendance_adjustment_reasons`) rather than a CHECK constraint, following
+`payroll_reconciliation_glossary`'s precedent — the description is rendered as
+helper text in the form, HR can reword it without a deploy, and the reason
+becomes reportable ("how many device-failure days this cycle" is a real
+IoT-health signal, not just a label).
+
+### New `attendance_types` rows
+
+Overseas Trip and Local Trip are **separate rows**, since their weekend rules
+genuinely differ (2x daily allowance vs. a Replacement Leave day). Company Event
+covers attended work that is neither Training nor a client-facing Site Visit.
+
+**Driving Duty** exists because of a fact confirmed with the user that reframes
+the whole category: *the scanners are door-access devices, not time clocks*.
+Lorry drivers badge in at the plant and drive out — the driving is recorded
+nowhere. Company/personal drivers badge in, are rarely at the office, and work
+out of it. For both, the work is structurally invisible **every day**, not
+occasionally, so it needs a type rather than day-by-day reconciliation.
+*Open question for the claims layer*: whether lorry-driver trips and
+executive-driver standby need separate types (different OT/allowance treatment
+would split them, exactly as it split the two trip types).
+
+**Office and Blending Plant are re-added, gated.** A new
+`attendance_types.is_self_selectable` boolean keeps them out of the live
+clock-in dropdown — preserving the scanner-only policy this document opens with
+— while making them available to the backfill path, which is a deliberate,
+reason-coded correction rather than a self-service assertion of presence. The
+filter lives in `src/data/attendanceActivityConfig.js` (the one config behind
+both live clock-in surfaces), **not** in `useAttendanceTypes.js`, which also
+feeds HR's timeline Edit form and must keep the full list.
+
+Note the deliberate consequence: a backfilled "Office" app card and a real
+Office scan card now carry the same `attendance_type` name on the same day. The
+hours stay correct (`daily_hw_remote_overlap` handles it); the two are told
+apart by the new provenance badge on the timeline card.
+
+### `create_attendance_backfill()`
+
+Modelled structurally on `sync_leave_ledger_from_snapshot` — `security definer`,
+`set search_path = ''`, temp-table staging, two-phase validation, dry-run branch.
+The client never supplies `entry_method`, `created_by`, `approval_status`,
+`approved_by` or `approved_at`; all five are derived from `auth.uid()`, so a
+crafted request cannot self-approve. Authorization is evaluated **per row**,
+copying `approve_attendance.sql`'s three branches verbatim so the two cannot
+drift, and a row outside the caller's rights is a *structural* error (whole
+batch rejected) rather than a silent skip — dropping it would hide a privilege
+mistake.
+
+**Approval, decided deliberately**: `employee_reconciliation` lands `Pending`;
+`hr_backfill`/`manager_backfill` land `Approved` with the actor stamped. The
+approval step exists so an *employee-asserted* day gets supervisor sign-off —
+when HR or the manager enters it, the asserter and the approver are already the
+same authorised party under `approve_attendance`'s own rules, so the round trip
+is a null control. Leaving it Pending would also flip `hr_flag` to
+`Pending App Approval` on the very day HR just corrected, and flood
+`check_attendance_approvals_pending` with hundreds of rows — which pushes HR
+toward blind bulk approval, strictly worse than auto-approving with
+`created_by` + `approved_by` both recorded. `approve_attendance`/
+`reject_attendance` are unmodified.
+
+**The hard guard**: an overlap with any existing non-`Rejected`
+`attendance_activities` row is skipped with **no override**. `daily_app` SUMs
+hours across every non-Rejected row for an employee-day, so two overlapping rows
+inflate `hours_worked` -> `overtime_hours` -> the statutory tiers -> the payroll
+handoff, with no error anywhere. The `<> 'Rejected'` predicate mirrors
+`daily_app`'s own exactly (a Rejected row contributes zero hours, so blocking an
+overlap with it would be a false positive).
+
+Both clock times are **mandatory**, which is the single most important rule in
+the function. A null `clocked_out_at` is an open session, and an open session
+(a) gets force-closed to `now()` by `auto_clock_out()`'s two cutoffs, silently
+overwriting the intended time, and (b) breaks `AttendanceProvider`'s
+`.maybeSingle()` "am I clocked in" query the moment a second open row exists —
+PostgREST returns `PGRST116`, the catch sets `currentActivity` to null, the nav
+widget reports "not clocked in" while the employee is, and clocking in again
+adds a third open row. That compounds permanently and does not self-heal. The
+single-row "Add Single Activity" form (kept because it is the only photo-capable
+path) was creating exactly this and has been fixed with required
+`work_date` + two `time` columns anchored via `getReferenceDate`.
+
+### Future dates and the date-spine cap
+
+Future-dated attendance is allowed — pre-recording an approved business trip is
+a real need. But `get_company_activity_dates()` unions every distinct
+`attendance_activities` date into `active_company_dates`, which cross-joins
+`expected_shifts`: **one future-dated row would generate an `Absent` row for
+every active employee on a day that hasn't happened**, corrupting
+`absent_days_count`, `attendanceRatePct`, `absenteeismRatePct` and the Top
+Absenteeism leaderboard. (The spine's weekend `generate_series` already runs a
+year forward and is harmless — a future weekend reads `is_weekend`, renders
+grey, and is excluded from every RPC denominator. Weekdays have no such
+treatment.)
+
+Fixed by capping that one branch at `(now() at time zone 'Asia/Kuala_Lumpur')::date`
+— MYT, not `CURRENT_DATE`, since the database runs in UTC and before 08:00 MYT
+`CURRENT_DATE` lags a day. The future row still exists in
+`attendance_activities` (so the claims layer can read a planned trip) and enters
+the view normally once its date arrives. Purely restrictive, inside a CTE, so it
+carries none of this view's append-only risk.
+
+### Default clock times
+
+Location-aware, matching the shift assumptions already baked into
+`normal_hours_threshold` (08:30 start, 1h unpaid lunch, end =
+`work_locations.early_leave_time`): full day 08:30–17:00 (KL) / 08:30–17:30
+(Meru), AM half 08:30–12:30, PM half 13:00–shift end. These land **exactly on**
+the threshold, so a backfilled full day produces zero phantom overtime — a flat
+08:00–17:00 would hand every KL employee 0.5h of spurious
+`estimated_normal_day_ot_hours` every time.
+
+Business-trip types force full-day: the allowance is a flat daily entitlement
+and trips generate allowance, never overtime, so recording real hours would only
+manufacture OT against the very figure the claims layer is meant to reconcile.
+
+Where a real scan already exists that day, the form prefills the known side and
+only defaults the missing one — dropping a synthetic 08:30 onto a day with a
+real 08:33 scan would assert a time nobody observed. This composes correctly
+with `daily_hw_remote_overlap`: on a two-scan day (08:33, 12:00) a backfilled
+08:33–17:00 row gives `GREATEST(0, 3.45 − 3.45) + 8.45 = 8.45h`, not 11.9h.
+
+### Notifications
+
+`trg_notify_attendance_clocked_in` now carries a `WHEN (new.entry_method =
+'self_clock_in' and new.clocked_out_at is null)` clause, with the same guard
+repeated inside the function so it stays correct standalone. The
+`clocked_out_at` half is load-bearing rather than defensive: `entry_method` has
+a default, so a future insert path that forgets to set it would otherwise slip
+through. Without this, a 5-employee x 10-day backfill sent 50 "You are now
+clocked in — remember to clock out" messages about closed sessions in the past.
+
+The HR/manager path emits one new `attendance.backfilled` event **per affected
+employee, from inside the RPC** — not from a row trigger, because a trigger
+physically cannot aggregate and ten backfilled days would fire ten times. This
+is the one place in this schema where breaking the trigger convention is
+correct, and that aggregation requirement is the reason.
+
+The self path emits **nothing new**: the row lands `Pending`, and
+`check_attendance_approvals_pending` plus its seeded rule already notify the
+approver. A second mechanism for the same fact could only disagree with the
+first.
+
+### Deliberately not built this pass
+
+- **Bulk "Send to All" reconciliation email.** `queue_payroll_reconciliation_email`
+  is still single-employee; its own header already notes a bulk version is a
+  small follow-up loop over it.
+- **Period lock/freeze.** Still MISSING per `PAYROLL-DATA-REQUIREMENTS.md` §6 —
+  a manual entry added after HR exports a cycle silently changes numbers already
+  handed to payroll. The wizard's result screen says so in plain words; nothing
+  enforces it.
+- **The claims/actuals chain** (`OVERTIME-WEEKEND-HOLIDAY-CLAIMS-DESIGN.md`,
+  `EXPENSE-CLAIMS-DESIGN.md`) — both still blocked on HR's real paper form. The
+  trip attendance types this pass adds are the anchor those will reconcile
+  against.
+
+### Display fixes shipped alongside
+
+- **`AttendanceCard`** now shows `hours_worked` (it was already on the row,
+  unused). `formatHours()` was hardened with an explicit `Number()` coercion —
+  `normalizeUnifiedAttendance` hands it a *string* (`.toFixed(2)`) while
+  `fetchMyAttendanceThisWeek` hands it a number, the same class of mismatch as
+  the documented `CustomLegend.jsx` `NaN%` bug.
+- **`isAnomaly` is now passed** on the sidebar header, the Dashboard card and
+  the timeline cards — previously only `AttendanceCard` passed it, so a late
+  arrival rendered plain green everywhere else. For the timeline this needed a
+  decision, since `is_late_arrival`/`is_early_leave` are *day-level* facts on a
+  *per-activity* component: **only the card that actually produced the flag is
+  painted**, resolved by `getAnomalyAnchorActivityIds()` (shared by the sidebar
+  and the Dashboard card). This is exact rather than approximate — `first_in`/
+  `last_out` are literally MIN/MAX over those same rows — and it excludes
+  `Rejected` rows for the same reason `daily_app`'s MIN/MAX do, or a rejected
+  07:00 session would take the chip while the flag came from a different row.
+  This supersedes the earlier "deliberately left alone" note above for
+  `AttendanceTimelineCard`, which was about per-activity *badges*.
+- **Photo and notes now render inline** on App timeline cards. Both columns had
+  been on `attendance_activity_audit` since the Edit-form fix, but were only
+  reachable by opening the Edit form — meaning an attendance photo, whose entire
+  purpose is after-the-fact verification, was invisible on the surface where
+  verification happens.
+
+## Acknowledging a flag — resolving a day that is correct as it stands
+
+The reconciliation write path above closed one half of the loop: a day that was
+*wrong* could finally be fixed. The other half was still missing, and the
+glossary was already promising it. `payroll_reconciliation_glossary` tells the
+employee, for an absence:
+
+> "Confirm whether this was planned leave that was never logged — apply for it
+> retroactively — **or confirm it is a genuine unexcused absence** before
+> payroll treats the day as unpaid."
+
+There was no way to do the second half. The only way to clear an `Absent` flag
+was to add attendance — i.e. to record work that never happened. So a genuine
+absence stayed flagged forever, reappearing in every weekly reminder and every
+payroll export, and the reconciliation list could never reach zero.
+
+**Semantics, confirmed with HR: acknowledging an absence declares the day
+UNPAID.** That is its whole meaning, which removes the paid/unpaid ambiguity
+entirely — the reason attached to it is audit/reporting only, not a payroll
+switch.
+
+**Acknowledging closes the REVIEW, not the FACT.** `daysAbsentCount` on
+`get_payroll_period_summary_rpc.sql` deliberately still counts an acknowledged
+day: the employee was absent and payroll still deducts an unpaid day. What
+acknowledging feeds is a parallel `unacknowledgedAbsenceCount` (and
+`unacknowledgedInsufficientHalfDayCount`), which is what the Payroll Export
+row-flag badge and the "Needs Reconciliation" filter read. Collapsing the two
+would silently under-report unpaid days to payroll — this is the one place in
+this feature with money directly attached, so it is worth restating: the raw
+counts are payroll's, the `unacknowledged*` counts are the UI's.
+
+### Scope — two categories, not four
+
+Only `absent` and `insufficient_half_day` are acknowledgeable. `leave_conflict`
+and `leave_fraction_error` are deliberately excluded: both resolve themselves
+once the corrected leave lands in the next HR2000 weekly sync
+(`sync_leave_ledger_from_snapshot`), so an acknowledgement would be a second,
+competing source of truth for something already converging on its own.
+
+### The grain, and why it is the right one
+
+`attendance_reconciliation_acknowledgements` is keyed on
+`(employee_id, work_date, category)` — **exactly the grain
+`get_payroll_reconciliation_rows()` already emits**, one row per flagged cell.
+The table mirrors the shape of the thing it silences, so "is this flag
+resolved?" is a single `NOT EXISTS` with no translation layer anywhere.
+`category` FKs `payroll_reconciliation_glossary(code)` (already unique), so the
+acknowledgement vocabulary can never drift from the flag vocabulary.
+
+Reasons live in a sibling lookup (`attendance_acknowledgement_reasons`),
+mirroring `attendance_adjustment_reasons`, plus an `applicable_categories
+text[]` to scope reasons per category — the shape `EXPENSE-CLAIMS-DESIGN.md`
+already specifies for `expense_claim_categories.applicable_claim_types`. The
+seeded labels (absent without notice / notified, no leave entitlement / sick
+without MC / unpaid leave agreed / other) are a **proposal, not confirmed
+company policy** — flagged in the migration with the same caveat
+`leave_ledger_types.is_paid` carries.
+
+### Authorization is category-dependent, which is why it lives in an RPC
+
+```
+absent                -> self OR direct manager OR HR OR superadmin
+insufficient_half_day -> HR OR superadmin only
+```
+
+An employee confirming their own absence is an admission against their own
+interest — the day is unpaid either way, so there is nothing to gain and no
+reason to withhold it. An employee waving away "insufficient half-day hours"
+*is* to their advantage, so that one stays with HR. Splitting that across RLS
+policies would have been far less legible than one `acknowledge_attendance_day`
+function, which is also where the "is this day genuinely flagged right now"
+check lives — without it you could pre-acknowledge a day that was never flagged
+and permanently suppress a problem that had not happened yet.
+
+`revoke_attendance_day_acknowledgement` is HR/superadmin only even for an
+absence the employee closed themselves: re-opening a settled payroll item is a
+different act from closing one.
+
+The RPC is idempotent — two people clicking the same button returns the
+existing row rather than erroring on the unique key.
+
+### Four suppression points, and why they are four
+
+| Where | Why it needs its own filter |
+| --- | --- |
+| `get_payroll_reconciliation_rows.sql` | Clears **three** consumers at once — the HR drilldown sidebar, the emailed list, and `send_payroll_reconciliation_notifications` (the weekly employee reminder) all call this one helper. |
+| `send_payroll_reconciliation_hr_digest.sql` | Computes `has_absent` / `has_insufficient_half_day` **directly from the view**, not through the helper, so it would otherwise keep reporting counts for days already resolved everywhere else. |
+| `get_payroll_period_summary_rpc.sql` | Adds the `unacknowledged*` counts beside (not instead of) the raw ones. |
+| `payrollExport/filterConfig.js` | `getRowReconciliationFlags` reads the `unacknowledged*` counts, so the badge and the filter can't disagree with the drilldown. |
+
+### UI
+
+`AttendanceSidebarHR` gained a day-actions block above the Activity Timeline:
+**Add Activity** (see below) and **Acknowledge Absence**. Both live at *sidebar*
+level rather than on a timeline card, for a structural reason —
+`AttendanceTimelineCard` early-returns for Leave/Holiday rows and gates its
+actions on `event_source === "App"`, and on an absent day `timelineData` is
+empty, so there is no card at all to hang a button off. The absent day is
+exactly the day reconciliation cares about.
+
+Once set, the panel shows who acknowledged it, when, and why, with a revoke
+action for HR.
+
+## Declaring vs fixing — two page-level surfaces, split by job
+
+A refinement after the first build: **declaring** attendance and **fixing**
+attendance are different jobs, and conflating them made the employee-facing
+wizard read as a correction tool when its real everyday use is business trips.
+
+| Surface | Job |
+| --- | --- |
+| **Day editor** (`AttendanceSidebarHR`'s Add Activity) | *Fixing.* One employee, one specific day that is wrong. The only fixing surface for employees and managers. |
+| **Add Attendance** (page-level, My + Team Attendance) | *Declaring.* Whole-day attendance with no clock in/out to begin with — trips, company events, training. |
+| **Backfill Attendance** (page-level, HR only) | *Mass correction.* Many employees × a date range, one type+reason applied uniformly — "the Meru scanner was down Tuesday, backfill 40 people." |
+| **Add Single Activity** (page-level, HR only) | Any date including **future** ones, where no list row exists to open a sidebar from. The only photo-capable path. |
+
+This matches the standard time-and-attendance split (Kronos/UKG "Mass Edit", ADP,
+Workday): applying one value uniformly across many people is *what mass edit is
+for*, not a shortcoming of it. The original mistake was making the wizard the
+only path.
+
+The employee-facing scopes keep the full type list rather than being restricted
+to whole-day types — a legitimate multi-day WFH or Training declaration would
+otherwise be blocked — but sort whole-day types first, since those are the
+intended everyday use. HR's own wizard keeps alphabetical order.
+
+## `attendance_types.is_full_day`
+
+The punch-entry (an in/out pair, measured) vs pay-code-entry (a day, declared)
+distinction, made data-driven. True only for Overseas Trip and Local Trip: their
+allowance is a flat daily entitlement and trips generate allowance, never
+overtime, so asking for hours would only manufacture OT against the exact figure
+the claims layer is meant to reconcile against.
+
+Deliberately **false** for Driving Duty — lorry and company drivers "always have
+OT, working out of the office", so their real hours are the entire point of
+recording the day — and for Company Event and Training, both of which can be
+half days.
+
+A whole-day type still *writes* clock times (`attendance_activities` has no
+duration column, and `clocked_out_at` must never be null). They are derived
+server-side in `create_attendance_backfill()` from the chosen day shape plus the
+employee's own work location. The UI simply never asks. This replaced a
+hardcoded JS name-match (`["overseas trip", "local trip"]`) that would have
+broken silently the first time someone renamed a type in Studio.
+
+The frontend tests `=== true`, not `!== false`: an unrecognised or
+pre-migration row must fall back to **timed**, which shows visible, correctable
+time inputs rather than silently recording a whole day. That is deliberately the
+inverse polarity of `is_self_selectable !== false`, where the safe fallback is
+"offer it".
+
+## `DataForm` conditional field visibility
+
+`col.show` may now be a function of the live form values, not only a static
+boolean:
+
+```js
+show: (formValues) => !isFullDaySelected(formValues)
+```
+
+Used to hide the clock-time fields once a whole-day attendance type is chosen.
+Verified purely additive — `show` is read in exactly one place in the repo
+(`DataForm.jsx`; `DataTable` never reads it, as CLAUDE.md already documents),
+and all ~22 existing usages are booleans resolved at config-build time.
+
+Three details worth knowing before using it:
+
+- **Columns are filtered before grouping**, so a section whose every field is
+  hidden now disappears instead of rendering an empty header card.
+- **`required` cannot be a function.** Conditional requiredness must go through
+  `col.validate(value, { formValues })`, which is form-value-aware. A hidden
+  field doesn't block submit anyway (its rules unmount with its Controller), but
+  don't rely on that for correctness.
+- **`onSubmit` strips fields hidden by a *function* `show`.** react-hook-form
+  defaults to `shouldUnregister: false`, so an unmounted field keeps its last
+  value and would otherwise still be submitted — e.g. a clock-in time typed
+  before switching to a whole-day type. Deliberately scoped to the function
+  form: statically hidden columns (`show: false` ids, `show: !creating`) must
+  keep submitting, since that is how the update target reaches `onSave`.
+
+This revives a pattern the codebase had already scaffolded and abandoned —
+`src/data/attendanceActivityConfig.js` takes a `selectedTypeId` param with
+commented-out `show:`/`required:` driven by it, and nothing ever passed it.
+
+## Bugs found and fixed in the same pass
+
+- **The page-level "Add Single Activity" form could never be submitted.**
+  `EditableField` called `col.getReferenceDate(rowData)` with `rowData` only; on
+  create `rowData` is `{}`, so it returned `undefined`,
+  `combineMYTDateAndTime()` short-circuited to `null`, and the two `required`
+  time fields could never be filled. Fixed by passing `currentFormValues` as a
+  second argument, so a time column can anchor to a **sibling `work_date` field
+  the user is filling in right now**. The `work_date` column also got
+  `clears: ["clocked_in_at", "clocked_out_at"]`, since `referenceDate` is only
+  consulted inside `TimeEditor.handleChange` — changing the date afterwards
+  would otherwise leave the times anchored to the old one.
+- **The per-day cards in `PayrollReconciliationSidebar` were dead clicks.**
+  `AttendanceCard`'s signature is `({ activity, to })` and the sidebar was
+  passing `onClick`, which React drops silently. They now pass `to` — and go to
+  **that day's own sidebar** rather than a single-day filtered list, via a new
+  `buildAttendanceDayLink()`. The `/<uuid>_<YYYY-MM-DD>` path resolves through
+  `fetchAttendanceActivityById`, which has always supported it; nothing had ever
+  built such a URL. `AttendanceCard` gained `target`/`rel` passthrough so the
+  sidebar keeps its deliberate new-tab behaviour.
+- **`buildHrAttendanceListLink` can return `null`**, and `RouterButton` handed
+  it straight to `<Link to={null}>`, which react-router v7 throws on.
+  `RouterButton` now renders nothing for a falsy `to`, matching the
+  "non-clickable when the target isn't available" convention
+  `supabase/access-control/README.md` already mandates.
+- **A contradiction introduced by the first pass**: `AttendanceManagement.jsx`
+  was writing `entry_method: 'hr_backfill'` with `approval_status: 'Pending'`,
+  directly against `create_attendance_backfill`'s own rule
+  (`hr_backfill → Approved`). Two write paths, two answers for the same fact.
+  The page-level form now matches the RPC and stamps `approved_by`/`approved_at`.
+- **`fetchEmployeeDayDetails` was being passed a formatted date string**
+  ("15 Sep 2026") and worked only because Postgres happens to parse it. It now
+  receives the ISO value, recovered from `selectedRow.id.split("_")[1]` — the
+  synthetic id is built from the raw date *before* `normalizeUnifiedAttendance`
+  overwrites `work_date` with the display string, making it the only surviving
+  ISO copy on that row.

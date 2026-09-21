@@ -1,0 +1,112 @@
+// Wizard-specific layout only. The banner / stat-tile / action-row styling is
+// reused from CsvImportModal.scss (imported by the component), whose classes
+// are plain global CSS rather than CSS modules -- so a second copy here would
+// only be able to drift.
+
+.attendanceBackfillWizard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: 100%;
+}
+
+.backfillDateRange {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+}
+
+.backfillDateList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.backfillDateRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.backfillDateLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  min-width: 11rem;
+}
+
+.backfillDateTags {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+// Small inline chips. Deliberately not StatusBox -- these annotate a form row
+// rather than reporting an entity's status, and StatusBox's sizing is built
+// for a card header.
+.backfillTag {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  white-space: nowrap;
+
+  &.grey {
+    background: rgba(128, 128, 128, 0.18);
+  }
+  &.blue {
+    background: rgba(59, 130, 246, 0.18);
+  }
+  &.purple {
+    background: rgba(139, 92, 246, 0.18);
+  }
+  &.yellow {
+    background: rgba(234, 179, 8, 0.2);
+  }
+  &.red {
+    background: rgba(239, 68, 68, 0.18);
+  }
+}
+
+.backfillShapeSelect {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 6px;
+}
+
+.backfillCheckboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+// Per-date editable clock times, shown for timed attendance types only.
+.backfillDateTimes {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.backfillTimeInput {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 6px;
+  width: 5.5rem;
+}

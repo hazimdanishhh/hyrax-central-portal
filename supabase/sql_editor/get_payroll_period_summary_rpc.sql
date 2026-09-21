@@ -135,9 +135,27 @@ employee_leave_rows as (
     and le.leave_date <= p_end_date
 ),
 
+-- Reconciliation flags that have already been reviewed and closed.
+--
+-- These do NOT reduce days_absent_count below -- the employee WAS absent and
+-- payroll still deducts an unpaid day. Acknowledging closes the REVIEW, not the
+-- FACT. What it feeds is the parallel unacknowledged_* counts, which are what
+-- the Payroll Export row-flag badge and the "Needs Reconciliation" filter read.
+-- Collapsing the two would silently under-report unpaid days to payroll.
+period_acknowledgements as (
+    select ack.employee_id, ack.work_date, ack.category
+    from attendance_reconciliation_acknowledgements ack
+    where ack.work_date >= p_start_date
+      and ack.work_date <= p_end_date
+),
+
 attendance_summary as (
     select
-        employee_uuid,
+        -- Qualified: this CTE now LEFT JOINs the acknowledgements, so bare
+        -- column names are only safe where the name is unique across all three
+        -- relations. employee_uuid is (the acks table uses employee_id), but
+        -- being explicit costs nothing and survives a future column addition.
+        period_rows.employee_uuid,
         max(company_employee_code) as company_employee_code,
         max(full_name) as full_name,
         max(department_name) as department_name,
@@ -164,6 +182,17 @@ attendance_summary as (
         round(sum(weekend_hours_worked) filter (where is_worked_on_weekend)::numeric, 2) as weekend_hours_worked_total,
         count(*) filter (where is_leave_attendance_conflict) as leave_attendance_conflict_count,
         count(*) filter (where is_insufficient_half_day_hours) as insufficient_half_day_hours_count,
+        -- OUTSTANDING (not yet acknowledged) counterparts of the two
+        -- acknowledgeable flags. The counts above stay whole for payroll; these
+        -- drive the reconciliation UI.
+        count(*) filter (
+            where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
+              and ack_absent.employee_id is null
+        ) as unacknowledged_absence_count,
+        count(*) filter (
+            where is_insufficient_half_day_hours
+              and ack_half_day.employee_id is null
+        ) as unacknowledged_insufficient_half_day_count,
         count(*) filter (where has_leave_fraction_error) as leave_fraction_error_count,
         -- Statutory rate-tier ESTIMATE (see hr_unified_daily_attendance_view.sql's
         -- own header comment on these columns, added 2026-09-15) -- for
@@ -176,7 +205,19 @@ attendance_summary as (
         count(*) filter (where holiday_wage_tier = 'full_day') as estimated_holiday_full_tier_days_count,
         round(sum(holiday_excess_hours)::numeric, 2) as estimated_holiday_excess_hours_total
     from period_rows
-    group by employee_uuid
+    -- LEFT JOINed rather than tested with a correlated subquery inside the
+    -- FILTER clauses above: a plain "did this join match" boolean is simpler to
+    -- read and unambiguously valid there. One row at most per join, guaranteed
+    -- by the table's unique (employee_id, work_date, category).
+    left join period_acknowledgements ack_absent
+        on ack_absent.employee_id = period_rows.employee_uuid
+       and ack_absent.work_date = period_rows.work_date
+       and ack_absent.category = 'absent'
+    left join period_acknowledgements ack_half_day
+        on ack_half_day.employee_id = period_rows.employee_uuid
+       and ack_half_day.work_date = period_rows.work_date
+       and ack_half_day.category = 'insufficient_half_day'
+    group by period_rows.employee_uuid
 ),
 
 leave_summary as (
@@ -207,6 +248,8 @@ select json_agg(
         'unpaidLeaveDaysTotal', coalesce(l.unpaid_leave_days_total, 0),
         'leaveAttendanceConflictCount', a.leave_attendance_conflict_count,
         'insufficientHalfDayHoursCount', a.insufficient_half_day_hours_count,
+        'unacknowledgedAbsenceCount', a.unacknowledged_absence_count,
+        'unacknowledgedInsufficientHalfDayCount', a.unacknowledged_insufficient_half_day_count,
         'leaveFractionErrorCount', a.leave_fraction_error_count,
         'estimatedNormalDayOtHoursTotal', coalesce(a.estimated_normal_day_ot_hours_total, 0),
         'estimatedRestDayHalfTierDaysCount', a.estimated_rest_day_half_tier_days_count,

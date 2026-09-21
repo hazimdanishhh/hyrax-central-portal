@@ -1,5 +1,6 @@
 // pages/user/employee/attendance/list/MyAttendance.jsx
 import {
+  CalendarPlusIcon,
   CaretLeftIcon,
   CaretRightIcon,
   PencilSimpleLineIcon,
@@ -10,6 +11,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "@/components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "@/components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
+import AttendanceBackfillWizard from "@/components/attendance/attendanceBackfillWizard/AttendanceBackfillWizard";
 import Button from "@/components/buttons/button/Button";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import ActiveFiltersBar from "@/components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -29,6 +31,7 @@ import { getAttendanceActivitiesSortConfig } from "@/pages/user/hr/attendanceMan
 import { getAttendanceActivitiesLayoutConfig } from "@/pages/user/hr/attendanceManagement/list/layoutConfig";
 import useMyAttendanceDailyList from "@/features/employee/attendance/private/hooks/useMyAttendanceDailyList";
 import { useAttendanceActivityById } from "@/features/hr/attendance/private/hooks/useAttendanceActivityById";
+import { useAttendanceActivitiesMetadata } from "@/features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import useMyAttendanceSearch from "@/features/employee/attendance/private/hooks/useMyAttendanceSearch";
 import { getMyAttendanceFilterConfig } from "./filterConfig";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
@@ -80,6 +83,8 @@ export default function MyAttendance() {
   const { attendanceId } = useParams();
   const { employee } = useEmployee();
   const [layout, setLayout] = useState(1); // 1: Card, 2: Table
+  const [backfillOpen, setBackfillOpen] = useState(false);
+  const { attendanceTypes } = useAttendanceActivitiesMetadata();
 
   // ==============
   // HOOKS
@@ -211,21 +216,26 @@ export default function MyAttendance() {
         enableDateRange
       />
 
-      {/* <PageHeader>
+      {/* The layout toggle and SortBar remain commented out (the Table layout
+          is unreachable on this page), but the header itself is now needed for
+          the self-reconciliation action -- this is the surface the Payroll
+          Export reconciliation email actually sends the employee to. */}
+      <PageHeader>
         <PageActions
-          layout={layout}
-          setLayout={setLayout}
-          options={layoutOptions}
+          actionButtons={[
+            {
+              // "Add", not "Fix": this is for declaring whole days that
+              // have no clock in/out to begin with -- business trips, company
+              // events, training. Correcting a day that went wrong is the day
+              // sidebar's job, reached by opening that day.
+              name: "Add Attendance",
+              icon: CalendarPlusIcon,
+              onClick: () => setBackfillOpen(true),
+              style: "button buttonType5 greenFill buttonFull textXXS",
+            },
+          ]}
         />
-
-        <SortBar
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          sortOptions={sortOptions}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-        />
-      </PageHeader> */}
+      </PageHeader>
 
       {hasActiveFilters && (
         <ActiveFiltersBar
@@ -356,6 +366,19 @@ export default function MyAttendance() {
           </DataSidebar>
         )}
       </AnimatePresence>
+
+      {/* Self-service reconciliation -- scope "self" locks the record to the
+          signed-in employee and skips the employee-picker step entirely.
+          create_attendance_backfill lands these rows as 'Pending', never
+          Approved: an employee asserting time nobody observed is exactly what
+          the existing manager/HR approval step is for. */}
+      <AttendanceBackfillWizard
+        open={backfillOpen}
+        onClose={() => setBackfillOpen(false)}
+        scope="self"
+        currentEmployeeId={employee?.id}
+        attendanceTypes={attendanceTypes}
+      />
     </>
   );
 }

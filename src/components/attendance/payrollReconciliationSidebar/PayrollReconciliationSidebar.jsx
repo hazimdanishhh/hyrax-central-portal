@@ -16,7 +16,10 @@ import {
   formatDateTime,
   formatTime,
 } from "../../../functions/formatDate";
-import { buildHrAttendanceListLink } from "../../../functions/payrollReconciliationLinks";
+import {
+  buildHrAttendanceListLink,
+  buildAttendanceDayLink,
+} from "../../../functions/payrollReconciliationLinks";
 import { getPayrollSummaryKpiCards } from "../../../pages/user/hr/attendanceManagement/payrollExport/kpiCardConfig";
 import "./PayrollReconciliationSidebar.scss";
 import { useTheme } from "../../../context/ThemeContext";
@@ -227,17 +230,23 @@ export default function PayrollReconciliationSidebar({
                             employeeUuid,
                             employeeName,
                           })}
-                          onClick={() =>
-                            window.open(
-                              buildHrAttendanceListLink({
-                                employeeUuid,
-                                code: "generic",
-                                startDate: sectionRow.workDate,
-                                endDate: sectionRow.workDate,
-                              }),
-                              "_blank",
-                            )
+                          // `to`, not `onClick` -- AttendanceCard's signature
+                          // is ({activity, to, target, rel}) and silently
+                          // dropped the onClick this used to pass, so these
+                          // cards were dead. And now it opens THAT DAY's
+                          // sidebar directly rather than a single-day filtered
+                          // list the user still had to click through --
+                          // sectionRow.workDate is the raw ISO date (the
+                          // formatted copy lives inside
+                          // toAttendanceCardActivity, a few lines up).
+                          to={
+                            buildAttendanceDayLink({
+                              employeeUuid,
+                              workDate: sectionRow.workDate,
+                            }) || undefined
                           }
+                          target="_blank"
+                          rel="noopener noreferrer"
                         />
                       ))}
                     </CardLayout>

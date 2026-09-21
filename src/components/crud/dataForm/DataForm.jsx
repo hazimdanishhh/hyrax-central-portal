@@ -59,9 +59,33 @@ function DataForm({
   const currentFormValues = watch();
 
   // ==============
+  // FIELD VISIBILITY
+  // ==============
+  /**
+   * `show` may be a plain boolean (the long-standing behaviour: only an
+   * explicit `false` hides a column) or a function of the live form values,
+   * for a field whose relevance depends on another field's current value --
+   * e.g. clock in/out times, which are meaningless once the chosen attendance
+   * type is a whole-day one.
+   *
+   * `col.show !== false` is the exact negation of the previous
+   * `if (col.show === false) return null`, so every existing config behaves
+   * identically -- all of them pass a boolean resolved at config-build time.
+   */
+  const isColumnVisible = (col) =>
+    typeof col.show === "function"
+      ? !!col.show(currentFormValues, rowData)
+      : col.show !== false;
+
+  // ==============
   // GROUP COLUMNS BY SECTION
   // ==============
-  const groupedColumns = columns.reduce((acc, col) => {
+  // Filtered BEFORE grouping, so a section whose every field is hidden
+  // disappears entirely rather than rendering an empty header card. Inert for
+  // the existing configs (their hidden `id` columns share a section with
+  // visible fields), but load-bearing the moment a whole section is
+  // conditional.
+  const groupedColumns = columns.filter(isColumnVisible).reduce((acc, col) => {
     const section = col.section || "Details";
     if (!acc[section]) acc[section] = [];
     acc[section].push(col);
@@ -72,7 +96,21 @@ function DataForm({
   // SUBMIT HANDLER
   // ==============
   const onSubmit = (data) => {
-    onSave?.(data);
+    // A field hidden by a FUNCTION `show` is dropped from the payload.
+    // react-hook-form defaults to shouldUnregister: false, so an unmounted
+    // field keeps its last value in form state and would otherwise still be
+    // submitted -- e.g. a clock-in time typed before switching to a
+    // whole-day attendance type. Deliberately scoped to the function form:
+    // statically hidden columns (`show: false` ids, `show: !creating`) MUST
+    // keep submitting, since that is how the update target reaches onSave.
+    const submitted = { ...data };
+    columns.forEach((col) => {
+      if (typeof col.show === "function" && !isColumnVisible(col)) {
+        delete submitted[col.key];
+      }
+    });
+
+    onSave?.(submitted);
   };
 
   const onError = (errors) => {
@@ -107,8 +145,6 @@ function DataForm({
             </div>
 
             {fields.map((col) => {
-              if (col.show === false) return null;
-
               return (
                 <EditableField
                   key={col.key}

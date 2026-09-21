@@ -120,10 +120,17 @@ export function formatRelativeTime(value) {
  * format time from 7.5 7hr 30mins
  */
 export function formatHours(decimalHours) {
-  if (!decimalHours) return "0h"; // Fallback for null/undefined
+  // Coerce explicitly rather than relying on the arithmetic below to do it.
+  // Callers disagree on the type: normalizeUnifiedAttendance (attendance
+  // OverviewService.js) hands over a STRING (`Number(...).toFixed(2)`), while
+  // fetchMyAttendanceThisWeek deliberately keeps it numeric. Same class of
+  // mismatch as the documented CustomLegend.jsx NaN% bug -- cheap to rule out
+  // here once for every caller instead of per call site.
+  const value = Number(decimalHours);
+  if (!value || Number.isNaN(value)) return "0h"; // null/undefined/0/unparseable
 
-  const hours = Math.floor(decimalHours);
-  const decimalPart = decimalHours - hours;
+  const hours = Math.floor(value);
+  const decimalPart = value - hours;
   const minutes = Math.round(decimalPart * 60);
 
   // Handle edge case where rounding pushes minutes to 60

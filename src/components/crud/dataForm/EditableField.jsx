@@ -83,8 +83,19 @@ export default function EditableField({
           // The date to re-attach for a "time"-editor column (see
           // TimeEditor.jsx) -- optional; only meaningful to that editor,
           // ignored (harmless) by every other one.
+          //
+          // `currentFormValues` is passed as a second argument because on a
+          // CREATE form `rowData` is `{}` -- there is no existing row to read
+          // an anchor date off, and the date being anchored to is a sibling
+          // field the user is filling in right now. Without it,
+          // getReferenceDate returned undefined, combineMYTDateAndTime()
+          // short-circuited to null, and a required time column could never
+          // be satisfied: the form was unsubmittable. Columns that only ever
+          // edit an existing row ignore the second argument harmlessly.
           referenceDate={
-            col.getReferenceDate ? col.getReferenceDate(rowData) : undefined
+            col.getReferenceDate
+              ? col.getReferenceDate(rowData, currentFormValues)
+              : undefined
           }
           // Wrap onChange to handle "clears" logic
           onChange={(val) => {

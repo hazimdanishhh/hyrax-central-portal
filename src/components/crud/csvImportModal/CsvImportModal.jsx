@@ -11,6 +11,8 @@ import DataTable from "../../dataTable/DataTable";
 import CardLayout from "../../cardLayout/CardLayout";
 import Button from "../../buttons/button/Button";
 import LoadingIcon from "../../loadingIcon/LoadingIcon";
+import StatTile from "../statTile/StatTile";
+import { parseRpcErrorDetails } from "@/features/_shared/parseRpcErrorDetails";
 import { parseCsvFile, buildImportRows, buildPayload } from "./csvImportUtils";
 import "./CsvImportModal.scss";
 
@@ -63,16 +65,9 @@ export default function CsvImportModal({ open, onClose, title, icon, config }) {
   function parseRpcError(err) {
     // Postgres RAISE EXCEPTION ... USING detail = '<jsonb array>' surfaces
     // here as err.details (a JSON string) -- see sync_leave_ledger_rpc.sql's
-    // structural-validation block.
-    let details = [];
-    if (err?.details) {
-      try {
-        details = JSON.parse(err.details);
-      } catch {
-        details = [];
-      }
-    }
-    return { message: err?.message || "Import failed.", details };
+    // structural-validation block. Shared with the attendance backfill wizard,
+    // which speaks the same protocol against a different RPC.
+    return parseRpcErrorDetails(err, "Import failed.");
   }
 
   async function handleFileSelected(file) {
@@ -377,15 +372,6 @@ export default function CsvImportModal({ open, onClose, title, icon, config }) {
         )}
       </div>
     </DataSidebar>
-  );
-}
-
-function StatTile({ label, value, emphasize }) {
-  return (
-    <div className={`csvImportStatTile ${emphasize ? "emphasize" : ""}`}>
-      <p className="textBold textL">{value ?? 0}</p>
-      <p className="textLight textXXS">{label}</p>
-    </div>
   );
 }
 

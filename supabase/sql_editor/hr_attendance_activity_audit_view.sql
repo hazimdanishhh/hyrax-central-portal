@@ -37,7 +37,15 @@ WITH app_events AS (
         -- this edit form -- App is the only editable event_source).
         aa.attendance_type_id,
         aa.photo_url,
-        aa.notes
+        aa.notes,
+
+        -- Provenance. Lets the Activity Timeline distinguish a record someone
+        -- clocked in live from one HR typed in afterwards -- which matters
+        -- most for the two re-added scanner-location types: a backfilled
+        -- "Office" app row and a real "Office" scan row otherwise render as
+        -- two identical-looking cards on the same day.
+        aa.entry_method,
+        aa.adjustment_reason_id
 
     FROM public.attendance_activities aa
     JOIN public.employees e ON aa.employee_id = e.id
@@ -81,7 +89,12 @@ hw_events AS (
         -- ALL's column list positionally aligned.
         NULL::bigint AS attendance_type_id,
         NULL::text AS photo_url,
-        NULL::text AS notes
+        NULL::text AS notes,
+
+        -- Provenance columns (see app_events). Always NULL here -- only a real
+        -- attendance_activities row has an entry_method.
+        NULL::text AS entry_method,
+        NULL::bigint AS adjustment_reason_id
 
     FROM public.attendance_logs h
     JOIN public.employees e ON h.employee_id = e.employee_id
@@ -129,7 +142,12 @@ leave_events AS (
         -- App-only edit-form fields (see app_events' own comment).
         NULL::bigint AS attendance_type_id,
         NULL::text AS photo_url,
-        NULL::text AS notes
+        NULL::text AS notes,
+
+        -- Provenance columns (see app_events). Always NULL here -- only a real
+        -- attendance_activities row has an entry_method.
+        NULL::text AS entry_method,
+        NULL::bigint AS adjustment_reason_id
 
     FROM public.leave_ledger_entries le
     JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
@@ -173,7 +191,12 @@ holiday_events AS (
         -- App-only edit-form fields (see app_events' own comment).
         NULL::bigint AS attendance_type_id,
         NULL::text AS photo_url,
-        NULL::text AS notes
+        NULL::text AS notes,
+
+        -- Provenance columns (see app_events). Always NULL here -- only a real
+        -- attendance_activities row has an entry_method.
+        NULL::text AS entry_method,
+        NULL::bigint AS adjustment_reason_id
 
     FROM public.public_holidays ph
     JOIN public.employees e
@@ -230,7 +253,16 @@ SELECT
     uda.holiday_hours_worked,
     ae.attendance_type_id,
     ae.photo_url,
-    ae.notes
+    ae.notes,
+    -- Appended last, after every pre-existing column, per this view's
+    -- append-only constraint. ar.label is joined rather than re-derived so the
+    -- badge text and the backfill form's picker always read the same wording
+    -- from attendance_adjustment_reasons.
+    ae.entry_method,
+    ae.adjustment_reason_id,
+    ar.label AS adjustment_reason_label
 FROM all_events ae
 LEFT JOIN public.unified_daily_attendance uda
-    ON uda.employee_uuid = ae.employee_uuid AND uda.work_date = ae.work_date;
+    ON uda.employee_uuid = ae.employee_uuid AND uda.work_date = ae.work_date
+LEFT JOIN public.attendance_adjustment_reasons ar
+    ON ar.id = ae.adjustment_reason_id;

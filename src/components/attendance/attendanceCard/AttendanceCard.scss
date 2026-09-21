@@ -55,4 +55,14 @@
   gap: 0.6rem;
   flex-wrap: wrap;
   width: 100%;
+
+  // Pushed to the opposite end from the clock chips, so the row reads
+  // "7h 30m worked ............ First In | Last Seen". order: -1 rather than
+  // reordering the JSX -- the clocks are the primary content and should stay
+  // first in the DOM for screen readers and for the wrapping order on narrow
+  // screens.
+  .attendanceCardHours {
+    order: -1;
+    margin-right: auto;
+  }
 }

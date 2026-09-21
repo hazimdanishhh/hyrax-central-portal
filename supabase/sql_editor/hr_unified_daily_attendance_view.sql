@@ -9,6 +9,31 @@ WITH active_company_dates AS (
     -- -- see get_company_activity_dates.sql). It only ever reveals "some
     -- date had activity somewhere," never whose.
     SELECT work_date FROM public.get_company_activity_dates()
+    -- Never let a FUTURE activity date into the spine. This branch is the one
+    -- that reacts to real rows in attendance_activities, and since HR (and an
+    -- employee reconciling their own days) can now create a row for a date
+    -- that hasn't happened yet -- pre-recording an approved business trip, for
+    -- instance -- without this bound, one such row would add that date to the
+    -- spine, which CROSS JOINs expected_shifts, which generates a row for
+    -- EVERY active employee on that date, every one of them flagged 'Absent'.
+    -- That would silently corrupt absent_days_count, attendanceRatePct,
+    -- absenteeismRatePct and the Top Absenteeism leaderboard in both dashboard
+    -- RPCs with a day nobody has lived through yet.
+    --
+    -- The weekend generate_series below deliberately DOES run a year forward,
+    -- and that stays correct: a future weekend row reads is_weekend = true, so
+    -- getDisplayAttendanceFlag renders it grey as "Weekend" and every RPC
+    -- denominator already excludes it. A future WEEKDAY has no such treatment
+    -- and would read as a genuine red absence.
+    --
+    -- The future row itself is not lost -- it stays in attendance_activities
+    -- (so the claims/allowance layer can read a planned trip) and enters this
+    -- view normally once its date arrives.
+    --
+    -- MYT, not CURRENT_DATE: Supabase's database timezone is UTC, so between
+    -- 00:00 and 08:00 MYT, CURRENT_DATE is still yesterday in local terms and
+    -- would wrongly exclude a legitimate same-day record.
+    WHERE work_date <= (now() AT TIME ZONE 'Asia/Kuala_Lumpur')::date
     -- Public holidays integration -- without this, a date with truly ZERO
     -- scans/clock-ins ANYWHERE in the company (the common case on a major
     -- holiday like Christmas, when nobody is on-call) would never enter

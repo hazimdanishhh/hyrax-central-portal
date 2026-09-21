@@ -1,5 +1,6 @@
 // components/attendance/todayAttendanceCard/TodayAttendanceCard.jsx
 
+import { useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -25,7 +26,10 @@ import AttendanceDayTimelineBar from "@/components/attendance/attendanceDayTimel
 import AttendanceTimelineCard from "@/components/attendance/attendanceSidebarHR/attendanceTimelineCard/AttendanceTimelineCard";
 import AttendanceAnomalyBadges from "@/components/attendance/attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import StatusBox from "@/components/status/statusBox/StatusBox";
-import { getDisplayAttendanceFlag } from "@/functions/attendanceFlagStatus";
+import {
+  getDisplayAttendanceFlag,
+  getAnomalyAnchorActivityIds,
+} from "@/functions/attendanceFlagStatus";
 import useElapsedSince from "@/functions/useElapsedSince";
 import { useEmployee } from "@/context/EmployeeContext";
 import { fetchEmployeeDayDetails } from "@/features/hr/attendance/private/api/attendanceOverviewService";
@@ -102,6 +106,14 @@ export default function TodayAttendanceCard() {
     today?.is_weekend,
   );
 
+  // Which single timeline card produced today's late-arrival / early-leave
+  // flags -- same resolution AttendanceSidebarHR does, shared so the Dashboard
+  // card and the sidebar can't disagree about which activity is "the late one".
+  const { earliestActivityId, latestActivityId } = useMemo(
+    () => getAnomalyAnchorActivityIds(todayDetails),
+    [todayDetails],
+  );
+
   return (
     <>
       <CardLayout style="">
@@ -166,12 +178,14 @@ export default function TodayAttendanceCard() {
                         <AttendanceClock
                           time={today.first_in_time}
                           type="clockin"
+                          isAnomaly={today?.is_late_arrival}
                         />
                       )}
                       {today?.last_out_time && (
                         <AttendanceClock
                           time={today.last_out_time}
                           type="clockout"
+                          isAnomaly={today?.is_early_leave}
                         />
                       )}
                     </div>
@@ -228,6 +242,14 @@ export default function TodayAttendanceCard() {
                           key={activity.activity_id}
                           activity={activity}
                           mode="readonly"
+                          isLateArrival={
+                            !!today?.is_late_arrival &&
+                            activity.activity_id === earliestActivityId
+                          }
+                          isEarlyLeave={
+                            !!today?.is_early_leave &&
+                            activity.activity_id === latestActivityId
+                          }
                         />
                       ))
                     )}

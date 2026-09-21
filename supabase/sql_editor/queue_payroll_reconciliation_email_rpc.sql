@@ -115,7 +115,24 @@ begin
         select
             count(*),
             string_agg(
-                format('<li>%s</li>', to_char(r.work_date, 'DD Mon YYYY (Dy)')),
+                -- Each date links straight to THAT DAY's own detail view,
+                -- where the employee can now actually act on it (add the
+                -- missing activity, or confirm a genuine absence). The
+                -- section-level "View N days" link below still goes to the
+                -- filtered list, which answers a different question.
+                --
+                -- The /<uuid>_<date> path segment is the synthetic row id
+                -- normalizeUnifiedAttendance builds and fetchAttendanceActivityById
+                -- resolves -- see buildAttendanceDayLink in
+                -- src/functions/payrollReconciliationLinks.js, the JS mirror of
+                -- this same URL shape.
+                format(
+                    '<li><a href="%s/app/employee/attendance/list/%s_%s">%s</a></li>',
+                    v_app_base_url,
+                    p_employee_uuid,
+                    to_char(r.work_date, 'YYYY-MM-DD'),
+                    to_char(r.work_date, 'DD Mon YYYY (Dy)')
+                ),
                 ''
                 order by r.work_date
             )

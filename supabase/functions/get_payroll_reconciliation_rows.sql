@@ -132,6 +132,24 @@ begin
         where uda.employee_uuid = p_employee_uuid
         and uda.work_date >= p_start_date
         and uda.work_date <= p_end_date
+    ),
+    -- Flags this employee has already resolved for this period. Only
+    -- 'absent' and 'insufficient_half_day' are acknowledgeable; the other two
+    -- categories clear themselves once the corrected leave lands in the next
+    -- HR2000 sync, so they are deliberately not suppressible here.
+    --
+    -- Filtering in THIS function suppresses the flag in all three of its
+    -- consumers at once -- get_payroll_reconciliation_detail_rpc (the HR
+    -- drilldown sidebar), queue_payroll_reconciliation_email_rpc (the emailed
+    -- list) and send_payroll_reconciliation_notifications (the weekly employee
+    -- reminder) -- so an acknowledged day can never be resolved in one place
+    -- and still nagging from another.
+    acknowledged as (
+        select ack.work_date, ack.category
+        from public.attendance_reconciliation_acknowledgements ack
+        where ack.employee_id = p_employee_uuid
+          and ack.work_date >= p_start_date
+          and ack.work_date <= p_end_date
     )
     select r.work_date, 'absent'::text, r.hr_flag, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
@@ -141,6 +159,10 @@ begin
            r.daily_activities
     from period_rows r
     where r.hr_flag = 'Absent' and not r.is_weekend and not r.is_public_holiday
+      and not exists (
+          select 1 from acknowledged a
+          where a.work_date = r.work_date and a.category = 'absent'
+      )
 
     union all
 
@@ -163,6 +185,10 @@ begin
            r.daily_activities
     from period_rows r
     where r.is_insufficient_half_day_hours
+      and not exists (
+          select 1 from acknowledged a
+          where a.work_date = r.work_date and a.category = 'insufficient_half_day'
+      )
 
     union all
 

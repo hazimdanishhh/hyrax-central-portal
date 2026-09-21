@@ -8,6 +8,10 @@ import {
   AlarmIcon,
   SignOutIcon,
   UserCircleDashedIcon,
+  AirplaneTiltIcon,
+  CarProfileIcon,
+  ConfettiIcon,
+  SteeringWheelIcon,
 } from "@phosphor-icons/react";
 
 // Type -> {icon, label, className} map, shared by AttendanceType.jsx (the
@@ -66,5 +70,38 @@ export const ATTENDANCE_TYPE_CONFIG = {
     icon: SignOutIcon,
     label: "Not In Office",
     className: "red",
+  },
+
+  // Business trips -- two separate types, not one, because their weekend
+  // allowance rules genuinely differ (overseas weekend = 2x daily allowance;
+  // local weekend = 1 day Replacement Leave instead). See
+  // docs/hr/OVERTIME-WEEKEND-HOLIDAY-CLAIMS-DESIGN.md. Blue matches the other
+  // away-from-site-but-working types (Site Visit, Business Meeting).
+  "overseas trip": {
+    icon: AirplaneTiltIcon,
+    label: "Overseas Trip",
+    className: "blue",
+  },
+  "local trip": {
+    icon: CarProfileIcon,
+    label: "Local Trip",
+    className: "blue",
+  },
+
+  // Attended work that is neither instruction (Training) nor client-facing
+  // (Site Visit) -- annual dinner, townhall, team building, CSR day.
+  "company event": {
+    icon: ConfettiIcon,
+    label: "Company Event",
+    className: "yellow",
+  },
+
+  // Lorry drivers and company/personal drivers. The door scanners are access
+  // control, not time clocks, so driving time is invisible to them every day
+  // rather than occasionally -- this is a standing type, not an anomaly.
+  "driving duty": {
+    icon: SteeringWheelIcon,
+    label: "Driving Duty",
+    className: "yellow",
   },
 };
