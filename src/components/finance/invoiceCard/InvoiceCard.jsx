@@ -82,7 +82,7 @@ export default function InvoiceCard({ invoice, to }) {
           <div className="salesOrderCardHeaderDetails">
             <p className="textBold textXS">INV# {invoice.invoice_number}</p>
 
-            <SAPCustomerCard row={invoice} />
+            <SAPCustomerCard row={invoice} nestedLink={!to} />
 
             <StatusBox
               status={

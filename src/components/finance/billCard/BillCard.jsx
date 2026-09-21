@@ -62,7 +62,7 @@ export default function BillCard({ bill, to }) {
             <p className="textBold textXS">BILL# {bill.bill_number}</p>
 
             <div className="salesOrderCustomer">
-              <SAPVendorCard row={bill} />
+              <SAPVendorCard row={bill} nestedLink={!to} />
             </div>
 
             <StatusBox

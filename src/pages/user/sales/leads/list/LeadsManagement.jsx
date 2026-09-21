@@ -512,7 +512,7 @@ export default function LeadsManagement() {
               <LeadsList
                 key={lead.id}
                 lead={lead}
-                onClick={() => handleOpenSidebar(lead)}
+                to={`${lead.id}?${searchParams.toString()}`}
                 saving={isSaving}
                 deleting={deleting}
                 setIsEditing={() => setIsEditing(true)}

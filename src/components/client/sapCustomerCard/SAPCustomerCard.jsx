@@ -19,7 +19,13 @@ import "./SAPCustomerCard.scss";
  * unconditionally -- a Finance-only user viewing an Invoice or Payment card
  * hit a link into a page they're gated out of.
  */
-function SAPCustomerCard({ row, code, name, isSapLinked = true }) {
+function SAPCustomerCard({
+  row,
+  code,
+  name,
+  isSapLinked = true,
+  nestedLink = true,
+}) {
   const { canAccess } = useAccessControl();
   const location = useLocation();
   const customerCode = row ? row.customer_code : code;
@@ -50,7 +56,7 @@ function SAPCustomerCard({ row, code, name, isSapLinked = true }) {
     </>
   );
 
-  if (!to) {
+  if (!to || nestedLink === false) {
     return <div className="sapCustomerCard">{content}</div>;
   }
 

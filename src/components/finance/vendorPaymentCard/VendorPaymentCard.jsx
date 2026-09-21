@@ -33,7 +33,7 @@ export default function VendorPaymentCard({ vendorPayment, to }) {
             </p>
 
             <div className="salesOrderCustomer">
-              <SAPVendorCard row={vendorPayment} />
+              <SAPVendorCard row={vendorPayment} nestedLink={!to} />
             </div>
 
             <StatusBox

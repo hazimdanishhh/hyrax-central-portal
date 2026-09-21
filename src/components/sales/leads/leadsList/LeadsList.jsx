@@ -11,14 +11,11 @@ import {
   UserCircleIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
-import { motion } from "framer-motion";
-import AttendanceType from "../../../attendance/attendanceType/AttendanceType";
 import Button from "../../../buttons/button/Button";
 import CardLayout from "../../../cardLayout/CardLayout";
 import "./LeadsList.scss";
 import StatusBox from "../../../status/statusBox/StatusBox";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
-import { useState } from "react";
 import LeadStage, { PIPELINE_STAGES } from "../leadStage/LeadStage";
 import IconCard from "../../../iconCard/IconCard";
 import StatusIcon from "../../../status/statusIcon/StatusIcon";
@@ -27,6 +24,7 @@ import { useMessage } from "../../../../context/MessageContext";
 import LinkButton from "../../../buttons/linkButton/LinkButton";
 import SAPCustomerCard from "../../../client/sapCustomerCard/SAPCustomerCard";
 import { compactCurrency } from "../../../../functions/formatNumber";
+import { Link } from "react-router";
 
 /**
  * Read-only-shell list card -- restructured (2026-09) to match
@@ -42,14 +40,15 @@ import { compactCurrency } from "../../../../functions/formatNumber";
  */
 export default function LeadsList({
   lead,
-  onClick,
+  to,
   saving,
   deleting,
   setIsEditing,
   selected,
   onSelect,
+  nestedLink = !to,
+  showStage = true,
 }) {
-  const [showName, setShowName] = useState(false);
   const { showMessage } = useMessage();
 
   async function handleCopyPoNumber(e) {
@@ -72,69 +71,80 @@ export default function LeadsList({
   const isClosedLead = isWon || isLost || isCancelled;
   const isSapLinked = Boolean(lead.sap_customer_code);
   const accountName = lead.client?.name || lead.sap_customer?.customer_name;
+  const Wrapper = to ? Link : "div";
+  const wrapperProps = to
+    ? {
+        to,
+        className: "generalCard cardPaddingMedium leadsListCard",
+        onClick: (e) => {
+          if (saving || deleting) e.preventDefault();
+        },
+      }
+    : { className: "generalCard cardPaddingMedium leadsListCard" };
   return (
-    <motion.div
-      className="generalCard cardPaddingMedium leadsListCard"
-      onClick={saving ? null : deleting ? null : onClick}
-      initial={{ y: 0 }}
-      whileHover={{ y: -3 }}
-    >
+    <Wrapper {...wrapperProps}>
       {/* HEADER -- status/flag cluster on the left, dates on the right,
           mirrors FulfillmentOrderCard's own header row. */}
       <div className="leadsListCardHeader">
         <div className="leadsListCardStatus">
-          <StatusBox
-            status={lead.stage}
-            type={
-              lead.is_cancelled || lead.stage === "LOST"
-                ? "red"
-                : lead.is_on_hold
-                  ? "yellow"
-                  : PIPELINE_STAGES.includes(lead.stage)
-                    ? "blue"
-                    : "green"
-            }
-          />
-
-          {lead.is_on_hold && <StatusBox status="ON HOLD" type="yellow" />}
-          {lead.is_cancelled && <StatusBox status="CANCELLED" type="red" />}
-
           <StatusIcon status={lead.product_type} icon={DropIcon} type="dark" />
         </div>
 
-        <div className="leadsListCardDates">
-          <IconCard
-            icon={ClockIcon}
-            weight="fill"
-            name={formatDate(lead.created_at)}
-            style="blue textXXXS textBold"
-            size={14}
-          />
-          <IconCard
-            icon={ClockClockwiseIcon}
-            weight="fill"
-            name={formatDate(lead.updated_at)}
-            style="yellow textXXXS textBold"
-            size={14}
-          />
-        </div>
+        {showStage && (
+          <div className="leadsListCardDates">
+            <IconCard
+              icon={ClockIcon}
+              weight="fill"
+              name={`Created: ${formatDate(lead.created_at)}`}
+              style="blue textXXXS textBold"
+              size={14}
+            />
+            <IconCard
+              icon={ClockClockwiseIcon}
+              weight="fill"
+              name={`Updated: ${formatDate(lead.updated_at)}`}
+              style="yellow textXXXS textBold"
+              size={14}
+            />
+          </div>
+        )}
       </div>
 
       {/* STAGE -- bordered-off full-width row, mirrors
           fulfillmentOrderCardStageRow. */}
-      <div className="leadsListCardStageRow">
-        <LeadStage selectedRow={lead} list={true} />
+      {showStage && (
+        <div className="leadsListCardStageRow">
+          <LeadStage selectedRow={lead} list={true} />
 
-        {lead.pending_sap_order && (
-          <IconCard
-            name="Pending SAP Order"
-            icon={WarningIcon}
-            style="textXXS textBold red"
-            weight="fill"
-            title="SAP Sales Admin has not created the Sales Order for this Lead / the PO number isn't matched"
-          />
-        )}
-      </div>
+          <div className="leadsListCardStageContainer">
+            <StatusBox
+              status={lead.stage}
+              type={
+                lead.is_cancelled || lead.stage === "LOST"
+                  ? "red"
+                  : lead.is_on_hold
+                    ? "yellow"
+                    : PIPELINE_STAGES.includes(lead.stage)
+                      ? "blue"
+                      : "green"
+              }
+            />
+
+            {lead.is_on_hold && <StatusBox status="ON HOLD" type="yellow" />}
+            {lead.is_cancelled && <StatusBox status="CANCELLED" type="red" />}
+
+            {lead.pending_sap_order && (
+              <IconCard
+                name="Pending SAP Order"
+                icon={WarningIcon}
+                style="textXXS textBold red"
+                weight="fill"
+                title="SAP Sales Admin has not created the Sales Order for this Lead / the PO number isn't matched"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* IDENTITY -- title/description, then who/what this lead connects to
           (client, owner, matched PO), mirrors FulfillmentOrderCard's own
@@ -152,6 +162,7 @@ export default function LeadsList({
             code={isSapLinked ? lead.sap_customer_code : lead.client_id}
             name={accountName}
             isSapLinked={isSapLinked}
+            nestedLink={nestedLink}
           />
 
           <EmployeeImage
@@ -161,6 +172,7 @@ export default function LeadsList({
             position="right"
             employeeId={lead.lead_owner?.id}
             displayName
+            nestedLink={nestedLink}
           />
 
           {lead.po_number && (
@@ -209,6 +221,7 @@ export default function LeadsList({
               style="textLight textXXS button buttonType4"
               name="View Quotation"
               icon={FilePdfIcon}
+              nestedLink={nestedLink}
             />
           )}
           {lead.po_document_url && (
@@ -217,11 +230,12 @@ export default function LeadsList({
               style="textLight textXXS button buttonType4 approval"
               name="View PO"
               icon={FilePdfIcon}
+              nestedLink={nestedLink}
             />
           )}
         </CardLayout>
 
-        {!isClosedLead && (
+        {!isClosedLead && showStage && (
           <Button
             style="iconButton2"
             onClick={setIsEditing}
@@ -231,6 +245,6 @@ export default function LeadsList({
           />
         )}
       </div>
-    </motion.div>
+    </Wrapper>
   );
 }

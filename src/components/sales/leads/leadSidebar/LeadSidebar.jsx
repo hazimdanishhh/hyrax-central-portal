@@ -8,9 +8,9 @@ import {
   PencilSimpleLineIcon,
   PlayCircleIcon,
   ReceiptIcon,
+  WarningIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
-import { useState } from "react";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import { useSalesOrderByPoNumber } from "../../../../features/sales/orders/private/hooks/useSalesOrderByPoNumber";
 import { useSalesOrdersByCustomerCode } from "../../../../features/sales/orders/private/hooks/useSalesOrdersByCustomerCode";
@@ -31,6 +31,7 @@ import StatusIcon from "../../../status/statusIcon/StatusIcon";
 import SalesOrderCard from "../../orders/salesOrderCard/SalesOrderCard";
 import LeadStage from "../leadStage/LeadStage";
 import "./LeadSidebar.scss";
+import LeadsList from "../leadsList/LeadsList";
 
 export default function LeadSidebar({
   selectedRow,
@@ -39,7 +40,6 @@ export default function LeadSidebar({
   isEditing,
   setIsEditing,
 }) {
-  const [showName, setShowName] = useState(false);
   const { canAccess, isManager, isSuperAdmin } = useAccessControl();
 
   // Account identity (2026-08): a lead references exactly one of a real SAP
@@ -90,137 +90,35 @@ export default function LeadSidebar({
     <div className="leadSidebarContainer">
       <div className="leadSidebarDateTimeContainer">
         <IconCard
-          name={selectedRow.created_at}
+          name={`Created: ${selectedRow.created_at}`}
           icon={ClockIcon}
-          style="textLight textXXXS cardStyle"
+          style="blue textXXXS textBold"
         />
+
         <IconCard
-          name={selectedRow.updated_at}
+          name={`Updated: ${selectedRow.updated_at}`}
           icon={ClockClockwiseIcon}
-          style="textLight textXXXS cardStyle"
+          style="yellow textXXXS textBold"
         />
       </div>
+
+      {/* STATUSES */}
+      {selectedRow.is_on_hold && <StatusBox status="ON HOLD" type="yellow" />}
+      {selectedRow.is_cancelled && <StatusBox status="CANCELLED" type="red" />}
+      {selectedRow.pending_sap_order && (
+        <IconCard
+          name="Pending SAP Order"
+          icon={WarningIcon}
+          style="textXXS textBold red"
+          weight="fill"
+          title="SAP Sales Admin has not created the Sales Order for this Lead / the PO number isn't matched"
+        />
+      )}
 
       {/* PIPELINE */}
       <LeadStage selectedRow={selectedRow} vertical={true} />
 
-      <div className="leadSidebarHeaderContainer cardStyle">
-        <div className="leadSidebarDetails">
-          {/* STATUS */}
-          <div className="leadSidebarOnHoldContainer">
-            <StatusBox
-              status={selectedRow.stage}
-              type={
-                selectedRow.is_cancelled || selectedRow.stage === "LOST"
-                  ? "red"
-                  : selectedRow.is_on_hold
-                    ? "yellow"
-                    : "green"
-              }
-            />
-
-            {selectedRow.is_on_hold && (
-              <StatusBox status="ON HOLD" type="yellow" />
-            )}
-            {selectedRow.is_cancelled && (
-              <StatusBox status="CANCELLED" type="red" />
-            )}
-
-            <StatusIcon
-              status={selectedRow.product_type}
-              icon={DropIcon}
-              type="dark"
-            />
-          </div>
-
-          <p className="textBold textS">{selectedRow.title}</p>
-
-          <p className="textRegular textXS">{selectedRow.description}</p>
-
-          <div className="leadSidebarOnHoldContainer">
-            <SAPCustomerCard
-              code={
-                isSapLinked
-                  ? selectedRow.sap_customer_code
-                  : selectedRow.client_id
-              }
-              name={accountName}
-              isSapLinked={isSapLinked}
-            />
-          </div>
-
-          <CardLayout style="cardLayout2 cardGapSmall">
-            <StatusBox
-              status={`${selectedRow.close_probability}% Probability`}
-              type={
-                selectedRow.close_probability > 75
-                  ? "green"
-                  : selectedRow.close_probability < 40
-                    ? "red"
-                    : "yellow"
-              }
-            />
-            <StatusBox
-              status={`Expected: RM${selectedRow.expected_revenue}`}
-              type="blue"
-            />
-            {selectedRow.actual_revenue && (
-              <StatusBox
-                status={`Actual: RM${selectedRow.actual_revenue}`}
-                type="green"
-              />
-            )}
-            {selectedRow.po_number && (
-              <StatusBox
-                status={`PO Number: ${selectedRow.po_number}`}
-                type="yellow"
-              />
-            )}
-          </CardLayout>
-
-          <CardLayout style="cardLayout2 cardGapSmall">
-            {selectedRow.quotation_url && (
-              <a
-                href={selectedRow.quotation_url}
-                className="textLight textXXS button buttonType4"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span className="textLight textXXS">View Quotation</span>
-                <FilePdfIcon size={24} />
-              </a>
-            )}
-            {selectedRow.po_document_url && (
-              <a
-                href={selectedRow.po_document_url}
-                className="textLight textXXS button buttonType4 approval"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span className="textLight textXXS">View PO</span>
-                <FilePdfIcon size={24} />
-              </a>
-            )}
-          </CardLayout>
-        </div>
-
-        {/* DATE TIME / IMAGE / HISTORY BUTTON */}
-        <div className="leadSidebarImageContainer">
-          <EmployeeImage
-            employee={selectedRow.lead_owner}
-            employeeId={selectedRow.lead_owner?.id}
-            showName={showName}
-            setShowName={setShowName}
-            position="left"
-          />
-
-          {/* <RouterButton
-            name="History"
-            icon={ClockCounterClockwiseIcon}
-            style="button buttonType5 textXXXS"
-          /> */}
-        </div>
-      </div>
+      <LeadsList lead={selectedRow} showStage={false} />
 
       {/* NOTES */}
       {selectedRow.notes && (

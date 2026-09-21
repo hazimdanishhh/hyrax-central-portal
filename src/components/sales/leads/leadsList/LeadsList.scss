@@ -3,8 +3,11 @@
   flex-direction: column;
   gap: 0.8rem;
   width: 100%;
-  cursor: pointer;
   text-align: start;
+
+  &:hover {
+    border: 1px solid $primary;
+  }
 
   .leadsListCardHeader {
     display: flex;
@@ -48,6 +51,15 @@
     width: 100%;
     border-bottom: 1px solid rgba($neutral500, 0.3);
     padding-bottom: 0.8rem;
+    gap: 0.6rem;
+
+    .leadsListCardStageContainer {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
   }
 
   .leadsListCardIdentity {

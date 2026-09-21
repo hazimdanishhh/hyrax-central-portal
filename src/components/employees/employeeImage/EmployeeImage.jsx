@@ -10,6 +10,7 @@ function EmployeeImage({
   position = "right",
   employeeId,
   displayName,
+  nestedLink = true,
 }) {
   // `employee` can legitimately be null -- e.g. a task assignee/project
   // member the viewer can't resolve identity for -- rather than crashing
@@ -17,6 +18,57 @@ function EmployeeImage({
   // fetchEmployeesPublicByIds.js's header comment for why this can happen
   // at all.
   employee = employee || {};
+
+  if (nestedLink === false) {
+    return (
+      <div
+        className="employeeLinkWrapper"
+        onMouseEnter={() => setShowName(true)}
+        onMouseLeave={() => setShowName(false)}
+        style={
+          displayName && {
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flex: "1 1 200px",
+          }
+        }
+      >
+        <div className="listEmployeePhoto">
+          <img
+            src={
+              employee.avatar_url
+                ? `${employee.avatar_url}`
+                : "/profilePhoto/default.webp"
+            }
+            alt={employee.employee_name || employee.full_name}
+          />
+        </div>
+        <AnimatePresence mode="wait">
+          {showName && (
+            <motion.div
+              className={
+                position === "right"
+                  ? "textRegular textXXXS listEmployeePhotoNameRight"
+                  : "textRegular textXXXS listEmployeePhotoName"
+              }
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+            >
+              {employee.employee_name || employee.full_name}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {displayName && (
+          <p className="textRegular textXS" style={{ textAlign: "start" }}>
+            {employee.employee_name || employee.full_name}
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <Link

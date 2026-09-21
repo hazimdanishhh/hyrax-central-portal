@@ -163,7 +163,7 @@ export default function ClientSidebar({
                 <LeadsList
                   key={lead.id}
                   lead={lead}
-                  onClick={() => navigate(`/app/sales/leads/list/${lead.id}`)}
+                  to={`/app/sales/leads/list/${lead.id}`}
                   setIsEditing={() => setIsEditingLead(true)}
                 />
               ))}

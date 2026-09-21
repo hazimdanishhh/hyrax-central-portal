@@ -144,7 +144,7 @@ function FulfillmentOrderCard({ order, to, showStage = true }) {
       <CardLayout style="cardLayout2">
         <p className="textBold textXS">SO# {order.so_number}</p>
 
-        <SAPCustomerCard row={order} />
+        <SAPCustomerCard row={order} nestedLink={!to} />
 
         <StatusBox
           status={order.customer_ref ? `PO: ${order.customer_ref}` : "PO: —"}

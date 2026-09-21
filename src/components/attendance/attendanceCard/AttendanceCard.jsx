@@ -1,5 +1,6 @@
 import { SignInIcon, SignOutIcon } from "@phosphor-icons/react";
 import React, { useState } from "react";
+import { Link } from "react-router";
 import "./AttendanceCard.scss";
 import StatusBadge from "../../status/statusBadge/StatusBadge";
 import { AnimatePresence } from "framer-motion";
@@ -13,7 +14,7 @@ import { getDisplayAttendanceFlag } from "../../../functions/attendanceFlagStatu
 
 // GENERAL REUSABLE ATTENDANCE CARD
 // WITH PHOTO, ATTENDANCE TYPE ICONS, CLOCK IN/OUT AND APPROVAL STATUS
-function AttendanceCard({ activity, onClick }) {
+function AttendanceCard({ activity, to }) {
   const [showName, setShowName] = useState(false);
 
   // hr_flag no longer distinguishes an unworked weekend from a genuine
@@ -32,21 +33,23 @@ function AttendanceCard({ activity, onClick }) {
   const showWorkedWeekendTag =
     activity.is_weekend && activity.hr_flag !== "Absent";
 
+  const Wrapper = to ? Link : "div";
+  const wrapperProps = to
+    ? { to, className: "generalCard cardPaddingSmall attendanceCard" }
+    : { className: "generalCard cardPaddingSmall attendanceCard" };
+
   return (
-    <button
-      className="generalCard cardPaddingSmall attendanceCard"
-      onClick={onClick}
-    >
+    <Wrapper {...wrapperProps}>
       <div className="attendanceCardContent">
         <div className="attendanceCardNameHeader">
           <EmployeeImage
-            showName={showName}
-            setShowName={setShowName}
+            showName={false}
+            setShowName={() => {}}
             employee={activity}
+            nestedLink={!to}
+            displayName
           />
-          <p className="textBold textXS" title={activity.full_name}>
-            {activity.full_name}
-          </p>
+
           {/* Only meaningful in Search mode, where a card's own date isn't
             implied by the page the way it is in Day mode -- harmless to
             always show. */}
@@ -85,9 +88,7 @@ function AttendanceCard({ activity, onClick }) {
           {/* Worked-on-a-weekend fact, independent of hr_flag -- only shown
             when the "Weekend" label above ISN'T already covering this day
             (i.e. they actually attended). */}
-          {showWorkedWeekendTag && (
-            <StatusBox status="Weekend" type="grey" />
-          )}
+          {showWorkedWeekendTag && <StatusBox status="Weekend" type="grey" />}
 
           {/* AttendanceAnomalyBadges already self-guards (renders nothing
             when none of its inputs apply) -- no outer gate needed here, and
@@ -125,7 +126,7 @@ function AttendanceCard({ activity, onClick }) {
           )}
         </div>
       )}
-    </button>
+    </Wrapper>
   );
 }
 

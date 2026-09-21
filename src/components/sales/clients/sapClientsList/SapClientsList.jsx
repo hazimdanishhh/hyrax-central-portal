@@ -16,9 +16,7 @@ export default function SapClientsList({ customer, onClick }) {
         </div>
 
         <div className="sapClientsListStatusContainer">
-          {customer.city && (
-            <StatusBox status={customer.city} type="grey" />
-          )}
+          {/* {customer.city && <StatusBox status={customer.city} type="grey" />} */}
           <StatusBox
             status={CARD_TYPE_LABELS[customer.card_type] || customer.card_type}
             type="blue"

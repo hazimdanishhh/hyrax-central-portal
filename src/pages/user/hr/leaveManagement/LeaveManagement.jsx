@@ -106,10 +106,6 @@ export default function LeaveManagement() {
 
   const sidebarOpen = !!selectedRow;
 
-  function handleRowClick(row) {
-    navigate(`${row.id}?${searchParams.toString()}`);
-  }
-
   function handleCloseSidebar() {
     navigate(`/app/hr/leaves?${searchParams.toString()}`);
   }
@@ -191,7 +187,7 @@ export default function LeaveManagement() {
                     <LeaveCard
                       key={leave.id}
                       leave={leave}
-                      onClick={() => handleRowClick(leave)}
+                      to={`${leave.id}?${searchParams.toString()}`}
                     />
                   ))}
                 </CardLayout>

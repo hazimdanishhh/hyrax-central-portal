@@ -392,7 +392,7 @@ export default function TeamAttendance() {
               <AttendanceCard
                 key={activity.id}
                 activity={activity}
-                onClick={() => handleOpenSidebar(activity)}
+                to={`${activity.id}?${searchParams.toString()}`}
               />
             ))}
           </CardLayout>

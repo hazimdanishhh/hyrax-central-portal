@@ -20,7 +20,7 @@ export default function BusinessPartnersList({ partner, onClick }) {
         </div>
 
         <div className="businessPartnersListStatusContainer">
-          {partner.city && <StatusBox status={partner.city} type="grey" />}
+          {/* {partner.city && <StatusBox status={partner.city} type="grey" />} */}
           <StatusBox
             status={CARD_TYPE_LABELS[partner.card_type] || partner.card_type}
             type="blue"

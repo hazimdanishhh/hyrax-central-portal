@@ -11,6 +11,10 @@
     // align-items: start;
     // flex-wrap: wrap;
   }
+
+  @media screen and (max-width: 350px) {
+    flex-wrap: wrap;
+  }
 }
 
 .dateRangeWrapper {

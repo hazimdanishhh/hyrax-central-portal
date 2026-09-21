@@ -62,7 +62,7 @@ function SalesOrderCard({ order, to }) {
           <div className="salesOrderCardHeaderDetails">
             <p className="textBold textXS">SO# {order.so_number}</p>
 
-            <SAPCustomerCard row={order} />
+            <SAPCustomerCard row={order} nestedLink={!to} />
 
             <StatusBox
               status={

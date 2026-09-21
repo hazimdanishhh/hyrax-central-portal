@@ -32,7 +32,7 @@ export default function PaymentCard({ payment, to }) {
           <div className="salesOrderCardHeaderDetails">
             <p className="textBold textXS">RCT# {payment.receipt_number}</p>
 
-            <SAPCustomerCard row={payment} />
+            <SAPCustomerCard row={payment} nestedLink={!to} />
 
             <StatusBox
               status={
