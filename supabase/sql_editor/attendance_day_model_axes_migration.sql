@@ -1667,7 +1667,150 @@ LEFT JOIN public.attendance_adjustment_reasons ar
 -- every check and shows you only the final one.
 --
 -- Gate 1 first -- it is the one whose failure has no visible symptom.
+--
+-- OR: run GATE 0 immediately below, which folds every zero-row check in this
+-- section into ONE query returning one row per gate with PASS / FAIL. Use it
+-- if you would rather paste once than twelve times. The individual queries
+-- below are still worth running for anything GATE 0 reports as FAIL, because
+-- they show you WHICH rows offended rather than just how many.
 -- ############################################################################
+
+
+-- ----------------------------------------------------------------------------
+-- GATE 0 -- ALL ZERO-ROW CHECKS IN ONE RESULT.
+--
+-- Every gate here must read PASS. `offending_rows` is the count that should
+-- have been zero.
+--
+-- The one thing GATE 0 CANNOT check is the in-app RLS test: log in as a plain
+-- non-HR employee and confirm My Attendance shows only their own rows, and as
+-- a manager that Team Attendance shows only direct reports. Run as the owner,
+-- every query in this file bypasses RLS -- so a policy regression is invisible
+-- from here no matter how many gates pass.
+-- ----------------------------------------------------------------------------
+WITH after_rows AS (
+    SELECT s.employee_uuid, kv.key AS metric, kv.value AS value
+    FROM (
+        SELECT
+            employee_uuid,
+            sum(hours_worked)                     AS hours_worked,
+            sum(overtime_hours)                   AS overtime_hours,
+            sum(true_hours_worked)                AS true_hours_worked,
+            sum(holiday_hours_worked)             AS holiday_hours_worked,
+            sum(weekend_hours_worked)             AS weekend_hours_worked,
+            sum(approved_hours_worked)            AS approved_hours_worked,
+            sum(approved_overtime_hours)          AS approved_overtime_hours,
+            sum(approved_holiday_hours_worked)    AS approved_holiday_hours_worked,
+            sum(approved_weekend_hours_worked)    AS approved_weekend_hours_worked,
+            sum(pending_approval_hours)           AS pending_approval_hours,
+            sum(rest_day_excess_hours)            AS rest_day_excess_hours,
+            sum(holiday_excess_hours)             AS holiday_excess_hours,
+            sum(coalesce(leave_day_fraction, 0))       AS leave_day_fraction,
+            sum(coalesce(paid_leave_day_fraction, 0))  AS paid_leave_day_fraction,
+            sum(coalesce(unpaid_leave_day_fraction,0)) AS unpaid_leave_day_fraction,
+            count(*)                                                   AS row_count,
+            count(*) filter (where hr_flag = 'Absent')                 AS absent_days,
+            count(*) filter (where hr_flag = 'Absent' and not is_weekend) AS absent_working_days,
+            count(*) filter (where is_worked_on_holiday)               AS worked_on_holiday_days,
+            count(*) filter (where is_worked_on_weekend)               AS worked_on_weekend_days,
+            count(*) filter (where is_on_leave)                        AS on_leave_days,
+            count(*) filter (where is_public_holiday)                  AS public_holiday_days,
+            count(*) filter (where is_weekend)                         AS weekend_days,
+            count(*) filter (where is_late_arrival)                    AS late_arrival_days,
+            count(*) filter (where is_early_leave)                     AS early_leave_days,
+            count(*) filter (where is_leave_attendance_conflict)       AS leave_conflict_days,
+            count(*) filter (where is_insufficient_half_day_hours)     AS insufficient_half_day_days,
+            count(*) filter (where has_leave_fraction_error)           AS leave_fraction_error_days,
+            count(*) filter (where is_unacknowledged_absent)           AS unack_absent_days,
+            count(*) filter (where is_unacknowledged_insufficient_half_day) AS unack_half_day_days,
+            count(*) filter (where needs_reconciliation)               AS needs_reconciliation_days,
+            count(*) filter (where rest_day_wage_tier = 'half_day')    AS rest_day_half_tier,
+            count(*) filter (where rest_day_wage_tier = 'full_day')    AS rest_day_full_tier,
+            count(*) filter (where holiday_wage_tier = 'full_day')     AS holiday_full_tier
+        FROM public.unified_daily_attendance
+        WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23'
+        GROUP BY employee_uuid
+    ) s,
+    LATERAL jsonb_each_text(to_jsonb(s) - 'employee_uuid') kv
+),
+checks(sort_key, gate, offending_rows) AS (
+
+    SELECT 1, 'G1a  security_invoker ON for both views', (
+        SELECT count(*) FROM pg_class
+        WHERE relname IN ('unified_daily_attendance','attendance_activity_audit')
+          AND NOT COALESCE(array_to_string(reloptions,',') LIKE '%security_invoker=on%', false))
+
+    UNION ALL SELECT 2, 'G1b  no grant lost vs baseline', (
+        SELECT count(*) FROM (
+            SELECT table_name, grantee, privilege_type FROM public._grants_baseline
+            EXCEPT
+            SELECT table_name, grantee, privilege_type
+            FROM information_schema.role_table_grants
+            WHERE table_name IN ('unified_daily_attendance','attendance_activity_audit')
+        ) x)
+
+    UNION ALL SELECT 3, 'G2a  hr_flag identical to baseline', (
+        SELECT count(*) FROM public._hr_flag_baseline b
+        JOIN public.unified_daily_attendance v
+          ON v.employee_uuid = b.employee_uuid AND v.work_date = b.work_date
+        WHERE b.hr_flag IS DISTINCT FROM v.hr_flag)
+
+    UNION ALL SELECT 4, 'G2b  row count identical to baseline', (
+        SELECT abs(
+            (SELECT count(*) FROM public._hr_flag_baseline)
+          - (SELECT count(*) FROM public.unified_daily_attendance
+             WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23')))
+
+    UNION ALL SELECT 5, 'G3a  absent only on ordinary days', (
+        SELECT count(*) FROM public.unified_daily_attendance
+        WHERE day_state = 'absent' AND (is_public_holiday OR is_on_leave OR is_weekend))
+
+    UNION ALL SELECT 6, 'G3b  is_expected_working_day = ordinary', (
+        SELECT count(*) FROM public.unified_daily_attendance
+        WHERE is_expected_working_day <> (day_calendar_type = 'ordinary'))
+
+    UNION ALL SELECT 7, 'G3c  no evidence => no defects', (
+        SELECT count(*) FROM public.unified_daily_attendance
+        WHERE evidence_source = 'none' AND evidence_quality <> 'none')
+
+    UNION ALL SELECT 8, 'G3d  hardware-only => no approval state', (
+        SELECT count(*) FROM public.unified_daily_attendance
+        WHERE approval_state <> 'not_applicable' AND evidence_source = 'hardware')
+
+    UNION ALL SELECT 9, 'G3e  unack absence only on working days', (
+        SELECT count(*) FROM public.unified_daily_attendance
+        WHERE is_unacknowledged_absent AND NOT is_expected_working_day)
+
+    UNION ALL SELECT 10, 'G3f  day_state agrees with half-day flag', (
+        SELECT count(*) FROM public.unified_daily_attendance
+        WHERE (day_state = 'insufficient_half_day')
+              <> (is_insufficient_half_day_hours AND is_expected_working_day))
+
+    UNION ALL SELECT 11, 'G3g  leave_state agrees with is_on_leave', (
+        SELECT count(*) FROM public.unified_daily_attendance
+        WHERE (leave_state <> 'none') <> is_on_leave)
+
+    UNION ALL SELECT 12, 'G3h  day_calendar_type agrees with booleans', (
+        SELECT count(*) FROM public.unified_daily_attendance
+        WHERE day_calendar_type <> CASE
+                WHEN is_weekend AND is_public_holiday THEN 'weekend_public_holiday'
+                WHEN is_weekend THEN 'weekend'
+                WHEN is_public_holiday THEN 'public_holiday'
+                ELSE 'ordinary' END)
+
+    UNION ALL SELECT 13, 'G5   payroll parity (excl. needs_reconciliation_days)', (
+        SELECT count(*)
+        FROM public._payroll_baseline b
+        FULL JOIN after_rows a
+               ON a.employee_uuid = b.employee_uuid AND a.metric = b.metric
+        WHERE b.value IS DISTINCT FROM a.value
+          AND COALESCE(b.metric, a.metric) <> 'needs_reconciliation_days')
+)
+SELECT gate,
+       offending_rows,
+       CASE WHEN offending_rows = 0 THEN 'PASS' ELSE '*** FAIL ***' END AS result
+FROM checks
+ORDER BY (offending_rows > 0) DESC, sort_key;
 
 -- ----------------------------------------------------------------------------
 -- GATE 1 -- ACCESS AND RLS. RUN THIS BEFORE ANYTHING ELSE.
