@@ -1953,13 +1953,51 @@ GROUP BY 1,2,3,4 ORDER BY 5 DESC;
 -- ############################################################################
 -- SECTION D -- CLEANUP. Run ALONE, and ONLY after every gate above has passed.
 --
--- Leave these tables in place if anything is still unresolved -- they are the
--- only record of what the view returned before the rebuild, and they cannot be
--- recreated once the old view is gone.
+-- Choose D1 or D2. Do NOT simply leave the tables as they are.
+--
+-- These are plain tables in the `public` schema created with CREATE TABLE AS,
+-- which means: exposed through PostgREST, granted to `anon`/`authenticated` by
+-- Supabase's default privileges, and carrying NO RLS -- because RLS is opt-in
+-- per table and CREATE TABLE AS does not enable it.
+--
+-- _hr_flag_baseline holds one row per employee per day with their attendance
+-- status. Left as-is, any authenticated user can read the whole company's
+-- attendance history straight off the REST API, bypassing every policy on
+-- attendance_logs / attendance_activities / employees that normally scopes it.
+-- That is a wider exposure than any table this migration touched.
 -- ############################################################################
-DROP TABLE IF EXISTS public._hr_flag_baseline;
-DROP TABLE IF EXISTS public._payroll_baseline;
-DROP TABLE IF EXISTS public._grants_baseline;
+
+-- --- D1: KEEP THEM, SAFELY -------------------------------------------------
+-- Use this while anything is still unresolved. The baselines are the only
+-- record of what the view returned BEFORE the rebuild and cannot be recreated
+-- once the old view is gone -- so keeping them has real value.
+--
+-- Enabling RLS with NO policy denies everything to anon/authenticated (owner
+-- and service_role still read them), and the REVOKEs remove the API grants
+-- outright. Belt and braces, deliberately: either alone would do, and this is
+-- personnel data.
+ALTER TABLE public._hr_flag_baseline ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public._payroll_baseline ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public._grants_baseline  ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public._hr_flag_baseline FROM anon, authenticated;
+REVOKE ALL ON public._payroll_baseline FROM anon, authenticated;
+REVOKE ALL ON public._grants_baseline  FROM anon, authenticated;
+
+-- Confirm: rowsecurity must be true, and no anon/authenticated grants left.
+SELECT c.relname, c.relrowsecurity AS rls_enabled,
+       (SELECT count(*) FROM information_schema.role_table_grants g
+        WHERE g.table_name = c.relname AND g.grantee IN ('anon','authenticated')) AS api_grants
+FROM pg_class c
+WHERE c.relname IN ('_hr_flag_baseline','_payroll_baseline','_grants_baseline');
+
+
+-- --- D2: DROP THEM ---------------------------------------------------------
+-- Run this instead, once Ship 2 is done and you no longer need the before-
+-- picture. Safe to run after D1.
+-- DROP TABLE IF EXISTS public._hr_flag_baseline;
+-- DROP TABLE IF EXISTS public._payroll_baseline;
+-- DROP TABLE IF EXISTS public._grants_baseline;
 
 
 -- ############################################################################
