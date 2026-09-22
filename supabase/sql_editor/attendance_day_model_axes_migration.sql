@@ -147,29 +147,81 @@
 -- this makes Gate 2 and Gate 5 impossible to run -- they read these tables.
 -- ############################################################################
 
+-- Idempotent: safe to re-run this whole section if you widen the date range
+-- or if an earlier attempt failed partway.
+DROP TABLE IF EXISTS public._hr_flag_baseline;
+DROP TABLE IF EXISTS public._payroll_baseline;
+DROP TABLE IF EXISTS public._grants_baseline;
+
 -- Adjust this range if you want a wider sample. It must cover dates with real
--- attendance data, and the same range is used again in Gate 2.
+-- attendance data, and the same range is used again in Gate 2 and Gate 5.
 CREATE TABLE public._hr_flag_baseline AS
 SELECT employee_uuid, work_date, hr_flag
 FROM public.unified_daily_attendance
 WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23';
 
--- The payroll numbers that must not move. Stored rather than eyeballed so
--- Gate 5 can diff it mechanically instead of relying on you comparing two
--- screenshots of a very wide result set.
+-- The payroll numbers that must not move, captured per employee per metric.
 --
--- Cast to JSONB, not left as the function's own JSON: `json` has NO equality
--- operator in Postgres, so any comparison of it fails outright with "could not
--- identify an equality operator for type json". `jsonb` has one.
+-- Deliberately aggregated STRAIGHT OFF THE VIEW rather than by calling
+-- get_payroll_period_summary(). Two reasons:
 --
--- COALESCE to '[]' because json_agg returns NULL (not an empty array) when the
--- period matches no employees -- without it, Gate 5's array expansion would
--- silently return zero rows and read as "nothing changed".
+--  1. That RPC raises 42501 "requires HR/superadmin" when run here. The SQL
+--     editor executes as the table owner, where auth.uid() is NULL, so the
+--     guard's `where p.id = auth.uid()` matches no profile row and the check
+--     fails closed. (Same root cause that forced the pg_cron notification
+--     functions to fork into unguarded SECURITY DEFINER variants.)
+--  2. It is the better test anyway. What this migration can break is the
+--     VIEW's arithmetic; the RPC is only one presentation of it. Reading the
+--     view directly tests the thing that actually changed, and catches a
+--     regression in columns the RPC happens not to expose.
+--
+-- Stored in LONG format (employee, metric, value) via to_jsonb + jsonb_each_text
+-- so Gate 5's diff can report "this employee, this metric, was X, now Y"
+-- instead of making you compare two very wide rows by eye.
 CREATE TABLE public._payroll_baseline AS
-SELECT COALESCE(
-    public.get_payroll_period_summary('2026-08-26', '2026-09-25', NULL, NULL, NULL)::jsonb,
-    '[]'::jsonb
-) AS summary;
+SELECT s.employee_uuid, kv.key AS metric, kv.value AS value
+FROM (
+    SELECT
+        employee_uuid,
+        sum(hours_worked)                     AS hours_worked,
+        sum(overtime_hours)                   AS overtime_hours,
+        sum(true_hours_worked)                AS true_hours_worked,
+        sum(holiday_hours_worked)             AS holiday_hours_worked,
+        sum(weekend_hours_worked)             AS weekend_hours_worked,
+        sum(approved_hours_worked)            AS approved_hours_worked,
+        sum(approved_overtime_hours)          AS approved_overtime_hours,
+        sum(approved_holiday_hours_worked)    AS approved_holiday_hours_worked,
+        sum(approved_weekend_hours_worked)    AS approved_weekend_hours_worked,
+        sum(pending_approval_hours)           AS pending_approval_hours,
+        sum(rest_day_excess_hours)            AS rest_day_excess_hours,
+        sum(holiday_excess_hours)             AS holiday_excess_hours,
+        sum(coalesce(leave_day_fraction, 0))       AS leave_day_fraction,
+        sum(coalesce(paid_leave_day_fraction, 0))  AS paid_leave_day_fraction,
+        sum(coalesce(unpaid_leave_day_fraction,0)) AS unpaid_leave_day_fraction,
+        count(*)                                                   AS row_count,
+        count(*) filter (where hr_flag = 'Absent')                 AS absent_days,
+        count(*) filter (where hr_flag = 'Absent' and not is_weekend) AS absent_working_days,
+        count(*) filter (where is_worked_on_holiday)               AS worked_on_holiday_days,
+        count(*) filter (where is_worked_on_weekend)               AS worked_on_weekend_days,
+        count(*) filter (where is_on_leave)                        AS on_leave_days,
+        count(*) filter (where is_public_holiday)                  AS public_holiday_days,
+        count(*) filter (where is_weekend)                         AS weekend_days,
+        count(*) filter (where is_late_arrival)                    AS late_arrival_days,
+        count(*) filter (where is_early_leave)                     AS early_leave_days,
+        count(*) filter (where is_leave_attendance_conflict)       AS leave_conflict_days,
+        count(*) filter (where is_insufficient_half_day_hours)     AS insufficient_half_day_days,
+        count(*) filter (where has_leave_fraction_error)           AS leave_fraction_error_days,
+        count(*) filter (where is_unacknowledged_absent)           AS unack_absent_days,
+        count(*) filter (where is_unacknowledged_insufficient_half_day) AS unack_half_day_days,
+        count(*) filter (where needs_reconciliation)               AS needs_reconciliation_days,
+        count(*) filter (where rest_day_wage_tier = 'half_day')    AS rest_day_half_tier,
+        count(*) filter (where rest_day_wage_tier = 'full_day')    AS rest_day_full_tier,
+        count(*) filter (where holiday_wage_tier = 'full_day')     AS holiday_full_tier
+    FROM public.unified_daily_attendance
+    WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23'
+    GROUP BY employee_uuid
+) s,
+LATERAL jsonb_each_text(to_jsonb(s) - 'employee_uuid') kv;
 
 -- Current grants, so Gate 1 can confirm they came back after the recreate.
 CREATE TABLE public._grants_baseline AS
@@ -180,9 +232,10 @@ WHERE table_name IN ('unified_daily_attendance', 'attendance_activity_audit');
 -- Confirm all three captured something. If _hr_flag_baseline is 0, your date
 -- range has no data -- widen it and re-run this section.
 SELECT
-    (SELECT count(*) FROM public._hr_flag_baseline) AS hr_flag_rows,
-    (SELECT jsonb_array_length(summary) FROM public._payroll_baseline) AS payroll_employees,
-    (SELECT count(*) FROM public._grants_baseline)  AS grant_rows;
+    (SELECT count(*) FROM public._hr_flag_baseline)                       AS hr_flag_rows,
+    (SELECT count(DISTINCT employee_uuid) FROM public._payroll_baseline)  AS payroll_employees,
+    (SELECT count(*) FROM public._payroll_baseline)                       AS payroll_metrics,
+    (SELECT count(*) FROM public._grants_baseline)                        AS grant_rows;
 
 
 -- ############################################################################
@@ -1801,36 +1854,77 @@ LIMIT 20;
 -- IDENTICAL. Anything else moving means a rewritten expression changed
 -- meaning, and the rebuild is NOT safe to keep.
 --
--- The RPC returns one JSON object per employee, so this expands both the
--- captured and the live array, matches them on employeeUuid, and reports ONE
--- ROW PER CHANGED FIELD -- you get "this employee, this field, was X, now Y"
--- rather than two thousand-character blobs to compare by eye. A FULL JOIN so
--- an employee appearing or disappearing entirely also shows up.
+-- Recomputes the SECTION A aggregate against the rebuilt view and diffs it,
+-- reporting ONE ROW PER CHANGED METRIC -- "this employee, this metric, was X,
+-- now Y". FULL JOIN, so an employee or metric appearing or vanishing entirely
+-- also shows up rather than being silently skipped.
 --
--- EXPECT ZERO ROWS -- with ONE allowed exception, and only this one: fields
--- derived from needs_reconciliation may move, because of the new pending-
--- approval limb. Any hoursWorked / overtime / dayCount / wage-tier field
--- appearing here means a rewritten expression changed meaning, and the
--- rebuild is NOT safe to keep -- roll back (see the ROLLBACK section).
-WITH before_rows AS (
-    SELECT e->>'employeeUuid' AS emp, e AS j
-    FROM public._payroll_baseline b, jsonb_array_elements(b.summary) e
-), after_rows AS (
-    SELECT e->>'employeeUuid' AS emp, e AS j
-    FROM jsonb_array_elements(COALESCE(
-        public.get_payroll_period_summary('2026-08-26','2026-09-25',NULL,NULL,NULL)::jsonb,
-        '[]'::jsonb)) e
+-- >>> THE AGGREGATE BELOW MUST STAY CHARACTER-FOR-CHARACTER IDENTICAL TO THE
+-- >>> ONE IN SECTION A, INCLUDING THE DATE RANGE. If you widened the range
+-- >>> there, widen it here too, or every metric will appear to have changed.
+--
+-- EXPECT EXACTLY ONE metric to differ, and only this one:
+--     needs_reconciliation_days   -- may go UP, never down
+-- That is the new pending-approval limb, and it is the intended change.
+--
+-- ANY OTHER METRIC APPEARING HERE means a rewritten expression changed
+-- meaning. Do not proceed -- roll back (see the ROLLBACK section). In
+-- particular every hours_*, *_days and *_tier metric must be untouched.
+WITH after_rows AS (
+    SELECT s.employee_uuid, kv.key AS metric, kv.value AS value
+    FROM (
+        SELECT
+            employee_uuid,
+            sum(hours_worked)                     AS hours_worked,
+            sum(overtime_hours)                   AS overtime_hours,
+            sum(true_hours_worked)                AS true_hours_worked,
+            sum(holiday_hours_worked)             AS holiday_hours_worked,
+            sum(weekend_hours_worked)             AS weekend_hours_worked,
+            sum(approved_hours_worked)            AS approved_hours_worked,
+            sum(approved_overtime_hours)          AS approved_overtime_hours,
+            sum(approved_holiday_hours_worked)    AS approved_holiday_hours_worked,
+            sum(approved_weekend_hours_worked)    AS approved_weekend_hours_worked,
+            sum(pending_approval_hours)           AS pending_approval_hours,
+            sum(rest_day_excess_hours)            AS rest_day_excess_hours,
+            sum(holiday_excess_hours)             AS holiday_excess_hours,
+            sum(coalesce(leave_day_fraction, 0))       AS leave_day_fraction,
+            sum(coalesce(paid_leave_day_fraction, 0))  AS paid_leave_day_fraction,
+            sum(coalesce(unpaid_leave_day_fraction,0)) AS unpaid_leave_day_fraction,
+            count(*)                                                   AS row_count,
+            count(*) filter (where hr_flag = 'Absent')                 AS absent_days,
+            count(*) filter (where hr_flag = 'Absent' and not is_weekend) AS absent_working_days,
+            count(*) filter (where is_worked_on_holiday)               AS worked_on_holiday_days,
+            count(*) filter (where is_worked_on_weekend)               AS worked_on_weekend_days,
+            count(*) filter (where is_on_leave)                        AS on_leave_days,
+            count(*) filter (where is_public_holiday)                  AS public_holiday_days,
+            count(*) filter (where is_weekend)                         AS weekend_days,
+            count(*) filter (where is_late_arrival)                    AS late_arrival_days,
+            count(*) filter (where is_early_leave)                     AS early_leave_days,
+            count(*) filter (where is_leave_attendance_conflict)       AS leave_conflict_days,
+            count(*) filter (where is_insufficient_half_day_hours)     AS insufficient_half_day_days,
+            count(*) filter (where has_leave_fraction_error)           AS leave_fraction_error_days,
+            count(*) filter (where is_unacknowledged_absent)           AS unack_absent_days,
+            count(*) filter (where is_unacknowledged_insufficient_half_day) AS unack_half_day_days,
+            count(*) filter (where needs_reconciliation)               AS needs_reconciliation_days,
+            count(*) filter (where rest_day_wage_tier = 'half_day')    AS rest_day_half_tier,
+            count(*) filter (where rest_day_wage_tier = 'full_day')    AS rest_day_full_tier,
+            count(*) filter (where holiday_wage_tier = 'full_day')     AS holiday_full_tier
+        FROM public.unified_daily_attendance
+        WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23'
+        GROUP BY employee_uuid
+    ) s,
+    LATERAL jsonb_each_text(to_jsonb(s) - 'employee_uuid') kv
 )
 SELECT
-    COALESCE(b.j->>'fullName', a.j->>'fullName') AS employee,
-    k                                            AS field,
-    b.j->k                                       AS before_value,
-    a.j->k                                       AS after_value
-FROM before_rows b
-FULL JOIN after_rows a ON a.emp = b.emp
-CROSS JOIN LATERAL jsonb_object_keys(COALESCE(b.j, a.j)) k
-WHERE b.j->k IS DISTINCT FROM a.j->k
-ORDER BY 1, 2;
+    COALESCE(b.employee_uuid, a.employee_uuid) AS employee_uuid,
+    COALESCE(b.metric, a.metric)               AS metric,
+    b.value                                    AS before_value,
+    a.value                                    AS after_value
+FROM public._payroll_baseline b
+FULL JOIN after_rows a
+       ON a.employee_uuid = b.employee_uuid AND a.metric = b.metric
+WHERE b.value IS DISTINCT FROM a.value
+ORDER BY 2, 1;
 --
 -- Sanity-check the one intended change -- these are the rows the lists'
 -- "Needs Reconciliation" filter will newly include:
