@@ -201,7 +201,21 @@ function applyAttendanceFilter(query, key, value) {
     case "leaveAttendanceConflict":
       return query.eq("is_leave_attendance_conflict", true);
 
+    // Two-valued, unlike its two neighbours, because this is the only one of
+    // the three that is ACKNOWLEDGEABLE (see acknowledge_attendance_day_rpc.sql
+    // -- leave conflicts and leave data errors clear themselves on the next
+    // HR2000 sync instead, so raw and unresolved are the same set for them).
+    //
+    // "true" keeps the raw column: the filter is labelled "Half-Day Leave, <4h
+    // Worked", a statement about the day, and every such day is a payroll input
+    // whether or not HR has reviewed it. "unresolved" is the reconciliation
+    // question, and matches what the row-flag badge shows
+    // (attendanceReconciliationFlags.js reads the same unacknowledged column).
+    // Before this existed, picking the filter returned a mix of badged and
+    // unbadged rows with nothing to explain the difference.
     case "insufficientHalfDayHours":
+      if (value === "unresolved")
+        return query.eq("is_unacknowledged_insufficient_half_day", true);
       return query.eq("is_insufficient_half_day_hours", true);
 
     case "leaveFractionError":

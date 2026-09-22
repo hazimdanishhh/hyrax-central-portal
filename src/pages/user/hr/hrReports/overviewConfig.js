@@ -122,7 +122,15 @@ export function getHrReportsOverviewConfig(
         label: absenteeismStatus.statusLabel,
       },
       to: attendanceTo,
-      filter: { ...baseFilter, hrFlag: "Absent", ...periodFilter },
+      // dayType: "working" is NOT optional here. The rate this tile shows is
+      // absent_days_count / working_day_records_count, and
+      // get_attendance_dashboard_rpc.sql computes the numerator as
+      // `hr_flag = 'Absent' and not is_weekend`. Without the matching guard,
+      // the drill-through also returns every unworked weekend (hr_flag has no
+      // separate "Weekend / Rest Day" value -- an unworked Saturday simply
+      // reads 'Absent'), landing HR on roughly twice the rows the tile counted.
+      // The Attendance Rate tile above already passes it; this one didn't.
+      filter: { ...baseFilter, hrFlag: "Absent", dayType: "working", ...periodFilter },
       metrics: [],
       title:
         "Absent-flagged records divided by all working-day records this period.",

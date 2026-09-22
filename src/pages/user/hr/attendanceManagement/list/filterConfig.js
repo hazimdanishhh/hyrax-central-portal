@@ -102,9 +102,16 @@ export function getAttendanceActivitiesFilterConfig({
       options: [{ label: "Full-Day Leave But Attended", value: "true" }],
     },
     {
+      // Unlike its two neighbours this category is acknowledgeable, so it
+      // offers both readings -- all such days (a payroll input regardless of
+      // review status) and just the ones still outstanding. See
+      // applyAttendanceFilter's matching case.
       key: "insufficientHalfDayHours",
       label: "Insufficient Half-Day Hours",
-      options: [{ label: "Half-Day Leave, <4h Worked", value: "true" }],
+      options: [
+        { label: "Half-Day Leave, <4h Worked", value: "true" },
+        { label: "Half-Day Leave, <4h Worked - Unresolved", value: "unresolved" },
+      ],
     },
     {
       key: "leaveFractionError",

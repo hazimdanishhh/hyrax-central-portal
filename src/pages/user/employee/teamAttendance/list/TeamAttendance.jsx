@@ -62,6 +62,12 @@ const SEARCH_MODE_FILTER_KEYS = [
   "publicHoliday",
   "workedOnHoliday",
   "workedOnWeekend",
+  // Both are real options in this page's filterConfig.js but were absent here,
+  // so using either alone silently stayed in Day mode. "Needs Reconciliation"
+  // is the costly one -- a manager reviewing what their reports still owe HR
+  // saw a single day and read an outstanding month as clean.
+  "needsReconciliation",
+  "workLocation",
 ];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {

@@ -84,6 +84,14 @@ const SEARCH_MODE_FILTER_KEYS = [
   "publicHoliday",
   "workedOnHoliday",
   "workedOnWeekend",
+  // Same class of bug as the six above, and the most damaging instance of it:
+  // "Needs Reconciliation" is the filter HR uses to answer "what is still
+  // outstanding this payroll cycle?", and without it here that question was
+  // silently answered for ONE DAY only. A month with a backlog rendered as
+  // clean. workLocation had the same gap -- both are real filterConfig.js
+  // options with backing applyAttendanceFilter logic.
+  "needsReconciliation",
+  "workLocation",
 ];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {

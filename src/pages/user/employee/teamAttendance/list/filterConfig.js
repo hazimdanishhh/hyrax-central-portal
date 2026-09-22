@@ -76,9 +76,15 @@ export function getTeamAttendanceFilterConfig({
       options: [{ label: "Full-Day Leave But Attended", value: "true" }],
     },
     {
+      // Two readings -- see HR's own filterConfig.js and
+      // applyAttendanceFilter's matching case for why this one category is
+      // split and its two neighbours aren't.
       key: "insufficientHalfDayHours",
       label: "Insufficient Half-Day Hours",
-      options: [{ label: "Half-Day Leave, <4h Worked", value: "true" }],
+      options: [
+        { label: "Half-Day Leave, <4h Worked", value: "true" },
+        { label: "Half-Day Leave, <4h Worked - Unresolved", value: "unresolved" },
+      ],
     },
     {
       key: "leaveFractionError",

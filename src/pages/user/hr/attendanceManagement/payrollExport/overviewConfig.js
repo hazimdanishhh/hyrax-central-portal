@@ -1,6 +1,5 @@
 // pages/user/hr/attendanceManagement/payrollExport/overviewConfig.js
 import {
-  CheckCircleIcon,
   HourglassIcon,
   WarningIcon,
   WarningOctagonIcon,
@@ -17,7 +16,10 @@ import {
 export function computePayrollReconciliationOverview(rows) {
   return (rows || []).reduce(
     (acc, row) => {
-      acc.confirmedUnpaidAbsences += Number(row.acknowledgedAbsenceCount || 0);
+      // No confirmedUnpaidAbsences accumulator: these tiles are the
+      // "what still needs attention" row, and a reviewed absence doesn't.
+      // It stays reachable through the "Absent - Confirmed Unpaid" value of
+      // the Reconciliation filter (filterConfig.js) for audit.
       acc.pendingAbsences += Number(row.unacknowledgedAbsenceCount || 0);
       acc.leaveConflicts += Number(row.leaveAttendanceConflictCount || 0);
       acc.insufficientHalfDay += Number(
@@ -28,7 +30,6 @@ export function computePayrollReconciliationOverview(rows) {
       return acc;
     },
     {
-      confirmedUnpaidAbsences: 0,
       pendingAbsences: 0,
       leaveConflicts: 0,
       insufficientHalfDay: 0,
@@ -43,12 +44,16 @@ export function computePayrollReconciliationOverview(rows) {
 // that led to it: HR should be able to see AND filter each kind of problem
 // independently, not just an undifferentiated total.
 //
+// These are the five UNRESOLVED categories, matching
+// getRowReconciliationFlags exactly -- so the tiles, the row badges and the
+// "Needs Reconciliation (Any)" filter are all the same set. Confirmed-unpaid
+// absences are deliberately absent: already reviewed and closed (see
+// attendance_reconciliation_acknowledgements_migration.sql's "DECLARES THE
+// DAY UNPAID"), so a tile for them would read as a sixth problem. Still
+// reachable via the filter's "Absent - Confirmed Unpaid" value.
+//
 // Segmenting/coloring, deliberately NOT a uniform red-when-nonzero across the
-// board (that would just be the same lumped signal repeated six times):
-// - "Confirmed Unpaid Absences" is blueCard, always -- it's not a problem to
-//   fix, it's a fact already reviewed and closed (see
-//   attendance_reconciliation_acknowledgements_migration.sql's own "DECLARES
-//   THE DAY UNPAID" semantics). Never red/green.
+// board (that would just be the same lumped signal repeated five times):
 // - "Insufficient Half-Day Hours" is yellowCard (not red) when nonzero -- per
 //   its seeded acknowledgement reason ("Hours Reviewed and Accepted",
 //   attendance_acknowledgement_reasons), this category is typically a benign
@@ -57,10 +62,11 @@ export function computePayrollReconciliationOverview(rows) {
 // - Leave/Attendance Conflicts and Leave Data Errors are genuine
 //   data-integrity problems with no benign reading -- redCard whenever
 //   nonzero, greenCard at zero.
-// - Pending Review (Absences) and Pending Approval Hours are both
-//   financially consequential and time-bound (they block an accurate payroll
-//   run until resolved, same framing as PayrollExport.jsx's own warning
-//   banner) -- redCard whenever nonzero, greenCard at zero.
+// - Unacknowledged Absences and Pending Approval Hours are both financially
+//   consequential and time-bound -- they block an accurate payroll run until
+//   resolved -- so redCard whenever nonzero, greenCard at zero. These two
+//   tiles are why the page no longer carries a separate warning banner: they
+//   say the same thing per category, in colour, and each one filters.
 //
 // `filter` on every tile spreads the page's OWN currently-active filters
 // (`...filters`, e.g. the selected payroll period/department) before setting

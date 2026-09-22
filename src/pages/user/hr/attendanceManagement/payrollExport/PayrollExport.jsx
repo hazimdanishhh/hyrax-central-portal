@@ -3,9 +3,8 @@ import { useCallback, useMemo } from "react";
 import OverviewCards from "@/components/crud/overviewCards/OverviewCards";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import { MagnifyingGlassIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import CardLayout from "@/components/cardLayout/CardLayout";
-import Button from "@/components/buttons/button/Button";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
 import NoResult from "@/components/crud/noResult/NoResult";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
@@ -18,7 +17,6 @@ import usePayrollPeriodSummary from "@/features/hr/payroll/private/hooks/usePayr
 import { usePayrollPeriodSummaryRowById } from "@/features/hr/payroll/private/hooks/usePayrollPeriodSummaryRowById";
 import {
   getPayrollExportFilterConfig,
-  rowNeedsReconciliation,
   getRowReconciliationFlags,
   getReconciliationCategoryPredicate,
 } from "./filterConfig";
@@ -126,26 +124,6 @@ export default function PayrollExport() {
     filters,
   );
 
-  // Non-blocking "review before exporting" signal -- checked against the
-  // FULL `rows`, not `displayRows`, so this stays accurate regardless of
-  // whether the "Needs Reconciliation" filter happens to be applied right
-  // now. Two independent things worth flagging: unresolved absence/half-day/
-  // leave-conflict/leave-error items (same rule the filter/badge already
-  // use), and hours still sitting on unapproved app activities (excluded
-  // from hoursWorkedTotal/overtimeHoursTotal/etc. already -- see
-  // tableConfig.jsx's own comment -- but worth surfacing here too so it
-  // isn't only visible by noticing a smaller-than-expected total).
-  const pendingReconciliationCount = rows.filter(rowNeedsReconciliation).length;
-  const pendingApprovalHours = rows.reduce(
-    (sum, row) => sum + Number(row.pendingApprovalHoursTotal || 0),
-    0,
-  );
-  const showReconciliationWarning =
-    hasPeriod &&
-    !isLoading &&
-    !isFetching &&
-    (pendingReconciliationCount > 0 || pendingApprovalHours > 0);
-
   const columns = payrollPeriodSummaryTableConfig();
   const hasData = displayRows.length > 0;
 
@@ -213,28 +191,13 @@ export default function PayrollExport() {
 
       <PayrollCycleFilterBar filters={filters} onFilterChange={setFilters} />
 
-      {/* Non-blocking -- HR stays in control and can still export
-          deliberately, this is a heads-up, not a gate. */}
-      {/* {showReconciliationWarning && (
-        <CardLayout style="generalCard redCard">
-          <WarningCircleIcon size={16} />
-          <p className="textRegular textXS">
-            {pendingReconciliationCount > 0 &&
-              `${pendingReconciliationCount} employee${pendingReconciliationCount === 1 ? " has" : "s have"} unresolved reconciliation items`}
-            {pendingReconciliationCount > 0 &&
-              pendingApprovalHours > 0 &&
-              ", and "}
-            {pendingApprovalHours > 0 &&
-              `${pendingApprovalHours.toFixed(2)} hours are still awaiting approval`}
-            {" — review before finalizing payroll."}
-          </p>
-          <Button
-            name="Show only flagged"
-            style="button buttonType4 rejection textXXS"
-            onClick={() => setFilters({ needsReconciliation: "true" })}
-          />
-        </CardLayout>
-      )} */}
+      {/* A single red "N employees have unresolved items" banner used to sit
+          here. Deleted rather than re-enabled: the OverviewCards row above now
+          says the same thing per category, in colour, and each tile filters to
+          exactly its own rows -- so the banner was a strictly less useful
+          duplicate, and its "Show only flagged" button also dropped the
+          period/department filters by replacing the querystring instead of
+          merging into it. */}
 
       <div className="cardWrapperScroll">
         {!hasPeriod ? (

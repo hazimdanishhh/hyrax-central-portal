@@ -28,12 +28,17 @@ export function getPayrollExportFilterConfig({ departments, employees, workLocat
     {
       // One dropdown, one value at a time (SearchFilterBar only renders
       // react-select dropdowns) -- "true" is the original single-option
-      // toggle (any of the 4 categories below), the rest are per-category
-      // drill-downs so a click (from either this dropdown or an Overview
-      // Cards tile -- see overviewConfig.js) narrows to exactly one kind of
-      // problem instead of everything at once. getReconciliationCategoryPredicate
-      // below is the single place that maps each value to its row predicate,
-      // so this list and that predicate can never drift apart.
+      // toggle, the rest are per-category drill-downs so a click (from either
+      // this dropdown or an Overview Cards tile -- see overviewConfig.js)
+      // narrows to exactly one kind of problem instead of everything at once.
+      // getReconciliationCategoryPredicate below is the single place that maps
+      // each value to its row predicate, so this list and that predicate can
+      // never drift apart.
+      //
+      // "Needs Reconciliation (Any)" is the union of the FIVE unresolved
+      // categories -- everything below except "Absent - Confirmed Unpaid",
+      // which is a resolved state offered for audit drill-down. See
+      // getRowReconciliationFlags for the invariant that keeps that true.
       key: "needsReconciliation",
       label: "Reconciliation",
       options: [
@@ -49,10 +54,24 @@ export function getPayrollExportFilterConfig({ departments, employees, workLocat
   ];
 }
 
-// One place for the four reconciliation counts this page surfaces (see
-// tableConfig.jsx/exportConfig.js) -- each becomes its own message when
-// non-zero, so both the "Needs Reconciliation" filter and the DataTable
-// row-flag badge (see PayrollExport.jsx) agree on exactly the same rule.
+// One place for the five UNRESOLVED reconciliation categories this page
+// surfaces (see tableConfig.jsx/exportConfig.js) -- each becomes its own
+// message when non-zero, so the "Needs Reconciliation" filter, the DataTable
+// row-flag badge (see PayrollExport.jsx), the Overview Cards tiles
+// (overviewConfig.js) and the sidebar all agree on exactly the same rule.
+//
+// INVARIANT: this list is exactly the "Needs Reconciliation (Any)" filter,
+// because rowNeedsReconciliation() below is literally "did this produce a
+// flag?". So every value in getPayrollExportFilterConfig's dropdown that
+// represents an UNRESOLVED problem must have a branch here. "confirmedAbsence"
+// deliberately does not -- it is a resolved state, offered as a drill-down for
+// audit, and folding it in would make "Any" report reviewed days as problems.
+//
+// Keep in step with getReconciliationCategoryPredicate at the bottom of this
+// file: same categories, same source fields. They drifted once (pendingApproval
+// had a predicate but no branch here, so a red "Pending Approval Hours" tile
+// drilled into a table of rows with empty flag columns while "Any" excluded
+// them outright) -- that is the failure this invariant exists to prevent.
 export function getRowReconciliationFlags(row) {
   const flags = [];
   // OUTSTANDING counts, not the raw ones. daysAbsentCount /
@@ -72,6 +91,10 @@ export function getRowReconciliationFlags(row) {
     row.insufficientHalfDayHoursCount ??
     0;
   const leaveErrors = row.leaveFractionErrorCount || 0;
+  // Hours on app activities still sitting at Pending, i.e. withheld from the
+  // payroll-eligible totals on this very page. Numeric rather than a count --
+  // the RPC returns a sum of hours, not a number of days.
+  const pendingApprovalHours = Number(row.pendingApprovalHoursTotal || 0);
 
   if (days > 0) {
     flags.push(`${days} day${days === 1 ? "" : "s"} absent`);
@@ -88,6 +111,13 @@ export function getRowReconciliationFlags(row) {
   }
   if (leaveErrors > 0) {
     flags.push(`${leaveErrors} leave data error${leaveErrors === 1 ? "" : "s"}`);
+  }
+  // .toFixed(2) to match how this same figure is rendered in tableConfig.jsx,
+  // exportConfig.js and kpiCardConfig.js -- a badge reading "3.5 hours" beside
+  // a column reading "3.50" invites the question of whether they are the
+  // same number.
+  if (pendingApprovalHours > 0) {
+    flags.push(`${pendingApprovalHours.toFixed(2)} hours pending approval`);
   }
 
   return flags;

@@ -398,9 +398,17 @@ export default function AttendanceOverview() {
                     subtitle="By Absent Days, This Period"
                     style="cardGapSmall"
                     viewAllTo="../list"
+                    // dayType: "working" mirrors topAbsenteeismData's own
+                    // `and not is_weekend` guard in
+                    // get_attendance_dashboard_rpc.sql. Without it this "View
+                    // All" returned every unworked weekend too (an unworked
+                    // Saturday reads hr_flag = 'Absent'), so the list showed
+                    // roughly twice the days the chart beside it had just
+                    // plotted.
                     viewAllFilter={{
                       ...chartBaseFilter,
                       hrFlag: "Absent",
+                      dayType: "working",
                       ...chartPeriodFilter,
                     }}
                   >

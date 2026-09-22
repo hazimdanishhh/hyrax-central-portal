@@ -41,16 +41,12 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
   const genericLink = linkFor("generic");
   const holidayLink = linkFor("worked_on_holiday");
   const weekendLink = linkFor("worked_on_weekend");
-  // Same target as the "absent" reconciliation category's own email/
-  // notification deep link -- scoped to this employee/period, not further
-  // split by acknowledgement status, since the Attendance List has no
-  // acknowledged-vs-pending hrFlag filter of its own (only the day sidebar,
-  // opened from that list, actually shows which). Reused for both the
-  // Confirmed and Pending Review absence cards below, same "close enough,
-  // open the day to see the exact status" precedent holiday/weekend links
-  // above already set.
-  const absentLink = linkFor("absent");
-  const pendingApprovalLink = linkFor("pending_approval");
+  // No linkFor("absent") / linkFor("pending_approval") here: both cards below
+  // that would have used them build their own URL instead, because each needs
+  // to narrow further than the shared category link does -- the absence card
+  // adds needsReconciliation=true (linkFor("absent") deliberately doesn't split
+  // by acknowledgement status), and the pending-approval card targets the
+  // hrFlag value directly.
   const overtimeLink = linkFor("overtime_only");
   const onLeaveLink = linkFor("on_leave_only");
 
@@ -58,14 +54,11 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
     {
       groupLabel: "Reconciliation",
       cards: [
-        // {
-        //   label: "Confirmed Unpaid Absences",
-        //   value: row.acknowledgedAbsenceCount || 0,
-        //   link: absentLink,
-        //   variant: "blueCard",
-        //   description:
-        //     "Absences already reviewed and confirmed unpaid -- daysAbsentCount above already includes these, this is just the reviewed portion of it.",
-        // },
+        // A "Confirmed Unpaid Absences" card (acknowledgedAbsenceCount, blue)
+        // sat here and was deliberately dropped: this group answers "what
+        // still needs HR's attention", and a reviewed absence doesn't. The
+        // reviewed portion is still reachable from Payroll Export's own
+        // "Absent - Confirmed Unpaid" reconciliation filter.
         {
           label: "Unacknowledged Absences",
           value: row.unacknowledgedAbsenceCount || 0,

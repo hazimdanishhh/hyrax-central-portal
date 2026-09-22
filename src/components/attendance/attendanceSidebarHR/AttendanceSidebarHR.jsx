@@ -73,11 +73,11 @@ export default function AttendanceSidebarHR({
     selectedRow?.hr_flag,
     selectedRow?.is_weekend,
   );
-  // Second, independent tag for a weekend actually WORKED -- the
-  // unworked-weekend case is already fully covered by the "Weekend" label
-  // above, so this only fires when hr_flag isn't "Absent".
-  const showWorkedWeekendTag =
-    selectedRow?.is_weekend && selectedRow?.hr_flag !== "Absent";
+  // Second, independent tag for a weekend actually WORKED. Reads
+  // is_worked_on_weekend directly -- see AttendanceCard.jsx's matching comment
+  // for why inferring it from `is_weekend && hr_flag !== "Absent"` tagged
+  // unworked weekends that happened to fall on leave or a public holiday.
+  const showWorkedWeekendTag = Boolean(selectedRow?.is_worked_on_weekend);
 
   const reconciliationFlags = getAttendanceReconciliationFlags(
     selectedRow || {},
@@ -143,6 +143,17 @@ export default function AttendanceSidebarHR({
               when the "Weekend" label above ISN'T already covering this day
               (i.e. they actually attended). */}
           {showWorkedWeekendTag && <StatusBox status="Weekend" type="grey" />}
+
+          {/* Needs Reconciliation warning, same RowFlagBadge the list cards
+              use (AttendanceCard.jsx) so the badge HR clicked through from is
+              still visible once the day is open -- rather than making them
+              re-derive which flag fired from the action buttons below.
+              reconciliationFlags was being computed here but never rendered,
+              so this badge was silently missing from the sidebar. */}
+          <RowFlagBadge
+            items={reconciliationFlags}
+            tooltipTitle="Needs Reconciliation"
+          />
         </div>
       </div>
 

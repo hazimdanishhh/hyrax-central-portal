@@ -32,13 +32,20 @@ function AttendanceCard({ activity, to, target, rel }) {
     activity.hr_flag,
     activity.is_weekend,
   );
-  // Second, independent tag for a weekend actually WORKED -- the
-  // unworked-weekend case is already fully covered by the "Weekend" label
-  // above, so this only fires when hr_flag isn't "Absent" (same pattern as
-  // the is_on_leave tag below: a small fact shown alongside the main
-  // status, not folded into it).
-  const showWorkedWeekendTag =
-    activity.is_weekend && activity.hr_flag !== "Absent";
+  // Second, independent tag for a weekend actually WORKED (same pattern as
+  // the is_on_leave tag below: a small fact shown alongside the main status,
+  // not folded into it).
+  //
+  // Reads is_worked_on_weekend directly rather than inferring it from
+  // `is_weekend && hr_flag !== "Absent"`. That inference assumed an unworked
+  // weekend always reads "Absent", which is only true when nothing else
+  // pre-empts that branch -- a Saturday the employee was on leave reads
+  // "On Leave (...)", and a Saturday that's also a public holiday reads
+  // "Public Holiday (...)", so both got tagged as weekend work with nobody
+  // having worked. is_worked_on_weekend already carries the real-attendance
+  // check (get_attendance_dashboard_rpc.sql relies on exactly that for its
+  // weekend KPIs), so this now matches what those tiles count.
+  const showWorkedWeekendTag = Boolean(activity.is_worked_on_weekend);
 
   const reconciliationFlags = getAttendanceReconciliationFlags(activity);
 

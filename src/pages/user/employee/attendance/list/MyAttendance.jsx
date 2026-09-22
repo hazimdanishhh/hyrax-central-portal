@@ -59,6 +59,11 @@ const SEARCH_MODE_FILTER_KEYS = [
   "publicHoliday",
   "workedOnHoliday",
   "workedOnWeekend",
+  // Without this, picking "Needs Reconciliation" pinned the page to a single
+  // calendar day -- so an employee checking what HR still needs from them saw
+  // one day's worth and read an outstanding month as clean. No workLocation
+  // here: this page's filter config doesn't offer it.
+  "needsReconciliation",
 ];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {
