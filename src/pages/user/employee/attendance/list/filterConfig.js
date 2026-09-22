@@ -44,7 +44,7 @@ export function getMyAttendanceFilterConfig() {
     {
       key: "overtimeOnly",
       label: "Overtime",
-      options: [{ label: "Overtime Only (After 6:00 PM)", value: "true" }],
+      options: [{ label: "Overtime Only (Beyond 8h/Day)", value: "true" }],
     },
     {
       key: "lateArrival",

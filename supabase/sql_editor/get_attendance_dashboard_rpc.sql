@@ -450,10 +450,15 @@ kpi_totals as (
         (select round(avg(hours_worked)::numeric, 2) from period_rows where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave) as avg_hours_worked,
         (select round(avg(hours_worked)::numeric, 2) from prev_period_rows where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave) as prev_avg_hours_worked,
 
-        -- Overtime (doc-02 KPI): time worked after 6PM, this period --
-        -- NOT hours above 8/day. Reads overtime_hours from
+        -- Overtime (doc-02 KPI): hours worked beyond the normal 8 paid
+        -- hours in a day, per Employment Act s.60A, this period. REDEFINED
+        -- 2026-09-22 -- this used to mean "time worked after 6PM, NOT hours
+        -- above 8/day", which was the exact opposite. No change was needed
+        -- here: overtime_hours is still read straight from
         -- unified_daily_attendance (same reasoning as early_leave_count
-        -- above -- computed once in the view, not re-derived here).
+        -- above -- computed once in the view, not re-derived here), so
+        -- swapping the view's formula corrected this KPI automatically.
+        -- Expect both the total and the leaderboard to move.
         -- `and not is_on_leave` costs nothing here (a pure-leave zero-scan
         -- day already computes overtime_hours = 0 and fails the >0 filter
         -- regardless) but keeps this block consistent with its neighbors and

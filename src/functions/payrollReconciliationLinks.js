@@ -29,6 +29,9 @@ const CATEGORY_QUERY_PARAMS = {
   // single corresponding Attendance List filter (hours worked, leave days,
   // etc.). An intentionally valid, empty-string entry -- see the `params
   // === undefined` check below, not `!params`.
+  overtime_only: "overtimeOnly=true",
+  on_leave_only: "onLeave=true",
+  needs_reconciliation: "needsReconciliation=true",
   generic: "",
 };
 

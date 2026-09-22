@@ -10,7 +10,12 @@ export function payrollPeriodSummaryTableConfig() {
     { key: "fullName", label: "Full Name", getValue: (row) => row.fullName },
     { key: "departmentName", label: "Department", getValue: (row) => row.departmentName || "--" },
     { key: "hoursWorkedTotal", label: "Hours Worked", getValue: (row) => Number(row.hoursWorkedTotal || 0).toFixed(2) },
-    { key: "overtimeHoursTotal", label: "Overtime Hours", getValue: (row) => Number(row.overtimeHoursTotal || 0).toFixed(2) },
+    // "(Est.)" like every other statutory figure here: this is derived from
+    // card scans and app sessions, not from HR's real OT claim form, and HR
+    // reconciles the two before anything is paid. Employment Act s.60A --
+    // hours beyond 8 paid hours in a day (see
+    // hr_unified_daily_attendance_view.sql's overtime_hours).
+    { key: "overtimeHoursTotal", label: "Overtime Hours (Est.)", getValue: (row) => Number(row.overtimeHoursTotal || 0).toFixed(2) },
     // Approved-only -- hoursWorkedTotal/overtimeHoursTotal above already
     // exclude Pending (unapproved) app-activity hours (see
     // hr_unified_daily_attendance_view.sql's approved_app_hours). This is the
@@ -34,7 +39,12 @@ export function payrollPeriodSummaryTableConfig() {
     // estimates only, never the payable figure -- see
     // hr_unified_daily_attendance_view.sql's header comment on these
     // columns and docs/PAYROLL-DATA-REQUIREMENTS.md.
-    { key: "estimatedNormalDayOtHoursTotal", label: "Normal Day OT Hours (Est.)", getValue: (row) => Number(row.estimatedNormalDayOtHoursTotal || 0).toFixed(2) },
+    //
+    // "Normal Day OT Hours (Est.)" used to sit here. Dropped 2026-09-22: once
+    // overtime_hours became the s.60A calculation itself, that column was an
+    // exact duplicate of "Overtime Hours (Est.)" above, differing only in
+    // that it still counted not-yet-approved hours -- which "Pending Approval
+    // Hours" already reports on its own.
     { key: "estimatedRestDayHalfTierDaysCount", label: "Rest Day 0.5x-Tier Days (Est.)", getValue: (row) => row.estimatedRestDayHalfTierDaysCount || 0 },
     { key: "estimatedRestDayFullTierDaysCount", label: "Rest Day 1x-Tier Days (Est.)", getValue: (row) => row.estimatedRestDayFullTierDaysCount || 0 },
     { key: "estimatedRestDayExcessHoursTotal", label: "Rest Day 2x Excess Hours (Est.)", getValue: (row) => Number(row.estimatedRestDayExcessHoursTotal || 0).toFixed(2) },

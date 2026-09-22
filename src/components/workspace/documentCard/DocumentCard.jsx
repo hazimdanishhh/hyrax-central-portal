@@ -23,7 +23,6 @@ export default function DocumentCard({
   onRemove,
 }) {
   const linkedTaskTitles = document.linked_task_titles ?? [];
-  console.log(document);
   return (
     <div className="generalCard documentCard cardPaddingSmall">
       <div className="documentCardMainRow">

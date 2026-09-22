@@ -514,7 +514,7 @@ function Reports() {
                   </div>
 
                   {/* NEEDS ATTENTION (new, 2026-08, SAL-manager only) */}
-                  {canSeeNeedsAttention &&
+                  {/* {canSeeNeedsAttention &&
                     needsAttentionScorecard.length > 0 && (
                       <div className="pdfOverviewSection">
                         <div
@@ -545,7 +545,7 @@ function Reports() {
                           <ScorecardList data={needsAttentionScorecard} />
                         </div>
                       </div>
-                    )}
+                    )} */}
 
                   <div className="pdfOverviewSection">
                     {/* REP FUNNEL SCORECARD (renamed from "Invoice Budget

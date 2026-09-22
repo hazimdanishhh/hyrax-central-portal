@@ -18,10 +18,12 @@
 --
 -- Every source column already exists on unified_daily_attendance/
 -- leave_ledger_entries -- no new view/table columns needed (2026-09-15
--- addition: estimatedNormalDayOtHoursTotal/estimatedRestDay*/
--- estimatedHolidayFullTierDaysCount/estimatedHolidayExcessHoursTotal below
--- are a straight sum/count over unified_daily_attendance's own new
--- statutory rate-tier ESTIMATE columns -- see that view's header comment
+-- addition: estimatedRestDay*/estimatedHolidayFullTierDaysCount/
+-- estimatedHolidayExcessHoursTotal below are a straight sum/count over
+-- unified_daily_attendance's own statutory rate-tier ESTIMATE columns.
+-- estimatedNormalDayOtHoursTotal was part of that set until 2026-09-22,
+-- when overtime_hours became the s.60A calculation itself and made it an
+-- exact duplicate of overtimeHoursTotal -- dropped rather than shipped twice -- see that view's header comment
 -- on them, and docs/PAYROLL-DATA-REQUIREMENTS.md -- still no new source
 -- table). period_rows is
 -- materialized for the same reason get_attendance_dashboard_rpc.sql
@@ -220,7 +222,13 @@ attendance_summary as (
         -- own header comment on these columns, added 2026-09-15) -- for
         -- reconciliation against the real, claims-module-driven "actuals"
         -- once that's built, never itself the payable figure.
-        round(sum(estimated_normal_day_ot_hours)::numeric, 2) as estimated_normal_day_ot_hours_total,
+        -- No estimated_normal_day_ot_hours_total here any more: as of
+        -- 2026-09-22 overtime_hours IS the s.60A calculation, so that column
+        -- is an exact duplicate of it (see the view's own comment) and
+        -- overtime_hours_total above already reports it -- approved-only,
+        -- which is the figure payroll actually wants. The rest-day/holiday
+        -- tier aggregates below stay: those are genuine wage-tier estimates
+        -- still pending HR/payroll sign-off, not duplicates of anything.
         count(*) filter (where rest_day_wage_tier = 'half_day') as estimated_rest_day_half_tier_days_count,
         count(*) filter (where rest_day_wage_tier = 'full_day') as estimated_rest_day_full_tier_days_count,
         round(sum(rest_day_excess_hours)::numeric, 2) as estimated_rest_day_excess_hours_total,
@@ -275,7 +283,6 @@ select json_agg(
         'unacknowledgedInsufficientHalfDayCount', a.unacknowledged_insufficient_half_day_count,
         'pendingApprovalHoursTotal', coalesce(a.pending_approval_hours_total, 0),
         'leaveFractionErrorCount', a.leave_fraction_error_count,
-        'estimatedNormalDayOtHoursTotal', coalesce(a.estimated_normal_day_ot_hours_total, 0),
         'estimatedRestDayHalfTierDaysCount', a.estimated_rest_day_half_tier_days_count,
         'estimatedRestDayFullTierDaysCount', a.estimated_rest_day_full_tier_days_count,
         'estimatedRestDayExcessHoursTotal', coalesce(a.estimated_rest_day_excess_hours_total, 0),

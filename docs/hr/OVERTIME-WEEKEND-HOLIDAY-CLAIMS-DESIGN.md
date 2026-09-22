@@ -4,7 +4,7 @@
 
 ## Problem
 
-`overtime_hours`, `weekend_hours_worked`, and `holiday_hours_worked` (`hr_unified_daily_attendance_view.sql`, corrected 2026-09-15 — see `docs/PAYROLL-DATA-REQUIREMENTS.md`'s "Overtime hours" row) are **100% system-calculated from raw punches**. There is no employee submission, no manager/HR approval, and no way to reconcile the system's calculated "actuals" against HR's real process, which today is still a paper form.
+`overtime_hours`, `weekend_hours_worked`, and `holiday_hours_worked` (`hr_unified_daily_attendance_view.sql` — `overtime_hours` was redefined 2026-09-22 to the Employment Act s.60A rule, hours beyond 8 paid hours per day, replacing the old "hours after 6PM" formula; see `docs/PAYROLL-DATA-REQUIREMENTS.md`'s "Overtime hours" row) are **100% system-calculated from raw punches**. There is no employee submission, no manager/HR approval, and no way to reconcile the system's calculated "actuals" against HR's real process, which today is still a paper form.
 
 This matters for payroll accuracy in both directions:
 
@@ -72,7 +72,7 @@ Mirror the existing `attendance_activities` approve/reject pattern (`approve_att
 
 ## Reconciliation design
 
-A new flag comparing each employee's **approved, claimed** hours for a period against the system-calculated `overtimeHoursTotal`/`weekendHoursWorkedTotal`/`holidayHoursWorkedTotal` (from `get_payroll_period_summary_rpc.sql`, post the 2026-09-15 formula fix) — e.g. `is_ot_claim_mismatch` when the two disagree beyond some tolerance, or when the system calculated hours but no claim was ever submitted for that date. This becomes a natural 5th reconciliation category, surfaced through the **exact same mechanism already shipped** for the existing 4 (Days Absent, Leave Conflicts, Insufficient Half-Day Hours, Leave Data Errors): `DataTable`'s `getRowFlags`/`RowFlagBadge`, already wired into Payroll Export (`payrollExport/filterConfig.js`'s `getRowReconciliationFlags`). No new UI mechanism needed — just a new flag-producing function alongside the existing one.
+A new flag comparing each employee's **approved, claimed** hours for a period against the system-calculated `overtimeHoursTotal`/`weekendHoursWorkedTotal`/`holidayHoursWorkedTotal` (from `get_payroll_period_summary_rpc.sql` — note `overtimeHoursTotal` now means s.60A hours-beyond-8 per the 2026-09-22 redefinition, and counts **approved activities only**, with anything still awaiting approval reported separately as `pendingApprovalHoursTotal`; both facts change what a realistic mismatch tolerance looks like) — e.g. `is_ot_claim_mismatch` when the two disagree beyond some tolerance, or when the system calculated hours but no claim was ever submitted for that date. This becomes a natural 5th reconciliation category, surfaced through the **exact same mechanism already shipped** for the existing 4 (Days Absent, Leave Conflicts, Insufficient Half-Day Hours, Leave Data Errors): `DataTable`'s `getRowFlags`/`RowFlagBadge`, already wired into Payroll Export (`payrollExport/filterConfig.js`'s `getRowReconciliationFlags`). No new UI mechanism needed — just a new flag-producing function alongside the existing one.
 
 ## Business trip attendance, allowance & Replacement Leave (added 2026-09-15)
 

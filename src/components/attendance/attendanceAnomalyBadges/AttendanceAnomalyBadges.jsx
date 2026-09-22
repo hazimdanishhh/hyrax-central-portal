@@ -1,5 +1,6 @@
 // components/attendance/attendanceAnomalyBadges/AttendanceAnomalyBadges.jsx
 
+import { formatHours } from "../../../functions/formatDate";
 import StatusBox from "../../status/statusBox/StatusBox";
 
 /**
@@ -46,10 +47,7 @@ export default function AttendanceAnomalyBadges({
       }}
     >
       {Number(overtimeHours) > 0 && (
-        <StatusBox
-          status={`+${Number(overtimeHours).toFixed(1)}h OT`}
-          type="red"
-        />
+        <StatusBox status={`+${formatHours(overtimeHours)} OT`} type="red" />
       )}
       {/* {isEarlyLeave && <StatusBox status="Early Leave" type="red" />} */}
       {/* {isLateArrival && <StatusBox status="Late Arrival" type="red" />} */}

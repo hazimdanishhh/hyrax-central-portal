@@ -1,48 +1,66 @@
--- ############################################################################
--- SUPERSEDED (2026-09-22) BY attendance_employment_act_overtime_migration.sql
--- -- DO NOT RE-RUN.
+-- DEPLOYMENT STEP -- run once in the Supabase SQL editor. Supersedes
+-- attendance_approved_hours_and_absence_split_migration.sql and
+-- attendance_reconciliation_flags_view_migration.sql (both now carry a
+-- DO-NOT-RE-RUN header pointing here). This file is a full superset of both.
 --
--- This file contains a COMPLETE `CREATE OR REPLACE VIEW
--- public.unified_daily_attendance` carrying the OLD "overtime = hours after
--- 6PM, gated on >8h" formula, and predates the approved-only payroll hours
--- columns entirely. Re-running it would silently revert BOTH the Employment
--- Act s.60A overtime redefinition and the approved-hours split, quietly
--- changing payroll figures. Kept only as the historical record of the
--- deployment step it performed at the time.
+-- WHAT THIS CHANGES: overtime is now the Employment Act 1955 s.60A
+-- calculation -- hours worked beyond the normal hours of work in a day --
+-- everywhere. The legacy "hours clocked after 6PM, gated on total hours > 8"
+-- rule is deleted.
 --
--- If you need this view, run attendance_employment_act_overtime_migration.sql
--- instead -- it is a full superset of everything below.
--- ############################################################################
-
--- DEPLOYMENT STEP -- run once in the Supabase SQL editor, after every step in
--- docs/setup/ATTENDANCE-BACKFILL-DEPLOYMENT-GUIDE.md has already been run
--- (this depends on attendance_reconciliation_acknowledgements existing --
--- attendance_reconciliation_acknowledgements_migration.sql -- and on
--- unified_daily_attendance already running with security_invoker = on --
--- enable_attendance_views_security_invoker.sql).
+--   overtime_hours  =  max(0, (hours_worked - 1h unpaid lunch) - 8)
+--                      forced to 0 on weekends/public holidays
 --
--- Adds acknowledgement-aware reconciliation flags directly onto
--- unified_daily_attendance (is_unacknowledged_absent,
--- is_unacknowledged_insufficient_half_day, needs_reconciliation) so the HR
--- Attendance Management List, My Attendance List and Team Attendance List
--- can filter on "Needs Reconciliation" server-side (correct even under HR's
--- paginated Search mode) and show a warning badge on a flagged day's
--- card/row, the same way Payroll Export already surfaces its own
--- period-level reconciliation counts.
+-- PURELY DURATION-BASED -- no time-of-day component at all. hours_worked is
+-- built from MAX(scanned_at) - MIN(scanned_at), so an early arrival earns
+-- overtime exactly like a late departure. Someone in at 07:30 and out at
+-- 17:30 worked a 10h span = 9h paid = 1h overtime, even though they left at
+-- the usual time. The old 6PM rule could not see that day at all -- which is
+-- precisely why it was replaced.
 --
--- This is a full CREATE OR REPLACE VIEW of unified_daily_attendance --
--- Postgres has no lighter-weight way to add a computed column to a view.
--- Purely additive: every existing column keeps its name, type and position
--- (only 3 new columns appended at the end), so every other consumer of this
--- view (get_attendance_dashboard_rpc.sql, get_hr_reports_dashboard_rpc.sql,
--- get_payroll_period_summary_rpc.sql, get_payroll_reconciliation_rows.sql,
--- etc.) is unaffected -- they all select named columns or `uda.*` into their
--- own explicitly-typed CTEs, never a positional/arity-sensitive shape.
+-- THRESHOLD: a flat 8 PAID hours company-wide, i.e. a 9-hour clock span (the
+-- 1-hour unpaid lunch is baked into the punch span, not separately punched).
 --
--- Idempotent/safe to re-run. Kept byte-for-byte in sync with
--- hr_unified_daily_attendance_view.sql, which is this repo's canonical copy
--- of the view's current shape -- update both together if this ever changes
--- again.
+-- Deliberately NOT per-work-location: confirmed with HR that KL's 17:00
+-- finish is company leniency, not a shorter contractual day, so both sites
+-- owe the same 8 hours before overtime starts. work_locations
+-- .early_leave_time keeps driving is_early_leave and nothing else.
+--
+-- THIS REVERSES TWO DOCUMENTED DECISIONS, consciously, and HR has confirmed
+-- the 6PM rule was wrong:
+--   1. docs/hr/WORK-LOCATIONS-ARCHITECTURE.md, under "decisions already made
+--      (do not re-litigate these)": "Overtime stays a flat 6:00 PM
+--      company-wide threshold forever." Its conclusion survives (overtime is
+--      company-wide, not per-location); only the 6PM mechanism is replaced.
+--   2. docs/hr/PAYROLL-DATA-REQUIREMENTS.md: the s.60A columns were "kept
+--      separate from the existing overtime_hours column ... to avoid
+--      redefining that column a third time." This IS that third redefinition.
+--
+-- EXPECT THESE NUMBERS TO MOVE (verify before trusting a payroll run):
+--   * Long days now register overtime regardless of when they started or
+--     ended -- including early-arrival days the old rule scored as zero.
+--   * KL rest-day/holiday WAGE TIERS shift, because those tiers measure
+--     against the same normal_hours_threshold, which moves 7.5h -> 8h for KL.
+--     The half-day boundary moves 3.75h -> 4h. A KL employee working ~3.8h on
+--     a Saturday therefore drops from full_day (1 day's wages) to half_day
+--     (0.5 day's wages). This is the one genuinely adverse consequence.
+--   * Meru is unaffected -- its threshold was already 8h.
+--   * Both dashboards' Overtime totals, employeesWithOvertimeCount and the
+--     Top Overtime leaderboards will shift.
+--
+-- STRUCTURALLY SAFE: overtime_hours keeps its name, position and numeric
+-- type, so this is a plain CREATE OR REPLACE VIEW -- no DROP VIEW, no cascade
+-- to attendance_activity_audit, no 42P16. get_payroll_reconciliation_rows()'s
+-- RETURNS TABLE signature is likewise untouched (only the column's VALUE
+-- changes), so no DROP FUNCTION is needed there either.
+--
+-- estimated_normal_day_ot_hours is now an exact duplicate of overtime_hours.
+-- It CANNOT be dropped via CREATE OR REPLACE VIEW, so it stays, marked
+-- deprecated in the view, and get_payroll_period_summary stops aggregating it.
+--
+-- Byte-identical to this repo's canonical copies,
+-- hr_unified_daily_attendance_view.sql and get_payroll_period_summary_rpc.sql
+-- -- update all three together if this ever changes again.
 
 CREATE OR REPLACE VIEW public.unified_daily_attendance AS
 
@@ -214,7 +232,7 @@ daily_app AS (
     SELECT
         aa.employee_id AS app_emp_uuid,
         DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date,
-
+        
         -- Ignore Rejected timestamps for first_in / last_out calculations.
         -- app_check_out falls back to clocked_in_at when a session is still
         -- open (clocked_out_at is null) -- mirrors employees_public.
@@ -223,22 +241,45 @@ daily_app AS (
         -- instead of contributing nothing to last_out below.
         MIN(CASE WHEN aa.approval_status::text != 'Rejected' THEN aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_in,
         MAX(CASE WHEN aa.approval_status::text != 'Rejected' THEN COALESCE(aa.clocked_out_at, aa.clocked_in_at) AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_out,
-
+        
         -- Create a string that shows the activity AND its status (e.g., "Site Visit (Rejected)")
         STRING_AGG(at.name || ' (' || aa.approval_status::text || ')', ', ' ORDER BY aa.clocked_in_at) AS daily_activities,
-
+        
         -- Flag logic
         BOOL_OR(aa.clocked_out_at IS NULL AND aa.approval_status::text != 'Rejected') AS has_missing_app_checkout,
         BOOL_AND(aa.approval_status::text = 'Approved') AS all_approved,
         BOOL_OR(aa.approval_status::text = 'Pending') AS has_pending,
-
+        
         -- SUM HOURS: Only add hours if the status is NOT Rejected
         ROUND((SUM(
             CASE
                 WHEN aa.approval_status::text != 'Rejected' THEN EXTRACT(EPOCH FROM (aa.clocked_out_at - aa.clocked_in_at))
                 ELSE 0
             END
-        ) / 3600)::numeric, 2) AS app_hours
+        ) / 3600)::numeric, 2) AS app_hours,
+
+        -- Payroll-eligible counterpart of app_hours above -- Approved ONLY,
+        -- not Pending. app_hours (and therefore hours_worked/overtime_hours/
+        -- holiday_hours_worked/weekend_hours_worked, all built from it)
+        -- deliberately still includes Pending activities -- that's the
+        -- correct "did something happen" signal for hr_flag/dashboards/
+        -- attendance-rate (an employee's own asserted business trip
+        -- shouldn't read as Absent while a manager hasn't gotten to it yet).
+        -- But paying out for a claim nobody has verified is a different
+        -- question, and industry-standard payroll practice is to hold that
+        -- pay until approved -- a Pending activity may still be rejected.
+        -- See this view's own approved_hours_worked/approved_overtime_hours/
+        -- approved_holiday_hours_worked/approved_weekend_hours_worked/
+        -- pending_approval_hours (below) and get_payroll_period_summary_rpc.sql,
+        -- which sources its headline payroll totals from these instead of the
+        -- raw ones. Every OTHER consumer of this view keeps reading the raw,
+        -- Pending-inclusive columns unchanged.
+        ROUND((SUM(
+            CASE
+                WHEN aa.approval_status::text = 'Approved' THEN EXTRACT(EPOCH FROM (aa.clocked_out_at - aa.clocked_in_at))
+                ELSE 0
+            END
+        ) / 3600)::numeric, 2) AS approved_app_hours
 
     FROM public.attendance_activities aa
     LEFT JOIN public.attendance_types at ON aa.attendance_type_id = at.id
@@ -337,12 +378,12 @@ SELECT
     u.manager_id,
     m.full_name AS manager_name,
     u.work_date,
-
+    
     -- Hardware Stats
     h.hw_check_in,
     h.hw_check_out,
     h.total_hw_scans,
-
+    
     -- App Stats
     a.app_check_in,
     a.app_check_out,
@@ -432,58 +473,55 @@ SELECT
     dl.leave_type_codes,
     dl.leave_day_fraction_total AS leave_day_fraction,
 
-    -- Overtime: hours worked after 6PM, but ONLY on a normal working day
-    -- (not weekend/public holiday) AND only when that day's TOTAL hours
-    -- worked exceed 8. Corrected 2026-09-15 after two confirmed issues with
-    -- the original "any time after 6PM, regardless of arrival time or total
-    -- hours" rule:
-    --   1. It double-counted with weekend_hours_worked/holiday_hours_worked
-    --      -- a Saturday shift past 6PM registered both full weekend hours
-    --      AND separate overtime hours on top of them. Malaysian OT/rest-day
-    --      pay convention pays that whole shift at its own premium rate
-    --      (1.5x/2x/3x under the Employment Act), not "normal rate +
-    --      separate OT on top" -- so overtime is now forced to 0 whenever
-    --      is_weekend or is_public_holiday is true; those hours are already
-    --      fully captured by weekend_hours_worked/holiday_hours_worked
-    --      below.
-    --   2. A late-arriving-but-normal-length day (e.g. in at noon, out at
-    --      8pm -- a plain 8 hours, just shifted later) registered 2h of
-    --      "overtime" purely because the clock-out happened to be after
-    --      6PM, with no check on total hours worked. Now gated: a day must
-    --      have MORE than 8 total hours worked before any overtime is
-    --      reported at all. Once both gates pass, the reported quantity is
-    --      still specifically "hours worked after 6PM" (not
-    --      hours-worked-minus-8) -- unchanged from the original formula.
-    -- See docs/PAYROLL-DATA-REQUIREMENTS.md's "Overtime hours" row and
-    -- docs/OVERTIME-WEEKEND-HOLIDAY-CLAIMS-DESIGN.md for the related,
-    -- still-open gap: none of this is reconciled against HR's actual
-    -- (still paper-based) overtime/weekend/holiday approval process.
+    -- Overtime, per Employment Act 1955 s.60A: hours worked beyond the
+    -- normal hours of work in a day. REDEFINED 2026-09-22 -- this column
+    -- previously meant "hours clocked after 6PM, gated on total hours > 8".
+    -- That rule is gone. It was wrong for payroll in both directions: it
+    -- paid nothing for a 09:00-19:00 ten-hour day (no post-6PM tail once
+    -- the arrival floor applied), while the Act plainly counts every hour
+    -- past normal hours regardless of what time of day they fall.
     --
-    -- The inner GREATEST/EXTRACT expression (unchanged from before) is
-    -- null-safe: GREATEST ignores NULL arguments rather than propagating
-    -- them, so a day with no checkin at all still computes to 0. It also
-    -- still bounds its window's start to the LATER of (actual first
-    -- arrival, 6PM) -- fixes a separate, earlier bug where someone whose
-    -- entire day started after 6PM (e.g. clocked in 9PM, out 11PM) would
-    -- otherwise show 5h of overtime (11PM minus a flat 6PM) instead of the
-    -- real 2h. Repeats the same MAX(...)/MIN(...) expressions last_out/
-    -- first_in_time_of_day above already use, and the same hours_worked
-    -- expression this view's other columns already repeat -- a SELECT list
-    -- can't reference a sibling output column's alias, and restructuring
-    -- this view into a wrapping CTE is a bigger change than this fix
-    -- warrants.
+    -- THRESHOLD: a flat 8 PAID hours, company-wide -- i.e. 9 hours of raw
+    -- clock span, because the 1-hour unpaid lunch is baked into the punch
+    -- span rather than separately punched (see true_hours_worked below).
+    --
+    -- PURELY DURATION-BASED. There is deliberately NO time-of-day component
+    -- anywhere in this expression: hw_hours is just
+    -- MAX(scanned_at) - MIN(scanned_at), so an early arrival earns overtime
+    -- exactly like a late departure. Someone in at 07:30 and out at 17:30
+    -- worked a 10h span = 9h paid = 1h overtime, even though they left at
+    -- the usual time. (The old rule could not see that day at all, which is
+    -- part of why it was replaced.)
+    --
+    -- Deliberately NOT per-work-location, even though work_locations
+    -- .early_leave_time (17:00 KL / 17:30 Meru) would make it easy to be:
+    -- confirmed with the business that KL's 17:00 finish is company
+    -- LENIENCY, not a shorter contractual day, so both sites owe the same
+    -- 8 hours before overtime starts. early_leave_time keeps driving
+    -- is_early_leave and nothing else. This reverses the "overtime stays a
+    -- flat 6:00 PM company-wide threshold forever" line in
+    -- docs/hr/WORK-LOCATIONS-ARCHITECTURE.md's "decisions already made"
+    -- section -- consciously, not by oversight. The conclusion it reached
+    -- (overtime is company-wide, not per-location) survives; only its
+    -- 6PM mechanism is replaced.
+    --
+    -- Weekend/public-holiday days stay forced to 0, unchanged and still
+    -- correct: Malaysian convention pays a whole rest-day/holiday shift at
+    -- its own premium tier (s.60(3)/s.60D(3)), not "normal rate + OT on
+    -- top". Those hours are carried by weekend_hours_worked/
+    -- holiday_hours_worked and the rate-tier columns below instead.
+    --
+    -- Identical by construction to estimated_normal_day_ot_hours below --
+    -- see that column's own comment for why the duplicate still exists.
+    -- Repeats hours_worked's expression rather than referencing its alias,
+    -- per this view's standing constraint (a SELECT list can't reference a
+    -- sibling output column's alias). Null-safe: GREATEST ignores NULLs, so
+    -- a day with no punches at all computes to 0, not NULL.
     CASE
         WHEN u.is_weekend OR dh.holiday_name IS NOT NULL THEN 0
-        WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0)) <= 8 THEN 0
-        ELSE GREATEST(
-            EXTRACT(EPOCH FROM (
-                (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time
-                - GREATEST(
-                    (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time,
-                    TIME '18:00:00'
-                  )
-            )) / 3600.0,
-            0
+        ELSE GREATEST(0,
+            (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
+            - 8
         )
     END AS overtime_hours,
 
@@ -664,27 +702,32 @@ SELECT
     -- docs/PAYROLL-DATA-REQUIREMENTS.md as needing final HR/payroll
     -- sign-off since sources weren't 100% explicit on the additive point).
     --
-    -- Deliberately separate, new columns rather than redefining
-    -- overtime_hours above a third time -- that column stays exactly as
-    -- shipped (a simple "worked past 6PM" anomaly/badge signal already
-    -- consumed elsewhere); this is a more precise, statute-driven estimate
-    -- for payroll reconciliation specifically.
+    -- These columns are no longer "separate from" overtime_hours -- as of
+    -- 2026-09-22 overtime_hours IS this calculation (see its own comment
+    -- above). The block header's original framing (added alongside, so as
+    -- not to redefine overtime_hours "a third time") no longer applies;
+    -- that redefinition is exactly what happened, deliberately.
     --
     -- Schedule facts this relies on (confirmed, not guessed): every
-    -- employee's shift starts 08:30, ends at their work location's
-    -- early_leave_time (17:00 KL / 17:30 Meru -- reused directly, despite
-    -- originally being the is_early_leave threshold, because it already
-    -- holds exactly these locations' official shift-end times), minus a
-    -- flat 1-hour unpaid lunch baked into the raw punch span (not
-    -- separately punched). Resulting normal_hours_threshold: 7.5h KL, 8h
-    -- Meru. This 1-hour deduction is scoped ONLY to this estimate -- it
-    -- does NOT change hours_worked itself (used elsewhere for attendance
-    -- stats/is_insufficient_half_day_hours, out of scope to touch here).
+    -- employee's shift starts 08:30 and includes a flat 1-hour unpaid lunch
+    -- baked into the raw punch span (not separately punched). Normal hours
+    -- are a flat 8 PAID hours company-wide -- NOT derived from
+    -- work_locations.early_leave_time, even though 17:00 KL / 17:30 Meru
+    -- are the real finish times: KL's earlier finish is company leniency,
+    -- not a shorter contractual day, so both sites owe the same 8 hours.
+    -- The 1-hour lunch deduction is scoped ONLY to these columns -- it does
+    -- NOT change hours_worked itself (used elsewhere for attendance stats/
+    -- is_insufficient_half_day_hours, out of scope to touch here).
 
-    -- Normal daily hours for this employee's work location (shift end
-    -- minus 08:30 start, minus the 1-hour lunch). Exposed for
-    -- transparency/debugging, not just an intermediate value.
-    EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1
+    -- Normal daily PAID hours, company-wide: 8. No longer derived from
+    -- work_locations -- see the block header above for why.
+    --
+    -- A duration, NOT a clock time, and nothing downstream compares it
+    -- against one. Written with an explicit ::numeric cast because CREATE OR
+    -- REPLACE VIEW cannot change a column's DATA TYPE any more than it can
+    -- change its name (both raise 42P16), and a bare `8` would resolve to
+    -- integer where this column has always been numeric.
+    8::numeric
         AS normal_hours_threshold,
 
     -- "True" hours worked for rate-tier comparison purposes only --
@@ -692,15 +735,24 @@ SELECT
     GREATEST(0, GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
         AS true_hours_worked,
 
-    -- Normal-day overtime: hours beyond this location's
-    -- normal_hours_threshold, entitled to 1.5x hourly rate (s.60A). Zero on
-    -- weekend/public-holiday days -- those use the rest-day/holiday tiers
-    -- below instead, never both.
+    -- DEPRECATED as of 2026-09-22: an exact duplicate of overtime_hours
+    -- above, which now carries this same s.60A calculation. Retained ONLY
+    -- because a view column cannot be dropped via CREATE OR REPLACE VIEW
+    -- (Postgres reads the positional shift as a rename and fails with
+    -- 42P16) -- removing it needs a DROP VIEW ... CASCADE that would also
+    -- take out attendance_activity_audit, so it waits for a maintenance
+    -- window. Prefer overtime_hours in new code; nothing reads this column
+    -- any more (get_payroll_period_summary stopped aggregating it in the
+    -- same pass).
+    --
+    -- Normal-day overtime: hours beyond normal_hours_threshold, entitled to
+    -- 1.5x hourly rate (s.60A). Zero on weekend/public-holiday days --
+    -- those use the rest-day/holiday tiers below instead, never both.
     CASE
         WHEN u.is_weekend OR dh.holiday_name IS NOT NULL THEN 0
         ELSE GREATEST(0,
             (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
-            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+            - 8
         )
     END AS estimated_normal_day_ot_hours,
 
@@ -713,7 +765,7 @@ SELECT
         WHEN NOT u.is_weekend THEN NULL
         WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1) <= 0 THEN NULL
         WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
-             <= (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1) / 2
+             <= 8.0 / 2
         THEN 'half_day'
         ELSE 'full_day'
     END AS rest_day_wage_tier,
@@ -724,7 +776,7 @@ SELECT
         WHEN NOT u.is_weekend THEN 0
         ELSE GREATEST(0,
             (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
-            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+            - 8
         )
     END AS rest_day_excess_hours,
 
@@ -743,7 +795,7 @@ SELECT
         WHEN dh.holiday_name IS NULL THEN 0
         ELSE GREATEST(0,
             (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
-            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+            - 8
         )
     END AS holiday_excess_hours
 
@@ -792,7 +844,62 @@ SELECT
         OR fr.is_leave_attendance_conflict
         OR (fr.is_insufficient_half_day_hours AND ack_half_day.id IS NULL)
         OR fr.has_leave_fraction_error
-    ) AS needs_reconciliation
+    ) AS needs_reconciliation,
+
+    -- ===================================================================
+    -- APPROVED-ONLY PAYROLL HOURS (added 2026-09-22) -- see daily_app's own
+    -- approved_app_hours comment for why these exist alongside, not instead
+    -- of, fr.hours_worked/fr.overtime_hours/fr.holiday_hours_worked/
+    -- fr.weekend_hours_worked. Appended here (in the outer SELECT, after
+    -- needs_reconciliation), not inside final_rows -- final_rows' own output
+    -- list is already, itself, positionally frozen (it's what the currently
+    -- deployed view already ends with up through needs_reconciliation);
+    -- anything added inside final_rows would land BEFORE
+    -- is_unacknowledged_absent/needs_reconciliation once flattened by fr.*
+    -- above, which Postgres treats as renaming an existing column rather than
+    -- appending (42P16), not silently reordering it.
+    --
+    -- Needs its own join back to daily_app (already defined once, above, as
+    -- a top-level CTE alongside final_rows -- not re-declared here) purely
+    -- to reach approved_app_hours/app_hours, neither of which final_rows
+    -- exposes as its own output column (only the already-combined
+    -- hours_worked/overtime_hours/etc. are). One row at most per join, same
+    -- guarantee daily_app's own GROUP BY (employee_id, work_date) already
+    -- gives every other consumer of it.
+    -- ===================================================================
+
+    GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0))
+        AS pending_approval_hours,
+
+    GREATEST(0, fr.hours_worked - GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0)))
+        AS approved_hours_worked,
+
+    -- EXACT, not an approximation (corrected 2026-09-22, when overtime_hours
+    -- stopped being the 6PM clock-envelope figure). Overtime is now a plain
+    -- linear threshold -- max(0, true_hours - 8) -- and for that shape,
+    -- subtracting the pending hours OUTSIDE the threshold is algebraically
+    -- identical to subtracting them INSIDE it, including at the zero clamp:
+    --   max(0, (true - 8) - pending) == max(0, (true - pending) - 8)
+    -- both when the inner term is positive and when either clamps to 0.
+    -- So this needs no restructuring, and must NOT be "fixed" by moving the
+    -- subtraction inside the threshold -- that would change nothing on the
+    -- happy path and risks introducing an error at the boundary.
+    -- (While the old 6PM envelope was in force, this same subtraction was
+    -- only a conservative approximation; that caveat no longer applies.)
+    GREATEST(0, fr.overtime_hours - GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0)))
+        AS approved_overtime_hours,
+
+    CASE
+        WHEN fr.is_public_holiday
+        THEN GREATEST(0, fr.holiday_hours_worked - GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0)))
+        ELSE 0
+    END AS approved_holiday_hours_worked,
+
+    CASE
+        WHEN fr.is_weekend
+        THEN GREATEST(0, fr.weekend_hours_worked - GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0)))
+        ELSE 0
+    END AS approved_weekend_hours_worked
 
 FROM final_rows fr
 LEFT JOIN public.attendance_reconciliation_acknowledgements ack_absent
@@ -802,4 +909,320 @@ LEFT JOIN public.attendance_reconciliation_acknowledgements ack_absent
 LEFT JOIN public.attendance_reconciliation_acknowledgements ack_half_day
     ON ack_half_day.employee_id = fr.employee_uuid
    AND ack_half_day.work_date = fr.work_date
-   AND ack_half_day.category = 'insufficient_half_day';
+   AND ack_half_day.category = 'insufficient_half_day'
+LEFT JOIN daily_app a2
+    ON a2.app_emp_uuid = fr.employee_uuid
+   AND a2.work_date = fr.work_date;
+-- ===========================================================================
+-- PART 2 of 2: get_payroll_period_summary -- drops the now-duplicate
+-- estimatedNormalDayOtHoursTotal. See this function file's own header for
+-- everything else it does.
+-- ===========================================================================
+
+-- get_payroll_period_summary: backs the HR "Payroll Export" tab
+-- (src/pages/user/hr/attendanceManagement/payrollExport/PayrollExport.jsx).
+--
+-- The "Payroll Period Summary" from docs/PAYROLL-DATA-REQUIREMENTS.md's
+-- phasing section: one row per active employee, per selected cycle --
+-- hours worked, overtime, absences, holiday/weekend work (hours AND day
+-- counts), paid/unpaid leave days, and every unresolved reconciliation flag
+-- -- everything this app can correctly and reliably compute today, for HR
+-- to hand off to whatever actually calculates and disburses pay. This is
+-- the row-level export itself, not a company-wide KPI aggregate (contrast
+-- get_attendance_dashboard_rpc.sql, which this mirrors structurally but
+-- collapses to scalars instead of one row per employee).
+--
+-- GROUP BY employee_uuid, not full_name -- get_attendance_dashboard_rpc.sql's
+-- own topOvertimeData/topAbsenteeismData group by full_name, which silently
+-- merges two employees who happen to share a name. Payroll data must never
+-- do that, so this RPC groups by the real identity column throughout.
+--
+-- Every source column already exists on unified_daily_attendance/
+-- leave_ledger_entries -- no new view/table columns needed (2026-09-15
+-- addition: estimatedRestDay*/estimatedHolidayFullTierDaysCount/
+-- estimatedHolidayExcessHoursTotal below are a straight sum/count over
+-- unified_daily_attendance's own statutory rate-tier ESTIMATE columns.
+-- estimatedNormalDayOtHoursTotal was part of that set until 2026-09-22,
+-- when overtime_hours became the s.60A calculation itself and made it an
+-- exact duplicate of overtimeHoursTotal -- dropped rather than shipped twice -- see that view's header comment
+-- on them, and docs/PAYROLL-DATA-REQUIREMENTS.md -- still no new source
+-- table). period_rows is
+-- materialized for the same reason get_attendance_dashboard_rpc.sql
+-- materializes it (unified_daily_attendance is expensive; this CTE is read
+-- twice below).
+--
+-- HR/superadmin only -- no self-service branch (unlike
+-- get_attendance_dashboard_rpc.sql), since this only ever powers the
+-- HR-only Payroll Export tab (AccessRoute departments=["HR"]).
+--
+-- totalWorkingDaysCount/actualDaysWorkedCount (added for the row-click
+-- reconciliation sidebar, PayrollReconciliationSidebar.jsx): the scheduled
+-- calendar workdays for the period (not weekend, not public holiday) and,
+-- of those, how many the employee actually has real attendance for.
+-- Reconciliation identity HR can sanity-check on screen: roughly
+-- totalWorkingDaysCount = actualDaysWorkedCount + daysAbsentCount +
+-- paidLeaveDaysTotal + unpaidLeaveDaysTotal -- "roughly", not exactly, for
+-- one concrete, traced reason: a half-day (0.5) leave logged with ZERO
+-- attendance that day makes hr_flag read 'On Leave (...)', not 'Absent'
+-- (see hr_unified_daily_attendance_view.sql's hr_flag CASE expression), so
+-- that day contributes 1 to totalWorkingDaysCount, 0 to
+-- actualDaysWorkedCount, 0 to daysAbsentCount, and only 0.5 to
+-- paidLeaveDaysTotal/unpaidLeaveDaysTotal combined -- a real 0.5-day gap in
+-- the identity, and exactly what is_insufficient_half_day_hours already
+-- exists to flag separately. Not something to "fix" into being exact.
+--
+-- Deliberately NOT bounded by employee join_date/end_date -- see this
+-- file's own daysAbsentCount, which has never been bounded by it either
+-- (unified_daily_attendance's expected_shifts CTE has no such bound today
+-- for ANY consumer); bounding only these two new columns would make the
+-- reconciliation identity worse for a mid-period joiner/leaver, not
+-- better, so this intentionally inherits the same pre-existing behavior
+-- rather than a new one. A real fix belongs in the view itself, out of
+-- scope here.
+--
+-- resolvedEmail/emailSource: the address the "Send Email" flow
+-- (queue_payroll_reconciliation_email_rpc.sql) would actually use --
+-- coalesce(email_work, email_personal), surfaced here so
+-- PayrollReconciliationSidebar.jsx can gate/disable Send and show which
+-- address was used without a second round trip. Both are nullable --
+-- resolvedEmail/emailSource are null when both are blank, which the
+-- frontend must treat as "no email on file," never a silent failure.
+-- p_work_location_id added 2026-09 -- unified_daily_attendance/employees
+-- both already carry work_location_id, this just exposes it as a filter
+-- (PayrollExport.jsx's filterConfig.js previously noted this parameter
+-- didn't exist yet).
+create or replace function get_payroll_period_summary(
+    p_start_date       date,
+    p_end_date         date,
+    p_department_id    bigint default null,
+    p_employee_id      uuid default null,
+    p_work_location_id bigint default null
+)
+returns json
+language plpgsql
+as
+$$
+declare
+    result json;
+    v_is_hr_or_superadmin boolean;
+begin
+
+-- Authorization guard -- mirrors get_attendance_dashboard_rpc.sql's guard
+-- (same root cause: unified_daily_attendance has no security_invoker, so
+-- RLS on the underlying tables never applies through it). No self-scoped
+-- exception here -- this RPC is HR/superadmin only, full stop.
+select (public.is_superadmin() or p.department_id = 7)
+into v_is_hr_or_superadmin
+from public.profiles p
+where p.id = auth.uid();
+
+if not coalesce(v_is_hr_or_superadmin, false) then
+    raise exception 'Unauthorized: get_payroll_period_summary requires HR/superadmin' using errcode = '42501';
+end if;
+
+if p_start_date is null or p_end_date is null then
+    raise exception 'get_payroll_period_summary requires both p_start_date and p_end_date' using errcode = '22004';
+end if;
+
+with period_rows as materialized (
+    select uda.*
+    from unified_daily_attendance uda
+    where (p_department_id is null or uda.department_id = p_department_id)
+    and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
+    and uda.work_date >= p_start_date
+    and uda.work_date <= p_end_date
+),
+
+-- HR2000 leave ledger integration -- mirrors
+-- get_attendance_dashboard_rpc.sql's employee_leave_rows exactly (joined
+-- directly to leave_ledger_types, not unified_daily_attendance's per-day
+-- collapsed leave_type_codes string, so a multi-leave-type day's paid/
+-- unpaid split stays accurate).
+employee_leave_rows as (
+    select
+        le.employee_id as leave_emp_uuid,
+        le.day_fraction,
+        -- CAVEAT (same as get_attendance_dashboard_rpc.sql): is_paid is an
+        -- unconfirmed guess for nearly every leave type today
+        -- (leave_ledger_types.needs_hr_confirmation), pending real HR/
+        -- payroll sign-off.
+        lt.is_paid
+    from leave_ledger_entries le
+    join leave_ledger_types lt on lt.id = le.leave_type_id
+    join employees e on e.id = le.employee_id
+    where (p_department_id is null or e.department_id = p_department_id)
+    and (p_employee_id is null or le.employee_id = p_employee_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
+    and le.leave_date >= p_start_date
+    and le.leave_date <= p_end_date
+),
+
+-- Reconciliation flags that have already been reviewed and closed.
+--
+-- These do NOT reduce days_absent_count below -- the employee WAS absent and
+-- payroll still deducts an unpaid day. Acknowledging closes the REVIEW, not the
+-- FACT. What it feeds is the parallel unacknowledged_* counts, which are what
+-- the Payroll Export row-flag badge and the "Needs Reconciliation" filter read.
+-- Collapsing the two would silently under-report unpaid days to payroll.
+period_acknowledgements as (
+    select ack.employee_id, ack.work_date, ack.category
+    from attendance_reconciliation_acknowledgements ack
+    where ack.work_date >= p_start_date
+      and ack.work_date <= p_end_date
+),
+
+attendance_summary as (
+    select
+        -- Qualified: this CTE now LEFT JOINs the acknowledgements, so bare
+        -- column names are only safe where the name is unique across all three
+        -- relations. employee_uuid is (the acks table uses employee_id), but
+        -- being explicit costs nothing and survives a future column addition.
+        period_rows.employee_uuid,
+        max(company_employee_code) as company_employee_code,
+        max(full_name) as full_name,
+        max(department_name) as department_name,
+        -- Payroll-eligible (Approved-only) hours -- see
+        -- hr_unified_daily_attendance_view.sql's approved_app_hours/
+        -- approved_hours_worked/approved_overtime_hours own comments. Sourced
+        -- from approved_hours_worked/approved_overtime_hours, NOT the raw
+        -- hours_worked/overtime_hours (those stay Pending-inclusive for every
+        -- other consumer of this view -- dashboards, attendance rate, etc.).
+        round(sum(approved_hours_worked)::numeric, 2) as hours_worked_total,
+        round(sum(approved_overtime_hours)::numeric, 2) as overtime_hours_total,
+        round(sum(pending_approval_hours)::numeric, 2) as pending_approval_hours_total,
+        -- Mirrors PAYROLL-DATA-REQUIREMENTS.md's own documented-correct
+        -- "Days absent" definition -- hr_flag = 'Absent' alone overcounts
+        -- unworked weekends/holidays, both of which also read 'Absent'.
+        count(*) filter (where hr_flag = 'Absent' and not is_weekend and not is_public_holiday) as days_absent_count,
+        -- Scheduled calendar workdays this period -- see this file's own
+        -- header comment for the reconciliation identity and its one
+        -- documented, expected gap source.
+        count(*) filter (where not is_weekend and not is_public_holiday) as total_working_days_count,
+        -- Of those scheduled workdays, how many the employee actually has
+        -- real attendance for -- every hr_flag value except 'Absent' and
+        -- 'On Leave (...)'.
+        count(*) filter (
+            where not is_weekend and not is_public_holiday
+            and hr_flag in ('OK', 'Approved', 'Pending App Approval', 'Missing App Check-Out', 'Incomplete Card Scans')
+        ) as actual_days_worked_count,
+        count(*) filter (where is_worked_on_holiday) as holiday_days_worked_count,
+        -- Approved-only sum (see hours_worked_total's own comment above) --
+        -- is_worked_on_holiday itself stays existence-based/unchanged (a real
+        -- check-in happened, regardless of approval), only the HOURS summed
+        -- switch to the approved-only column.
+        round(sum(approved_holiday_hours_worked) filter (where is_worked_on_holiday)::numeric, 2) as holiday_hours_worked_total,
+        count(*) filter (where is_worked_on_weekend) as weekend_days_worked_count,
+        round(sum(approved_weekend_hours_worked) filter (where is_worked_on_weekend)::numeric, 2) as weekend_hours_worked_total,
+        count(*) filter (where is_leave_attendance_conflict) as leave_attendance_conflict_count,
+        count(*) filter (where is_insufficient_half_day_hours) as insufficient_half_day_hours_count,
+        -- OUTSTANDING (not yet acknowledged) counterparts of the two
+        -- acknowledgeable flags. The counts above stay whole for payroll; these
+        -- drive the reconciliation UI.
+        count(*) filter (
+            where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
+              and ack_absent.employee_id is null
+        ) as unacknowledged_absence_count,
+        -- CONFIRMED (already reviewed) counterpart -- same base predicate as
+        -- days_absent_count, just the opposite acknowledgement direction from
+        -- unacknowledged_absence_count above. acknowledged_absence_count +
+        -- unacknowledged_absence_count = days_absent_count, always -- surfaced
+        -- explicitly so Payroll Export can show HR the split instead of
+        -- leaving "how many of these Days Absent are actually confirmed"
+        -- invisible.
+        count(*) filter (
+            where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
+              and ack_absent.employee_id is not null
+        ) as acknowledged_absence_count,
+        count(*) filter (
+            where is_insufficient_half_day_hours
+              and ack_half_day.employee_id is null
+        ) as unacknowledged_insufficient_half_day_count,
+        count(*) filter (where has_leave_fraction_error) as leave_fraction_error_count,
+        -- Statutory rate-tier ESTIMATE (see hr_unified_daily_attendance_view.sql's
+        -- own header comment on these columns, added 2026-09-15) -- for
+        -- reconciliation against the real, claims-module-driven "actuals"
+        -- once that's built, never itself the payable figure.
+        -- No estimated_normal_day_ot_hours_total here any more: as of
+        -- 2026-09-22 overtime_hours IS the s.60A calculation, so that column
+        -- is an exact duplicate of it (see the view's own comment) and
+        -- overtime_hours_total above already reports it -- approved-only,
+        -- which is the figure payroll actually wants. The rest-day/holiday
+        -- tier aggregates below stay: those are genuine wage-tier estimates
+        -- still pending HR/payroll sign-off, not duplicates of anything.
+        count(*) filter (where rest_day_wage_tier = 'half_day') as estimated_rest_day_half_tier_days_count,
+        count(*) filter (where rest_day_wage_tier = 'full_day') as estimated_rest_day_full_tier_days_count,
+        round(sum(rest_day_excess_hours)::numeric, 2) as estimated_rest_day_excess_hours_total,
+        count(*) filter (where holiday_wage_tier = 'full_day') as estimated_holiday_full_tier_days_count,
+        round(sum(holiday_excess_hours)::numeric, 2) as estimated_holiday_excess_hours_total
+    from period_rows
+    -- LEFT JOINed rather than tested with a correlated subquery inside the
+    -- FILTER clauses above: a plain "did this join match" boolean is simpler to
+    -- read and unambiguously valid there. One row at most per join, guaranteed
+    -- by the table's unique (employee_id, work_date, category).
+    left join period_acknowledgements ack_absent
+        on ack_absent.employee_id = period_rows.employee_uuid
+       and ack_absent.work_date = period_rows.work_date
+       and ack_absent.category = 'absent'
+    left join period_acknowledgements ack_half_day
+        on ack_half_day.employee_id = period_rows.employee_uuid
+       and ack_half_day.work_date = period_rows.work_date
+       and ack_half_day.category = 'insufficient_half_day'
+    group by period_rows.employee_uuid
+),
+
+leave_summary as (
+    select
+        leave_emp_uuid,
+        coalesce(sum(day_fraction) filter (where is_paid), 0) as paid_leave_days_total,
+        coalesce(sum(day_fraction) filter (where not is_paid), 0) as unpaid_leave_days_total
+    from employee_leave_rows
+    group by leave_emp_uuid
+)
+
+select json_agg(
+    json_build_object(
+        'employeeUuid', a.employee_uuid,
+        'companyEmployeeCode', a.company_employee_code,
+        'fullName', a.full_name,
+        'departmentName', a.department_name,
+        'hoursWorkedTotal', a.hours_worked_total,
+        'overtimeHoursTotal', a.overtime_hours_total,
+        'totalWorkingDaysCount', a.total_working_days_count,
+        'actualDaysWorkedCount', a.actual_days_worked_count,
+        'daysAbsentCount', a.days_absent_count,
+        'holidayDaysWorkedCount', a.holiday_days_worked_count,
+        'holidayHoursWorkedTotal', coalesce(a.holiday_hours_worked_total, 0),
+        'weekendDaysWorkedCount', a.weekend_days_worked_count,
+        'weekendHoursWorkedTotal', coalesce(a.weekend_hours_worked_total, 0),
+        'paidLeaveDaysTotal', coalesce(l.paid_leave_days_total, 0),
+        'unpaidLeaveDaysTotal', coalesce(l.unpaid_leave_days_total, 0),
+        'leaveAttendanceConflictCount', a.leave_attendance_conflict_count,
+        'insufficientHalfDayHoursCount', a.insufficient_half_day_hours_count,
+        'unacknowledgedAbsenceCount', a.unacknowledged_absence_count,
+        'acknowledgedAbsenceCount', a.acknowledged_absence_count,
+        'unacknowledgedInsufficientHalfDayCount', a.unacknowledged_insufficient_half_day_count,
+        'pendingApprovalHoursTotal', coalesce(a.pending_approval_hours_total, 0),
+        'leaveFractionErrorCount', a.leave_fraction_error_count,
+        'estimatedRestDayHalfTierDaysCount', a.estimated_rest_day_half_tier_days_count,
+        'estimatedRestDayFullTierDaysCount', a.estimated_rest_day_full_tier_days_count,
+        'estimatedRestDayExcessHoursTotal', coalesce(a.estimated_rest_day_excess_hours_total, 0),
+        'estimatedHolidayFullTierDaysCount', a.estimated_holiday_full_tier_days_count,
+        'estimatedHolidayExcessHoursTotal', coalesce(a.estimated_holiday_excess_hours_total, 0),
+        'resolvedEmail', coalesce(emp.email_work, emp.email_personal),
+        'emailSource', case
+            when emp.email_work is not null then 'work'
+            when emp.email_personal is not null then 'personal'
+            else null
+        end
+    )
+    order by a.full_name
+) into result
+from attendance_summary a
+left join leave_summary l on l.leave_emp_uuid = a.employee_uuid
+left join public.employees emp on emp.id = a.employee_uuid;
+
+return coalesce(result, '[]'::json);
+
+end;
+$$;

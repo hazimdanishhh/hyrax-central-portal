@@ -113,10 +113,10 @@ function applyAttendanceSort(query, primaryColumn, primaryAscending) {
 
 // Shared by both fetchers below -- named business-window filters mirroring
 // get_attendance_dashboard_rpc.sql's own thresholds exactly (09:00 late
-// arrival, overtime/early-leave read from unified_daily_attendance's
-// overtime_hours/is_early_leave columns -- after 6PM / before 5PM,
-// respectively, not hours_worked-based), so a drill-through link's row
-// count always matches the KPI it came from.
+// arrival; overtime and early leave read from unified_daily_attendance's
+// overtime_hours/is_early_leave columns -- beyond 8 paid hours per day and
+// before the work location's cutoff, respectively), so a drill-through
+// link's row count always matches the KPI it came from.
 function applyAttendanceFilter(query, key, value) {
   switch (key) {
     case "employee":
@@ -162,8 +162,14 @@ function applyAttendanceFilter(query, key, value) {
       return query.eq("is_on_leave", true);
 
     case "overtimeOnly":
-      // Overtime is time worked after 6PM (unified_daily_attendance's
-      // overtime_hours column), not hours_worked > 8.
+      // Overtime is hours beyond the normal 8 paid hours in a day, per
+      // Employment Act s.60A (unified_daily_attendance's overtime_hours
+      // column, redefined 2026-09-22 -- it previously meant "time worked
+      // after 6PM"). No query change was needed for that switch: this reads
+      // the column, so the view's formula swap corrected this filter
+      // automatically. The is_weekend/Absent guards below are now
+      // redundant-but-harmless -- overtime_hours is already 0 on both --
+      // kept for consistency with the neighbouring cases.
       return query
         .gt("overtime_hours", 0)
         .eq("is_weekend", false)

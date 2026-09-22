@@ -1,6 +1,11 @@
 # Work Locations & Structured Addresses — Architecture Plan
 
-**Status: designed, not yet built.** `employees.address_work`/`address_personal` still exist as plain free-text columns today. This document is the reference for whoever implements this once the underlying decision to build it is acted on — it is not describing shipped behavior.
+**Status: largely built** (updated 2026-09-22 — this document previously said "designed, not yet built", which had been stale for some time).
+
+- `work_locations` and `addresses` both exist — see `supabase/sql_editor/work_locations_addresses_migration.sql`. `employees.work_location_id` is live and populated: `unified_daily_attendance` joins `work_locations` for `is_early_leave`, and `get_payroll_period_summary`/the attendance dashboards all accept a `p_work_location_id` filter.
+- **Not** done: `employees.address_work` was never actually dropped. It is still a live column and `employees_public_view.sql` still selects it, so the "fully replaced by `work_location_id`" decision below is only half-executed.
+
+Treat the schema sections below as describing shipped tables, and the migration/rollout sections as historical.
 
 ## Why
 
@@ -13,7 +18,9 @@ These are two different problems with two different table shapes — a work loca
 
 ## Decisions already made (do not re-litigate these)
 
-- **Overtime stays a flat 6:00 PM company-wide threshold forever** — it does not become location-dependent even after this ships. Only early leave varies by location.
+- ~~**Overtime stays a flat 6:00 PM company-wide threshold forever**~~ — **SUPERSEDED 2026-09-22.** The 6:00 PM rule was wrong and has been removed entirely; confirmed with HR. Overtime is now the Employment Act 1955 s.60A calculation: hours worked beyond **8 paid hours in a day**, measured purely as duration with no time-of-day component at all. See `docs/hr/PAYROLL-DATA-REQUIREMENTS.md`'s "Overtime hours" row for the full definition.
+
+  The *conclusion* this decision reached still holds, for a better reason: overtime is **company-wide, not per-location**. But that is now because HR confirmed KL's 17:00 finish is company leniency rather than a shorter contractual day — both sites owe the same 8 hours — not because of any flat clock time. `work_locations.early_leave_time` therefore still drives **early leave only**, exactly as the second bullet below says.
 - **Early-leave threshold always uses the employee's assigned work location**, never the day's actual scanner location. An employee normally based in KL who visits Meru for a day still gets KL's 5:00 PM cutoff that day. This is also the only option that works for remote/app-based attendance, which has no scanner location at all.
 - `address_work` is **fully replaced** by `work_location_id` — not kept alongside as a separate free-text field.
 - `employees_public_view.sql`'s `manager_address_work` column (confirmed dead — zero frontend consumers) gets dropped in the same pass, not carried forward into the new join.
@@ -37,7 +44,9 @@ create table public.work_locations (
 
 No `is_active` column — no lookup table in this schema has one (`departments`, `nationalities`, `employment_status`, `employment_type`, `identification_type` all lack it); don't introduce a new convention here without a reason to. Seed via a CSV in `supabase/csv/` (matching `departments_rows.csv`'s own convention), not a CRUD admin page — `departments` itself has no CRUD page either (`Departments.jsx` is a stub today), so a 2-row lookup doesn't need one.
 
-No overtime column on this table — overtime is a flat constant per the decision above, not per-location.
+No overtime column on this table, and still none needed — overtime is company-wide (a flat 8 paid hours per day), not per-location. The reasoning changed in 2026-09-22 (see the superseded decision above); the schema consequence did not.
+
+Note that `early_leave_time` is doing double duty in the live view: besides `is_early_leave`, it also supplies the default clock-out times the attendance backfill wizard seeds. It does **not** feed the overtime threshold any more.
 
 ### `addresses` — structured personal address, one row per employee
 
@@ -106,4 +115,6 @@ Both source fields are unstructured free text with zero format enforcement — c
 
 ## See also
 
-The immediate overtime/early-leave calculation fix that this design was built to slot into cleanly (the `overtime_hours`/`is_early_leave` columns on `unified_daily_attendance`, already shipped) needed no schema change and is already live — see that view's own inline comments for the exact `COALESCE` seam this document's `work_locations` join is meant to fill in.
+`is_early_leave` on `unified_daily_attendance` is the column this design's `work_locations` join actually feeds, via the `COALESCE(wl.early_leave_time, TIME '17:00:00')` seam described in that view's own inline comments. That part is live.
+
+`overtime_hours` used to be mentioned here alongside it. It no longer belongs: as of 2026-09-22 overtime is a flat 8-paid-hours-per-day duration threshold with no clock time and no `work_locations` dependency whatsoever. See `docs/hr/PAYROLL-DATA-REQUIREMENTS.md` for the current definition.

@@ -74,7 +74,6 @@ export default function PipelineStatus() {
     defaultSortBy: "run_at",
     defaultSortOrder: "descending",
   });
-  console.log(runLog);
 
   const currentStateColumns = pipelineCurrentStateTableConfig();
   const runLogColumns = pipelineRunLogTableConfig();

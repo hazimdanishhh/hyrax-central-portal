@@ -409,58 +409,55 @@ SELECT
     dl.leave_type_codes,
     dl.leave_day_fraction_total AS leave_day_fraction,
 
-    -- Overtime: hours worked after 6PM, but ONLY on a normal working day
-    -- (not weekend/public holiday) AND only when that day's TOTAL hours
-    -- worked exceed 8. Corrected 2026-09-15 after two confirmed issues with
-    -- the original "any time after 6PM, regardless of arrival time or total
-    -- hours" rule:
-    --   1. It double-counted with weekend_hours_worked/holiday_hours_worked
-    --      -- a Saturday shift past 6PM registered both full weekend hours
-    --      AND separate overtime hours on top of them. Malaysian OT/rest-day
-    --      pay convention pays that whole shift at its own premium rate
-    --      (1.5x/2x/3x under the Employment Act), not "normal rate +
-    --      separate OT on top" -- so overtime is now forced to 0 whenever
-    --      is_weekend or is_public_holiday is true; those hours are already
-    --      fully captured by weekend_hours_worked/holiday_hours_worked
-    --      below.
-    --   2. A late-arriving-but-normal-length day (e.g. in at noon, out at
-    --      8pm -- a plain 8 hours, just shifted later) registered 2h of
-    --      "overtime" purely because the clock-out happened to be after
-    --      6PM, with no check on total hours worked. Now gated: a day must
-    --      have MORE than 8 total hours worked before any overtime is
-    --      reported at all. Once both gates pass, the reported quantity is
-    --      still specifically "hours worked after 6PM" (not
-    --      hours-worked-minus-8) -- unchanged from the original formula.
-    -- See docs/PAYROLL-DATA-REQUIREMENTS.md's "Overtime hours" row and
-    -- docs/OVERTIME-WEEKEND-HOLIDAY-CLAIMS-DESIGN.md for the related,
-    -- still-open gap: none of this is reconciled against HR's actual
-    -- (still paper-based) overtime/weekend/holiday approval process.
+    -- Overtime, per Employment Act 1955 s.60A: hours worked beyond the
+    -- normal hours of work in a day. REDEFINED 2026-09-22 -- this column
+    -- previously meant "hours clocked after 6PM, gated on total hours > 8".
+    -- That rule is gone. It was wrong for payroll in both directions: it
+    -- paid nothing for a 09:00-19:00 ten-hour day (no post-6PM tail once
+    -- the arrival floor applied), while the Act plainly counts every hour
+    -- past normal hours regardless of what time of day they fall.
     --
-    -- The inner GREATEST/EXTRACT expression (unchanged from before) is
-    -- null-safe: GREATEST ignores NULL arguments rather than propagating
-    -- them, so a day with no checkin at all still computes to 0. It also
-    -- still bounds its window's start to the LATER of (actual first
-    -- arrival, 6PM) -- fixes a separate, earlier bug where someone whose
-    -- entire day started after 6PM (e.g. clocked in 9PM, out 11PM) would
-    -- otherwise show 5h of overtime (11PM minus a flat 6PM) instead of the
-    -- real 2h. Repeats the same MAX(...)/MIN(...) expressions last_out/
-    -- first_in_time_of_day above already use, and the same hours_worked
-    -- expression this view's other columns already repeat -- a SELECT list
-    -- can't reference a sibling output column's alias, and restructuring
-    -- this view into a wrapping CTE is a bigger change than this fix
-    -- warrants.
+    -- THRESHOLD: a flat 8 PAID hours, company-wide -- i.e. 9 hours of raw
+    -- clock span, because the 1-hour unpaid lunch is baked into the punch
+    -- span rather than separately punched (see true_hours_worked below).
+    --
+    -- PURELY DURATION-BASED. There is deliberately NO time-of-day component
+    -- anywhere in this expression: hw_hours is just
+    -- MAX(scanned_at) - MIN(scanned_at), so an early arrival earns overtime
+    -- exactly like a late departure. Someone in at 07:30 and out at 17:30
+    -- worked a 10h span = 9h paid = 1h overtime, even though they left at
+    -- the usual time. (The old rule could not see that day at all, which is
+    -- part of why it was replaced.)
+    --
+    -- Deliberately NOT per-work-location, even though work_locations
+    -- .early_leave_time (17:00 KL / 17:30 Meru) would make it easy to be:
+    -- confirmed with the business that KL's 17:00 finish is company
+    -- LENIENCY, not a shorter contractual day, so both sites owe the same
+    -- 8 hours before overtime starts. early_leave_time keeps driving
+    -- is_early_leave and nothing else. This reverses the "overtime stays a
+    -- flat 6:00 PM company-wide threshold forever" line in
+    -- docs/hr/WORK-LOCATIONS-ARCHITECTURE.md's "decisions already made"
+    -- section -- consciously, not by oversight. The conclusion it reached
+    -- (overtime is company-wide, not per-location) survives; only its
+    -- 6PM mechanism is replaced.
+    --
+    -- Weekend/public-holiday days stay forced to 0, unchanged and still
+    -- correct: Malaysian convention pays a whole rest-day/holiday shift at
+    -- its own premium tier (s.60(3)/s.60D(3)), not "normal rate + OT on
+    -- top". Those hours are carried by weekend_hours_worked/
+    -- holiday_hours_worked and the rate-tier columns below instead.
+    --
+    -- Identical by construction to estimated_normal_day_ot_hours below --
+    -- see that column's own comment for why the duplicate still exists.
+    -- Repeats hours_worked's expression rather than referencing its alias,
+    -- per this view's standing constraint (a SELECT list can't reference a
+    -- sibling output column's alias). Null-safe: GREATEST ignores NULLs, so
+    -- a day with no punches at all computes to 0, not NULL.
     CASE
         WHEN u.is_weekend OR dh.holiday_name IS NOT NULL THEN 0
-        WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0)) <= 8 THEN 0
-        ELSE GREATEST(
-            EXTRACT(EPOCH FROM (
-                (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time
-                - GREATEST(
-                    (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time,
-                    TIME '18:00:00'
-                  )
-            )) / 3600.0,
-            0
+        ELSE GREATEST(0,
+            (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
+            - 8
         )
     END AS overtime_hours,
 
@@ -641,27 +638,32 @@ SELECT
     -- docs/PAYROLL-DATA-REQUIREMENTS.md as needing final HR/payroll
     -- sign-off since sources weren't 100% explicit on the additive point).
     --
-    -- Deliberately separate, new columns rather than redefining
-    -- overtime_hours above a third time -- that column stays exactly as
-    -- shipped (a simple "worked past 6PM" anomaly/badge signal already
-    -- consumed elsewhere); this is a more precise, statute-driven estimate
-    -- for payroll reconciliation specifically.
+    -- These columns are no longer "separate from" overtime_hours -- as of
+    -- 2026-09-22 overtime_hours IS this calculation (see its own comment
+    -- above). The block header's original framing (added alongside, so as
+    -- not to redefine overtime_hours "a third time") no longer applies;
+    -- that redefinition is exactly what happened, deliberately.
     --
     -- Schedule facts this relies on (confirmed, not guessed): every
-    -- employee's shift starts 08:30, ends at their work location's
-    -- early_leave_time (17:00 KL / 17:30 Meru -- reused directly, despite
-    -- originally being the is_early_leave threshold, because it already
-    -- holds exactly these locations' official shift-end times), minus a
-    -- flat 1-hour unpaid lunch baked into the raw punch span (not
-    -- separately punched). Resulting normal_hours_threshold: 7.5h KL, 8h
-    -- Meru. This 1-hour deduction is scoped ONLY to this estimate -- it
-    -- does NOT change hours_worked itself (used elsewhere for attendance
-    -- stats/is_insufficient_half_day_hours, out of scope to touch here).
+    -- employee's shift starts 08:30 and includes a flat 1-hour unpaid lunch
+    -- baked into the raw punch span (not separately punched). Normal hours
+    -- are a flat 8 PAID hours company-wide -- NOT derived from
+    -- work_locations.early_leave_time, even though 17:00 KL / 17:30 Meru
+    -- are the real finish times: KL's earlier finish is company leniency,
+    -- not a shorter contractual day, so both sites owe the same 8 hours.
+    -- The 1-hour lunch deduction is scoped ONLY to these columns -- it does
+    -- NOT change hours_worked itself (used elsewhere for attendance stats/
+    -- is_insufficient_half_day_hours, out of scope to touch here).
 
-    -- Normal daily hours for this employee's work location (shift end
-    -- minus 08:30 start, minus the 1-hour lunch). Exposed for
-    -- transparency/debugging, not just an intermediate value.
-    EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1
+    -- Normal daily PAID hours, company-wide: 8. No longer derived from
+    -- work_locations -- see the block header above for why.
+    --
+    -- A duration, NOT a clock time, and nothing downstream compares it
+    -- against one. Written with an explicit ::numeric cast because CREATE OR
+    -- REPLACE VIEW cannot change a column's DATA TYPE any more than it can
+    -- change its name (both raise 42P16), and a bare `8` would resolve to
+    -- integer where this column has always been numeric.
+    8::numeric
         AS normal_hours_threshold,
 
     -- "True" hours worked for rate-tier comparison purposes only --
@@ -669,15 +671,24 @@ SELECT
     GREATEST(0, GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
         AS true_hours_worked,
 
-    -- Normal-day overtime: hours beyond this location's
-    -- normal_hours_threshold, entitled to 1.5x hourly rate (s.60A). Zero on
-    -- weekend/public-holiday days -- those use the rest-day/holiday tiers
-    -- below instead, never both.
+    -- DEPRECATED as of 2026-09-22: an exact duplicate of overtime_hours
+    -- above, which now carries this same s.60A calculation. Retained ONLY
+    -- because a view column cannot be dropped via CREATE OR REPLACE VIEW
+    -- (Postgres reads the positional shift as a rename and fails with
+    -- 42P16) -- removing it needs a DROP VIEW ... CASCADE that would also
+    -- take out attendance_activity_audit, so it waits for a maintenance
+    -- window. Prefer overtime_hours in new code; nothing reads this column
+    -- any more (get_payroll_period_summary stopped aggregating it in the
+    -- same pass).
+    --
+    -- Normal-day overtime: hours beyond normal_hours_threshold, entitled to
+    -- 1.5x hourly rate (s.60A). Zero on weekend/public-holiday days --
+    -- those use the rest-day/holiday tiers below instead, never both.
     CASE
         WHEN u.is_weekend OR dh.holiday_name IS NOT NULL THEN 0
         ELSE GREATEST(0,
             (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
-            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+            - 8
         )
     END AS estimated_normal_day_ot_hours,
 
@@ -690,7 +701,7 @@ SELECT
         WHEN NOT u.is_weekend THEN NULL
         WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1) <= 0 THEN NULL
         WHEN (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
-             <= (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1) / 2
+             <= 8.0 / 2
         THEN 'half_day'
         ELSE 'full_day'
     END AS rest_day_wage_tier,
@@ -701,7 +712,7 @@ SELECT
         WHEN NOT u.is_weekend THEN 0
         ELSE GREATEST(0,
             (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
-            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+            - 8
         )
     END AS rest_day_excess_hours,
 
@@ -720,7 +731,7 @@ SELECT
         WHEN dh.holiday_name IS NULL THEN 0
         ELSE GREATEST(0,
             (GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1)
-            - (EXTRACT(EPOCH FROM (COALESCE(wl.early_leave_time, TIME '17:00:00') - TIME '08:30:00')) / 3600.0 - 1)
+            - 8
         )
     END AS holiday_excess_hours
 
@@ -799,15 +810,18 @@ SELECT
     GREATEST(0, fr.hours_worked - GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0)))
         AS approved_hours_worked,
 
-    -- Overtime is envelope-based (last clock-out minus max(first clock-in,
-    -- 6PM)), not a plain sum of app_hours, so it can't take the same direct
-    -- "hours_worked minus pending" subtraction quite as literally -- but the
-    -- subtraction is still a safe, conservative approximation of the true
-    -- approved-only envelope figure: it can only ever REDUCE reported
-    -- overtime relative to a fully recomputed approved-only envelope, never
-    -- inflate it, so it stays safely on the side of not overpaying. A real
-    -- approved-only clock envelope (its own approved-only first-in/last-out
-    -- pair) would be needed for exact precision -- out of scope here.
+    -- EXACT, not an approximation (corrected 2026-09-22, when overtime_hours
+    -- stopped being the 6PM clock-envelope figure). Overtime is now a plain
+    -- linear threshold -- max(0, true_hours - 8) -- and for that shape,
+    -- subtracting the pending hours OUTSIDE the threshold is algebraically
+    -- identical to subtracting them INSIDE it, including at the zero clamp:
+    --   max(0, (true - 8) - pending) == max(0, (true - pending) - 8)
+    -- both when the inner term is positive and when either clamps to 0.
+    -- So this needs no restructuring, and must NOT be "fixed" by moving the
+    -- subtraction inside the threshold -- that would change nothing on the
+    -- happy path and risks introducing an error at the boundary.
+    -- (While the old 6PM envelope was in force, this same subtraction was
+    -- only a conservative approximation; that caveat no longer applies.)
     GREATEST(0, fr.overtime_hours - GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0)))
         AS approved_overtime_hours,
 

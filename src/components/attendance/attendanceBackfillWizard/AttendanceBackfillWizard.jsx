@@ -210,9 +210,13 @@ export default function AttendanceBackfillWizard({
    *
    * Resolution order: an explicit user override wins; otherwise each employee
    * falls back to their OWN work location's defaults. That per-employee
-   * fallback is load-bearing -- forcing one pair on everyone would hand Meru
-   * employees KL's 17:00 and manufacture 0.5h of phantom overtime for every one
-   * of them, the exact bug the 08:30 default exists to prevent. When the
+   * fallback is load-bearing: forcing one pair on everyone would hand Meru
+   * employees KL's 17:00 and silently under-record half an hour of their real
+   * working day, every backfilled day. (Before 2026-09-22 the stated hazard
+   * here was the mirror image -- "0.5h of phantom overtime" -- which was true
+   * while the overtime threshold was location-derived. Under the flat
+   * 8-paid-hour rule the risk is under-recording hours, not inventing
+   * overtime, but the fix is the same: use each employee's own site.) When the
    * selection spans more than one shift end there is no single honest value to
    * display, so the row says "per employee" rather than implying otherwise.
    */

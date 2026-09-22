@@ -191,7 +191,7 @@ export default function PayrollExport() {
           (not just "rows.length > 0") so an all-zero/all-green row never
           renders before a period is even selected -- that would read as "all
           clear" when nothing has actually been checked yet. */}
-      {hasPeriod && !isLoading && <OverviewCards items={overviewItems} />}
+      <OverviewCards items={overviewItems} />
 
       {/* PERIOD + DEPARTMENT/EMPLOYEE + EXPORT -- same stacking as Attendance
           Overview (SearchFilterBar's plain date range, PayrollCycleFilterBar's
@@ -215,7 +215,7 @@ export default function PayrollExport() {
 
       {/* Non-blocking -- HR stays in control and can still export
           deliberately, this is a heads-up, not a gate. */}
-      {showReconciliationWarning && (
+      {/* {showReconciliationWarning && (
         <CardLayout style="generalCard redCard">
           <WarningCircleIcon size={16} />
           <p className="textRegular textXS">
@@ -234,7 +234,7 @@ export default function PayrollExport() {
             onClick={() => setFilters({ needsReconciliation: "true" })}
           />
         </CardLayout>
-      )}
+      )} */}
 
       <div className="cardWrapperScroll">
         {!hasPeriod ? (

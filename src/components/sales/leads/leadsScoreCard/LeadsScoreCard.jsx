@@ -69,10 +69,8 @@ export default function ScorecardList({ data = [] }) {
                   avatar_url: row.avatar_url,
                 }}
                 displayName={true}
-                showName={hoveredUser === row.lead_owner_id}
-                setShowName={(show) =>
-                  setHoveredUser(show ? row.lead_owner_id : null)
-                }
+                showName={false}
+                setShowName={() => {}}
               />
 
               {/* 2. QUOTA PROGRESS BAR */}

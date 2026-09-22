@@ -146,7 +146,7 @@ export function getHrReportsOverviewConfig(
         },
       ],
       title:
-        "Sum of hours worked after 6:00 PM (18:00) across working-day records this period -- not hours above 8/day, and not affected by what time the employee arrived.",
+        "Sum of hours worked beyond the normal 8 paid hours in a day, per Employment Act s.60A, across working-day records this period. Based purely on how long the employee was on site -- not on what time they left. A 10-hour day is 1 hour of overtime whether it ran 07:30-17:30 or 09:00-19:00. (8 paid hours means a 9-hour span, since the 1-hour unpaid lunch sits inside it.) A flat company-wide threshold, not per work location. Weekend and public-holiday work is excluded: it is paid under its own rest-day/holiday rate tiers instead.",
     },
     {
       icon: CalendarXIcon,

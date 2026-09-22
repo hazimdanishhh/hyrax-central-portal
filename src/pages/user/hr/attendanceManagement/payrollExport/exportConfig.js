@@ -9,7 +9,8 @@ export const payrollPeriodSummaryExportColumns = [
   { label: "Full Name", accessor: (row) => row.fullName },
   { label: "Department", accessor: (row) => row.departmentName || "" },
   { label: "Hours Worked", accessor: (row) => Number(row.hoursWorkedTotal || 0).toFixed(2) },
-  { label: "Overtime Hours", accessor: (row) => Number(row.overtimeHoursTotal || 0).toFixed(2) },
+  // See tableConfig.jsx's matching entry for why this is "(Est.)".
+  { label: "Overtime Hours (Est.)", accessor: (row) => Number(row.overtimeHoursTotal || 0).toFixed(2) },
   // Approved-only -- see tableConfig.jsx's matching entry for the full explanation.
   { label: "Pending Approval Hours", accessor: (row) => Number(row.pendingApprovalHoursTotal || 0).toFixed(2) },
   { label: "Total Working Days", accessor: (row) => row.totalWorkingDaysCount || 0 },
@@ -24,7 +25,8 @@ export const payrollPeriodSummaryExportColumns = [
   { label: "Weekend Hours Worked", accessor: (row) => Number(row.weekendHoursWorkedTotal || 0).toFixed(2) },
   // Statutory rate-tier ESTIMATE columns (added 2026-09-15) -- see
   // tableConfig.jsx's matching entries for the "(Est.)" rationale.
-  { label: "Normal Day OT Hours (Est.)", accessor: (row) => Number(row.estimatedNormalDayOtHoursTotal || 0).toFixed(2) },
+  // "Normal Day OT Hours (Est.)" dropped 2026-09-22 -- see tableConfig.jsx's
+  // matching note. It duplicated "Overtime Hours (Est.)" above.
   { label: "Rest Day 0.5x-Tier Days (Est.)", accessor: (row) => row.estimatedRestDayHalfTierDaysCount || 0 },
   { label: "Rest Day 1x-Tier Days (Est.)", accessor: (row) => row.estimatedRestDayFullTierDaysCount || 0 },
   { label: "Rest Day 2x Excess Hours (Est.)", accessor: (row) => Number(row.estimatedRestDayExcessHoursTotal || 0).toFixed(2) },

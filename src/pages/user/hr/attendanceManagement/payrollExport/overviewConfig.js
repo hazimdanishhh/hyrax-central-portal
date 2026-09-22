@@ -76,20 +76,12 @@ export function getPayrollExportOverviewConfig(kpis, filters) {
   const filterFor = (value) => ({ ...filters, needsReconciliation: value });
 
   return [
-    // {
-    //   label: "Confirmed Unpaid Absences",
-    //   value: kpis.confirmedUnpaidAbsences,
-    //   icon: CheckCircleIcon,
-    //   variant: "blueCard",
-    //   to: "",
-    //   filter: filterFor("confirmedAbsence"),
-    // },
     {
       label: "Unacknowledged Absences",
       value: kpis.pendingAbsences,
       icon: HourglassIcon,
       variant: kpis.pendingAbsences > 0 ? "redCard" : "greenCard",
-      to: "",
+      to: `/app/hr/attendance/payroll-export`,
       filter: filterFor("pendingAbsence"),
     },
     {
@@ -97,7 +89,7 @@ export function getPayrollExportOverviewConfig(kpis, filters) {
       value: kpis.leaveConflicts,
       icon: WarningIcon,
       variant: kpis.leaveConflicts > 0 ? "redCard" : "greenCard",
-      to: "",
+      to: `/app/hr/attendance/payroll-export`,
       filter: filterFor("leaveConflict"),
     },
     {
@@ -105,7 +97,7 @@ export function getPayrollExportOverviewConfig(kpis, filters) {
       value: kpis.insufficientHalfDay,
       icon: WarningIcon,
       variant: kpis.insufficientHalfDay > 0 ? "yellowCard" : "greenCard",
-      to: "",
+      to: `/app/hr/attendance/payroll-export`,
       filter: filterFor("insufficientHalfDay"),
     },
     {
@@ -113,7 +105,7 @@ export function getPayrollExportOverviewConfig(kpis, filters) {
       value: kpis.leaveFractionErrors,
       icon: WarningOctagonIcon,
       variant: kpis.leaveFractionErrors > 0 ? "redCard" : "greenCard",
-      to: "",
+      to: `/app/hr/attendance/payroll-export`,
       filter: filterFor("leaveFractionError"),
     },
     {
@@ -121,7 +113,7 @@ export function getPayrollExportOverviewConfig(kpis, filters) {
       value: `${kpis.pendingApprovalHours.toFixed(2)} hrs`,
       icon: HourglassIcon,
       variant: kpis.pendingApprovalHours > 0 ? "redCard" : "greenCard",
-      to: "",
+      to: `/app/hr/attendance/payroll-export`,
       filter: filterFor("pendingApproval"),
     },
   ];

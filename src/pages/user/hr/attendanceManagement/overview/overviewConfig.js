@@ -453,14 +453,20 @@ export function getAttendanceOverviewConfig(
         },
       ],
       title:
-        "Sum of hours worked after 6:00 PM (18:00) across working-day records in the selected period -- not hours above 8/day, and not affected by what time the employee arrived. Employees With Overtime is a distinct-employee count, while its link shows one row per qualifying day -- an employee with overtime on 3 different days appears 3 times in the list but counts once here.",
+        "Sum of hours worked beyond the normal 8 paid hours in a day, per Employment Act s.60A, across working-day records in the selected period. Based purely on how long the employee was on site -- not on what time they left. A 10-hour day is 1 hour of overtime whether it ran 07:30-17:30 or 09:00-19:00. (8 paid hours means a 9-hour span, since the 1-hour unpaid lunch sits inside it.) A flat company-wide threshold, not per work location. Weekend and public-holiday work is excluded here: it is paid under its own rest-day/holiday rate tiers instead. Employees With Overtime is a distinct-employee count, while its link shows one row per qualifying day -- an employee with overtime on 3 different days appears 3 times in the list but counts once here.",
     },
 
     // Public holidays integration -- reconciliation metric for employees
-    // who actually attended on a day nobody was expected to work. Distinct
-    // from Overtime above (that's about time-of-day; this is about
-    // day-type) -- an employee can appear in both if they worked overtime
-    // hours on a holiday.
+    // who actually attended on a day nobody was expected to work.
+    // MUTUALLY EXCLUSIVE with Overtime above, by construction: holiday and
+    // weekend work is paid under its own rest-day/holiday rate tiers
+    // (Employment Act s.60(3)/s.60D(3)), never as normal-day overtime, so
+    // unified_daily_attendance forces overtime_hours to 0 on those days.
+    // The same day can never contribute to both tiles. (An older version of
+    // this comment claimed the opposite, and framed the distinction as
+    // "time-of-day vs day-type" -- both were wrong: overtime has been
+    // zeroed on holidays since 2026-09-15, and as of 2026-09-22 overtime is
+    // an hours-beyond-8 measure with no time-of-day component at all.)
     {
       icon: CalendarStarIcon,
       label: "Holiday Work",

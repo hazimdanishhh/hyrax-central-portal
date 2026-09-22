@@ -1,3 +1,18 @@
+-- ############################################################################
+-- SUPERSEDED (2026-09-22) BY attendance_employment_act_overtime_migration.sql
+-- -- DO NOT RE-RUN.
+--
+-- This file contains a COMPLETE `CREATE OR REPLACE VIEW
+-- public.unified_daily_attendance` carrying the OLD "overtime = hours after
+-- 6PM, gated on >8h" formula. Re-running it would silently revert the
+-- Employment Act s.60A overtime redefinition and quietly change payroll
+-- figures back. Kept only as the historical record of the deployment step it
+-- performed at the time.
+--
+-- If you need this view, run attendance_employment_act_overtime_migration.sql
+-- instead -- it is a full superset of everything below.
+-- ############################################################################
+
 -- DEPLOYMENT STEP -- run once in the Supabase SQL editor, after every step in
 -- docs/setup/ATTENDANCE-BACKFILL-DEPLOYMENT-GUIDE.md and after
 -- attendance_reconciliation_flags_view_migration.sql have already been run

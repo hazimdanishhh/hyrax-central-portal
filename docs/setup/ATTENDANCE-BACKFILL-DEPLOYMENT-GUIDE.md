@@ -194,7 +194,12 @@ a 5-day range.
 
 1. Pick **Overseas Trip** on the details step → the date step offers Full/AM/PM
    and **no** time inputs. Go back, pick **Site Visit** → time inputs appear,
-   seeded 08:30–17:00 for a KL employee and 08:30–17:30 for Meru.
+   seeded 08:30–17:00 for a KL employee and 08:30–17:30 for Meru. Neither
+   default should produce any overtime: since 2026-09-22 the threshold is a
+   flat 8 paid hours (a 9-hour span including the unpaid lunch), so Meru's
+   default lands exactly on it and KL's sits half an hour under. Confirm
+   `overtime_hours` reads 0 on every backfilled full day — a nonzero value
+   there means the seeded times or the threshold have drifted apart.
 2. Change a date's shape from Full to Half AM → its times re-seed to
    08:30–12:30. Edit a time by hand, then change the shape → confirm the row is
    not silently left on the hand-edited value.

@@ -16,13 +16,22 @@ export const DAY_SHAPES = [
 
 // Shift start, and the boundaries of the unpaid lunch hour.
 //
-// 08:30 is not arbitrary: it is the same start time
-// hr_unified_daily_attendance_view.sql's normal_hours_threshold already
-// assumes ("08:30 start to the employee's work_locations.early_leave_time,
-// minus a flat 1-hour unpaid lunch"). Matching it is what makes a backfilled
-// full day come out EXACTLY on the threshold and therefore generate zero
-// phantom overtime. A flat 08:00-17:00 would hand every KL employee 0.5h of
-// spurious estimated_normal_day_ot_hours on every backfilled day.
+// 08:30 is the company's real shift start, and the same one
+// hr_unified_daily_attendance_view.sql assumes when it documents normal hours
+// as "08:30 start ... minus a flat 1-hour unpaid lunch".
+//
+// These defaults must never manufacture overtime on a backfilled full day.
+// They don't: overtime is hours beyond 8 PAID hours, i.e. a 9-hour span once
+// the unpaid lunch inside it is deducted. Meru's 08:30-17:30 is exactly 9h
+// (0h overtime, landing precisely on the threshold) and KL's 08:30-17:00 is
+// 8.5h, half an hour under it.
+//
+// (Before 2026-09-22 the threshold was location-derived -- 7.5h for KL -- and
+// this comment warned that a flat 08:00-17:00 default would hand every KL
+// employee 0.5h of spurious overtime. That specific hazard is gone: under the
+// flat 8-hour rule an 08:00-17:00 day is also exactly 8 paid hours. The
+// location-aware defaults stay anyway, because they reflect each site's real
+// finish time and still feed is_early_leave, which IS per-location.)
 const SHIFT_START = "08:30";
 const LUNCH_START = "12:30";
 const LUNCH_END = "13:00";

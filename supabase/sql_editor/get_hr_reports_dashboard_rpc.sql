@@ -186,10 +186,12 @@ kpi_attendance_totals as (
         -- get_attendance_dashboard_rpc.sql).
         count(*) filter (where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday) as present_count,
         count(*) filter (where not is_weekend and not is_on_leave and not is_public_holiday) as roster_count,
-        -- Overtime: time worked after 6PM, not hours above 8/day -- reads
-        -- overtime_hours from unified_daily_attendance directly (computed
-        -- once there, see that view's own comment), mirrors the identical
-        -- fix in get_attendance_dashboard_rpc.sql this same pass.
+        -- Overtime: hours beyond the normal 8 paid hours in a day, per
+        -- Employment Act s.60A. REDEFINED 2026-09-22 -- this used to mean
+        -- "time worked after 6PM, not hours above 8/day", the exact
+        -- opposite. Reads overtime_hours from unified_daily_attendance
+        -- directly (computed once there, see that view's own comment), so
+        -- the view's formula swap corrected this KPI with no change here.
         --
         -- 'Incomplete Card Scans' excluded (mirrors the identical fix just
         -- added to get_attendance_dashboard_rpc.sql this same pass) -- a
