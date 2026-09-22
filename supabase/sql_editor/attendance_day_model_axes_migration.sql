@@ -156,9 +156,20 @@ WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23';
 
 -- The payroll numbers that must not move. Stored rather than eyeballed so
 -- Gate 5 can diff it mechanically instead of relying on you comparing two
--- screenshots of a wide result set.
+-- screenshots of a very wide result set.
+--
+-- Cast to JSONB, not left as the function's own JSON: `json` has NO equality
+-- operator in Postgres, so any comparison of it fails outright with "could not
+-- identify an equality operator for type json". `jsonb` has one.
+--
+-- COALESCE to '[]' because json_agg returns NULL (not an empty array) when the
+-- period matches no employees -- without it, Gate 5's array expansion would
+-- silently return zero rows and read as "nothing changed".
 CREATE TABLE public._payroll_baseline AS
-SELECT * FROM public.get_payroll_period_summary('2026-08-26', '2026-09-25', NULL, NULL, NULL);
+SELECT COALESCE(
+    public.get_payroll_period_summary('2026-08-26', '2026-09-25', NULL, NULL, NULL)::jsonb,
+    '[]'::jsonb
+) AS summary;
 
 -- Current grants, so Gate 1 can confirm they came back after the recreate.
 CREATE TABLE public._grants_baseline AS
@@ -170,7 +181,7 @@ WHERE table_name IN ('unified_daily_attendance', 'attendance_activity_audit');
 -- range has no data -- widen it and re-run this section.
 SELECT
     (SELECT count(*) FROM public._hr_flag_baseline) AS hr_flag_rows,
-    (SELECT count(*) FROM public._payroll_baseline) AS payroll_rows,
+    (SELECT jsonb_array_length(summary) FROM public._payroll_baseline) AS payroll_employees,
     (SELECT count(*) FROM public._grants_baseline)  AS grant_rows;
 
 
@@ -1790,12 +1801,36 @@ LIMIT 20;
 -- IDENTICAL. Anything else moving means a rewritten expression changed
 -- meaning, and the rebuild is NOT safe to keep.
 --
--- Diffed mechanically against the SECTION A capture rather than by comparing
--- two screenshots of a very wide result set -- the whole row is compared at
--- once, so a single changed figure anywhere shows up. EXPECT ZERO ROWS.
-SELECT 'BEFORE' AS v, * FROM public._payroll_baseline
-EXCEPT ALL
-SELECT 'BEFORE', * FROM public.get_payroll_period_summary('2026-08-26','2026-09-25',NULL,NULL,NULL);
+-- The RPC returns one JSON object per employee, so this expands both the
+-- captured and the live array, matches them on employeeUuid, and reports ONE
+-- ROW PER CHANGED FIELD -- you get "this employee, this field, was X, now Y"
+-- rather than two thousand-character blobs to compare by eye. A FULL JOIN so
+-- an employee appearing or disappearing entirely also shows up.
+--
+-- EXPECT ZERO ROWS -- with ONE allowed exception, and only this one: fields
+-- derived from needs_reconciliation may move, because of the new pending-
+-- approval limb. Any hoursWorked / overtime / dayCount / wage-tier field
+-- appearing here means a rewritten expression changed meaning, and the
+-- rebuild is NOT safe to keep -- roll back (see the ROLLBACK section).
+WITH before_rows AS (
+    SELECT e->>'employeeUuid' AS emp, e AS j
+    FROM public._payroll_baseline b, jsonb_array_elements(b.summary) e
+), after_rows AS (
+    SELECT e->>'employeeUuid' AS emp, e AS j
+    FROM jsonb_array_elements(COALESCE(
+        public.get_payroll_period_summary('2026-08-26','2026-09-25',NULL,NULL,NULL)::jsonb,
+        '[]'::jsonb)) e
+)
+SELECT
+    COALESCE(b.j->>'fullName', a.j->>'fullName') AS employee,
+    k                                            AS field,
+    b.j->k                                       AS before_value,
+    a.j->k                                       AS after_value
+FROM before_rows b
+FULL JOIN after_rows a ON a.emp = b.emp
+CROSS JOIN LATERAL jsonb_object_keys(COALESCE(b.j, a.j)) k
+WHERE b.j->k IS DISTINCT FROM a.j->k
+ORDER BY 1, 2;
 --
 -- Sanity-check the one intended change -- these are the rows the lists'
 -- "Needs Reconciliation" filter will newly include:
