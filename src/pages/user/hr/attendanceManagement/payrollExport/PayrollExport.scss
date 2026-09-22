@@ -2,18 +2,3 @@
 // PayrollReconciliationSidebar.scss's .payrollReconciliationNoEmail warning
 // treatment (same color token), laid out as a row so the "Show only flagged"
 // action button sits inline with the message instead of stacking under it.
-.payrollExportReconciliationWarning {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 0.6rem;
-
-  .payrollExportReconciliationWarningText {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: var(--color-error, #d9534f);
-  }
-}

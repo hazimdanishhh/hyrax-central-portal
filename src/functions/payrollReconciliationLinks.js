@@ -20,6 +20,11 @@ const CATEGORY_QUERY_PARAMS = {
   // specifically about the 4 reconciliation flags, not every summary field.
   worked_on_holiday: "workedOnHoliday=true",
   worked_on_weekend: "workedOnWeekend=true",
+  // Added 2026-09-22 for the sidebar's new "Pending Approval Hours" KPI card
+  // -- hrFlag already has this exact value as a real, existing Attendance
+  // List filter option (getAttendanceActivitiesFilterConfig), so this is a
+  // genuinely precise deep link, not a "close enough" one like `absent` below.
+  pending_approval: "hrFlag=Pending App Approval",
   // No extra flag -- just scope to this employee/period, for fields with no
   // single corresponding Attendance List filter (hours worked, leave days,
   // etc.). An intentionally valid, empty-string entry -- see the `params

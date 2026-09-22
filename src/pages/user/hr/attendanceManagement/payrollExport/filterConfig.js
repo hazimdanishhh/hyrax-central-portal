@@ -26,12 +26,25 @@ export function getPayrollExportFilterConfig({ departments, employees, workLocat
       options: (workLocations || []).map((w) => ({ label: w.name, value: w.id })),
     },
     {
-      // Single-option toggle -- same convention as employeeManagement/list/
-      // filterConfig.js's contractEndingSoon (SearchFilterBar only renders
-      // react-select dropdowns, there's no dedicated checkbox editor).
+      // One dropdown, one value at a time (SearchFilterBar only renders
+      // react-select dropdowns) -- "true" is the original single-option
+      // toggle (any of the 4 categories below), the rest are per-category
+      // drill-downs so a click (from either this dropdown or an Overview
+      // Cards tile -- see overviewConfig.js) narrows to exactly one kind of
+      // problem instead of everything at once. getReconciliationCategoryPredicate
+      // below is the single place that maps each value to its row predicate,
+      // so this list and that predicate can never drift apart.
       key: "needsReconciliation",
       label: "Reconciliation",
-      options: [{ label: "Needs Reconciliation", value: "true" }],
+      options: [
+        { label: "Needs Reconciliation (Any)", value: "true" },
+        { label: "Absent - Confirmed Unpaid", value: "confirmedAbsence" },
+        { label: "Absent - Pending Review", value: "pendingAbsence" },
+        { label: "Leave/Attendance Conflict", value: "leaveConflict" },
+        { label: "Insufficient Half-Day Hours", value: "insufficientHalfDay" },
+        { label: "Leave Data Error", value: "leaveFractionError" },
+        { label: "Pending Approval Hours", value: "pendingApproval" },
+      ],
     },
   ];
 }
@@ -82,4 +95,31 @@ export function getRowReconciliationFlags(row) {
 
 export function rowNeedsReconciliation(row) {
   return getRowReconciliationFlags(row).length > 0;
+}
+
+// Per-category predicates behind the "Reconciliation" filter's specific
+// values (see getPayrollExportFilterConfig above) and every Overview Cards
+// tile (overviewConfig.js) -- one place so a tile's count and what clicking
+// it actually filters to can never silently disagree. "confirmedAbsence" is
+// the one non-problem category (already reviewed) -- included here anyway so
+// its card can drill down for audit purposes the same way every other card
+// does, not because it needs reconciling.
+export function getReconciliationCategoryPredicate(value) {
+  switch (value) {
+    case "confirmedAbsence":
+      return (row) => (row.acknowledgedAbsenceCount || 0) > 0;
+    case "pendingAbsence":
+      return (row) => (row.unacknowledgedAbsenceCount || 0) > 0;
+    case "leaveConflict":
+      return (row) => (row.leaveAttendanceConflictCount || 0) > 0;
+    case "insufficientHalfDay":
+      return (row) => (row.unacknowledgedInsufficientHalfDayCount || 0) > 0;
+    case "leaveFractionError":
+      return (row) => (row.leaveFractionErrorCount || 0) > 0;
+    case "pendingApproval":
+      return (row) => Number(row.pendingApprovalHoursTotal || 0) > 0;
+    case "true":
+    default:
+      return rowNeedsReconciliation;
+  }
 }

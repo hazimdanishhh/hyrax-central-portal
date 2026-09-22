@@ -1,5 +1,6 @@
 // pages/user/hr/attendanceManagement/payrollExport/PayrollExport.jsx
 import { useCallback, useMemo } from "react";
+import OverviewCards from "@/components/crud/overviewCards/OverviewCards";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { MagnifyingGlassIcon, WarningCircleIcon } from "@phosphor-icons/react";
@@ -19,9 +20,14 @@ import {
   getPayrollExportFilterConfig,
   rowNeedsReconciliation,
   getRowReconciliationFlags,
+  getReconciliationCategoryPredicate,
 } from "./filterConfig";
 import { payrollPeriodSummaryTableConfig } from "./tableConfig";
 import { payrollPeriodSummaryExportColumns } from "./exportConfig";
+import {
+  computePayrollReconciliationOverview,
+  getPayrollExportOverviewConfig,
+} from "./overviewConfig";
 import "./PayrollExport.scss";
 
 /**
@@ -95,10 +101,30 @@ export default function PayrollExport() {
 
   // Client-side-only post-filter -- the RPC has no matching parameter (see
   // filterConfig.js), and doesn't need one: it already returns every active
-  // employee's counts for the period in one shot.
+  // employee's counts for the period in one shot. getReconciliationCategoryPredicate
+  // resolves "true" back to the original any-category rowNeedsReconciliation
+  // check, and every other value to its own specific predicate (see that
+  // function's own comment) -- so a filter value coming from either the
+  // dropdown or an Overview Cards tile click is handled identically here.
   const displayRows = filters.needsReconciliation
-    ? rows.filter(rowNeedsReconciliation)
+    ? rows.filter(
+        getReconciliationCategoryPredicate(filters.needsReconciliation),
+      )
     : rows;
+
+  // Overview Cards -- one tile per reconciliation category (see
+  // overviewConfig.js for the segmenting/coloring rationale), always computed
+  // over the full `rows`, never `displayRows`, so the tiles keep showing the
+  // period's true totals regardless of which category filter (if any) is
+  // currently narrowing the table below them.
+  const reconciliationOverview = useMemo(
+    () => computePayrollReconciliationOverview(rows),
+    [rows],
+  );
+  const overviewItems = getPayrollExportOverviewConfig(
+    reconciliationOverview,
+    filters,
+  );
 
   // Non-blocking "review before exporting" signal -- checked against the
   // FULL `rows`, not `displayRows`, so this stays accurate regardless of
@@ -159,6 +185,14 @@ export default function PayrollExport() {
 
   return (
     <>
+      {/* One tile per reconciliation category -- see overviewConfig.js for
+          the segmenting/coloring rationale and why each tile's filter must
+          spread the page's own currently-active filters. Gated on hasPeriod
+          (not just "rows.length > 0") so an all-zero/all-green row never
+          renders before a period is even selected -- that would read as "all
+          clear" when nothing has actually been checked yet. */}
+      {hasPeriod && !isLoading && <OverviewCards items={overviewItems} />}
+
       {/* PERIOD + DEPARTMENT/EMPLOYEE + EXPORT -- same stacking as Attendance
           Overview (SearchFilterBar's plain date range, PayrollCycleFilterBar's
           26th-25th cycle presets underneath, both writing filters.startDate/
@@ -182,19 +216,21 @@ export default function PayrollExport() {
       {/* Non-blocking -- HR stays in control and can still export
           deliberately, this is a heads-up, not a gate. */}
       {showReconciliationWarning && (
-        <CardLayout style="generalCard payrollExportReconciliationWarning">
-          <p className="textRegular textXS payrollExportReconciliationWarningText">
-            <WarningCircleIcon size={16} />
+        <CardLayout style="generalCard redCard">
+          <WarningCircleIcon size={16} />
+          <p className="textRegular textXS">
             {pendingReconciliationCount > 0 &&
-              `${pendingReconciliationCount} employee${pendingReconciliationCount === 1 ? "" : "s"} have unresolved reconciliation items`}
-            {pendingReconciliationCount > 0 && pendingApprovalHours > 0 && ", and "}
+              `${pendingReconciliationCount} employee${pendingReconciliationCount === 1 ? " has" : "s have"} unresolved reconciliation items`}
+            {pendingReconciliationCount > 0 &&
+              pendingApprovalHours > 0 &&
+              ", and "}
             {pendingApprovalHours > 0 &&
               `${pendingApprovalHours.toFixed(2)} hours are still awaiting approval`}
             {" — review before finalizing payroll."}
           </p>
           <Button
             name="Show only flagged"
-            style="button buttonType4 textXXS"
+            style="button buttonType4 rejection textXXS"
             onClick={() => setFilters({ needsReconciliation: "true" })}
           />
         </CardLayout>

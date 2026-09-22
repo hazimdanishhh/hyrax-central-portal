@@ -174,7 +174,7 @@ export default function PayrollReconciliationSidebar({
                         key={card.label}
                         {...wrapperProps}
                         title={card.description}
-                        className={`payrollSummaryKpiCard generalCard${card.link ? " payrollSummaryKpiCardLink" : ""}`}
+                        className={`payrollSummaryKpiCard generalCard${card.variant ? ` ${card.variant}` : ""}${card.link ? " payrollSummaryKpiCardLink" : ""}`}
                       >
                         <p className="textXXS textLight">{card.label}</p>
                         <p className="textBold textS">{card.value}</p>
