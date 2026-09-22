@@ -84,7 +84,7 @@ step 5.
 
 ## 7. `supabase/functions/notify_attendance_clocked_in.sql`, then `supabase/triggers/trg_notify_attendance_clocked_in.sql`
 
-> **Must run BEFORE step 10.** That trigger currently fires on *every* insert
+> **Must run BEFORE step 10.** That trigger currently fires on _every_ insert
 > into `attendance_activities`. Deploy the backfill RPC first and the first bulk
 > run sends every affected employee one "You are now clocked in — remember to
 > clock out" notification **per day created** — 5 employees × 10 days = 50 wrong
@@ -155,16 +155,16 @@ where table_name = 'attendance_activity_audit' order by ordinal_position;
 All need step 5. In any order among themselves, but **all four are required** or
 a resolved flag clears in some places and not others.
 
-| # | File | Why it needs its own change |
-| --- | --- | --- |
-| 13 | `supabase/functions/get_payroll_reconciliation_rows.sql` | Clears **three** surfaces at once — the HR drilldown sidebar, the emailed list, and the weekly employee reminder all call this one helper |
-| 14 | `supabase/functions/send_payroll_reconciliation_hr_digest.sql` | Computes its own `has_absent` / `has_insufficient_half_day` directly from the view, so it needs a separate copy of the filter |
-| 15 | `get_payroll_period_summary_rpc.sql` | Adds `unacknowledgedAbsenceCount` / `unacknowledgedInsufficientHalfDayCount` |
-| 16 | `queue_payroll_reconciliation_email_rpc.sql` | Per-date deep links in the emailed date list |
+| #   | File                                                           | Why it needs its own change                                                                                                               |
+| --- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 13  | `supabase/functions/get_payroll_reconciliation_rows.sql`       | Clears **three** surfaces at once — the HR drilldown sidebar, the emailed list, and the weekly employee reminder all call this one helper |
+| 14  | `supabase/functions/send_payroll_reconciliation_hr_digest.sql` | Computes its own `has_absent` / `has_insufficient_half_day` directly from the view, so it needs a separate copy of the filter             |
+| 15  | `get_payroll_period_summary_rpc.sql`                           | Adds `unacknowledgedAbsenceCount` / `unacknowledgedInsufficientHalfDayCount`                                                              |
+| 16  | `queue_payroll_reconciliation_email_rpc.sql`                   | Per-date deep links in the emailed date list                                                                                              |
 
 > **`daysAbsentCount` deliberately still counts acknowledged days.** The
 > employee was absent and payroll still deducts an unpaid day — acknowledging
-> closes the *review*, not the *fact*. The `unacknowledged*` counts are what
+> closes the _review_, not the _fact_. The `unacknowledged*` counts are what
 > drive the row-flag badge and the "Needs Reconciliation" filter. If anyone ever
 > "fixes" this by making `daysAbsentCount` skip acknowledged days, payroll will
 > silently under-report unpaid days.
@@ -189,7 +189,7 @@ shows Overseas Trip / Local Trip / Company Event / Driving Duty and **not**
 Office or Blending Plant. Clock in and confirm the "You are now clocked in"
 notification still arrives.
 
-**HR bulk backfill.** HR Attendance List → *Backfill Attendance* → 2 employees,
+**HR bulk backfill.** HR Attendance List → _Backfill Attendance_ → 2 employees,
 a 5-day range.
 
 1. Pick **Overseas Trip** on the details step → the date step offers Full/AM/PM
@@ -211,21 +211,21 @@ Attendance"** (not "Fix"), with the trip types sorted first. Declare a 3-day
 Overseas Trip: whole days, no time prompts. Confirm the only way to fix a broken
 past day from those two pages is opening that day's sidebar.
 
-**The day sidebar.** Open any day (HR, My, Team) → *Add Activity* (labelled
-*Report Missing Activity* for an employee) → employee and date are fixed and
+**The day sidebar.** Open any day (HR, My, Team) → _Add Activity_ (labelled
+_Report Missing Activity_ for an employee) → employee and date are fixed and
 correct → save → the new card appears in the timeline immediately with its
 provenance badge. As an employee, the row must land `Pending` and the manager
 must be able to approve it through the existing Team Attendance flow unchanged.
 
-**Add Single Activity actually submits.** HR Attendance List → *Add Single
-Activity* → pick an employee, a work date, both times → save. This was
+**Add Single Activity actually submits.** HR Attendance List → _Add Single
+Activity_ → pick an employee, a work date, both times → save. This was
 unsubmittable before this pass (the time fields could never be filled), so it is
 worth an explicit check.
 
 **Acknowledgement.**
 
 1. Payroll Export → a flagged employee → click a Days Absent card → it opens
-   **that day's sidebar**, not a filtered list → *Acknowledge Absence* with a
+   **that day's sidebar**, not a filtered list → _Acknowledge Absence_ with a
    reason.
 2. The day leaves the reconciliation list and the row's flag badge count drops,
    but its **Days Absent figure is unchanged**.

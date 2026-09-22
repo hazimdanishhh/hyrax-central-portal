@@ -219,7 +219,10 @@ export default function AddActivityForm({
       <SelectEditor
         value={adjustmentReasonId}
         onChange={setAdjustmentReasonId}
-        options={adjustmentReasons.map((r) => ({ label: r.label, value: r.id }))}
+        options={adjustmentReasons.map((r) => ({
+          label: r.label,
+          value: r.id,
+        }))}
         placeholder="Why is this being added by hand?"
       />
       {selectedReason && (
@@ -242,7 +245,7 @@ export default function AddActivityForm({
         <Button
           name="Save"
           icon={CheckIcon}
-          style="button buttonType2 textBold textXXS"
+          style="button buttonType2 approval textBold textXXS"
           onClick={handleSave}
           disabled={!canSave || committing}
         />

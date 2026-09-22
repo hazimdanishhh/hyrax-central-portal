@@ -10,7 +10,9 @@ import AttendanceType from "../attendanceType/AttendanceType";
 import AttendanceClock from "../attendanceClock/AttendanceClock";
 import StatusBox from "../../status/statusBox/StatusBox";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
+import RowFlagBadge from "../../dataTable/RowFlagBadge";
 import { getDisplayAttendanceFlag } from "../../../functions/attendanceFlagStatus";
+import { getAttendanceReconciliationFlags } from "../../../functions/attendanceReconciliationFlags";
 import { formatHours } from "../../../functions/formatDate";
 
 // GENERAL REUSABLE ATTENDANCE CARD
@@ -38,9 +40,16 @@ function AttendanceCard({ activity, to, target, rel }) {
   const showWorkedWeekendTag =
     activity.is_weekend && activity.hr_flag !== "Absent";
 
+  const reconciliationFlags = getAttendanceReconciliationFlags(activity);
+
   const Wrapper = to ? Link : "div";
   const wrapperProps = to
-    ? { to, target, rel, className: "generalCard cardPaddingSmall attendanceCard" }
+    ? {
+        to,
+        target,
+        rel,
+        className: "generalCard cardPaddingSmall attendanceCard",
+      }
     : { className: "generalCard cardPaddingSmall attendanceCard" };
 
   return (
@@ -63,6 +72,17 @@ function AttendanceCard({ activity, to, target, rel }) {
               {activity.work_date}
             </p>
           )}
+          {/* Needs Reconciliation warning -- reuses DataTable's own
+            RowFlagBadge (generic, not table-specific) so the HR/My/Team
+            Attendance List's "Needs Reconciliation" filter has a matching
+            visual signal on the card, same idea as Payroll Export's row
+            flag badge. Purely informational: clicking the card already
+            opens AttendanceSidebarHR, which already has the Acknowledge/
+            Apply Leave/Add Activity actions for whichever flag fired. */}
+          <RowFlagBadge
+            items={reconciliationFlags}
+            tooltipTitle="Needs Reconciliation"
+          />
           {activity.daily_activities && (
             <AttendanceType attendanceType={activity.daily_activities} />
           )}

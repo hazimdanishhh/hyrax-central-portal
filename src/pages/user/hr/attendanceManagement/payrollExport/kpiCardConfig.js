@@ -20,7 +20,12 @@ import { buildHrAttendanceListLink } from "@/functions/payrollReconciliationLink
 
 export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
   const linkFor = (code) =>
-    buildHrAttendanceListLink({ employeeUuid: row.employeeUuid, code, startDate, endDate });
+    buildHrAttendanceListLink({
+      employeeUuid: row.employeeUuid,
+      code,
+      startDate,
+      endDate,
+    });
 
   const genericLink = linkFor("generic");
   const holidayLink = linkFor("worked_on_holiday");
@@ -30,15 +35,31 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
     {
       groupLabel: "Attendance",
       cards: [
-        { label: "Hours Worked", value: Number(row.hoursWorkedTotal || 0).toFixed(2), link: genericLink },
-        { label: "Total Working Days", value: row.totalWorkingDaysCount || 0, link: genericLink },
-        { label: "Actual Days Worked", value: row.actualDaysWorkedCount || 0, link: genericLink },
+        {
+          label: "Hours Worked",
+          value: Number(row.hoursWorkedTotal || 0).toFixed(2),
+          link: genericLink,
+        },
+        {
+          label: "Total Working Days",
+          value: row.totalWorkingDaysCount || 0,
+          link: genericLink,
+        },
+        {
+          label: "Actual Days Worked",
+          value: row.actualDaysWorkedCount || 0,
+          link: genericLink,
+        },
       ],
     },
     {
       groupLabel: "Overtime (Est.)",
       cards: [
-        { label: "Overtime Hours", value: Number(row.overtimeHoursTotal || 0).toFixed(2), link: genericLink },
+        {
+          label: "Overtime Hours",
+          value: Number(row.overtimeHoursTotal || 0).toFixed(2),
+          link: genericLink,
+        },
         {
           label: "Normal Day OT Hours (Est.)",
           value: Number(row.estimatedNormalDayOtHoursTotal || 0).toFixed(2),
@@ -51,8 +72,16 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
     {
       groupLabel: "Holiday",
       cards: [
-        { label: "Holiday Days Worked", value: row.holidayDaysWorkedCount || 0, link: holidayLink },
-        { label: "Holiday Hours Worked", value: Number(row.holidayHoursWorkedTotal || 0).toFixed(2), link: holidayLink },
+        {
+          label: "Holiday Days Worked",
+          value: row.holidayDaysWorkedCount || 0,
+          link: holidayLink,
+        },
+        {
+          label: "Holiday Hours Worked",
+          value: Number(row.holidayHoursWorkedTotal || 0).toFixed(2),
+          link: holidayLink,
+        },
         {
           label: "Holiday 2x-Tier Days (Est.)",
           value: row.estimatedHolidayFullTierDaysCount || 0,
@@ -72,8 +101,16 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
     {
       groupLabel: "Weekend",
       cards: [
-        { label: "Weekend Days Worked", value: row.weekendDaysWorkedCount || 0, link: weekendLink },
-        { label: "Weekend Hours Worked", value: Number(row.weekendHoursWorkedTotal || 0).toFixed(2), link: weekendLink },
+        {
+          label: "Weekend Days Worked",
+          value: row.weekendDaysWorkedCount || 0,
+          link: weekendLink,
+        },
+        {
+          label: "Weekend Hours Worked",
+          value: Number(row.weekendHoursWorkedTotal || 0).toFixed(2),
+          link: weekendLink,
+        },
         {
           label: "Rest Day 0.5x-Tier Days (Est.)",
           value: row.estimatedRestDayHalfTierDaysCount || 0,
@@ -100,8 +137,16 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
     {
       groupLabel: "Leave",
       cards: [
-        { label: "Paid Leave Days", value: Number(row.paidLeaveDaysTotal || 0).toFixed(2), link: genericLink },
-        { label: "Unpaid Leave Days", value: Number(row.unpaidLeaveDaysTotal || 0).toFixed(2), link: genericLink },
+        {
+          label: "Paid Leave Days",
+          value: Number(row.paidLeaveDaysTotal || 0).toFixed(2),
+          link: genericLink,
+        },
+        {
+          label: "Unpaid Leave Days",
+          value: Number(row.unpaidLeaveDaysTotal || 0).toFixed(2),
+          link: genericLink,
+        },
       ],
     },
   ];

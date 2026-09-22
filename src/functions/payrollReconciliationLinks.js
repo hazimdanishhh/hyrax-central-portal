@@ -27,7 +27,12 @@ const CATEGORY_QUERY_PARAMS = {
   generic: "",
 };
 
-export function buildHrAttendanceListLink({ employeeUuid, code, startDate, endDate }) {
+export function buildHrAttendanceListLink({
+  employeeUuid,
+  code,
+  startDate,
+  endDate,
+}) {
   const params = CATEGORY_QUERY_PARAMS[code];
   if (params === undefined || !employeeUuid) return null;
 
@@ -55,7 +60,11 @@ export function buildHrAttendanceListLink({ employeeUuid, code, startDate, endDa
  * near-identical names -- passing the formatted one produces a URL that looks
  * fine and resolves to nothing.
  */
-export function buildAttendanceDayLink({ employeeUuid, workDate, scope = "hr" }) {
+export function buildAttendanceDayLink({
+  employeeUuid,
+  workDate,
+  scope = "hr",
+}) {
   if (!employeeUuid || !workDate) return null;
 
   const base =

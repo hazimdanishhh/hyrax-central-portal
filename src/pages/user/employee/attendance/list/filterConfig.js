@@ -86,5 +86,12 @@ export function getMyAttendanceFilterConfig() {
       label: "Worked on Weekend",
       options: [{ label: "Worked on Weekend Only", value: "true" }],
     },
+    {
+      // See the HR filter config's own comment on this same key -- a real
+      // server-side filter against needs_reconciliation, acknowledgement-aware.
+      key: "needsReconciliation",
+      label: "Reconciliation",
+      options: [{ label: "Needs Reconciliation", value: "true" }],
+    },
   ];
 }

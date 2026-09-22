@@ -210,6 +210,15 @@ function applyAttendanceFilter(query, key, value) {
     case "workedOnWeekend":
       return query.eq("is_worked_on_weekend", true);
 
+    // The reconciliation pull-list: needs_reconciliation is computed on the
+    // view itself (hr_unified_daily_attendance_view.sql), acknowledgement-
+    // aware, so this is a real WHERE clause -- correct under Search mode's
+    // pagination too, unlike Payroll Export's own client-side-only version
+    // of this same idea (that page's rows are a period aggregate, not
+    // individually filterable this way).
+    case "needsReconciliation":
+      return query.eq("needs_reconciliation", true);
+
     default:
       return query;
   }

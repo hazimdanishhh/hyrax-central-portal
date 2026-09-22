@@ -20,10 +20,12 @@ import EmployeeImage from "../../employees/employeeImage/EmployeeImage";
 import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineCard";
 import AttendanceDayTimelineBar from "../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
+import RowFlagBadge from "../../dataTable/RowFlagBadge";
 import {
   getDisplayAttendanceFlag,
   getAnomalyAnchorActivityIds,
 } from "../../../functions/attendanceFlagStatus";
+import { getAttendanceReconciliationFlags } from "../../../functions/attendanceReconciliationFlags";
 import { formatHours } from "../../../functions/formatDate";
 import AddActivityForm from "./dayActions/AddActivityForm";
 import AcknowledgeDayPanel from "./dayActions/AcknowledgeDayPanel";
@@ -53,7 +55,11 @@ export default function AttendanceSidebarHR({
 
   // 1. Fetch the granular timeline for THIS employee on THIS day
   const { data: timelineData, isLoading } = useQuery({
-    queryKey: ["attendance_activities", selectedRow?.employee_uuid, workDateIso],
+    queryKey: [
+      "attendance_activities",
+      selectedRow?.employee_uuid,
+      workDateIso,
+    ],
     queryFn: () =>
       fetchEmployeeDayDetails(selectedRow?.employee_uuid, workDateIso),
     enabled: !!selectedRow?.employee_uuid && !!workDateIso,
@@ -72,6 +78,10 @@ export default function AttendanceSidebarHR({
   // above, so this only fires when hr_flag isn't "Absent".
   const showWorkedWeekendTag =
     selectedRow?.is_weekend && selectedRow?.hr_flag !== "Absent";
+
+  const reconciliationFlags = getAttendanceReconciliationFlags(
+    selectedRow || {},
+  );
 
   const [addingActivity, setAddingActivity] = useState(false);
 
@@ -204,9 +214,11 @@ export default function AttendanceSidebarHR({
         {!addingActivity && workDateIso && (
           <div className="dayActionHeaderButtons">
             <Button
-              name={mode === "self" ? "Report Missing Activity" : "Add Activity"}
+              name={
+                mode === "self" ? "Report Missing Activity" : "Add Activity"
+              }
               icon={PlusCircleIcon}
-              style="button buttonType4 textBold textXXS"
+              style="button buttonType4 approval textBold textXXS"
               onClick={() => setAddingActivity(true)}
             />
           </div>

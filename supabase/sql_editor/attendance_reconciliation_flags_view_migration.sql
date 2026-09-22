@@ -1,3 +1,33 @@
+-- DEPLOYMENT STEP -- run once in the Supabase SQL editor, after every step in
+-- docs/setup/ATTENDANCE-BACKFILL-DEPLOYMENT-GUIDE.md has already been run
+-- (this depends on attendance_reconciliation_acknowledgements existing --
+-- attendance_reconciliation_acknowledgements_migration.sql -- and on
+-- unified_daily_attendance already running with security_invoker = on --
+-- enable_attendance_views_security_invoker.sql).
+--
+-- Adds acknowledgement-aware reconciliation flags directly onto
+-- unified_daily_attendance (is_unacknowledged_absent,
+-- is_unacknowledged_insufficient_half_day, needs_reconciliation) so the HR
+-- Attendance Management List, My Attendance List and Team Attendance List
+-- can filter on "Needs Reconciliation" server-side (correct even under HR's
+-- paginated Search mode) and show a warning badge on a flagged day's
+-- card/row, the same way Payroll Export already surfaces its own
+-- period-level reconciliation counts.
+--
+-- This is a full CREATE OR REPLACE VIEW of unified_daily_attendance --
+-- Postgres has no lighter-weight way to add a computed column to a view.
+-- Purely additive: every existing column keeps its name, type and position
+-- (only 3 new columns appended at the end), so every other consumer of this
+-- view (get_attendance_dashboard_rpc.sql, get_hr_reports_dashboard_rpc.sql,
+-- get_payroll_period_summary_rpc.sql, get_payroll_reconciliation_rows.sql,
+-- etc.) is unaffected -- they all select named columns or `uda.*` into their
+-- own explicitly-typed CTEs, never a positional/arity-sensitive shape.
+--
+-- Idempotent/safe to re-run. Kept byte-for-byte in sync with
+-- hr_unified_daily_attendance_view.sql, which is this repo's canonical copy
+-- of the view's current shape -- update both together if this ever changes
+-- again.
+
 CREATE OR REPLACE VIEW public.unified_daily_attendance AS
 
 -- 1. Date Spine: Find all unique dates anyone worked, so we know which days the company was open
@@ -168,7 +198,7 @@ daily_app AS (
     SELECT
         aa.employee_id AS app_emp_uuid,
         DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date,
-        
+
         -- Ignore Rejected timestamps for first_in / last_out calculations.
         -- app_check_out falls back to clocked_in_at when a session is still
         -- open (clocked_out_at is null) -- mirrors employees_public.
@@ -177,23 +207,23 @@ daily_app AS (
         -- instead of contributing nothing to last_out below.
         MIN(CASE WHEN aa.approval_status::text != 'Rejected' THEN aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_in,
         MAX(CASE WHEN aa.approval_status::text != 'Rejected' THEN COALESCE(aa.clocked_out_at, aa.clocked_in_at) AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_out,
-        
+
         -- Create a string that shows the activity AND its status (e.g., "Site Visit (Rejected)")
         STRING_AGG(at.name || ' (' || aa.approval_status::text || ')', ', ' ORDER BY aa.clocked_in_at) AS daily_activities,
-        
+
         -- Flag logic
         BOOL_OR(aa.clocked_out_at IS NULL AND aa.approval_status::text != 'Rejected') AS has_missing_app_checkout,
         BOOL_AND(aa.approval_status::text = 'Approved') AS all_approved,
         BOOL_OR(aa.approval_status::text = 'Pending') AS has_pending,
-        
+
         -- SUM HOURS: Only add hours if the status is NOT Rejected
         ROUND((SUM(
-            CASE 
-                WHEN aa.approval_status::text != 'Rejected' THEN EXTRACT(EPOCH FROM (aa.clocked_out_at - aa.clocked_in_at)) 
-                ELSE 0 
+            CASE
+                WHEN aa.approval_status::text != 'Rejected' THEN EXTRACT(EPOCH FROM (aa.clocked_out_at - aa.clocked_in_at))
+                ELSE 0
             END
         ) / 3600)::numeric, 2) AS app_hours
-        
+
     FROM public.attendance_activities aa
     LEFT JOIN public.attendance_types at ON aa.attendance_type_id = at.id
     GROUP BY aa.employee_id, DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur')
@@ -291,12 +321,12 @@ SELECT
     u.manager_id,
     m.full_name AS manager_name,
     u.work_date,
-    
+
     -- Hardware Stats
     h.hw_check_in,
     h.hw_check_out,
     h.total_hw_scans,
-    
+
     -- App Stats
     a.app_check_in,
     a.app_check_out,

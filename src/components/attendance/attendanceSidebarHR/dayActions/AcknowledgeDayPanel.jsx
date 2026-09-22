@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { CheckIcon, XIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
+import {
+  CheckIcon,
+  XIcon,
+  ArrowCounterClockwiseIcon,
+} from "@phosphor-icons/react";
 import Button from "../../../buttons/button/Button";
 import StatusBox from "../../../status/statusBox/StatusBox";
 import SelectEditor from "../../../dataTable/editors/SelectEditor";
@@ -50,12 +54,9 @@ export default function AcknowledgeDayPanel({
     useAttendanceAcknowledgementMutations();
 
   const existing = acknowledgements.find((a) => a.category === category);
-  const selectedReason = reasons.find(
-    (r) => String(r.id) === String(reasonId),
-  );
+  const selectedReason = reasons.find((r) => String(r.id) === String(reasonId));
 
-  const label =
-    category === "absent" ? "Absence" : "Short half-day hours";
+  const label = category === "absent" ? "Absence" : "Short half-day hours";
 
   // Already resolved -- show who closed it and why, rather than the button.
   if (existing) {
@@ -105,14 +106,13 @@ export default function AcknowledgeDayPanel({
             ? "Acknowledge Absence"
             : "Acknowledge Short Hours"
         }
-        style="button buttonType4 textBold textXXS"
+        style="button buttonType4 rejection textBold textXXS"
         onClick={() => setOpen(true)}
       />
     );
   }
 
-  const canSave =
-    reasonId && (!selectedReason?.requires_notes || notes.trim());
+  const canSave = reasonId && (!selectedReason?.requires_notes || notes.trim());
 
   return (
     <div className="generalCard cardPaddingSmall cardGapSmall dayActionForm">
@@ -147,7 +147,7 @@ export default function AcknowledgeDayPanel({
         <Button
           name="Acknowledge"
           icon={CheckIcon}
-          style="button buttonType2 textBold textXXS"
+          style="button buttonType2 rejection textBold textXXS"
           disabled={!canSave || acknowledging}
           onClick={async () => {
             await acknowledgeDay({

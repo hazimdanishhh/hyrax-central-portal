@@ -430,36 +430,39 @@ export default function AttendanceTimelineCard({
           invisible on the surface where verification actually happens.
           Notes deliberately reuse the Leave branch's exact class string
           above, so the two free-text renders can't drift apart visually. */}
-      {activity.event_source === "App" && (activity.notes || activity.photo_url) && (
-        <>
-          {activity.notes && (
-            <p className="textRegular textXS textLight">{activity.notes}</p>
-          )}
+      {activity.event_source === "App" &&
+        (activity.notes || activity.photo_url) && (
+          <>
+            {activity.notes && (
+              <p className="textRegular textXS textLight yellow">
+                Notes: {activity.notes}
+              </p>
+            )}
 
-          {/* photo_url is a public getPublicUrl() result from
+            {/* photo_url is a public getPublicUrl() result from
               uploadAttendancePhoto.js (bucket "attendance"), not a signed
               URL, so a plain <img> is enough. loading="lazy" matters here:
               the sidebar can render several cards at once and these are
               ~1080px JPEGs. The anchor gives HR the full-resolution image
               without needing a lightbox component (none exists in this
               codebase, and adding one is out of scope). */}
-          {activity.photo_url && (
-            <a
-              href={activity.photo_url}
-              target="_blank"
-              rel="noreferrer"
-              className="attendanceTimelinePhotoLink"
-            >
-              <img
-                src={activity.photo_url}
-                alt="Attendance photo"
-                loading="lazy"
-                className="attendanceTimelinePhoto"
-              />
-            </a>
-          )}
-        </>
-      )}
+            {activity.photo_url && (
+              <a
+                href={activity.photo_url}
+                target="_blank"
+                rel="noreferrer"
+                className="attendanceTimelinePhotoLink"
+              >
+                <img
+                  src={activity.photo_url}
+                  alt="Attendance photo"
+                  loading="lazy"
+                  className="attendanceTimelinePhoto"
+                />
+              </a>
+            )}
+          </>
+        )}
 
       {/* SCAN-LOG VERIFICATION -- the fully raw, ungrouped scan list this
           card's pair breakdown above was derived from, in case HR needs to
@@ -552,7 +555,7 @@ export default function AttendanceTimelineCard({
                 onClick={() => {
                   setIsEditing("edit");
                 }}
-                style="button buttonType4 textBold textXXS mt-2"
+                style="button buttonType4 textBold textXXS"
                 name="Edit"
               />
               <div className="attendanceCardApprovalContainer">
@@ -560,7 +563,7 @@ export default function AttendanceTimelineCard({
                   onClick={() => {
                     setIsEditing("clockIn");
                   }}
-                  style="button buttonType4 textBold textXXS mt-2"
+                  style="button buttonType4 textBold textXXS yellow"
                   name="Edit Clock In Time"
                   icon={SignInIcon}
                 />
@@ -568,7 +571,7 @@ export default function AttendanceTimelineCard({
                   onClick={() => {
                     setIsEditing("clockOut");
                   }}
-                  style="button buttonType4 textBold textXXS mt-2"
+                  style="button buttonType4 textBold textXXS yellow"
                   name="Edit Clock Out Time"
                   icon={SignOutIcon}
                 />

@@ -135,5 +135,15 @@ export function getAttendanceActivitiesFilterConfig({
       label: "Worked on Weekend",
       options: [{ label: "Worked on Weekend Only", value: "true" }],
     },
+    {
+      // Real server-side filter against unified_daily_attendance's own
+      // acknowledgement-aware needs_reconciliation column -- mirrors Payroll
+      // Export's own "Needs Reconciliation" filter idea, but per-day rather
+      // than per-period, and forwarded to the query instead of post-filtered
+      // client-side (see applyAttendanceFilter's "needsReconciliation" case).
+      key: "needsReconciliation",
+      label: "Reconciliation",
+      options: [{ label: "Needs Reconciliation", value: "true" }],
+    },
   ];
 }

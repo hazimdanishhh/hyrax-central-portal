@@ -80,8 +80,13 @@ export default function PayrollExport() {
     [setSearchParams],
   );
 
-  const { employees, departments, workLocations } = useAttendanceActivitiesMetadata();
-  const filterConfig = getPayrollExportFilterConfig({ departments, employees, workLocations });
+  const { employees, departments, workLocations } =
+    useAttendanceActivitiesMetadata();
+  const filterConfig = getPayrollExportFilterConfig({
+    departments,
+    employees,
+    workLocations,
+  });
 
   const { rows, isLoading, isFetching, error, hasPeriod } =
     usePayrollPeriodSummary(filters);
@@ -106,7 +111,10 @@ export default function PayrollExport() {
   // EmployeeManagement.jsx, with a period-scoped fallback fetch (see
   // usePayrollPeriodSummaryRowById) for a deep link whose employee got
   // filtered out by the current department/employee filter.
-  const { data: fetchedRow } = usePayrollPeriodSummaryRowById(employeeUuid, filters);
+  const { data: fetchedRow } = usePayrollPeriodSummaryRowById(
+    employeeUuid,
+    filters,
+  );
 
   const selectedRow = useMemo(() => {
     if (!employeeUuid) return null;

@@ -37,6 +37,7 @@ import { getMyAttendanceFilterConfig } from "./filterConfig";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
 import { buildStatusTabs } from "@/functions/statusTabs";
 import { getAttendanceStatusTabsConfig } from "@/functions/attendanceStatusTabsConfig";
+import { getAttendanceReconciliationFlags } from "@/functions/attendanceReconciliationFlags";
 
 // Which filter keys promote the page from Day mode (one calendar day) into
 // Search mode (all dates unless narrowed, row-paginated) -- mirrors HR's own
@@ -332,6 +333,8 @@ export default function MyAttendance() {
             columns={columns}
             rowKey="id"
             onRowClick={handleOpenSidebar}
+            getRowFlags={getAttendanceReconciliationFlags}
+            flagTooltipTitle="Needs Reconciliation"
           />
         ) : (
           <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">

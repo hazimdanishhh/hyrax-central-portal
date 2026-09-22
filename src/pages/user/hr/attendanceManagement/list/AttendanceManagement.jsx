@@ -40,6 +40,7 @@ import { supabase } from "../../../../../lib/supabaseClient";
 import { uploadAttendancePhoto } from "../../../../../services/storage/uploadAttendancePhoto";
 import { buildStatusTabs } from "../../../../../functions/statusTabs";
 import { getAttendanceStatusTabsConfig } from "../../../../../functions/attendanceStatusTabsConfig";
+import { getAttendanceReconciliationFlags } from "../../../../../functions/attendanceReconciliationFlags";
 import "./AttendanceManagement.scss";
 import { createAttendanceActivityFormConfig } from "./createAttendanceActivityFormConfig";
 import { getAttendanceActivitiesFilterConfig } from "./filterConfig";
@@ -458,23 +459,23 @@ export default function AttendanceManagement() {
           // setLayout={setLayout}
           // options={layoutOptions}
           actionButtons={[
-            {
-              name: "Backfill Attendance",
-              icon: CalendarPlusIcon,
-              onClick: () => setBackfillOpen(true),
-              style: "button buttonType5 greenFill buttonFull textXXS",
-            },
+            // {
+            //   name: "Backfill Attendance",
+            //   icon: CalendarPlusIcon,
+            //   onClick: () => setBackfillOpen(true),
+            //   style: "button buttonType5 greenFill buttonFull textXXS",
+            // },
             {
               // Kept alongside the bulk wizard rather than replaced by it:
               // this is the only path that can attach an attendance PHOTO
               // (see handleConfirmAction's uploadAttendancePhoto branch),
               // which the wizard has no concept of.
-              name: "Add Single Activity",
+              name: "Add Activity",
               icon: PlusCircleIcon,
               onClick: () => {
                 navigate(`new?${searchParams.toString()}`);
               },
-              style: "button buttonType5 buttonFull textXXS",
+              style: "button buttonType5 approval buttonFull textXXS",
             },
           ]}
         />
@@ -602,6 +603,8 @@ export default function AttendanceManagement() {
             columns={columns}
             rowKey="id"
             onRowClick={handleOpenSidebar}
+            getRowFlags={getAttendanceReconciliationFlags}
+            flagTooltipTitle="Needs Reconciliation"
           />
         ) : (
           // CARD VIEW -- flat grid, one card per employee. No per-date

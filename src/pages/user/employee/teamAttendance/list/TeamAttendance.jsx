@@ -40,6 +40,7 @@ import useTeamAttendanceSearch from "@/features/employee/attendance/private/hook
 import { getTeamAttendanceFilterConfig } from "./filterConfig";
 import { buildStatusTabs } from "@/functions/statusTabs";
 import { getAttendanceStatusTabsConfig } from "@/functions/attendanceStatusTabsConfig";
+import { getAttendanceReconciliationFlags } from "@/functions/attendanceReconciliationFlags";
 
 // Mirrors HR's SEARCH_MODE_FILTER_KEYS, minus "department"/"manager" (this
 // page's scope is always "my direct reports", so those keys never appear in
@@ -391,6 +392,8 @@ export default function TeamAttendance() {
             columns={columns}
             rowKey="id"
             onRowClick={handleOpenSidebar}
+            getRowFlags={getAttendanceReconciliationFlags}
+            flagTooltipTitle="Needs Reconciliation"
           />
         ) : (
           <CardLayout style="cardLayout1 cardPaddingSmall cardGapSmall">
