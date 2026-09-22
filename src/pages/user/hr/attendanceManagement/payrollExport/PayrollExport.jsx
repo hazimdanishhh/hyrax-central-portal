@@ -2,8 +2,9 @@
 import { useCallback, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import { MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import CardLayout from "@/components/cardLayout/CardLayout";
+import Button from "@/components/buttons/button/Button";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
 import NoResult from "@/components/crud/noResult/NoResult";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
@@ -21,6 +22,7 @@ import {
 } from "./filterConfig";
 import { payrollPeriodSummaryTableConfig } from "./tableConfig";
 import { payrollPeriodSummaryExportColumns } from "./exportConfig";
+import "./PayrollExport.scss";
 
 /**
  * Payroll Export tab -- the "Payroll Period Summary" from
@@ -98,6 +100,26 @@ export default function PayrollExport() {
     ? rows.filter(rowNeedsReconciliation)
     : rows;
 
+  // Non-blocking "review before exporting" signal -- checked against the
+  // FULL `rows`, not `displayRows`, so this stays accurate regardless of
+  // whether the "Needs Reconciliation" filter happens to be applied right
+  // now. Two independent things worth flagging: unresolved absence/half-day/
+  // leave-conflict/leave-error items (same rule the filter/badge already
+  // use), and hours still sitting on unapproved app activities (excluded
+  // from hoursWorkedTotal/overtimeHoursTotal/etc. already -- see
+  // tableConfig.jsx's own comment -- but worth surfacing here too so it
+  // isn't only visible by noticing a smaller-than-expected total).
+  const pendingReconciliationCount = rows.filter(rowNeedsReconciliation).length;
+  const pendingApprovalHours = rows.reduce(
+    (sum, row) => sum + Number(row.pendingApprovalHoursTotal || 0),
+    0,
+  );
+  const showReconciliationWarning =
+    hasPeriod &&
+    !isLoading &&
+    !isFetching &&
+    (pendingReconciliationCount > 0 || pendingApprovalHours > 0);
+
   const columns = payrollPeriodSummaryTableConfig();
   const hasData = displayRows.length > 0;
 
@@ -156,6 +178,27 @@ export default function PayrollExport() {
       />
 
       <PayrollCycleFilterBar filters={filters} onFilterChange={setFilters} />
+
+      {/* Non-blocking -- HR stays in control and can still export
+          deliberately, this is a heads-up, not a gate. */}
+      {showReconciliationWarning && (
+        <CardLayout style="generalCard payrollExportReconciliationWarning">
+          <p className="textRegular textXS payrollExportReconciliationWarningText">
+            <WarningCircleIcon size={16} />
+            {pendingReconciliationCount > 0 &&
+              `${pendingReconciliationCount} employee${pendingReconciliationCount === 1 ? "" : "s"} have unresolved reconciliation items`}
+            {pendingReconciliationCount > 0 && pendingApprovalHours > 0 && ", and "}
+            {pendingApprovalHours > 0 &&
+              `${pendingApprovalHours.toFixed(2)} hours are still awaiting approval`}
+            {" — review before finalizing payroll."}
+          </p>
+          <Button
+            name="Show only flagged"
+            style="button buttonType4 textXXS"
+            onClick={() => setFilters({ needsReconciliation: "true" })}
+          />
+        </CardLayout>
+      )}
 
       <div className="cardWrapperScroll">
         {!hasPeriod ? (

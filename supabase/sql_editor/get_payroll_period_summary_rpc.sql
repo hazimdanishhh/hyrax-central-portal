@@ -159,8 +159,15 @@ attendance_summary as (
         max(company_employee_code) as company_employee_code,
         max(full_name) as full_name,
         max(department_name) as department_name,
-        round(sum(hours_worked)::numeric, 2) as hours_worked_total,
-        round(sum(overtime_hours)::numeric, 2) as overtime_hours_total,
+        -- Payroll-eligible (Approved-only) hours -- see
+        -- hr_unified_daily_attendance_view.sql's approved_app_hours/
+        -- approved_hours_worked/approved_overtime_hours own comments. Sourced
+        -- from approved_hours_worked/approved_overtime_hours, NOT the raw
+        -- hours_worked/overtime_hours (those stay Pending-inclusive for every
+        -- other consumer of this view -- dashboards, attendance rate, etc.).
+        round(sum(approved_hours_worked)::numeric, 2) as hours_worked_total,
+        round(sum(approved_overtime_hours)::numeric, 2) as overtime_hours_total,
+        round(sum(pending_approval_hours)::numeric, 2) as pending_approval_hours_total,
         -- Mirrors PAYROLL-DATA-REQUIREMENTS.md's own documented-correct
         -- "Days absent" definition -- hr_flag = 'Absent' alone overcounts
         -- unworked weekends/holidays, both of which also read 'Absent'.
@@ -177,9 +184,13 @@ attendance_summary as (
             and hr_flag in ('OK', 'Approved', 'Pending App Approval', 'Missing App Check-Out', 'Incomplete Card Scans')
         ) as actual_days_worked_count,
         count(*) filter (where is_worked_on_holiday) as holiday_days_worked_count,
-        round(sum(holiday_hours_worked) filter (where is_worked_on_holiday)::numeric, 2) as holiday_hours_worked_total,
+        -- Approved-only sum (see hours_worked_total's own comment above) --
+        -- is_worked_on_holiday itself stays existence-based/unchanged (a real
+        -- check-in happened, regardless of approval), only the HOURS summed
+        -- switch to the approved-only column.
+        round(sum(approved_holiday_hours_worked) filter (where is_worked_on_holiday)::numeric, 2) as holiday_hours_worked_total,
         count(*) filter (where is_worked_on_weekend) as weekend_days_worked_count,
-        round(sum(weekend_hours_worked) filter (where is_worked_on_weekend)::numeric, 2) as weekend_hours_worked_total,
+        round(sum(approved_weekend_hours_worked) filter (where is_worked_on_weekend)::numeric, 2) as weekend_hours_worked_total,
         count(*) filter (where is_leave_attendance_conflict) as leave_attendance_conflict_count,
         count(*) filter (where is_insufficient_half_day_hours) as insufficient_half_day_hours_count,
         -- OUTSTANDING (not yet acknowledged) counterparts of the two
@@ -189,6 +200,17 @@ attendance_summary as (
             where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
               and ack_absent.employee_id is null
         ) as unacknowledged_absence_count,
+        -- CONFIRMED (already reviewed) counterpart -- same base predicate as
+        -- days_absent_count, just the opposite acknowledgement direction from
+        -- unacknowledged_absence_count above. acknowledged_absence_count +
+        -- unacknowledged_absence_count = days_absent_count, always -- surfaced
+        -- explicitly so Payroll Export can show HR the split instead of
+        -- leaving "how many of these Days Absent are actually confirmed"
+        -- invisible.
+        count(*) filter (
+            where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
+              and ack_absent.employee_id is not null
+        ) as acknowledged_absence_count,
         count(*) filter (
             where is_insufficient_half_day_hours
               and ack_half_day.employee_id is null
@@ -249,7 +271,9 @@ select json_agg(
         'leaveAttendanceConflictCount', a.leave_attendance_conflict_count,
         'insufficientHalfDayHoursCount', a.insufficient_half_day_hours_count,
         'unacknowledgedAbsenceCount', a.unacknowledged_absence_count,
+        'acknowledgedAbsenceCount', a.acknowledged_absence_count,
         'unacknowledgedInsufficientHalfDayCount', a.unacknowledged_insufficient_half_day_count,
+        'pendingApprovalHoursTotal', coalesce(a.pending_approval_hours_total, 0),
         'leaveFractionErrorCount', a.leave_fraction_error_count,
         'estimatedNormalDayOtHoursTotal', coalesce(a.estimated_normal_day_ot_hours_total, 0),
         'estimatedRestDayHalfTierDaysCount', a.estimated_rest_day_half_tier_days_count,

@@ -1,3 +1,63 @@
+-- DEPLOYMENT STEP -- run once in the Supabase SQL editor, after every step in
+-- docs/setup/ATTENDANCE-BACKFILL-DEPLOYMENT-GUIDE.md and after
+-- attendance_reconciliation_flags_view_migration.sql have already been run
+-- (this builds on the final_rows CTE / needs_reconciliation columns that
+-- migration adds to unified_daily_attendance).
+--
+-- REVISION NOTE: an earlier version of this file appended the new
+-- approved_* columns INSIDE final_rows, which placed them (once flattened by
+-- fr.* in the outer SELECT) BEFORE the already-deployed
+-- is_unacknowledged_absent/is_unacknowledged_insufficient_half_day/
+-- needs_reconciliation tail columns -- Postgres reads that as renaming an
+-- existing column, not appending, and refuses with 42P16 ("cannot change
+-- name of view column"). Fixed by moving every new column into the OUTER
+-- SELECT instead, strictly after needs_reconciliation, referencing fr.*'s
+-- already-exposed columns (hours_worked/overtime_hours/holiday_hours_worked/
+-- weekend_hours_worked/is_weekend/is_public_holiday) plus one extra join
+-- back to daily_app (already a top-level CTE, not re-declared) to reach
+-- approved_app_hours/app_hours -- neither of which final_rows exposes as its
+-- own output column.
+--
+-- Two independent, additive fixes to Payroll Export's data, bundled into one
+-- deployment step since both touch the same view + RPC pair:
+--
+-- 1. ACKNOWLEDGED/UNACKNOWLEDGED ABSENCE SPLIT -- get_payroll_period_summary
+--    already computed unacknowledgedAbsenceCount, but it only ever fed the
+--    on-screen "Needs Reconciliation" filter/badge -- the actual CSV payroll
+--    receives showed one "Days Absent" number with no visibility into how
+--    many are confirmed vs. still pending review. Adds acknowledgedAbsenceCount
+--    (the exact complement: acknowledgedAbsenceCount + unacknowledgedAbsenceCount
+--    = daysAbsentCount, always) so Payroll Export can show HR that split
+--    explicitly. daysAbsentCount itself is UNCHANGED -- still every Absent day
+--    regardless of review status, per this RPC's own long-standing, HR-confirmed
+--    "acknowledging closes the review, not the fact" decision.
+--
+-- 2. APPROVED-ONLY PAYROLL HOURS -- unified_daily_attendance's hours_worked/
+--    overtime_hours/holiday_hours_worked/weekend_hours_worked have always
+--    included hours from Pending (not-yet-approved) app activities, exactly
+--    like Approved ones -- only Rejected was ever excluded. That's the correct
+--    signal for hr_flag/dashboards/attendance-rate ("did something happen" is
+--    reasonably optimistic), but Payroll Export was silently paying out for
+--    claims nobody has verified, with no way to claw it back if one is later
+--    rejected. Adds approved_app_hours/approved_hours_worked/
+--    approved_overtime_hours/approved_holiday_hours_worked/
+--    approved_weekend_hours_worked/pending_approval_hours to the view (all
+--    NEW, additive columns -- the raw ones are untouched, so every other
+--    consumer of this view is unaffected), and switches
+--    get_payroll_period_summary's headline hoursWorkedTotal/overtimeHoursTotal/
+--    holidayHoursWorkedTotal/weekendHoursWorkedTotal to source from the
+--    approved-only columns instead, plus exposes the withheld amount as
+--    pendingApprovalHoursTotal rather than have it silently disappear.
+--
+-- Both changes are purely additive at the view level (new trailing columns
+-- only) and purely a source-column swap + 3 new JSON keys at the RPC level
+-- (get_payroll_period_summary_rpc.sql returns plain `json`, not
+-- `RETURNS TABLE`, so a plain CREATE OR REPLACE FUNCTION is enough -- no DROP
+-- FUNCTION needed first). Kept byte-for-byte in sync with
+-- hr_unified_daily_attendance_view.sql / get_payroll_period_summary_rpc.sql,
+-- this repo's canonical copies of both -- update all three together if this
+-- ever changes again.
+
 CREATE OR REPLACE VIEW public.unified_daily_attendance AS
 
 -- 1. Date Spine: Find all unique dates anyone worked, so we know which days the company was open
@@ -168,7 +228,7 @@ daily_app AS (
     SELECT
         aa.employee_id AS app_emp_uuid,
         DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date,
-        
+
         -- Ignore Rejected timestamps for first_in / last_out calculations.
         -- app_check_out falls back to clocked_in_at when a session is still
         -- open (clocked_out_at is null) -- mirrors employees_public.
@@ -177,15 +237,15 @@ daily_app AS (
         -- instead of contributing nothing to last_out below.
         MIN(CASE WHEN aa.approval_status::text != 'Rejected' THEN aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_in,
         MAX(CASE WHEN aa.approval_status::text != 'Rejected' THEN COALESCE(aa.clocked_out_at, aa.clocked_in_at) AT TIME ZONE 'Asia/Kuala_Lumpur' END) AS app_check_out,
-        
+
         -- Create a string that shows the activity AND its status (e.g., "Site Visit (Rejected)")
         STRING_AGG(at.name || ' (' || aa.approval_status::text || ')', ', ' ORDER BY aa.clocked_in_at) AS daily_activities,
-        
+
         -- Flag logic
         BOOL_OR(aa.clocked_out_at IS NULL AND aa.approval_status::text != 'Rejected') AS has_missing_app_checkout,
         BOOL_AND(aa.approval_status::text = 'Approved') AS all_approved,
         BOOL_OR(aa.approval_status::text = 'Pending') AS has_pending,
-        
+
         -- SUM HOURS: Only add hours if the status is NOT Rejected
         ROUND((SUM(
             CASE
@@ -206,9 +266,10 @@ daily_app AS (
         -- pay until approved -- a Pending activity may still be rejected.
         -- See this view's own approved_hours_worked/approved_overtime_hours/
         -- approved_holiday_hours_worked/approved_weekend_hours_worked/
-        -- pending_approval_hours (below) and get_payroll_period_summary_rpc.sql,
-        -- which sources its headline payroll totals from these instead of the
-        -- raw ones. Every OTHER consumer of this view keeps reading the raw,
+        -- pending_approval_hours (in the outer SELECT, after
+        -- needs_reconciliation) and get_payroll_period_summary_rpc.sql, which
+        -- sources its headline payroll totals from those instead of the raw
+        -- ones. Every OTHER consumer of this view keeps reading the raw,
         -- Pending-inclusive columns unchanged.
         ROUND((SUM(
             CASE
@@ -314,12 +375,12 @@ SELECT
     u.manager_id,
     m.full_name AS manager_name,
     u.work_date,
-    
+
     -- Hardware Stats
     h.hw_check_in,
     h.hw_check_out,
     h.total_hw_scans,
-    
+
     -- App Stats
     a.app_check_in,
     a.app_check_out,
@@ -835,3 +896,196 @@ LEFT JOIN public.attendance_reconciliation_acknowledgements ack_half_day
 LEFT JOIN daily_app a2
     ON a2.app_emp_uuid = fr.employee_uuid
    AND a2.work_date = fr.work_date;
+
+-- ===========================================================================
+-- get_payroll_period_summary -- switched to the approved-only hour columns
+-- above, plus the new acknowledged/pending absence + pending-approval-hours
+-- fields. See get_payroll_period_summary_rpc.sql (this repo's canonical copy)
+-- for the full header comment this function otherwise carries.
+-- ===========================================================================
+create or replace function get_payroll_period_summary(
+    p_start_date       date,
+    p_end_date         date,
+    p_department_id    bigint default null,
+    p_employee_id      uuid default null,
+    p_work_location_id bigint default null
+)
+returns json
+language plpgsql
+as
+$$
+declare
+    result json;
+    v_is_hr_or_superadmin boolean;
+begin
+
+select (public.is_superadmin() or p.department_id = 7)
+into v_is_hr_or_superadmin
+from public.profiles p
+where p.id = auth.uid();
+
+if not coalesce(v_is_hr_or_superadmin, false) then
+    raise exception 'Unauthorized: get_payroll_period_summary requires HR/superadmin' using errcode = '42501';
+end if;
+
+if p_start_date is null or p_end_date is null then
+    raise exception 'get_payroll_period_summary requires both p_start_date and p_end_date' using errcode = '22004';
+end if;
+
+with period_rows as materialized (
+    select uda.*
+    from unified_daily_attendance uda
+    where (p_department_id is null or uda.department_id = p_department_id)
+    and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
+    and uda.work_date >= p_start_date
+    and uda.work_date <= p_end_date
+),
+
+employee_leave_rows as (
+    select
+        le.employee_id as leave_emp_uuid,
+        le.day_fraction,
+        lt.is_paid
+    from leave_ledger_entries le
+    join leave_ledger_types lt on lt.id = le.leave_type_id
+    join employees e on e.id = le.employee_id
+    where (p_department_id is null or e.department_id = p_department_id)
+    and (p_employee_id is null or le.employee_id = p_employee_id)
+    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
+    and le.leave_date >= p_start_date
+    and le.leave_date <= p_end_date
+),
+
+period_acknowledgements as (
+    select ack.employee_id, ack.work_date, ack.category
+    from attendance_reconciliation_acknowledgements ack
+    where ack.work_date >= p_start_date
+      and ack.work_date <= p_end_date
+),
+
+attendance_summary as (
+    select
+        period_rows.employee_uuid,
+        max(company_employee_code) as company_employee_code,
+        max(full_name) as full_name,
+        max(department_name) as department_name,
+        -- Payroll-eligible (Approved-only) hours -- see
+        -- hr_unified_daily_attendance_view.sql's approved_app_hours/
+        -- approved_hours_worked/approved_overtime_hours own comments. Sourced
+        -- from approved_hours_worked/approved_overtime_hours, NOT the raw
+        -- hours_worked/overtime_hours (those stay Pending-inclusive for every
+        -- other consumer of this view -- dashboards, attendance rate, etc.).
+        round(sum(approved_hours_worked)::numeric, 2) as hours_worked_total,
+        round(sum(approved_overtime_hours)::numeric, 2) as overtime_hours_total,
+        round(sum(pending_approval_hours)::numeric, 2) as pending_approval_hours_total,
+        count(*) filter (where hr_flag = 'Absent' and not is_weekend and not is_public_holiday) as days_absent_count,
+        count(*) filter (where not is_weekend and not is_public_holiday) as total_working_days_count,
+        count(*) filter (
+            where not is_weekend and not is_public_holiday
+            and hr_flag in ('OK', 'Approved', 'Pending App Approval', 'Missing App Check-Out', 'Incomplete Card Scans')
+        ) as actual_days_worked_count,
+        count(*) filter (where is_worked_on_holiday) as holiday_days_worked_count,
+        -- Approved-only sum (see hours_worked_total's own comment above) --
+        -- is_worked_on_holiday itself stays existence-based/unchanged (a real
+        -- check-in happened, regardless of approval), only the HOURS summed
+        -- switch to the approved-only column.
+        round(sum(approved_holiday_hours_worked) filter (where is_worked_on_holiday)::numeric, 2) as holiday_hours_worked_total,
+        count(*) filter (where is_worked_on_weekend) as weekend_days_worked_count,
+        round(sum(approved_weekend_hours_worked) filter (where is_worked_on_weekend)::numeric, 2) as weekend_hours_worked_total,
+        count(*) filter (where is_leave_attendance_conflict) as leave_attendance_conflict_count,
+        count(*) filter (where is_insufficient_half_day_hours) as insufficient_half_day_hours_count,
+        count(*) filter (
+            where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
+              and ack_absent.employee_id is null
+        ) as unacknowledged_absence_count,
+        -- CONFIRMED (already reviewed) counterpart -- same base predicate as
+        -- days_absent_count, just the opposite acknowledgement direction from
+        -- unacknowledged_absence_count above. acknowledged_absence_count +
+        -- unacknowledged_absence_count = days_absent_count, always -- surfaced
+        -- explicitly so Payroll Export can show HR the split instead of
+        -- leaving "how many of these Days Absent are actually confirmed"
+        -- invisible.
+        count(*) filter (
+            where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
+              and ack_absent.employee_id is not null
+        ) as acknowledged_absence_count,
+        count(*) filter (
+            where is_insufficient_half_day_hours
+              and ack_half_day.employee_id is null
+        ) as unacknowledged_insufficient_half_day_count,
+        count(*) filter (where has_leave_fraction_error) as leave_fraction_error_count,
+        round(sum(estimated_normal_day_ot_hours)::numeric, 2) as estimated_normal_day_ot_hours_total,
+        count(*) filter (where rest_day_wage_tier = 'half_day') as estimated_rest_day_half_tier_days_count,
+        count(*) filter (where rest_day_wage_tier = 'full_day') as estimated_rest_day_full_tier_days_count,
+        round(sum(rest_day_excess_hours)::numeric, 2) as estimated_rest_day_excess_hours_total,
+        count(*) filter (where holiday_wage_tier = 'full_day') as estimated_holiday_full_tier_days_count,
+        round(sum(holiday_excess_hours)::numeric, 2) as estimated_holiday_excess_hours_total
+    from period_rows
+    left join period_acknowledgements ack_absent
+        on ack_absent.employee_id = period_rows.employee_uuid
+       and ack_absent.work_date = period_rows.work_date
+       and ack_absent.category = 'absent'
+    left join period_acknowledgements ack_half_day
+        on ack_half_day.employee_id = period_rows.employee_uuid
+       and ack_half_day.work_date = period_rows.work_date
+       and ack_half_day.category = 'insufficient_half_day'
+    group by period_rows.employee_uuid
+),
+
+leave_summary as (
+    select
+        leave_emp_uuid,
+        coalesce(sum(day_fraction) filter (where is_paid), 0) as paid_leave_days_total,
+        coalesce(sum(day_fraction) filter (where not is_paid), 0) as unpaid_leave_days_total
+    from employee_leave_rows
+    group by leave_emp_uuid
+)
+
+select json_agg(
+    json_build_object(
+        'employeeUuid', a.employee_uuid,
+        'companyEmployeeCode', a.company_employee_code,
+        'fullName', a.full_name,
+        'departmentName', a.department_name,
+        'hoursWorkedTotal', a.hours_worked_total,
+        'overtimeHoursTotal', a.overtime_hours_total,
+        'totalWorkingDaysCount', a.total_working_days_count,
+        'actualDaysWorkedCount', a.actual_days_worked_count,
+        'daysAbsentCount', a.days_absent_count,
+        'holidayDaysWorkedCount', a.holiday_days_worked_count,
+        'holidayHoursWorkedTotal', coalesce(a.holiday_hours_worked_total, 0),
+        'weekendDaysWorkedCount', a.weekend_days_worked_count,
+        'weekendHoursWorkedTotal', coalesce(a.weekend_hours_worked_total, 0),
+        'paidLeaveDaysTotal', coalesce(l.paid_leave_days_total, 0),
+        'unpaidLeaveDaysTotal', coalesce(l.unpaid_leave_days_total, 0),
+        'leaveAttendanceConflictCount', a.leave_attendance_conflict_count,
+        'insufficientHalfDayHoursCount', a.insufficient_half_day_hours_count,
+        'unacknowledgedAbsenceCount', a.unacknowledged_absence_count,
+        'acknowledgedAbsenceCount', a.acknowledged_absence_count,
+        'unacknowledgedInsufficientHalfDayCount', a.unacknowledged_insufficient_half_day_count,
+        'pendingApprovalHoursTotal', coalesce(a.pending_approval_hours_total, 0),
+        'leaveFractionErrorCount', a.leave_fraction_error_count,
+        'estimatedNormalDayOtHoursTotal', coalesce(a.estimated_normal_day_ot_hours_total, 0),
+        'estimatedRestDayHalfTierDaysCount', a.estimated_rest_day_half_tier_days_count,
+        'estimatedRestDayFullTierDaysCount', a.estimated_rest_day_full_tier_days_count,
+        'estimatedRestDayExcessHoursTotal', coalesce(a.estimated_rest_day_excess_hours_total, 0),
+        'estimatedHolidayFullTierDaysCount', a.estimated_holiday_full_tier_days_count,
+        'estimatedHolidayExcessHoursTotal', coalesce(a.estimated_holiday_excess_hours_total, 0),
+        'resolvedEmail', coalesce(emp.email_work, emp.email_personal),
+        'emailSource', case
+            when emp.email_work is not null then 'work'
+            when emp.email_personal is not null then 'personal'
+            else null
+        end
+    )
+    order by a.full_name
+) into result
+from attendance_summary a
+left join leave_summary l on l.leave_emp_uuid = a.employee_uuid
+left join public.employees emp on emp.id = a.employee_uuid;
+
+return coalesce(result, '[]'::json);
+
+end;
+$$;

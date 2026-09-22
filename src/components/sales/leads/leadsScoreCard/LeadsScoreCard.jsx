@@ -6,6 +6,7 @@ import {
 } from "../../../chartCard/chartColors";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import "./LeadsScoreCard.scss";
+import CardLayout from "../../../cardLayout/CardLayout";
 
 export default function ScorecardList({ data = [] }) {
   const [hoveredUser, setHoveredUser] = useState(null);
@@ -57,105 +58,113 @@ export default function ScorecardList({ data = [] }) {
 
         return (
           <div key={idx} className="generalCard leadsScoreCard">
-            {/* 1. AVATAR & NAME */}
-            <EmployeeImage
-              // Pass the specific iteration's data, mapping the keys to match
-              // what EmployeeImage likely expects based on your database schema.
-              employee={{
-                id: row.lead_owner_id,
-                full_name: row.rep_name,
-                avatar_url: row.avatar_url,
-              }}
-              displayName={true}
-              showName={hoveredUser === row.lead_owner_id}
-              setShowName={(show) =>
-                setHoveredUser(show ? row.lead_owner_id : null)
-              }
-            />
+            <CardLayout style="cardLayout2">
+              {/* 1. AVATAR & NAME */}
+              <EmployeeImage
+                // Pass the specific iteration's data, mapping the keys to match
+                // what EmployeeImage likely expects based on your database schema.
+                employee={{
+                  id: row.lead_owner_id,
+                  full_name: row.rep_name,
+                  avatar_url: row.avatar_url,
+                }}
+                displayName={true}
+                showName={hoveredUser === row.lead_owner_id}
+                setShowName={(show) =>
+                  setHoveredUser(show ? row.lead_owner_id : null)
+                }
+              />
 
-            {/* 2. QUOTA PROGRESS BAR */}
-            <div className="quotaSegment">
-              <div className="quotaText textXXXS">
-                <span>{attainment_percentage}% Attainment</span>
-                <span>Target: {formatRM(target_revenue)}</span>
+              {/* 2. QUOTA PROGRESS BAR */}
+              <div className="quotaSegment">
+                <div className="quotaText textXXXS">
+                  <span>{attainment_percentage}% Attainment</span>
+                  <span>Target: {formatRM(target_revenue)}</span>
+                </div>
+
+                {/* The Track */}
+                <div className="quotaBarContainer">
+                  {/* The Fill */}
+                  <div
+                    className="quotaBarFill"
+                    style={{
+                      width: `${progressWidth}%`,
+                      backgroundColor: barColor,
+                    }}
+                  />
+                </div>
               </div>
+            </CardLayout>
 
-              {/* The Track */}
-              <div className="quotaBarContainer">
-                {/* The Fill */}
-                <div
-                  className="quotaBarFill"
-                  style={{
-                    width: `${progressWidth}%`,
-                    backgroundColor: barColor,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* 3. ACTUAL WON NUMBER */}
-            <div className="actualWonSegment">
-              <span className="textXS textLight">Actual Won</span>
-              <span
-                className="textL textBold"
-                style={{ color: isTargetMet ? GREEN_COLOR : "inherit" }}
-              >
-                {formatRM(actual_revenue)}
-              </span>
-            </div>
-
-            {/* 4. PO (SALES ORDER) VS INVOICE VARIANCE -- Sales Reports only */}
-            {hasOrderVariance && (
-              <div className="varianceSegment">
-                <span className="textXXXS textLight">
-                  Order Value (PO): {formatRM(order_value_myr)}
-                </span>
+            <CardLayout style="cardLayout3">
+              {/* 3. ACTUAL WON NUMBER */}
+              <div className="actualWonSegment">
+                <span className="textXS textLight">Actual Won</span>
                 <span
-                  className="textXXXS"
-                  style={{
-                    color:
-                      po_vs_budget_variance_myr >= 0 ? GREEN_COLOR : RED_COLOR,
-                  }}
+                  className="textL textBold"
+                  style={{ color: isTargetMet ? GREEN_COLOR : "inherit" }}
                 >
-                  PO vs Budget: {po_vs_budget_variance_myr >= 0 ? "+" : ""}
-                  {formatRM(po_vs_budget_variance_myr)}
-                </span>
-                <span
-                  className="textXXXS"
-                  style={{
-                    color:
-                      po_vs_invoice_variance_myr >= 0 ? BLUE_COLOR : RED_COLOR,
-                  }}
-                >
-                  PO vs Invoiced: {po_vs_invoice_variance_myr >= 0 ? "+" : ""}
-                  {formatRM(po_vs_invoice_variance_myr)}
+                  {formatRM(actual_revenue)}
                 </span>
               </div>
-            )}
 
-            {/* 5. INVOICED VS COLLECTED -- Sales Reports only (O2C funnel's
+              {/* 4. PO (SALES ORDER) VS INVOICE VARIANCE -- Sales Reports only */}
+              {hasOrderVariance && (
+                <div className="varianceSegment">
+                  <span className="textXXXS textLight">
+                    Order Value (PO): {formatRM(order_value_myr)}
+                  </span>
+                  <span
+                    className="textXXXS"
+                    style={{
+                      color:
+                        po_vs_budget_variance_myr >= 0
+                          ? GREEN_COLOR
+                          : RED_COLOR,
+                    }}
+                  >
+                    PO vs Budget: {po_vs_budget_variance_myr >= 0 ? "+" : ""}
+                    {formatRM(po_vs_budget_variance_myr)}
+                  </span>
+                  <span
+                    className="textXXXS"
+                    style={{
+                      color:
+                        po_vs_invoice_variance_myr >= 0
+                          ? BLUE_COLOR
+                          : RED_COLOR,
+                    }}
+                  >
+                    PO vs Invoiced: {po_vs_invoice_variance_myr >= 0 ? "+" : ""}
+                    {formatRM(po_vs_invoice_variance_myr)}
+                  </span>
+                </div>
+              )}
+
+              {/* 5. INVOICED VS COLLECTED -- Sales Reports only (O2C funnel's
                 4th leg, added 2026-08) */}
-            {hasCollectedVariance && (
-              <div className="varianceSegment">
-                <span className="textXXXS textLight">
-                  Collected: {formatRM(collected_myr)} (
-                  {collection_rate_pct ?? 0}%)
-                </span>
-                <span
-                  className="textXXXS"
-                  style={{
-                    color:
-                      invoice_vs_collected_variance_myr >= 0
-                        ? GREEN_COLOR
-                        : RED_COLOR,
-                  }}
-                >
-                  Invoiced vs Collected:{" "}
-                  {invoice_vs_collected_variance_myr >= 0 ? "+" : ""}
-                  {formatRM(invoice_vs_collected_variance_myr)}
-                </span>
-              </div>
-            )}
+              {hasCollectedVariance && (
+                <div className="varianceSegment">
+                  <span className="textXXXS textLight">
+                    Collected: {formatRM(collected_myr)} (
+                    {collection_rate_pct ?? 0}%)
+                  </span>
+                  <span
+                    className="textXXXS"
+                    style={{
+                      color:
+                        invoice_vs_collected_variance_myr >= 0
+                          ? GREEN_COLOR
+                          : RED_COLOR,
+                    }}
+                  >
+                    Invoiced vs Collected:{" "}
+                    {invoice_vs_collected_variance_myr >= 0 ? "+" : ""}
+                    {formatRM(invoice_vs_collected_variance_myr)}
+                  </span>
+                </div>
+              )}
+            </CardLayout>
           </div>
         );
       })}

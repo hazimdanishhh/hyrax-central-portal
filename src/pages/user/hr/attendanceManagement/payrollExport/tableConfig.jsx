@@ -11,9 +11,20 @@ export function payrollPeriodSummaryTableConfig() {
     { key: "departmentName", label: "Department", getValue: (row) => row.departmentName || "--" },
     { key: "hoursWorkedTotal", label: "Hours Worked", getValue: (row) => Number(row.hoursWorkedTotal || 0).toFixed(2) },
     { key: "overtimeHoursTotal", label: "Overtime Hours", getValue: (row) => Number(row.overtimeHoursTotal || 0).toFixed(2) },
+    // Approved-only -- hoursWorkedTotal/overtimeHoursTotal above already
+    // exclude Pending (unapproved) app-activity hours (see
+    // hr_unified_daily_attendance_view.sql's approved_app_hours). This is the
+    // withheld amount itself, so HR can see exactly how much is being held
+    // back pending approval instead of it just silently not being in the total.
+    { key: "pendingApprovalHoursTotal", label: "Pending Approval Hours", getValue: (row) => Number(row.pendingApprovalHoursTotal || 0).toFixed(2) },
     { key: "totalWorkingDaysCount", label: "Total Working Days", getValue: (row) => row.totalWorkingDaysCount || 0 },
     { key: "actualDaysWorkedCount", label: "Actual Days Worked", getValue: (row) => row.actualDaysWorkedCount || 0 },
     { key: "daysAbsentCount", label: "Days Absent", getValue: (row) => row.daysAbsentCount || 0 },
+    // Split of daysAbsentCount above by review status -- acknowledgedAbsenceCount
+    // + unacknowledgedAbsenceCount always equals daysAbsentCount. daysAbsentCount
+    // itself stays unchanged (every Absent day counts, reviewed or not).
+    { key: "acknowledgedAbsenceCount", label: "Confirmed Unpaid Absences", getValue: (row) => row.acknowledgedAbsenceCount || 0 },
+    { key: "unacknowledgedAbsenceCount", label: "Pending Review (Absent)", getValue: (row) => row.unacknowledgedAbsenceCount || 0 },
     { key: "holidayDaysWorkedCount", label: "Holiday Days Worked", getValue: (row) => row.holidayDaysWorkedCount || 0 },
     { key: "holidayHoursWorkedTotal", label: "Holiday Hours Worked", getValue: (row) => Number(row.holidayHoursWorkedTotal || 0).toFixed(2) },
     { key: "weekendDaysWorkedCount", label: "Weekend Days Worked", getValue: (row) => row.weekendDaysWorkedCount || 0 },

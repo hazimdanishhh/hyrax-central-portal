@@ -10,9 +10,14 @@ export const payrollPeriodSummaryExportColumns = [
   { label: "Department", accessor: (row) => row.departmentName || "" },
   { label: "Hours Worked", accessor: (row) => Number(row.hoursWorkedTotal || 0).toFixed(2) },
   { label: "Overtime Hours", accessor: (row) => Number(row.overtimeHoursTotal || 0).toFixed(2) },
+  // Approved-only -- see tableConfig.jsx's matching entry for the full explanation.
+  { label: "Pending Approval Hours", accessor: (row) => Number(row.pendingApprovalHoursTotal || 0).toFixed(2) },
   { label: "Total Working Days", accessor: (row) => row.totalWorkingDaysCount || 0 },
   { label: "Actual Days Worked", accessor: (row) => row.actualDaysWorkedCount || 0 },
   { label: "Days Absent", accessor: (row) => row.daysAbsentCount || 0 },
+  // Split of "Days Absent" by review status -- see tableConfig.jsx's matching entry.
+  { label: "Confirmed Unpaid Absences", accessor: (row) => row.acknowledgedAbsenceCount || 0 },
+  { label: "Pending Review (Absent)", accessor: (row) => row.unacknowledgedAbsenceCount || 0 },
   { label: "Holiday Days Worked", accessor: (row) => row.holidayDaysWorkedCount || 0 },
   { label: "Holiday Hours Worked", accessor: (row) => Number(row.holidayHoursWorkedTotal || 0).toFixed(2) },
   { label: "Weekend Days Worked", accessor: (row) => row.weekendDaysWorkedCount || 0 },
