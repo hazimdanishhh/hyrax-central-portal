@@ -118,33 +118,70 @@
 --    is_public_holiday rather than Absent. Only 2026 is seeded.
 -- ============================================================================
 
--- ============================================================================
--- PRE-FLIGHT -- run these BEFORE the migration and keep the output
--- ============================================================================
--- (a) Capture today's hr_flag for the equality gate. Pick a range with real
---     data; a full month is plenty. This table is dropped at the end.
+-- ############################################################################
+-- HOW TO RUN THIS FILE
 --
---   CREATE TABLE public._hr_flag_baseline AS
---   SELECT employee_uuid, work_date, hr_flag
---   FROM public.unified_daily_attendance
---   WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23';
+-- DO NOT paste the whole file and hit Run. The Supabase SQL editor shows you
+-- only the LAST statement's result, so every verification query below would
+-- execute and then be thrown away unseen -- which defeats the entire point of
+-- having them.
 --
--- (b) Capture the payroll numbers that must not move:
+-- Run it as FOUR separate pastes, in this order:
 --
---   SELECT * FROM public.get_payroll_period_summary('2026-08-26','2026-09-25',NULL,NULL,NULL);
+--   SECTION A  -- pre-flight capture      (run alone, BEFORE anything else)
+--   SECTION B  -- the rebuild             (run alone, whole section at once)
+--   SECTION C  -- verification gates      (run ONE QUERY AT A TIME, read each)
+--   SECTION D  -- cleanup                 (run alone, only once C fully passes)
 --
--- (c) Record the current grants, so step 4 can confirm they came back:
---
---   SELECT grantee, privilege_type FROM information_schema.role_table_grants
---   WHERE table_name IN ('unified_daily_attendance','attendance_activity_audit');
---
+-- Everything is live SQL. Nothing needs uncommenting. The ONE thing you may
+-- want to edit is the date range in SECTION A -- it is set to a recent month
+-- below; widen it if you want a bigger sample.
 -- ############################################################################
 
 
--- ============================================================================
--- STEP 1 + 2 -- rebuild unified_daily_attendance, then attendance_activity_audit
--- (the DROP ... CASCADE in step 1 takes the audit view with it)
--- ============================================================================
+-- ############################################################################
+-- SECTION A -- PRE-FLIGHT. Run this ALONE and FIRST, before SECTION B.
+--
+-- Captures what the view returns TODAY, so the gates in SECTION C can prove
+-- the rebuild did not move anything it was not supposed to move. Skipping
+-- this makes Gate 2 and Gate 5 impossible to run -- they read these tables.
+-- ############################################################################
+
+-- Adjust this range if you want a wider sample. It must cover dates with real
+-- attendance data, and the same range is used again in Gate 2.
+CREATE TABLE public._hr_flag_baseline AS
+SELECT employee_uuid, work_date, hr_flag
+FROM public.unified_daily_attendance
+WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23';
+
+-- The payroll numbers that must not move. Stored rather than eyeballed so
+-- Gate 5 can diff it mechanically instead of relying on you comparing two
+-- screenshots of a wide result set.
+CREATE TABLE public._payroll_baseline AS
+SELECT * FROM public.get_payroll_period_summary('2026-08-26', '2026-09-25', NULL, NULL, NULL);
+
+-- Current grants, so Gate 1 can confirm they came back after the recreate.
+CREATE TABLE public._grants_baseline AS
+SELECT table_name, grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_name IN ('unified_daily_attendance', 'attendance_activity_audit');
+
+-- Confirm all three captured something. If _hr_flag_baseline is 0, your date
+-- range has no data -- widen it and re-run this section.
+SELECT
+    (SELECT count(*) FROM public._hr_flag_baseline) AS hr_flag_rows,
+    (SELECT count(*) FROM public._payroll_baseline) AS payroll_rows,
+    (SELECT count(*) FROM public._grants_baseline)  AS grant_rows;
+
+
+-- ############################################################################
+-- SECTION B -- THE REBUILD. Run this whole section at once, ALONE.
+--
+-- The DROP ... CASCADE in the first statement also drops
+-- attendance_activity_audit (it joins this view). The second half puts it
+-- back. Between the two, the day sidebar has no data source -- so do not stop
+-- halfway and do not run these separately.
+-- ############################################################################
 -- ===========================================================================
 -- unified_daily_attendance -- one row per ACTIVE employee per spine date.
 --
@@ -1559,7 +1596,13 @@ LEFT JOIN public.attendance_adjustment_reasons ar
     ON ar.id = ae.adjustment_reason_id;
 
 -- ############################################################################
--- VERIFY -- run every one of these. Gate 1 first; it is the dangerous one.
+-- SECTION C -- VERIFICATION GATES.
+--
+-- Run these ONE QUERY AT A TIME and actually read each result. The editor
+-- only shows the last statement's output, so pasting the whole section runs
+-- every check and shows you only the final one.
+--
+-- Gate 1 first -- it is the one whose failure has no visible symptom.
 -- ############################################################################
 
 -- ----------------------------------------------------------------------------
@@ -1578,13 +1621,23 @@ SELECT relname, reloptions
 FROM pg_class
 WHERE relname IN ('unified_daily_attendance', 'attendance_activity_audit');
 
--- Expect SELECT for authenticated (compare against pre-flight (c) -- no view
--- in this repo carries an explicit GRANT, so both rely on Supabase default
--- privileges being re-acquired on recreate; verify rather than assume):
-SELECT table_name, grantee, privilege_type
-FROM information_schema.role_table_grants
-WHERE table_name IN ('unified_daily_attendance', 'attendance_activity_audit')
-ORDER BY table_name, grantee;
+-- Grants must come back exactly as they were. No view in this repo carries an
+-- explicit GRANT -- both rely on Supabase default privileges being re-acquired
+-- on recreate, which is an assumption worth checking rather than trusting.
+-- EXPECT ZERO ROWS. Anything here is a grant that was lost (or gained).
+SELECT 'LOST' AS change, b.* FROM public._grants_baseline b
+WHERE NOT EXISTS (
+    SELECT 1 FROM information_schema.role_table_grants g
+    WHERE g.table_name = b.table_name AND g.grantee = b.grantee
+      AND g.privilege_type = b.privilege_type)
+UNION ALL
+SELECT 'GAINED', g.table_name, g.grantee, g.privilege_type
+FROM information_schema.role_table_grants g
+WHERE g.table_name IN ('unified_daily_attendance', 'attendance_activity_audit')
+  AND NOT EXISTS (
+    SELECT 1 FROM public._grants_baseline b
+    WHERE b.table_name = g.table_name AND b.grantee = g.grantee
+      AND b.privilege_type = g.privilege_type);
 
 -- THEN, IN THE APP, NOT IN SQL: log in as a plain non-HR employee and confirm
 -- My Attendance shows only their own rows; log in as a manager and confirm
@@ -1730,14 +1783,19 @@ LIMIT 20;
 
 
 -- ----------------------------------------------------------------------------
--- GATE 5 -- PAYROLL PARITY. Re-run pre-flight (b) and diff.
+-- GATE 5 -- PAYROLL PARITY. The most important correctness check after Gate 1.
 --
 -- ONLY the needs_reconciliation-derived fields may move (the new pending-
 -- approval limb). Every hours total, day count and wage-tier count must be
 -- IDENTICAL. Anything else moving means a rewritten expression changed
--- meaning, and the rebuild is not safe to keep.
+-- meaning, and the rebuild is NOT safe to keep.
 --
---   SELECT * FROM public.get_payroll_period_summary('2026-08-26','2026-09-25',NULL,NULL,NULL);
+-- Diffed mechanically against the SECTION A capture rather than by comparing
+-- two screenshots of a very wide result set -- the whole row is compared at
+-- once, so a single changed figure anywhere shows up. EXPECT ZERO ROWS.
+SELECT 'BEFORE' AS v, * FROM public._payroll_baseline
+EXCEPT ALL
+SELECT 'BEFORE', * FROM public.get_payroll_period_summary('2026-08-26','2026-09-25',NULL,NULL,NULL);
 --
 -- Sanity-check the one intended change -- these are the rows the lists'
 -- "Needs Reconciliation" filter will newly include:
@@ -1763,10 +1821,16 @@ WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23'
 GROUP BY 1,2,3,4 ORDER BY 5 DESC;
 
 
--- ----------------------------------------------------------------------------
--- CLEAN UP -- only after every gate above has passed.
--- ----------------------------------------------------------------------------
--- DROP TABLE public._hr_flag_baseline;
+-- ############################################################################
+-- SECTION D -- CLEANUP. Run ALONE, and ONLY after every gate above has passed.
+--
+-- Leave these tables in place if anything is still unresolved -- they are the
+-- only record of what the view returned before the rebuild, and they cannot be
+-- recreated once the old view is gone.
+-- ############################################################################
+DROP TABLE IF EXISTS public._hr_flag_baseline;
+DROP TABLE IF EXISTS public._payroll_baseline;
+DROP TABLE IF EXISTS public._grants_baseline;
 
 
 -- ############################################################################
