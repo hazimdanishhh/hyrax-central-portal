@@ -154,7 +154,14 @@ DROP TABLE IF EXISTS public._payroll_baseline;
 DROP TABLE IF EXISTS public._grants_baseline;
 
 -- Adjust this range if you want a wider sample. It must cover dates with real
--- attendance data, and the same range is used again in Gate 2 and Gate 5.
+-- attendance data, and the same range is used again in Gate 0, Gate 2 and
+-- Gate 5.
+--
+-- PREFER A RANGE THAT ENDS BEFORE TODAY. Today is still accumulating badge
+-- scans (vigilance_iot ingests in ~5-minute batches), so any minutes between
+-- this capture and Gate 5 can legitimately move an hours total and make the
+-- parity check fail for reasons that have nothing to do with the rebuild. A
+-- range ending yesterday is immune to that and tests exactly the same thing.
 CREATE TABLE public._hr_flag_baseline AS
 SELECT employee_uuid, work_date, hr_flag
 FROM public.unified_daily_attendance
@@ -2011,8 +2018,42 @@ LIMIT 20;
 -- That is the new pending-approval limb, and it is the intended change.
 --
 -- ANY OTHER METRIC APPEARING HERE means a rewritten expression changed
--- meaning. Do not proceed -- roll back (see the ROLLBACK section). In
--- particular every hours_*, *_days and *_tier metric must be untouched.
+-- meaning -- OR that the underlying data moved between SECTION A and now.
+-- Those two look identical in this output, so read the next block before
+-- concluding anything.
+--
+-- ---------------------------------------------------------------------------
+-- IF G5 FAILS: LIVE-DATA DRIFT vs A REAL REGRESSION
+--
+-- The default date range ENDS TODAY, and today is still accumulating badge
+-- scans -- vigilance_iot ingests in ~5-minute batches, and
+-- auto_clock_out_app_on_scan() retroactively updates clocked_out_at. So any
+-- minutes between SECTION A and this gate can legitimately move hours. That
+-- is drift, not a defect. (Capturing a range that ends BEFORE today avoids it
+-- entirely; worth doing if you ever re-run this.)
+--
+-- G2a passing is what makes the two distinguishable. If hr_flag is identical
+-- for every row, then NO day changed its evidence presence and NO day changed
+-- across the total_hw_scans = 1 boundary -- because hr_flag is computed from
+-- exactly those things. That leaves only one way for a number to move: a day
+-- that ALREADY had two or more scans got another one, widening its
+-- first-to-last span.
+--
+-- So, with G2a green:
+--
+--   CONSISTENT WITH DRIFT -- hours-shaped metrics only:
+--     hours_worked, true_hours_worked, overtime_hours, approved_hours_worked,
+--     approved_overtime_hours, rest_day_excess_hours, holiday_excess_hours,
+--     weekend/holiday hours, early_leave_days (a later last_out can clear it)
+--   and the deltas should be small, and mostly upward.
+--
+--   NOT EXPLAINABLE BY DRIFT -- structural metrics:
+--     row_count, absent_days, absent_working_days, weekend_days,
+--     public_holiday_days, on_leave_days, leave_* , worked_on_*_days,
+--     *_tier, insufficient_half_day_days, leave_conflict_days
+--   None of these can move while hr_flag is unchanged. If ANY appears above,
+--   it is a genuine regression -- stop and roll back.
+-- ---------------------------------------------------------------------------
 WITH after_rows AS (
     SELECT s.employee_uuid, kv.key AS metric, kv.value AS value
     FROM (
