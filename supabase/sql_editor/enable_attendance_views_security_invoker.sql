@@ -1,3 +1,26 @@
+-- ############################################################################
+-- SUPERSEDED (2026-09-22) BY attendance_day_model_axes_migration.sql
+-- -- DO NOT RE-RUN.
+--
+-- OBSOLETE, not dangerous: unified_daily_attendance and
+-- attendance_activity_audit now declare `WITH (security_invoker = on)` INLINE
+-- in their own CREATE statements, so re-running this ALTER VIEW is a no-op.
+--
+-- It is retired because the SEPARATION was itself the hazard. While this lived
+-- in its own file, any DROP + CREATE of either view that forgot the follow-up
+-- ALTER would leave that view running with OWNER privileges -- RLS on
+-- attendance_logs / attendance_activities / leave_ledger_entries / employees /
+-- attendance_reconciliation_acknowledgements would stop scoping rows, so My
+-- Attendance would list every employee and Team Attendance the whole company,
+-- with both pages rendering perfectly and no error anywhere to notice.
+-- Declaring it inline makes that failure mode unreachable.
+--
+-- STILL NEEDED FOR ROLLBACK: the pre-2026-09-22 view definitions do NOT carry
+-- the inline declaration, so if you roll back to them you must run this file
+-- afterwards or you reintroduce exactly that hole. See
+-- attendance_day_model_axes_migration.sql's ROLLBACK section.
+-- ############################################################################
+
 -- Run this LAST, only after ALL of the following are deployed and smoke-
 -- tested (as three real accounts: a plain self-service employee, a
 -- manager, and an HR/superadmin user, comparing row counts/KPIs before and

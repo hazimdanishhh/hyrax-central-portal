@@ -1,3 +1,20 @@
+-- ############################################################################
+-- SUPERSEDED (2026-09-22) BY attendance_day_model_axes_migration.sql
+-- -- DO NOT RE-RUN.
+--
+-- This file carries a FULL COPY of the pre-axes view definitions. Running it
+-- after the day-model rebuild would silently restore hr_flag's old shape,
+-- delete every axis column (day_calendar_type / leave_state / evidence_source
+-- / evidence_quality / approval_state / day_state), bring back the deprecated
+-- estimated_normal_day_ot_hours, and -- most dangerously -- drop the INLINE
+-- `WITH (security_invoker = on)` declaration, leaving both views running with
+-- OWNER privileges so RLS stops scoping rows with no visible symptom.
+--
+-- Kept only as the historical record of what was deployed, and as the source
+-- for a rollback (see attendance_day_model_axes_migration.sql's ROLLBACK
+-- section, which also tells you what else must run alongside it).
+-- ############################################################################
+
 -- DEPLOYMENT STEP -- run once in the Supabase SQL editor. Supersedes
 -- attendance_approved_hours_and_absence_split_migration.sql and
 -- attendance_reconciliation_flags_view_migration.sql (both now carry a

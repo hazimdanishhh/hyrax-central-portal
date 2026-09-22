@@ -1,4 +1,25 @@
-CREATE OR REPLACE VIEW public.attendance_activity_audit AS
+-- ===========================================================================
+-- attendance_activity_audit -- one row per individual event (app activity,
+-- hardware scan, leave entry, public holiday) behind a given employee-day.
+-- Powers the day sidebar's Activity Timeline (fetchEmployeeDayDetails).
+--
+-- REBUILT 2026-09-22 alongside unified_daily_attendance. This view JOINS that
+-- one, so `DROP VIEW public.unified_daily_attendance CASCADE` takes this view
+-- with it -- meaning this file MUST run in the same script, immediately after
+-- the main view is recreated, or the day sidebar breaks.
+--
+-- security_invoker is declared INLINE here rather than by a follow-up
+-- ALTER VIEW (enable_attendance_views_security_invoker.sql, now superseded).
+-- A drop/recreate that forgot that separate ALTER would silently leave this
+-- view running with OWNER privileges, so the RLS on attendance_activities /
+-- attendance_logs / employees would stop scoping rows -- and every page would
+-- still render perfectly, with no error to notice.
+-- ===========================================================================
+
+DROP VIEW IF EXISTS public.attendance_activity_audit;
+
+CREATE VIEW public.attendance_activity_audit
+WITH (security_invoker = on) AS
 
 -- 1. Grab all App Activities (Remote/Meetings)
 WITH app_events AS (
@@ -201,6 +222,20 @@ holiday_events AS (
     FROM public.public_holidays ph
     JOIN public.employees e
         ON ph.work_location_id = e.work_location_id OR ph.work_location_id IS NULL
+    -- Active-bucket filter added 2026-09-22, aligning this with
+    -- hr_unified_daily_attendance_view.sql's daily_holiday CTE, which has
+    -- always had it. Without it this branch fabricated a synthetic holiday row
+    -- for EVERY employee who has ever worked here -- including people
+    -- terminated years ago -- for every holiday on record.
+    --
+    -- Note this filter belongs on holiday_events and leave/app/hw_events
+    -- deliberately do NOT get it: those rows exist because a real event was
+    -- recorded, and an audit trail should still show what a since-departed
+    -- employee actually did. Only this branch INVENTS rows from the employee
+    -- roster crossed with the holiday calendar, which is why only this branch
+    -- needs bounding.
+    JOIN public.employment_status es
+        ON es.id = e.employment_status_id AND es.category = 'active'
     ORDER BY e.id, ph.holiday_date, ph.work_location_id NULLS LAST
 ),
 
@@ -225,13 +260,14 @@ all_events AS (
 -- cheap. Frontend only surfaces these on the Leave row
 -- (AttendanceTimelineCard.jsx) -- App/Hardware rows carry them too since
 -- they're the same day-level fact, just unused there.
--- Explicit column list, NOT `ae.*` -- ae.* would place attendance_type_id/
--- photo_url/notes (defined inside app_events, before the UNION ALL) ahead
--- of the uda.* columns below in the view's positional output, which is
--- exactly what breaks CREATE OR REPLACE VIEW (Postgres reads that shift as
--- renaming existing columns, not appending new ones). Listing every
--- pre-existing column first, in their original order, then the 3 new ones
--- last, keeps this a pure append.
+-- Explicit column list, NOT `ae.*`. This originally existed to satisfy
+-- CREATE OR REPLACE VIEW's append-only rule (ae.* would have placed
+-- attendance_type_id/photo_url/notes ahead of the uda.* columns, which
+-- Postgres reads as renaming existing columns rather than appending). That
+-- constraint is gone now this file is a DROP + CREATE, but the explicit list
+-- stays on its own merits: it makes the view's contract readable at a glance,
+-- and it stops a new column added to app_events from silently appearing here
+-- with whatever type the UNION ALL happened to resolve it to.
 SELECT
     ae.activity_id,
     ae.employee_uuid,

@@ -1,3 +1,150 @@
+-- ############################################################################
+-- DEPLOYMENT STEP -- SHIP 1 of the attendance day-model rebuild.
+-- Run ONCE, as the table owner, in the Supabase SQL editor. Run the WHOLE
+-- file in one go: step 1 drops unified_daily_attendance CASCADE, which also
+-- drops attendance_activity_audit (it joins that view), and step 2 puts it
+-- back. Between those two statements the day sidebar has no data source, so
+-- do not stop halfway.
+--
+-- Supersedes attendance_employment_act_overtime_migration.sql,
+-- attendance_approved_hours_and_absence_split_migration.sql and
+-- attendance_reconciliation_flags_view_migration.sql -- each of those carries
+-- a FULL COPY of the old view definition, so re-running any of them after
+-- this lands would silently restore hr_flag's old shape and delete every
+-- column added here. All three now carry a DO-NOT-RE-RUN header.
+--
+-- Also supersedes enable_attendance_views_security_invoker.sql: both views
+-- now declare `WITH (security_invoker = on)` INLINE, so no follow-up ALTER
+-- VIEW is needed. That separation was the single most dangerous thing about
+-- this change -- see the PRE-FLIGHT and VERIFY sections below.
+--
+-- ============================================================================
+-- WHAT THIS CHANGES
+-- ============================================================================
+-- ADDS  six orthogonal axis columns (day_calendar_type, is_expected_working_day,
+--       leave_state, evidence_source, evidence_quality, approval_state) plus a
+--       derived day_state label, to unified_daily_attendance.
+-- DROPS estimated_normal_day_ot_hours -- an exact duplicate of overtime_hours
+--       since the s.60A redefinition, with no reader anywhere in the repo.
+--       Only a DROP VIEW can remove a column at all.
+-- FIXES attendance_activity_audit's holiday_events branch, which fabricated a
+--       synthetic holiday row for every employee ever employed (no active-
+--       bucket filter), unlike the main view's daily_holiday CTE.
+-- KEEPS hr_flag byte-for-byte identical. It is a compatibility column for one
+--       release so its ~34 frontend and 10 SQL consumers can migrate in
+--       batches instead of one atomic deploy. A later migration drops it.
+--
+-- ONE INTENTIONAL BEHAVIOUR CHANGE: needs_reconciliation gains a fifth limb,
+-- `pending_approval_hours > 0`. Days carrying hours on unapproved app
+-- activities are now reported as needing reconciliation by the server-side
+-- filter behind the three attendance lists, matching what Payroll Export's
+-- own client-side "Needs Reconciliation (Any)" already counts. EXPECT MORE
+-- ROWS from that filter after this deploys -- that is the fix, not a fault.
+-- Nothing else about any existing column changes.
+--
+-- ============================================================================
+-- KNOWN ISSUES THIS REBUILD DELIBERATELY DOES **NOT** FIX
+--
+-- Found during the pre-rebuild edge-case audit. Every one is pre-existing.
+-- None is introduced here, and fixing any would break the hr_flag equality
+-- gate that makes this deploy verifiable -- so they are recorded rather than
+-- silently carried. Listed roughly by payroll impact.
+--
+-- 1. ACKNOWLEDGEMENTS RLS GAP (highest impact, smallest fix).
+--    attendance_logs, attendance_activities, leave_ledger_entries and
+--    employees all carry an "MGM Manager VIEW" policy
+--    (mgm_hr_reports_access_fix.sql). attendance_reconciliation_
+--    acknowledgements does NOT. Because this view is security_invoker, an MGM
+--    manager therefore sees the attendance rows but matches zero
+--    acknowledgement rows -- so EVERY acknowledged day reads
+--    is_unacknowledged_absent = true and needs_reconciliation = true for them.
+--    Reconciliation looks permanently undone to that role. This is a missing
+--    RLS policy, not a view change; it belongs in its own migration.
+--
+-- 2. THE ACTIVE BUCKET INCLUDES 'Sabbatical' AND 'On Leave'.
+--    expected_shifts filters employment_status.category = 'active', which
+--    covers Active, Probation, On Leave and Sabbatical. Someone on extended
+--    unpaid leave therefore gets an expected-shift row every working day,
+--    reads 'Absent', and accrues is_unacknowledged_absent indefinitely.
+--    Conversely 'Suspended' and 'Terminated Notice' are EXCLUDED, so a
+--    suspended or working-notice employee vanishes from the view entirely,
+--    including their real current attendance.
+--
+-- 3. NO join_date / end_date BOUND, AND THE VIEW IS CURRENT-STATE ONLY.
+--    A new joiner accrues 'Absent' for every working day in the spine BEFORE
+--    they joined (up to two years back). A leaver accrues them after their
+--    last day until someone flips their status -- at which point their ENTIRE
+--    history disappears from the view, so re-running a closed period's payroll
+--    report silently loses them and totalWorkingDaysCount/daysAbsentCount
+--    change retroactively. Already self-documented as a real unfixed bug in
+--    attendance_employment_act_overtime_migration.sql.
+--
+-- 4. auto_clock_out() COMPARES DATES IN UTC, NOT MYT.
+--    `clocked_in_at::date = now()::date` with no AT TIME ZONE. A session
+--    started between 00:00 and 07:59 MYT has a UTC date of the previous day,
+--    so neither sweep ever matches it and it stays open forever -- surfacing
+--    here as a permanent evidence_quality = 'open_session'. A one-line fix in
+--    that function, not here.
+--
+-- 5. MIDNIGHT-CROSSING DAYS.
+--    Hardware scans bucket by MYT date, so a shift crossing midnight splits
+--    into two work_dates with one scan each -- both computing hw_hours = 0.00
+--    and evidence_quality = 'single_scan'. App activities anchor entirely to
+--    clocked_in_at, so overnight hours all land on the clock-in date and the
+--    next day's hardware overlap is never subtracted. is_early_leave compares
+--    a bare ::time, so someone finishing at 00:30 reads as leaving early.
+--
+-- 6. is_insufficient_half_day_hours HAS NO CALENDAR GUARD.
+--    It tests only `fraction = 0.5 AND hours < 4`, so half-day leave recorded
+--    against a Saturday flags permanently, and unlike is_unacknowledged_absent
+--    its unacknowledged counterpart has no NOT is_weekend / NOT
+--    is_public_holiday guard either. Only HR can clear it, not the employee.
+--    NOTE: the new day_state column does NOT have this bug -- its
+--    'insufficient_half_day' value only occurs on ordinary days -- so
+--    migrating consumers to day_state fixes this for free.
+--
+-- 7. ACKNOWLEDGEMENTS ARE VALIDATED ONLY AT WRITE TIME.
+--    Nothing re-checks them afterwards. If leave is synced in (suppressing an
+--    absence) and then removed again by the next full-snapshot sync, the
+--    orphaned acknowledgement silently PRE-suppresses the absence that
+--    returns. Also, the category FK admits all four glossary codes while the
+--    acknowledge RPC permits only two, so a 'leave_conflict' row is
+--    structurally valid and would be silently ignored by this view's two
+--    hardcoded category joins.
+--
+-- 8. THE SPINE INCLUDES FUTURE PUBLIC HOLIDAYS (uncapped, unlike the activity
+--    branch which stops at today), so the view emits future-dated rows with
+--    overtime and wage-tier columns computed. Tolerable because they read
+--    is_public_holiday rather than Absent. Only 2026 is seeded.
+-- ============================================================================
+
+-- ============================================================================
+-- PRE-FLIGHT -- run these BEFORE the migration and keep the output
+-- ============================================================================
+-- (a) Capture today's hr_flag for the equality gate. Pick a range with real
+--     data; a full month is plenty. This table is dropped at the end.
+--
+--   CREATE TABLE public._hr_flag_baseline AS
+--   SELECT employee_uuid, work_date, hr_flag
+--   FROM public.unified_daily_attendance
+--   WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23';
+--
+-- (b) Capture the payroll numbers that must not move:
+--
+--   SELECT * FROM public.get_payroll_period_summary('2026-08-26','2026-09-25',NULL,NULL,NULL);
+--
+-- (c) Record the current grants, so step 4 can confirm they came back:
+--
+--   SELECT grantee, privilege_type FROM information_schema.role_table_grants
+--   WHERE table_name IN ('unified_daily_attendance','attendance_activity_audit');
+--
+-- ############################################################################
+
+
+-- ============================================================================
+-- STEP 1 + 2 -- rebuild unified_daily_attendance, then attendance_activity_audit
+-- (the DROP ... CASCADE in step 1 takes the audit view with it)
+-- ============================================================================
 -- ===========================================================================
 -- unified_daily_attendance -- one row per ACTIVE employee per spine date.
 --
@@ -1104,3 +1251,532 @@ LEFT JOIN public.attendance_reconciliation_acknowledgements ack_half_day
 LEFT JOIN daily_app a2
     ON a2.app_emp_uuid = fr.employee_uuid
    AND a2.work_date = fr.work_date;
+
+
+-- ===========================================================================
+-- attendance_activity_audit -- one row per individual event (app activity,
+-- hardware scan, leave entry, public holiday) behind a given employee-day.
+-- Powers the day sidebar's Activity Timeline (fetchEmployeeDayDetails).
+--
+-- REBUILT 2026-09-22 alongside unified_daily_attendance. This view JOINS that
+-- one, so `DROP VIEW public.unified_daily_attendance CASCADE` takes this view
+-- with it -- meaning this file MUST run in the same script, immediately after
+-- the main view is recreated, or the day sidebar breaks.
+--
+-- security_invoker is declared INLINE here rather than by a follow-up
+-- ALTER VIEW (enable_attendance_views_security_invoker.sql, now superseded).
+-- A drop/recreate that forgot that separate ALTER would silently leave this
+-- view running with OWNER privileges, so the RLS on attendance_activities /
+-- attendance_logs / employees would stop scoping rows -- and every page would
+-- still render perfectly, with no error to notice.
+-- ===========================================================================
+
+DROP VIEW IF EXISTS public.attendance_activity_audit;
+
+CREATE VIEW public.attendance_activity_audit
+WITH (security_invoker = on) AS
+
+-- 1. Grab all App Activities (Remote/Meetings)
+WITH app_events AS (
+    SELECT
+        aa.id::text AS activity_id, -- Cast to text so it matches the UNION
+        aa.employee_id AS employee_uuid,
+        e.employee_id AS company_employee_code,
+        e.full_name,
+        DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date,
+        'App' AS event_source,
+        at.name AS attendance_type,
+        aa.clocked_in_at AS check_in_time,
+        aa.clocked_out_at AS check_out_time,
+        aa.approval_status::text,
+
+        -- 🚨 Micro-Flag for App
+        CASE
+            WHEN aa.clocked_out_at IS NULL THEN 'Missing Check-Out'
+            ELSE 'Valid'
+        END AS activity_audit_flag,
+
+        -- HR2000 leave ledger integration -- NULL here, only leave_events
+        -- below ever populates these two. Present on every branch so the
+        -- three UNION ALL column lists line up positionally.
+        NULL::numeric AS day_fraction,
+        NULL::text AS remarks,
+
+        -- Raw attendance_activities columns the "Edit" inline form
+        -- (AttendanceTimelineCard.jsx's DataForm, via tableConfig.jsx's
+        -- attendance_type_id/photo_url/notes columns) needs to actually
+        -- pre-populate with the CURRENT value -- `attendance_type` above is
+        -- only the joined display NAME (at.name), not the real FK id the
+        -- edit form's select needs to preselect the right option, and
+        -- neither photo_url nor notes existed on this view at all before.
+        -- NULL on every other branch (Hardware/Leave/Holiday never feed
+        -- this edit form -- App is the only editable event_source).
+        aa.attendance_type_id,
+        aa.photo_url,
+        aa.notes,
+
+        -- Provenance. Lets the Activity Timeline distinguish a record someone
+        -- clocked in live from one HR typed in afterwards -- which matters
+        -- most for the two re-added scanner-location types: a backfilled
+        -- "Office" app row and a real "Office" scan row otherwise render as
+        -- two identical-looking cards on the same day.
+        aa.entry_method,
+        aa.adjustment_reason_id
+
+    FROM public.attendance_activities aa
+    JOIN public.employees e ON aa.employee_id = e.id
+    LEFT JOIN public.attendance_types at ON aa.attendance_type_id = at.id
+),
+
+-- 2. Grab all Hardware Sessions (Office/Plant) -- one summary row per
+-- employee/location/day (kept this way per explicit request: HR wants to
+-- see 1 Office card and 1 Blending Plant card, not a card per in/out pair
+-- -- the odd/even pairing itself is instead visualized INSIDE each card,
+-- see AttendanceTimelineCard.jsx's own use of AttendanceDayTimelineBar with
+-- scan-derived pairs).
+hw_events AS (
+    SELECT
+        -- Generate a unique string ID for React rendering since HW logs don't have a single UUID block
+        md5(e.id::text || COALESCE(h.scanner_location, 'HW') || DATE(h.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur')::text) AS activity_id,
+        e.id AS employee_uuid,
+        h.employee_id AS company_employee_code,
+        e.full_name,
+        DATE(h.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur') AS work_date,
+        'Hardware' AS event_source,
+        COALESCE(h.scanner_location, 'On-Site') AS attendance_type,
+
+        MIN(h.scanned_at) AS check_in_time,
+        -- If they only scanned once, MAX and MIN are the same. NULLIF turns it into a NULL check-out!
+        NULLIF(MAX(h.scanned_at), MIN(h.scanned_at)) AS check_out_time,
+
+        'System Verified' AS approval_status, -- Hardware doesn't need HR approval
+
+        -- 🚨 Micro-Flag for Hardware
+        CASE
+            WHEN COUNT(*) = 1 THEN 'Incomplete Scans'
+            ELSE 'Valid'
+        END AS activity_audit_flag,
+
+        NULL::numeric AS day_fraction,
+        NULL::text AS remarks,
+
+        -- App-only edit-form fields (see app_events' own comment) -- never
+        -- populated for Hardware rows, present only to keep the UNION
+        -- ALL's column list positionally aligned.
+        NULL::bigint AS attendance_type_id,
+        NULL::text AS photo_url,
+        NULL::text AS notes,
+
+        -- Provenance columns (see app_events). Always NULL here -- only a real
+        -- attendance_activities row has an entry_method.
+        NULL::text AS entry_method,
+        NULL::bigint AS adjustment_reason_id
+
+    FROM public.attendance_logs h
+    JOIN public.employees e ON h.employee_id = e.employee_id
+    GROUP BY e.id, h.employee_id, e.full_name, h.scanner_location, DATE(h.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur')
+),
+
+-- 3. HR2000 leave ledger integration -- one row per leave_ledger_entries
+-- row (not one per day: a genuine AM/PM half-day split is two real rows
+-- and must render as two timeline cards, each with its own day_fraction).
+-- This is what makes an "On Leave" day finally show up in the Activity
+-- Timeline sidebar instead of rendering as an empty "No app activities
+-- logged for this day" -- previously this view only ever unioned
+-- app_events/hw_events, so fetchEmployeeDayDetails had no leave row to
+-- return no matter what leave_ledger_entries said.
+leave_events AS (
+    SELECT
+        'leave-' || le.id::text AS activity_id,
+        le.employee_id AS employee_uuid,
+        e.employee_id AS company_employee_code,
+        e.full_name,
+        le.leave_date AS work_date,
+        'Leave' AS event_source,
+
+        -- Matches the exact "On Leave (<code>)" shape AttendanceType.jsx's
+        -- existing type.startsWith("on leave") branch already special-cases
+        -- (originally added for unified_daily_attendance.hr_flag /
+        -- employees_public.current_status) -- reusing it here means zero
+        -- frontend changes are needed to get the right icon/purple color.
+        'On Leave (' || lt.code || ')' AS attendance_type,
+
+        NULL::timestamptz AS check_in_time,
+        NULL::timestamptz AS check_out_time,
+
+        -- HR2000's export contains only currently-approved leave (no status
+        -- column exists upstream) -- 'Approved' reflects that, not a guess.
+        'Approved' AS approval_status,
+
+        -- Must be non-null: AttendanceTimelineCard.jsx calls
+        -- .includes("Valid") on this field unconditionally.
+        'On Leave' AS activity_audit_flag,
+
+        le.day_fraction,
+        le.remarks,
+
+        -- App-only edit-form fields (see app_events' own comment).
+        NULL::bigint AS attendance_type_id,
+        NULL::text AS photo_url,
+        NULL::text AS notes,
+
+        -- Provenance columns (see app_events). Always NULL here -- only a real
+        -- attendance_activities row has an entry_method.
+        NULL::text AS entry_method,
+        NULL::bigint AS adjustment_reason_id
+
+    FROM public.leave_ledger_entries le
+    JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
+    JOIN public.employees e ON e.id = le.employee_id
+),
+
+-- 4. Public holidays / company off-days -- one synthetic row per employee
+-- per holiday that applies to their work_location_id (or a company-wide,
+-- work_location_id IS NULL, holiday), mirroring leave_events exactly so a
+-- holiday day's Activity Timeline shows a real card instead of "No app
+-- activities logged for this day." DISTINCT ON guards the same rare
+-- both-a-specific-and-a-NULL-row case hr_unified_daily_attendance_view.sql's
+-- daily_holiday CTE already guards against.
+holiday_events AS (
+    SELECT DISTINCT ON (e.id, ph.holiday_date)
+        'holiday-' || ph.id::text AS activity_id,
+        e.id AS employee_uuid,
+        e.employee_id AS company_employee_code,
+        e.full_name,
+        ph.holiday_date AS work_date,
+        'Holiday' AS event_source,
+
+        -- Matches the exact "On Leave (<code>)" shape AttendanceType.jsx's
+        -- existing type.startsWith("on leave") branch special-cases --
+        -- given a matching startsWith("public holiday") branch (added in
+        -- the same pass), this needs zero new styling work either.
+        'Public Holiday (' || ph.name || ')' AS attendance_type,
+
+        NULL::timestamptz AS check_in_time,
+        NULL::timestamptz AS check_out_time,
+        'Approved' AS approval_status,
+
+        -- Must be non-null: AttendanceTimelineCard.jsx calls .includes(...)
+        -- on this field for the App/Hardware branch, though the Holiday
+        -- branch (mirroring Leave) doesn't render it at all.
+        'Public Holiday' AS activity_audit_flag,
+
+        NULL::numeric AS day_fraction,
+        NULL::text AS remarks,
+
+        -- App-only edit-form fields (see app_events' own comment).
+        NULL::bigint AS attendance_type_id,
+        NULL::text AS photo_url,
+        NULL::text AS notes,
+
+        -- Provenance columns (see app_events). Always NULL here -- only a real
+        -- attendance_activities row has an entry_method.
+        NULL::text AS entry_method,
+        NULL::bigint AS adjustment_reason_id
+
+    FROM public.public_holidays ph
+    JOIN public.employees e
+        ON ph.work_location_id = e.work_location_id OR ph.work_location_id IS NULL
+    -- Active-bucket filter added 2026-09-22, aligning this with
+    -- hr_unified_daily_attendance_view.sql's daily_holiday CTE, which has
+    -- always had it. Without it this branch fabricated a synthetic holiday row
+    -- for EVERY employee who has ever worked here -- including people
+    -- terminated years ago -- for every holiday on record.
+    --
+    -- Note this filter belongs on holiday_events and leave/app/hw_events
+    -- deliberately do NOT get it: those rows exist because a real event was
+    -- recorded, and an audit trail should still show what a since-departed
+    -- employee actually did. Only this branch INVENTS rows from the employee
+    -- roster crossed with the holiday calendar, which is why only this branch
+    -- needs bounding.
+    JOIN public.employment_status es
+        ON es.id = e.employment_status_id AND es.category = 'active'
+    ORDER BY e.id, ph.holiday_date, ph.work_location_id NULLS LAST
+),
+
+-- 5. Stack them together
+all_events AS (
+    SELECT * FROM app_events
+    UNION ALL
+    SELECT * FROM hw_events
+    UNION ALL
+    SELECT * FROM leave_events
+    UNION ALL
+    SELECT * FROM holiday_events
+)
+
+-- 6. Annotate every row with unified_daily_attendance's day-level leave/
+-- attendance conflict flags -- a single event row can't compute these
+-- itself (they're day-wide aggregates: total hours worked, summed leave
+-- fraction across possibly several entries), so this reuses that view's
+-- single source of truth instead of duplicating the hours_worked/leave-sum
+-- logic a second time here. Callers only ever query this view scoped to
+-- one employee + one day (fetchEmployeeDayDetails), so the join stays
+-- cheap. Frontend only surfaces these on the Leave row
+-- (AttendanceTimelineCard.jsx) -- App/Hardware rows carry them too since
+-- they're the same day-level fact, just unused there.
+-- Explicit column list, NOT `ae.*`. This originally existed to satisfy
+-- CREATE OR REPLACE VIEW's append-only rule (ae.* would have placed
+-- attendance_type_id/photo_url/notes ahead of the uda.* columns, which
+-- Postgres reads as renaming existing columns rather than appending). That
+-- constraint is gone now this file is a DROP + CREATE, but the explicit list
+-- stays on its own merits: it makes the view's contract readable at a glance,
+-- and it stops a new column added to app_events from silently appearing here
+-- with whatever type the UNION ALL happened to resolve it to.
+SELECT
+    ae.activity_id,
+    ae.employee_uuid,
+    ae.company_employee_code,
+    ae.full_name,
+    ae.work_date,
+    ae.event_source,
+    ae.attendance_type,
+    ae.check_in_time,
+    ae.check_out_time,
+    ae.approval_status,
+    ae.activity_audit_flag,
+    ae.day_fraction,
+    ae.remarks,
+    uda.is_leave_attendance_conflict,
+    uda.is_insufficient_half_day_hours,
+    uda.has_leave_fraction_error,
+    uda.is_worked_on_holiday,
+    uda.holiday_hours_worked,
+    ae.attendance_type_id,
+    ae.photo_url,
+    ae.notes,
+    -- Appended last, after every pre-existing column, per this view's
+    -- append-only constraint. ar.label is joined rather than re-derived so the
+    -- badge text and the backfill form's picker always read the same wording
+    -- from attendance_adjustment_reasons.
+    ae.entry_method,
+    ae.adjustment_reason_id,
+    ar.label AS adjustment_reason_label
+FROM all_events ae
+LEFT JOIN public.unified_daily_attendance uda
+    ON uda.employee_uuid = ae.employee_uuid AND uda.work_date = ae.work_date
+LEFT JOIN public.attendance_adjustment_reasons ar
+    ON ar.id = ae.adjustment_reason_id;
+
+-- ############################################################################
+-- VERIFY -- run every one of these. Gate 1 first; it is the dangerous one.
+-- ############################################################################
+
+-- ----------------------------------------------------------------------------
+-- GATE 1 -- ACCESS AND RLS. RUN THIS BEFORE ANYTHING ELSE.
+--
+-- security_invoker used to be applied by a SEPARATE ALTER VIEW. If it is ever
+-- lost, both views silently fall back to OWNER privileges and RLS on
+-- attendance_logs / employees / attendance_reconciliation_acknowledgements
+-- stops scoping rows: My Attendance lists EVERY employee and Team Attendance
+-- the whole company -- and both pages render perfectly, with no error anywhere.
+-- This is the single most damaging way this migration can go wrong and the
+-- only one that produces no symptom you would notice by accident.
+--
+-- Expect security_invoker=true in reloptions for BOTH rows:
+SELECT relname, reloptions
+FROM pg_class
+WHERE relname IN ('unified_daily_attendance', 'attendance_activity_audit');
+
+-- Expect SELECT for authenticated (compare against pre-flight (c) -- no view
+-- in this repo carries an explicit GRANT, so both rely on Supabase default
+-- privileges being re-acquired on recreate; verify rather than assume):
+SELECT table_name, grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_name IN ('unified_daily_attendance', 'attendance_activity_audit')
+ORDER BY table_name, grantee;
+
+-- THEN, IN THE APP, NOT IN SQL: log in as a plain non-HR employee and confirm
+-- My Attendance shows only their own rows; log in as a manager and confirm
+-- Team Attendance shows only direct reports. No query below substitutes for
+-- this -- run it as the owner and RLS is bypassed regardless.
+
+
+-- ----------------------------------------------------------------------------
+-- GATE 2 -- hr_flag EQUALITY. Expect ZERO rows.
+--
+-- This validates the PLUMBING of the rewrite -- the CTEs, the join grain, the
+-- GROUP BY keys, the timezone handling -- not the label logic, since hr_flag's
+-- expression was carried over verbatim rather than re-derived. That is still
+-- the check worth running: a broken join or a slipped timezone is exactly the
+-- class of error a rewrite this size actually produces, and each would show up
+-- here immediately.
+SELECT b.employee_uuid, b.work_date, b.hr_flag AS was, v.hr_flag AS now
+FROM public._hr_flag_baseline b
+JOIN public.unified_daily_attendance v
+  ON v.employee_uuid = b.employee_uuid AND v.work_date = b.work_date
+WHERE b.hr_flag IS DISTINCT FROM v.hr_flag;
+
+-- Row COUNT must also match -- the query above cannot see a row that vanished
+-- entirely (a join that silently dropped rows, or the spine losing a date).
+-- Expect the two numbers to be equal:
+SELECT
+    (SELECT count(*) FROM public._hr_flag_baseline) AS baseline_rows,
+    (SELECT count(*) FROM public.unified_daily_attendance
+     WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23') AS rebuilt_rows;
+
+
+-- ----------------------------------------------------------------------------
+-- GATE 3 -- AXIS INVARIANTS. Every one of these must return ZERO rows.
+-- Each encodes a promise the axis columns make to their consumers.
+-- ----------------------------------------------------------------------------
+
+-- day_state='absent' must mean an ORDINARY day with no leave and no evidence.
+-- If this returns rows, the day_state CASE's branch order is wrong and HR is
+-- being shown red absences for weekends, holidays or approved leave.
+SELECT employee_uuid, work_date, day_state, day_calendar_type, leave_state
+FROM public.unified_daily_attendance
+WHERE day_state = 'absent'
+  AND (is_public_holiday OR is_on_leave OR is_weekend);
+
+-- is_expected_working_day must be exactly "calendar says ordinary".
+SELECT employee_uuid, work_date, day_calendar_type, is_expected_working_day
+FROM public.unified_daily_attendance
+WHERE is_expected_working_day <> (day_calendar_type = 'ordinary');
+
+-- No evidence means no evidence defects.
+SELECT employee_uuid, work_date, evidence_source, evidence_quality
+FROM public.unified_daily_attendance
+WHERE evidence_source = 'none' AND evidence_quality <> 'none';
+
+-- Approval is an app concept. A hardware-only day cannot have one.
+SELECT employee_uuid, work_date, evidence_source, approval_state
+FROM public.unified_daily_attendance
+WHERE approval_state <> 'not_applicable' AND evidence_source = 'hardware';
+
+-- An unacknowledged absence can only exist on a day someone was expected to
+-- work. (is_unacknowledged_absent already carries `NOT is_weekend AND NOT
+-- is_public_holiday`, which is exactly is_expected_working_day -- this proves
+-- those two definitions have not drifted apart.)
+SELECT employee_uuid, work_date, day_calendar_type
+FROM public.unified_daily_attendance
+WHERE is_unacknowledged_absent AND NOT is_expected_working_day;
+
+-- day_state must agree with the boolean flags it was derived from.
+SELECT employee_uuid, work_date, day_state, is_insufficient_half_day_hours
+FROM public.unified_daily_attendance
+WHERE (day_state = 'insufficient_half_day') <> (is_insufficient_half_day_hours AND is_expected_working_day);
+
+-- leave_state must agree with is_on_leave. NOTE: these two are computed from
+-- slightly different tests -- leave_state asks "did daily_leave produce a row
+-- for this employee-day", is_on_leave asks "is leave_type_codes non-null". They
+-- can only disagree if a leave_ledger_types row has a NULL code, which would
+-- make leave_type_codes NULL despite real leave existing. Rows here therefore
+-- point at a leave_ledger_types data problem, not at the axis logic -- but it
+-- is worth knowing either way, because is_on_leave drives UI today.
+SELECT employee_uuid, work_date, leave_state, is_on_leave, leave_day_fraction, leave_type_codes
+FROM public.unified_daily_attendance
+WHERE (leave_state <> 'none') <> is_on_leave;
+
+-- day_calendar_type must agree with the two booleans it is built from.
+SELECT employee_uuid, work_date, day_calendar_type, is_weekend, is_public_holiday
+FROM public.unified_daily_attendance
+WHERE day_calendar_type <> CASE
+        WHEN is_weekend AND is_public_holiday THEN 'weekend_public_holiday'
+        WHEN is_weekend THEN 'weekend'
+        WHEN is_public_holiday THEN 'public_holiday'
+        ELSE 'ordinary' END;
+
+
+-- ----------------------------------------------------------------------------
+-- GATE 4 -- THE PREVIOUSLY-UNREACHABLE STATES. These SHOULD return rows if
+-- such days exist in your data. Finding some is the proof that the rebuild
+-- did what it was for; finding none only means the situation has not occurred
+-- yet, so check the counts rather than treating empty as failure.
+-- ----------------------------------------------------------------------------
+
+-- Approved AND still clocked in. hr_flag can never say this: its 'Approved'
+-- branch sits above 'Missing App Check-Out', so the open session is hidden.
+SELECT count(*) AS approved_but_open_session
+FROM public.unified_daily_attendance
+WHERE approval_state = 'approved' AND evidence_quality = 'open_session';
+
+-- One badge scan AND an app activity. hr_flag can never say this either:
+-- 'Incomplete Card Scans' sits below every app branch.
+SELECT count(*) AS single_scan_with_app_activity
+FROM public.unified_daily_attendance
+WHERE evidence_source = 'both' AND evidence_quality LIKE '%single_scan%';
+
+-- Both defects at once -- structurally unrepresentable before.
+SELECT count(*) AS both_defects
+FROM public.unified_daily_attendance
+WHERE evidence_quality = 'single_scan_and_open_session';
+
+-- The known hr_flag quirk this rebuild exposes but deliberately does NOT fix:
+-- one Approved plus one Rejected activity computes all_approved = false, so
+-- hr_flag falls through to 'OK' and reports approved app work as a clean
+-- hardware-only day. approval_state reports 'approved', correctly. Any rows
+-- here are real days currently mislabelled in the UI.
+SELECT employee_uuid, work_date, hr_flag, approval_state, evidence_source
+FROM public.unified_daily_attendance
+WHERE approval_state = 'approved' AND hr_flag = 'OK'
+LIMIT 20;
+
+-- Leave fractions that are neither 0.5 nor 1.0. These match no branch in the
+-- current code at all -- a 0.75 day with no attendance reads as a plain red
+-- Absent today, and now reads on_leave_partial.
+SELECT employee_uuid, work_date, leave_day_fraction, leave_state, day_state
+FROM public.unified_daily_attendance
+WHERE leave_state = 'partial'
+LIMIT 20;
+
+-- A Saturday that is also a public holiday, worked. Contributes to BOTH the
+-- rest-day and holiday wage tiers -- intended, previously undocumented.
+SELECT employee_uuid, work_date, day_state, is_worked_on_weekend, is_worked_on_holiday,
+       rest_day_wage_tier, holiday_wage_tier
+FROM public.unified_daily_attendance
+WHERE day_calendar_type = 'weekend_public_holiday' AND evidence_source <> 'none'
+LIMIT 20;
+
+
+-- ----------------------------------------------------------------------------
+-- GATE 5 -- PAYROLL PARITY. Re-run pre-flight (b) and diff.
+--
+-- ONLY the needs_reconciliation-derived fields may move (the new pending-
+-- approval limb). Every hours total, day count and wage-tier count must be
+-- IDENTICAL. Anything else moving means a rewritten expression changed
+-- meaning, and the rebuild is not safe to keep.
+--
+--   SELECT * FROM public.get_payroll_period_summary('2026-08-26','2026-09-25',NULL,NULL,NULL);
+--
+-- Sanity-check the one intended change -- these are the rows the lists'
+-- "Needs Reconciliation" filter will newly include:
+SELECT count(*) AS newly_flagged_pending_approval_days
+FROM public.unified_daily_attendance
+WHERE pending_approval_hours > 0
+  AND NOT (
+        is_unacknowledged_absent
+     OR is_leave_attendance_conflict
+     OR is_unacknowledged_insufficient_half_day
+     OR has_leave_fraction_error
+  );
+
+-- Distribution sanity -- eyeball that nothing is wildly over- or under-
+-- represented (e.g. every row landing on 'absent' would mean a broken join).
+SELECT day_state, count(*) FROM public.unified_daily_attendance
+WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23'
+GROUP BY day_state ORDER BY 2 DESC;
+
+SELECT day_calendar_type, evidence_source, evidence_quality, approval_state, count(*)
+FROM public.unified_daily_attendance
+WHERE work_date >= '2026-08-01' AND work_date < '2026-09-23'
+GROUP BY 1,2,3,4 ORDER BY 5 DESC;
+
+
+-- ----------------------------------------------------------------------------
+-- CLEAN UP -- only after every gate above has passed.
+-- ----------------------------------------------------------------------------
+-- DROP TABLE public._hr_flag_baseline;
+
+
+-- ############################################################################
+-- ROLLBACK
+--
+-- git show HEAD~1:supabase/sql_editor/hr_unified_daily_attendance_view.sql
+-- git show HEAD~1:supabase/sql_editor/hr_attendance_activity_audit_view.sql
+--
+-- Run those two (the first is a CREATE OR REPLACE, so DROP ... CASCADE it
+-- first), THEN enable_attendance_views_security_invoker.sql -- the old
+-- definitions do NOT declare security_invoker inline, so skipping that last
+-- step reintroduces exactly the RLS hole Gate 1 checks for.
+-- ############################################################################
