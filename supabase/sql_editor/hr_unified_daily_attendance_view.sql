@@ -54,9 +54,35 @@
 -- this size actually produces.
 -- ===========================================================================
 
-DROP VIEW IF EXISTS public.unified_daily_attendance CASCADE;
-
-CREATE VIEW public.unified_daily_attendance
+-- ---------------------------------------------------------------------------
+-- CREATE OR REPLACE, not DROP + CREATE (changed 2026-09-23).
+--
+-- The Ship 1 rebuild genuinely needed a DROP: it added columns of new types
+-- and removed estimated_normal_day_ot_hours, neither of which CREATE OR
+-- REPLACE can do. That has landed, so the DROP is now pure cost.
+--
+-- Cost, specifically: `DROP VIEW ... CASCADE` also drops
+-- attendance_activity_audit, which joins this view -- so every deploy
+-- required running that file immediately afterwards, and left the day
+-- sidebar with no data source in between. Forget the second file and the
+-- sidebar is simply gone, with nothing to indicate why.
+--
+-- CREATE OR REPLACE has none of that: the audit view is untouched, there is
+-- no window, and it still creates the view on a database that does not have
+-- it yet. It is also idempotent, so this file can be re-run freely.
+--
+-- WHEN THIS WILL STOP WORKING: CREATE OR REPLACE VIEW can change the query
+-- body however it likes, and can APPEND columns, but it cannot drop, rename
+-- or retype an existing one -- those raise 42P16. If a future change needs
+-- any of those, restore the DROP ... CASCADE for that one deploy and run
+-- hr_attendance_activity_audit_view.sql straight after. It fails loudly
+-- rather than silently, so there is no way to get this wrong by accident.
+--
+-- security_invoker is restated here deliberately. Do NOT drop it: without it
+-- the view can fall back to OWNER privileges, RLS stops scoping rows, and
+-- every page renders perfectly while showing the whole company.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE VIEW public.unified_daily_attendance
 WITH (security_invoker = on) AS
 
 -- 1. Date Spine: Find all unique dates anyone worked, so we know which days the company was open
@@ -215,10 +241,48 @@ daily_hw_remote_overlap AS (
         ) / 3600 AS overlap_hours
     FROM public.attendance_activities aa
     JOIN public.employees e ON e.id = aa.employee_id
-    JOIN daily_hardware h
-        ON h.scanner_emp_id = e.employee_id
-       AND h.work_date = DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur')
+    -- Computes this employee-day's outer scan bounds DIRECTLY from
+    -- attendance_logs, rather than joining the daily_hardware CTE.
+    --
+    -- PERFORMANCE, and it is the difference between a fast page and a
+    -- statement timeout. A non-recursive CTE referenced MORE THAN ONCE is
+    -- materialized by Postgres in full, before any caller's predicate can
+    -- reach it. daily_hardware used to be referenced twice -- here, and in the
+    -- final join -- so every query against this view, even one asking for a
+    -- SINGLE DAY, aggregated the entire attendance_logs table:
+    --
+    --     CTE daily_hardware
+    --       -> HashAggregate  (actual time=82.8..90.7 rows=10534)
+    --            -> Seq Scan on attendance_logs  (rows=51963)
+    --
+    -- That is ~90ms of pure database time on its own, but the real cost is
+    -- what it does to RLS: these views run security_invoker = on, so each of
+    -- those 51,963 rows has attendance_logs' five SELECT policies evaluated
+    -- against it. A year-to-date query crossed the statement timeout outright.
+    --
+    -- Removing this second reference leaves daily_hardware referenced ONCE, so
+    -- Postgres inlines it instead, and the outer work_date predicate can
+    -- finally propagate into the scan and prune it.
+    --
+    -- The LATERAL is cheap because it is driven by attendance_activities,
+    -- which is small (tens of rows), not by the date spine -- one bounded
+    -- lookup per app activity, instead of aggregating the whole log table.
+    --
+    -- SEMANTICS UNCHANGED: this was an INNER JOIN, so an employee-day with no
+    -- hardware scans contributed no overlap row at all. The
+    -- `hw_check_in_ts IS NOT NULL` guard below reproduces exactly that -- an
+    -- aggregate over zero rows returns one row of NULLs rather than no row,
+    -- so without it a LATERAL would wrongly keep those days.
+    CROSS JOIN LATERAL (
+        SELECT MIN(al.scanned_at) AS hw_check_in_ts,
+               MAX(al.scanned_at) AS hw_check_out_ts
+        FROM public.attendance_logs al
+        WHERE al.employee_id = e.employee_id
+          AND DATE(al.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur')
+              = DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur')
+    ) h
     WHERE aa.approval_status::text != 'Rejected'
+      AND h.hw_check_in_ts IS NOT NULL
     GROUP BY e.id, DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur')
 ),
 
@@ -546,13 +610,25 @@ SELECT
     -- the prior pass's design left for this change: only the threshold
     -- expression changed, the column's shape/name/callers didn't.
     --
-    -- NOT is_weekend / holiday guard: a day nobody was expected to work has
-    -- no meaningful "leaving early" concept, regardless of what time real
-    -- attendance happened to end -- without this, someone voluntarily
-    -- working a Saturday (or a public holiday) who leaves at 4pm would get
-    -- flagged exactly like a weekday early-leave violation.
+    -- NOT is_weekend / holiday / LEAVE guard: a day nobody was expected to
+    -- work a full shift has no meaningful "leaving early" concept, regardless
+    -- of what time attendance happened to end. Without the weekend/holiday
+    -- guards, someone voluntarily working a Saturday who leaves at 4pm would
+    -- be flagged exactly like a weekday violation.
+    --
+    -- The LEAVE guard was added 2026-09-23 and is the same class of bug: an
+    -- employee on approved HALF-DAY AM leave works the morning and leaves at
+    -- 12:30, which is before every work location's cutoff -- so they were
+    -- flagged for leaving early on a day they were only ever expected to work
+    -- half of. Any leave at all disqualifies the normal-day threshold, not
+    -- just half days, because the expected shift is no longer the normal one.
+    --
+    -- Fixing it HERE rather than in each consumer is deliberate: this column
+    -- drives the red badge on the attendance cards and the day sidebar as
+    -- well as the dashboard KPI, and those were disagreeing -- the KPI
+    -- filtered leave days out, the badge did not.
     COALESCE(
-        NOT u.is_weekend AND dh.holiday_name IS NULL
+        NOT u.is_weekend AND dh.holiday_name IS NULL AND dl.leave_emp_uuid IS NULL
         AND (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time < COALESCE(wl.early_leave_time, TIME '17:00:00'),
         false
     ) AS is_early_leave,
@@ -580,10 +656,17 @@ SELECT
     -- Appended last, per this view's own append-only constraint (CREATE OR
     -- REPLACE VIEW only allows new columns after every existing one).
     --
-    -- NOT is_weekend / holiday guard: same reasoning as is_early_leave
-    -- above -- "late" has no meaning on a day nobody was expected to work.
+    -- NOT is_weekend / holiday / LEAVE guard: same reasoning as
+    -- is_early_leave above -- "late" has no meaning on a day nobody was
+    -- expected to work a normal shift.
+    --
+    -- The LEAVE guard (added 2026-09-23) matters most here: an employee on
+    -- approved half-day AM leave arrives after lunch, which is hours past the
+    -- 09:00 threshold, and was being flagged as a late arrival for taking
+    -- leave they had been granted. That fed both the red badge on their card
+    -- and HR's Late Arrivals KPI.
     COALESCE(
-        NOT u.is_weekend AND dh.holiday_name IS NULL
+        NOT u.is_weekend AND dh.holiday_name IS NULL AND dl.leave_emp_uuid IS NULL
         AND (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time > TIME '09:00:00',
         false
     ) AS is_late_arrival,

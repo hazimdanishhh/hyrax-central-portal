@@ -16,9 +16,15 @@
 -- still render perfectly, with no error to notice.
 -- ===========================================================================
 
-DROP VIEW IF EXISTS public.attendance_activity_audit;
-
-CREATE VIEW public.attendance_activity_audit
+-- CREATE OR REPLACE, not DROP + CREATE (changed 2026-09-23) -- see
+-- hr_unified_daily_attendance_view.sql's matching note. Idempotent, creates
+-- the view if absent, and no longer depends on being run immediately after
+-- that file.
+--
+-- Same limitation applies: the query body can change freely and columns can
+-- be APPENDED, but dropping, renaming or retyping one raises 42P16 and needs
+-- a one-off DROP VIEW for that deploy.
+CREATE OR REPLACE VIEW public.attendance_activity_audit
 WITH (security_invoker = on) AS
 
 -- 1. Grab all App Activities (Remote/Meetings)
