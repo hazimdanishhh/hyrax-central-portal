@@ -420,6 +420,13 @@ kpi_totals as (
         (select to_char(make_interval(secs => avg(extract(epoch from first_in::time))), 'HH24:MI')
          from period_rows
          where day_state = 'worked' and first_in is not null) as avg_check_in_time,
+        -- The `last_out is not null` guard here does real work as of
+        -- 2026-09-23. It was previously unreachable: last_out was
+        -- MAX(app_check_out, hw_check_out), and on a single-scan day
+        -- hw_check_out is the ARRIVAL scan (MAX = MIN), so a forgotten
+        -- badge-out was averaged in as an 08:45 departure and dragged this
+        -- figure earlier. The view now returns NULL for those days, so this
+        -- line needs no change -- but do not remove the guard.
         (select to_char(make_interval(secs => avg(extract(epoch from last_out::time))), 'HH24:MI')
          from period_rows
          where day_state = 'worked' and last_out is not null) as avg_check_out_time,
@@ -479,9 +486,14 @@ kpi_totals as (
         -- regardless) but keeps this block consistent with its neighbors and
         -- guards against a future change silently reintroducing the bug.
         -- `Incomplete Card Scans` excluded for the same unknown-vs-zero
-        -- reason as avg_hours_worked above -- last_out for a single-scan day
-        -- is that same lone scan's own time, which may or may not be a real
-        -- departure, so any overtime_hours it produces isn't trustworthy.
+        -- reason as avg_hours_worked above: a single-scan day computes
+        -- hw_hours = MAX - MIN = 0 purely because there is no second scan to
+        -- diff against, so any overtime_hours it produces isn't trustworthy.
+        -- (This comment used to say "last_out for a single-scan day is that
+        -- same lone scan's own time" -- true until 2026-09-23, when the view
+        -- started returning last_out = NULL on exactly those days. The guard
+        -- here is still needed: it is hw_hours, not last_out, that overtime
+        -- is derived from.)
         (select round(sum(overtime_hours)::numeric, 2) from period_rows
          where day_state = 'worked'
              and evidence_quality not in ('single_scan', 'single_scan_and_open_session')) as overtime_hours_total,

@@ -20,6 +20,12 @@
  * hw_check_out, so the row holding the minimum check_in_time IS the row those
  * columns were computed from.
  *
+ * One exception since 2026-09-23, which costs nothing here: last_out is NULL
+ * on a day whose only evidence is a single hardware scan, because MAX = MIN
+ * there and the arrival scan is not a departure. latestActivityId still
+ * resolves on such a day, but is_early_leave is false for the same reason, so
+ * no chip is painted and the anchor is never consulted.
+ *
  * The "Rejected" exclusion is load-bearing, not defensive -- daily_app's own
  * MIN/MAX skip Rejected rows, so without it a rejected 07:00 session would win
  * "earliest" here and take the chip while the day-level flag came from a

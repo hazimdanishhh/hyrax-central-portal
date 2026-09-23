@@ -473,7 +473,41 @@ SELECT
     (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v)) AS first_in,
 
     -- Absolute Last Out (Ignores Rejected App Logs)
-    (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v)) AS last_out,
+    --
+    -- NULL ON A SINGLE-SCAN DAY (added 2026-09-23). daily_hardware computes
+    -- hw_check_out as MAX(scanned_at), so on a day with exactly ONE scan
+    -- MAX = MIN and the ARRIVAL scan was being reported as the departure.
+    -- Someone who badged in at 08:45 and forgot to badge out was recorded as
+    -- having LEFT at 08:45.
+    --
+    -- Fixed here at the source rather than in each consumer, because two of
+    -- them already carry the right guard and simply never had anything to
+    -- catch:
+    --   * get_attendance_dashboard_rpc.sql's avg_check_out_time already says
+    --     `and last_out is not null`, so it now excludes these days and stops
+    --     dragging the company average check-out earlier.
+    --   * is_early_leave below takes MAX over (app_check_out, hw_check_out);
+    --     with both NULL the comparison yields NULL and its existing
+    --     COALESCE(..., false) makes the flag false -- so a forgotten
+    --     badge-out stops being counted as leaving early.
+    -- This is the same class of bug avg_hours_worked already guards against
+    -- with `evidence_quality not in ('single_scan', ...)`; that guard sits
+    -- four lines below avg_check_out_time in the RPC and this column is why
+    -- the second one was never needed there.
+    --
+    -- Only when the day's SOLE evidence is one hardware scan. An app
+    -- check-out, or two or more scans, is unchanged. hw_check_out itself is
+    -- deliberately NOT touched -- MAX(scanned_at) genuinely IS the last scan,
+    -- it is a raw fact, and it feeds hw_hours and the remote-overlap window.
+    -- Only this derived "when did this person leave" column changes.
+    --
+    -- first_in needs no equivalent guard: on a single-scan day it is a real
+    -- arrival.
+    CASE
+        WHEN a.app_check_out IS NULL AND COALESCE(h.total_hw_scans, 0) = 1
+            THEN NULL
+        ELSE (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))
+    END AS last_out,
 
     -- Time-of-day only versions of first_in/last_out -- lets the List page
     -- filter "first_in later than 9am" as a plain column comparison
@@ -483,7 +517,16 @@ SELECT
     -- for lateArrivalsCount/earlyLeaveCount, so the List filter and the RPC
     -- KPI can never disagree.
     (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time AS first_in_time_of_day,
-    (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time AS last_out_time_of_day,
+    -- Same single-scan guard as last_out above -- restated rather than cast
+    -- from that alias, because a SELECT list cannot reference a sibling
+    -- output column (the constraint overtime_hours' own comment documents).
+    -- If these two ever disagree, the List page's time-of-day filter would
+    -- show a departure the day detail says does not exist.
+    CASE
+        WHEN a.app_check_out IS NULL AND COALESCE(h.total_hw_scans, 0) = 1
+            THEN NULL
+        ELSE (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))
+    END::time AS last_out_time_of_day,
 
     -- HR2000 leave ledger integration -- appended at the end, not inserted
     -- earlier in the list: CREATE OR REPLACE VIEW only allows new columns
@@ -574,8 +617,41 @@ SELECT
     -- drives the red badge on the attendance cards and the day sidebar as
     -- well as the dashboard KPI, and those were disagreeing -- the KPI
     -- filtered leave days out, the badge did not.
+    --
+    -- FULL-DAY GUARD (added 2026-09-23): no flag on a day that was worked in
+    -- full. Someone in at 07:00 and out at 16:00 has done a 9-hour span --
+    -- 8 paid hours, the whole contractual day, enough to start earning
+    -- overtime if they went further -- and was still flagged for leaving
+    -- before 17:00.
+    --
+    -- This aligns the flag with the rule the rest of the model already
+    -- follows. docs/hr/PAYROLL-DATA-REQUIREMENTS.md's "Overtime hours" row is
+    -- explicit that overtime is PURELY DURATION-BASED with no time-of-day
+    -- component, so that "an early arrival earns overtime exactly like a late
+    -- departure". Punctuality being purely clock-based while pay is purely
+    -- duration-based was the real inconsistency.
+    --
+    -- Note this does NOT make the work-location cutoff redundant. HR confirmed
+    -- (same doc) that KL's 17:00 finish is company LENIENCY, not a shorter
+    -- contractual day -- both sites owe the same 8 paid hours. So the cutoff
+    -- answers "did they leave before we allow?" and this guard answers "and
+    -- did they come up short?". A day needs both to be flagged.
+    --
+    -- Restates true_hours_worked and normal_hours_threshold inline rather than
+    -- referencing those aliases -- a SELECT list cannot reference a sibling
+    -- output column, the same constraint overtime_hours' own comment
+    -- documents. Keep the literal 8 in step with normal_hours_threshold below.
+    -- SINGLE-SCAN GUARD (added 2026-09-23), the same fix last_out above
+    -- carries -- and it has to be restated here, NOT inherited, because this
+    -- expression rebuilds MAX(app_check_out, hw_check_out) from the base
+    -- tables rather than reading last_out (a SELECT list cannot reference a
+    -- sibling output column). On a one-scan day hw_check_out is NOT null --
+    -- it is the arrival scan, since MAX = MIN -- so without this the flag
+    -- fires on every forgotten badge-out: "left early at 08:45".
     COALESCE(
         NOT u.is_weekend AND dh.holiday_name IS NULL AND dl.leave_emp_uuid IS NULL
+        AND NOT (a.app_check_out IS NULL AND COALESCE(h.total_hw_scans, 0) = 1)
+        AND GREATEST(0, GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1) < 8
         AND (SELECT MAX(v) FROM (VALUES (a.app_check_out), (h.hw_check_out)) AS t(v))::time < COALESCE(wl.early_leave_time, TIME '17:00:00'),
         false
     ) AS is_early_leave,
@@ -612,8 +688,24 @@ SELECT
     -- 09:00 threshold, and was being flagged as a late arrival for taking
     -- leave they had been granted. That fed both the red badge on their card
     -- and HR's Late Arrivals KPI.
+    -- FULL-DAY GUARD (added 2026-09-23): no flag on a day worked in full.
+    -- Someone in at 09:30 and out at 18:30 has done the whole contractual day
+    -- and was still flagged late. See is_early_leave's own comment above for
+    -- the full reasoning -- in short, overtime is purely duration-based
+    -- (docs/hr/PAYROLL-DATA-REQUIREMENTS.md), so punctuality being purely
+    -- clock-based was the inconsistency. A genuinely short day (in at 09:30,
+    -- out at 17:00) still flags, which is the case the KPI is actually for.
+    --
+    -- Restates true_hours_worked and normal_hours_threshold inline for the
+    -- same sibling-alias reason as the arrival expression below. Keep the
+    -- literal 8 in step with normal_hours_threshold and with is_early_leave.
+    --
+    -- No single-scan guard here, unlike is_early_leave: on a one-scan day
+    -- first_in is a REAL arrival, so "were they late" is still answerable.
+    -- Only the departure was fabricated.
     COALESCE(
         NOT u.is_weekend AND dh.holiday_name IS NULL AND dl.leave_emp_uuid IS NULL
+        AND GREATEST(0, GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) - 1) < 8
         AND (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v))::time > TIME '09:00:00',
         false
     ) AS is_late_arrival,
