@@ -640,12 +640,46 @@ duplicate rule means a duplicate notification to everyone it matches, on every
 event. Now deletes before inserting, which also cleans up any duplicates
 already present.
 
+### The weekly employee reminder, consolidated too
+
+`send_payroll_reconciliation_notifications()` looped over every employee and
+then over four categories, emitting up to **four notifications per employee per
+week**. It now sends **one**, naming each category with its count and linking
+to `needsReconciliation=true` for the period — a single filter covering every
+unresolved category, which is what made the consolidation possible.
+
+Far cheaper, too: the old shape ran one scalar `COUNT` against
+`unified_daily_attendance` per employee **per category** — four queries against
+an expensive view for every employee, every week. Now one grouped aggregate.
+
+**Two real bugs fixed with it:**
+
+- **Acknowledged days were nagging forever.** The absent and half-day branches
+  counted the RAW flags with no acknowledgement check, so an employee who had
+  already acknowledged an absence — or whose half-day HR had already reviewed
+  and accepted — kept being reminded every week, indefinitely, with no way to
+  stop it. Acknowledging exists precisely to close these, and the function
+  ignored it. Now reads the `is_unacknowledged_*` columns.
+- **Employees were chased about pending approvals they cannot action.**
+  `needs_reconciliation` includes hours on unapproved app activities, but an
+  employee cannot approve their own entry. That category is excluded from the
+  count here and chased through `check_attendance_approvals_pending()`, which
+  goes to the manager and HR.
+
+Day counts count **days, not flags** — one day can carry two categories, and
+"3 days need your attention" must not become 4 because one was doubly flagged.
+
+`queue_payroll_reconciliation_email_rpc.sql` also stopped minting
+`hrFlag=Absent&dayType=working` for its per-section links; it now emits
+`dayState=absent`. The legacy pair still resolves for links already sent, but
+there is no reason to keep generating them.
+
 ### Still outstanding on notifications
 
-- `payroll.reconciliation_outstanding` sends **up to four per employee per
-  week** — nested loops over employee × category. Same consolidation applies.
 - Approving, rejecting and acknowledging send **nothing back to the employee**
-  (verified: zero `emit_notification_event` calls in all three).
+  (verified: zero `emit_notification_event` calls in all three). Someone
+  submits a backfill, gets chased about it, then hears nothing when it is
+  approved.
 - `docs/hr/ATTENDANCE-DAILY-ALERTS-DESIGN.md` proposes **17 event types, one
   per employee-day per flag**, and is not built. It would multiply exactly the
   problem fixed above; revisit the design before building it.
