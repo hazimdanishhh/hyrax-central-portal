@@ -219,7 +219,7 @@ Batches are ordered so each one only depends on those before it.
 | 2.3a | Charts moved to `day_state` (SQL + 4 overview pages) | **DONE** (uncommitted) |
 | 2.3b | Dashboard KPI predicates off `hr_flag` | **DONE** (uncommitted) |
 | 2.4 | Payroll Export + its RPCs + the reconciliation sidebar | **DONE** |
-| 2.5 | Forms, settings, backfill wizard | not started |
+| 2.5 | Forms, settings, working-days card | **DONE** |
 
 ### Batch 2.1 — shared vocabulary (done)
 
@@ -533,6 +533,29 @@ instead: `is_expected_working_day and evidence_source <> 'none'`.
 **Deep links** now target the axes — `dayState=absent` (no longer needing the
 paired `dayType=working`, which could be forgotten), `approvalState=pending`,
 `evidenceQuality=single_scan` / `open_session`.
+
+### Batch 2.5 — working-days card (done)
+
+**No SQL.** The create/edit form and the settings page turned out to reference
+`hr_flag` only in comments, so the batch reduced to one real defect.
+
+`AttendanceActivityClockin`'s working-days figure counted **Mon–Fri and
+nothing else** — no public holidays, no work-location scoping, in browser-local
+time. The denominator behind that card could therefore never agree with any
+server-side figure: every holiday in the period inflated it, making attendance
+look worse than it was, and by a *different amount* for KL than for Meru.
+
+Replaced with `countExpectedWorkingDays` in `functions/attendanceDayState.js`,
+the client-side mirror of the view's `is_expected_working_day`, computed from
+the same `public_holidays` rows and applying the same location rule (a holiday
+counts when its `work_location_id` matches the employee's **or** is null).
+
+**It deliberately does not read `unified_daily_attendance`.** The card's "year"
+option needs a year-to-date figure, and the view currently times out over wide
+ranges (section 2). `public_holidays` has tens of rows and is already cached by
+`usePublicHolidays`. When the view's performance is fixed, this could read the
+column directly — but it agrees with it either way, because it is derived from
+the same data.
 
 ### What is left of `hr_flag`
 

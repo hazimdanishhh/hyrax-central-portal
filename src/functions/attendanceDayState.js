@@ -201,6 +201,78 @@ export const LEAVE_STATE_OPTIONS = [
 ];
 
 /**
+ * Counts EXPECTED WORKING DAYS between two dates, inclusive -- the client-side
+ * mirror of unified_daily_attendance's `is_expected_working_day`.
+ *
+ * WHY THIS EXISTS RATHER THAN READING THE COLUMN
+ *
+ * The obvious implementation is to count rows from the view. It is avoided on
+ * purpose: the only caller needs a year-to-date figure, and the view is
+ * expensive over wide ranges (see docs/setup/ATTENDANCE-DAY-MODEL-DEPLOYMENT-
+ * GUIDE.md section 2 -- large periods currently time out). This reads the
+ * public_holidays table instead, which has tens of rows.
+ *
+ * It is computed from the SAME source data as the column, so the two agree:
+ *
+ *   is_expected_working_day  ==  NOT is_weekend AND no holiday that day
+ *
+ * The holiday test mirrors the view's daily_holiday CTE: a holiday applies to
+ * an employee when its work_location_id matches theirs OR is null
+ * (company-wide). The view's DISTINCT ON precedence only decides which NAME
+ * wins when both exist; for "is this a holiday at all", either match is
+ * enough. An employee with no work location therefore gets company-wide
+ * holidays only -- same as the view, where `ph.work_location_id =
+ * e.work_location_id` is null and cannot match.
+ *
+ * Dates are built from y/m/d components rather than parsed from ISO strings:
+ * `new Date("2026-09-23")` is UTC midnight, which in a negative-offset
+ * timezone is the previous day. Only calendar components are read here, so
+ * this stays correct wherever the browser is -- the same reasoning as
+ * backfillWizardUtils.js's expandDateRange.
+ *
+ * REPLACES a Mon-Fri counter that had no holiday awareness at all, so the
+ * denominator it fed could never match any server-side figure.
+ */
+export function countExpectedWorkingDays(
+  startDate,
+  endDate,
+  holidays = [],
+  workLocationId = null,
+) {
+  if (!startDate || !endDate) return 0;
+
+  const holidayDates = new Set(
+    (holidays || [])
+      .filter(
+        (h) =>
+          h.work_location_id == null || h.work_location_id === workLocationId,
+      )
+      .map((h) => String(h.holiday_date).slice(0, 10)),
+  );
+
+  const [sy, sm, sd] = String(startDate).slice(0, 10).split("-").map(Number);
+  const [ey, em, ed] = String(endDate).slice(0, 10).split("-").map(Number);
+  if (!sy || !ey) return 0;
+
+  const cursor = new Date(sy, sm - 1, sd);
+  const last = new Date(ey, em - 1, ed);
+
+  let count = 0;
+  while (cursor <= last) {
+    const dow = cursor.getDay();
+    const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+
+    // Saturday (6) / Sunday (0) -- matches the view's
+    // EXTRACT(ISODOW ...) IN (6, 7).
+    if (dow !== 0 && dow !== 6 && !holidayDates.has(iso)) count += 1;
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return count;
+}
+
+/**
  * Turns a breakdown array from the dashboard RPCs -- [{ name, value }] where
  * `name` is the RAW column value -- into chart-ready rows whose `name` is the
  * display label.

@@ -26,6 +26,8 @@ import { useAttendance } from "../../context/AttendanceProvider";
 import useEmployeeAttendanceActivities from "../../hooks/useEmployeeAttendanceActivities";
 import { useEmployee } from "../../context/EmployeeContext";
 import useAttendanceActivityMutations from "../../features/hr/attendance/private/hooks/useAttendanceActivityMutations";
+import usePublicHolidays from "../../features/hr/attendance/private/hooks/usePublicHolidays";
+import { countExpectedWorkingDays } from "../../functions/attendanceDayState";
 
 export default function AttendanceActivityClockin() {
   const { darkMode, toggleMode } = useTheme();
@@ -50,38 +52,37 @@ export default function AttendanceActivityClockin() {
     error: errorAttendanceActivities,
   } = useEmployeeAttendanceActivities();
 
-  // GET WORKING DAYS BASED ON THE PERIOD (MONTH OR YEAR)
-  function getWorkingDays(period) {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+  // EXPECTED WORKING DAYS FOR THE PERIOD (month to date, or year to date).
+  //
+  // This used to count Mon-Fri and nothing else -- no public holidays, no
+  // work-location scoping. So the denominator behind this card could never
+  // agree with any server-side figure: every holiday in the period inflated
+  // it, making attendance look worse than it was, and by a different amount
+  // for KL than for Meru.
+  //
+  // countExpectedWorkingDays is the client-side mirror of the view's
+  // is_expected_working_day, computed from the same public_holidays rows. It
+  // deliberately does NOT read unified_daily_attendance: the year option needs
+  // a year-to-date figure, and the view is currently slow enough over wide
+  // ranges to time out (see the deployment guide). public_holidays has tens of
+  // rows and is already cached by usePublicHolidays.
+  const { holidays } = usePublicHolidays();
 
-    let start;
+  const periodStart =
+    period === "year"
+      ? `${new Date().getFullYear()}-01-01`
+      : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`;
+  const periodEnd = (() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  })();
 
-    if (period === "year") {
-      start = new Date(year, 0, 1);
-    } else {
-      start = new Date(year, month, 1);
-    }
-
-    const end = now;
-
-    let count = 0;
-    const current = new Date(start);
-
-    while (current <= end) {
-      const day = current.getDay();
-      const isWeekend = day === 0 || day === 6;
-
-      if (!isWeekend) count++;
-
-      current.setDate(current.getDate() + 1);
-    }
-
-    return count;
-  }
-
-  const workingDays = getWorkingDays(period);
+  const workingDays = countExpectedWorkingDays(
+    periodStart,
+    periodEnd,
+    holidays,
+    employee?.work_location_id ?? null,
+  );
 
   // FILTER ATTENDANCE BASED ON PERIOD
   const now = new Date();
