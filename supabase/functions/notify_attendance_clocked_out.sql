@@ -42,6 +42,27 @@ begin
         return new; -- no linked profile yet -- nobody to notify
     end if;
 
+    -- DO NOT notify someone about an action they just performed themselves
+    -- (added 2026-09-23). This trigger fires on every null -> not-null
+    -- transition of clocked_out_at, which includes the employee pressing
+    -- "Clock Out" in the app -- so it sent them an in-app notification AND an
+    -- email confirming a thing they had done two seconds earlier. Pure noise,
+    -- and it arrived every single working day.
+    --
+    -- auth.uid() is the discriminator, and it is reliable here: the two
+    -- automatic paths have no user session at all (auto_clock_out() runs under
+    -- pg_cron, and auto_clock_out_app_on_scan() fires from an ingest running
+    -- as the service role), so auth.uid() is null for both. A manual close by
+    -- the employee carries their own profile id.
+    --
+    -- Deliberately compares against the EMPLOYEE's profile rather than just
+    -- testing for null: when HR or a manager closes someone's session,
+    -- auth.uid() is set but belongs to a different person, and the employee
+    -- absolutely should be told that somebody else ended their session.
+    if auth.uid() is not null and auth.uid() = v_employee_profile_id then
+        return new;
+    end if;
+
     select at.name into v_type_name
     from public.attendance_types at where at.id = new.attendance_type_id;
 

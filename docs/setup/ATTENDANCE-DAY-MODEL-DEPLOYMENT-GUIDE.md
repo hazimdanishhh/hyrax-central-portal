@@ -674,6 +674,53 @@ Day counts count **days, not flags** — one day can carry two categories, and
 `dayState=absent`. The legacy pair still resolves for links already sent, but
 there is no reason to keep generating them.
 
+### The per-event notifications, reviewed (2026-09-23)
+
+The three remaining employee-facing notifications were reviewed against the
+same principle and two needed changing.
+
+**The rule applied:** send per-event only when something specific just happened
+**to** the person. Anything that is a **queue** gets one notification with a
+count and a filtered link.
+
+| Notification | Was | Now |
+|---|---|---|
+| Auto clock-out warning | 1 per **open session** — two sessions meant two identical warnings in the same minute | **1 per employee**, count in the message |
+| Clocked out | Fired even when the employee pressed Clock Out themselves — an in-app notification *and an email* confirming what they did three seconds earlier, every working day | Silent when self-initiated |
+| Clocked in | in-app **and email**, every morning, for a button they just pressed | **in-app only** |
+
+**How "self-initiated" is detected.** `auth.uid()` is the discriminator and it
+is reliable: both automatic paths have no user session — `auto_clock_out()`
+runs under pg_cron and `auto_clock_out_app_on_scan()` fires from an ingest
+running as the service role — so `auth.uid()` is null for both. The check
+compares against the **employee's own** profile rather than merely testing for
+null, because when HR or a manager closes someone's session `auth.uid()` is set
+but belongs to someone else, and the employee should absolutely be told.
+
+**Four seed files were bare INSERTs.** Re-running any of them silently created
+a duplicate rule — and a duplicate rule sends a duplicate notification to
+everyone it matches, on every event, forever. One of them documented the hazard
+and worked around it by *splitting into a separate file* rather than fixing it.
+All six notification seeds now delete before inserting.
+
+Verified against live data afterwards: only `payroll.reconciliation_digest_
+weekly` has more than one rule, and that is deliberate — two rules is how an OR
+between audiences is expressed here. No accumulated duplicates existed.
+
+### Keeping the rules reviewable
+
+`supabase/diagnostics/export_notification_rules.sql` produces a CSV for
+`docs/portal/NOTIFICATION-RULES.csv`, maintained the same way
+`TABLE-POLICIES.csv` is. Re-run it after any rule change.
+
+It resolves the audience into words, because the raw columns are misleading:
+`target_roles` and `target_departments` are **ANDed** when both are set, which
+is what made the weekly digest resolve to "HR people who are superadmins" —
+nobody — and fail silently for weeks. It also carries a per-event rule count
+for duplicate detection, plus four companion checks: genuine duplicates, rules
+that can match nobody, events emitted with no active rule, and active rules
+whose event type has not fired in 90 days.
+
 ### Still outstanding on notifications
 
 - Approving, rejecting and acknowledging send **nothing back to the employee**

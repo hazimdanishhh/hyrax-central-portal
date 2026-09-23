@@ -22,45 +22,57 @@ as $$
 declare
     v_row record;
 begin
+    -- ONE PER EMPLOYEE, not one per open session (consolidated 2026-09-23).
+    --
+    -- This looped over open activity rows, so an employee with two sessions
+    -- still running got two warnings at the same minute, saying the same
+    -- thing, about the same deadline. The action is identical either way --
+    -- go and close them -- so the count belongs in the message, not in the
+    -- number of notifications.
+    --
+    -- The cooldown is still stamped PER ROW below, the same way
+    -- check_tasks_due_soon.sql does it: the marker column exists to stop a
+    -- given SESSION being warned about twice, and consolidating the
+    -- notification must not weaken that.
     for v_row in
-        select
-            aa.id,
-            aa.employee_id,
-            e.profile_id as employee_profile_id,
-            at.name as type_name
+        select e.id            as employee_id,
+               e.profile_id    as employee_profile_id,
+               count(*)        as open_count
         from public.attendance_activities aa
         join public.employees e on e.id = aa.employee_id
-        left join public.attendance_types at on at.id = aa.attendance_type_id
         where aa.clocked_out_at is null
           and aa.evening_autoclockout_warned_at is null
+          and e.profile_id is not null
+        group by e.id, e.profile_id
     loop
         begin
-            if v_row.employee_profile_id is null then
-                continue; -- no linked profile yet -- nobody to notify
-            end if;
-
             perform public.emit_notification_event(
-                'attendance.autoclockout_approaching', 'attendance_activities', v_row.id::text,
+                'attendance.autoclockout_approaching', 'employees', v_row.employee_id::text,
                 jsonb_build_object(
-                    'activity_id', v_row.id,
                     'employee_id', v_row.employee_id,
                     'employee_profile_id', v_row.employee_profile_id,
+                    'open_count', v_row.open_count,
                     'notification_type', 'warning',
                     'title', 'You Will Be Automatically Clocked Out Soon',
                     'message', format(
-                        'You''re still clocked in for %s. You''ll be automatically clocked out around 5:00 PM MYT if you don''t clock out yourself first. If you''re still working after that, clock in again for remote work.',
-                        coalesce(v_row.type_name, 'remote work')
+                        'You are still clocked in for %s remote work session%s. %s be automatically clocked out around 5:00 PM MYT unless you clock out first. If you are still working after that, clock in again.',
+                        v_row.open_count,
+                        case when v_row.open_count = 1 then '' else 's' end,
+                        case when v_row.open_count = 1 then 'It will' else 'They will' end
                     ),
                     'link_to', '/app/employee/attendance/list'
                 )
             );
 
-            update public.attendance_activities
+            -- Stamp every session this notification covered.
+            update public.attendance_activities aa
                 set evening_autoclockout_warned_at = now()
-                where id = v_row.id;
+                where aa.employee_id = v_row.employee_id
+                  and aa.clocked_out_at is null
+                  and aa.evening_autoclockout_warned_at is null;
         exception when others then
-            raise warning 'attendance.autoclockout_approaching (evening) failed for activity %: %',
-                v_row.id, sqlerrm;
+            raise warning 'attendance.autoclockout_approaching (evening) failed for employee %: %',
+                v_row.employee_id, sqlerrm;
         end;
     end loop;
 end;

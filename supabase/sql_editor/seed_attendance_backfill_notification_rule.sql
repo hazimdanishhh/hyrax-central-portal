@@ -29,6 +29,11 @@
 -- seed_attendance_approval_pending_notification_rule.sql already notify the
 -- approver -- a second mechanism for the same fact could only disagree with
 -- the first.
+-- SAFE TO RE-RUN as of 2026-09-23 -- deletes before inserting. A bare INSERT
+-- silently created a duplicate rule on every re-run, and a duplicate rule
+-- means a duplicate notification to everyone it matches, on every event.
+delete from public.notification_rules where event_type = 'attendance.backfilled';
+
 insert into public.notification_rules
     (event_type, condition, target_payload_keys, channels)
 select 'attendance.backfilled', '{}'::jsonb,
