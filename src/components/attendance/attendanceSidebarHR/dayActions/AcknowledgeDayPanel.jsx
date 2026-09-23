@@ -17,27 +17,34 @@ import "./DayActions.scss";
 
 /**
  * Resolving a reconciliation flag on a day that is genuinely correct as it
- * stands -- overwhelmingly, confirming a real absence.
+ * stands.
  *
- * WHY THIS EXISTS: payroll_reconciliation_glossary already instructs the
- * employee to "confirm it is a genuine unexcused absence before payroll treats
- * the day as unpaid", and there was no way to do it. The only way to clear an
- * Absent flag was to add attendance -- i.e. to record work that never happened
- * -- so a real absence stayed flagged forever and re-nagged every week.
+ * ONE CATEGORY USES THIS: `insufficient_half_day` -- a half-day leave whose
+ * worked half came up short of the expected hours. It is the only flag with no
+ * upstream fix available: the leave fraction and the hours are both already
+ * correct, the day just looks short, so there is nothing to record in HR2000
+ * and acknowledging IS the resolution.
  *
- * ACKNOWLEDGING AN ABSENCE DECLARES THE DAY UNPAID. That is its whole meaning.
- * It does NOT remove the day from daysAbsentCount: the employee was absent and
- * payroll still deducts the day. What it closes is the review.
+ * Every other flag closes by CORRECTING THE DATA, not by declaring it closed.
+ * Absences resolve when the day reaches HR2000 (as NPL if genuinely unpaid) and
+ * the next leave sync turns it into an `on_leave` day, or when the attendance
+ * activity is added. Leave conflicts and leave fraction errors resolve on that
+ * same sync. Acknowledging any of them would be a second, competing source of
+ * truth for something already converging.
  *
- * Only two categories are acknowledgeable. Leave conflicts and leave data
- * errors are deliberately excluded -- both resolve themselves once the
- * corrected leave arrives in the next HR2000 sync, so acknowledging them would
- * create a second, competing source of truth.
+ * `category` is still a prop, and acknowledge_attendance_day still takes one,
+ * because the acknowledgement table is keyed on (employee, date, category) --
+ * the grain get_payroll_reconciliation_rows() emits. Absence acknowledgement
+ * was removed on 2026-09-23; see acknowledge_attendance_day_rpc.sql, which
+ * rejects 'absent' outright and is the authoritative gate.
+ *
+ * ACKNOWLEDGING CLOSES THE REVIEW, NOT THE FACT. The hours stay as recorded
+ * and the period totals are unchanged; what clears is the flag.
  */
 export default function AcknowledgeDayPanel({
   employeeId,
   workDateIso,
-  category, // "absent" | "insufficient_half_day"
+  category, // "insufficient_half_day"
   canAcknowledge,
   canRevoke,
 }) {
@@ -56,7 +63,7 @@ export default function AcknowledgeDayPanel({
   const existing = acknowledgements.find((a) => a.category === category);
   const selectedReason = reasons.find((r) => String(r.id) === String(reasonId));
 
-  const label = category === "absent" ? "Absence" : "Short half-day hours";
+  const label = "Short half-day hours";
 
   // Already resolved -- show who closed it and why, rather than the button.
   if (existing) {
@@ -101,11 +108,7 @@ export default function AcknowledgeDayPanel({
   if (!open) {
     return (
       <Button
-        name={
-          category === "absent"
-            ? "Acknowledge Absence"
-            : "Acknowledge Short Hours"
-        }
+        name="Acknowledge Short Hours"
         style="button buttonType4 rejection textBold textXXS"
         onClick={() => setOpen(true)}
       />
@@ -117,13 +120,11 @@ export default function AcknowledgeDayPanel({
   return (
     <div className="generalCard cardPaddingSmall cardGapSmall dayActionForm">
       <p className="textBold textXS">Acknowledge {label}</p>
-      {category === "absent" && (
-        <p className="textLight textXXS">
-          This records the day as a genuine absence and treats it as unpaid. It
-          stays counted as an absence for payroll — what it clears is the
-          reconciliation flag.
-        </p>
-      )}
+      <p className="textLight textXXS">
+        This accepts the recorded hours for the working half of the day as
+        correct. Nothing about the hours or the leave changes — what it clears
+        is the reconciliation flag.
+      </p>
 
       <SelectEditor
         value={reasonId}

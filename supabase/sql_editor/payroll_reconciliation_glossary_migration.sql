@@ -25,6 +25,16 @@ create table if not exists public.payroll_reconciliation_glossary (
 -- table (frontend or otherwise) gets a silently-null join.
 alter table public.payroll_reconciliation_glossary enable row level security;
 
+-- `drop policy if exists` before each `create policy`, added 2026-09-23.
+-- Without it this file was a ONE-SHOT: the table/insert halves are guarded
+-- (`if not exists`, `on conflict do nothing`) but these two were bare
+-- CREATEs, so any re-run died at the first one with
+-- `42710: policy "..." already exists` -- and because that aborts the whole
+-- paste, everything below it silently never ran. That is exactly how the
+-- 'absent' reword at the bottom was missed on its first attempt. Same fix
+-- applied to leave_ledger_crud.sql for the same reason.
+drop policy if exists "Authenticated users can view payroll reconciliation glossary"
+    on public.payroll_reconciliation_glossary;
 create policy "Authenticated users can view payroll reconciliation glossary"
 on public.payroll_reconciliation_glossary
 for select to authenticated
@@ -33,6 +43,8 @@ using (true);
 -- Superadmin-only write -- pre-wires "HR can edit wording without a code
 -- deploy" for later without a second migration. No such editing UI exists
 -- yet.
+drop policy if exists "Superadmin can manage payroll reconciliation glossary"
+    on public.payroll_reconciliation_glossary;
 create policy "Superadmin can manage payroll reconciliation glossary"
 on public.payroll_reconciliation_glossary
 for all to authenticated
@@ -44,7 +56,7 @@ insert into public.payroll_reconciliation_glossary
 ('absent',
  'Absent',
  'No attendance (no hardware scan, no app check-in) and no leave was logged for this employee on a working day -- not a weekend, not a public holiday.',
- 'Confirm whether this was planned leave that was never logged -- apply for it retroactively -- or confirm it is a genuine unexcused absence before payroll treats the day as unpaid.'),
+ 'If you did work, report the missing activity for that day. Otherwise tell HR what the day was, so it can be recorded in HR2000 -- as unpaid leave if there is no entitlement left to cover it. The flag clears on the next leave sync once it is there.'),
 ('leave_conflict',
  'Leave / Attendance Conflict',
  'A full day of leave was recorded for this date, but real attendance also exists on the same day.',
@@ -58,3 +70,24 @@ insert into public.payroll_reconciliation_glossary
  'Leave entries for this date sum to more than one full day -- a data-entry error, not an attendance issue.',
  'Flag this date to HR for correction in the leave ledger; do not treat this date as resolved until it is fixed.')
 on conflict (code) do nothing;
+
+-- REWORD 'absent' (2026-09-23). The insert above is `on conflict do nothing`,
+-- so on any database where the row already exists it changes nothing -- this
+-- statement is what actually updates the wording.
+--
+-- The old text ended "...or confirm it is a genuine unexcused absence before
+-- payroll treats the day as unpaid", which instructed the employee to do
+-- something that no longer exists: absence acknowledgement was removed, and
+-- acknowledge_attendance_day now rejects p_category = 'absent'. This text is
+-- read by the reconciliation sidebar AND composed into the weekly employee
+-- email (queue_payroll_reconciliation_email_rpc.sql), so leaving it would have
+-- been the app telling people to click a button that is not there.
+update public.payroll_reconciliation_glossary
+set employee_action_text =
+        'If you did work, report the missing activity for that day. Otherwise '
+        'tell HR what the day was, so it can be recorded in HR2000 -- as '
+        'unpaid leave if there is no entitlement left to cover it. The flag '
+        'clears on the next leave sync once it is there.',
+    updated_at = now()
+where code = 'absent'
+  and employee_action_text like 'Confirm whether this was planned leave%';

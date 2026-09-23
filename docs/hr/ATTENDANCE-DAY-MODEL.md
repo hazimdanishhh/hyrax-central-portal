@@ -104,30 +104,39 @@ No badge means either approved, or there was no app entry at all.
 "Needs Reconciliation" is the filter that answers *what is still outstanding
 this cycle*. It covers **five** situations:
 
-| Category | Can it be closed by acknowledging? | Who can close it |
+| Category | How it closes | Who closes it |
 |---|---|---|
-| Absent (not yet reviewed) | **Yes** | The employee, their manager, HR, or a superadmin |
-| Insufficient Half-Day Hours | **Yes** | HR or superadmin only |
-| Leave/Attendance Conflict | No | Resolves itself once HR2000 is corrected |
-| Leave Data Error | No | Resolves itself once HR2000 is corrected |
-| Pending Approval Hours | No | Someone must approve or reject the entry |
+| Absent | The day is **recorded in HR2000**, or the missing attendance is added | HR (in HR2000), or the employee/HR adding the activity |
+| Insufficient Half-Day Hours | **Acknowledged** in the portal | HR or superadmin only |
+| Leave/Attendance Conflict | Corrected in HR2000 | HR, upstream |
+| Leave Data Error | Corrected in HR2000 | HR, upstream |
+| Pending Approval Hours | Approved or rejected | The manager or HR |
 
-### What acknowledging actually means
+### Four of the five close by fixing the data, not by dismissing it
 
-**Acknowledging an absence declares the day unpaid.** It is a decision, not a
-dismissal — the day still counts as an absence in every report, and the
-Payroll Export still shows it. What acknowledging closes is the **review**, not
-the fact.
+Only **Insufficient Half-Day Hours** is closed by acknowledging, and only by
+HR. It is the one category with nothing to fix upstream: the leave fraction and
+the hours are both already correct, the day just looks short. Acknowledging
+records that the hours were reviewed and accepted. It does not change pay, and
+only HR or a superadmin can undo it.
 
-Acknowledging insufficient half-day hours is different: it records that the
-hours were reviewed and accepted. It does not change pay.
+> **Absences used to be acknowledgeable. They are not any more (2026-09-23).**
+> Acknowledging never changed a pay figure — the day was deducted in HR2000
+> either way — and every unexcused absence ends up in HR2000 as an NPL entry
+> regardless, which the next leave sync turns into an `On Leave` day that
+> clears the flag on its own. Acknowledging in the portal only let the review
+> be closed *without* the record ever reaching the system that actually pays.
+>
+> **So an absent day now has exactly two resolutions:** add the attendance if
+> they worked, or record the day in HR2000 if they did not. Until one happens,
+> the day stays flagged and the weekly reminder keeps going out.
 
-Only HR or a superadmin can undo an acknowledgement.
+The other two data-driven categories work the same way, and always have.
 
-> **Why two categories cannot be acknowledged.** Leave conflicts and leave data
-> errors come from the HR2000 leave ledger, which is re-synced on a schedule.
-> Correcting the record upstream makes them disappear on their own. Suppressing
-> them here would hide a problem that is still in the source data.
+> **Why leave conflicts and leave data errors were never acknowledgeable.**
+> Same reasoning. Both come from the HR2000 leave ledger, which is re-synced on
+> a schedule. Correcting the record upstream makes them disappear on their own.
+> Suppressing them here would hide a problem that is still in the source data.
 
 ---
 

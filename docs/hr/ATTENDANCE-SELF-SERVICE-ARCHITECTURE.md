@@ -518,41 +518,69 @@ first.
 ## Acknowledging a flag — resolving a day that is correct as it stands
 
 The reconciliation write path above closed one half of the loop: a day that was
-*wrong* could finally be fixed. The other half was still missing, and the
-glossary was already promising it. `payroll_reconciliation_glossary` tells the
-employee, for an absence:
+*wrong* could finally be fixed. The other half — closing a day that is *correct
+as it stands* — is this.
 
-> "Confirm whether this was planned leave that was never logged — apply for it
-> retroactively — **or confirm it is a genuine unexcused absence** before
-> payroll treats the day as unpaid."
+**Acknowledging closes the REVIEW, not the FACT.**
+`get_payroll_period_summary_rpc.sql`'s raw counts deliberately still include an
+acknowledged day. What acknowledging feeds is a parallel
+`unacknowledgedInsufficientHalfDayCount` (and `unacknowledgedAbsenceCount`,
+which since 2026-09-23 always equals the raw count), which is what the Payroll
+Export row-flag badge and the "Needs Reconciliation" filter read. Collapsing
+the two would silently under-report to payroll — this is the one place in this
+feature with money directly attached, so it is worth restating: the raw counts
+are payroll's, the `unacknowledged*` counts are the UI's.
 
-There was no way to do the second half. The only way to clear an `Absent` flag
-was to add attendance — i.e. to record work that never happened. So a genuine
-absence stayed flagged forever, reappearing in every weekly reminder and every
-payroll export, and the reconciliation list could never reach zero.
+### Scope — one category, not four
 
-**Semantics, confirmed with HR: acknowledging an absence declares the day
-UNPAID.** That is its whole meaning, which removes the paid/unpaid ambiguity
-entirely — the reason attached to it is audit/reporting only, not a payroll
-switch.
+`insufficient_half_day` is the only acknowledgeable category, and only by HR or
+a superadmin.
 
-**Acknowledging closes the REVIEW, not the FACT.** `daysAbsentCount` on
-`get_payroll_period_summary_rpc.sql` deliberately still counts an acknowledged
-day: the employee was absent and payroll still deducts an unpaid day. What
-acknowledging feeds is a parallel `unacknowledgedAbsenceCount` (and
-`unacknowledgedInsufficientHalfDayCount`), which is what the Payroll Export
-row-flag badge and the "Needs Reconciliation" filter read. Collapsing the two
-would silently under-report unpaid days to payroll — this is the one place in
-this feature with money directly attached, so it is worth restating: the raw
-counts are payroll's, the `unacknowledged*` counts are the UI's.
+It is the exception because it is the one flag with **nothing to fix upstream**:
+the leave fraction and the hours are both already correct, the day just looks
+short. There is nothing to record in HR2000, so acknowledging *is* the
+resolution, and its single reason ("Hours Reviewed and Accepted") says exactly
+that.
 
-### Scope — two categories, not four
+The other three all resolve by correcting the data:
 
-Only `absent` and `insufficient_half_day` are acknowledgeable. `leave_conflict`
-and `leave_fraction_error` are deliberately excluded: both resolve themselves
-once the corrected leave lands in the next HR2000 weekly sync
-(`sync_leave_ledger_from_snapshot`), so an acknowledgement would be a second,
-competing source of truth for something already converging on its own.
+| Category | Resolution |
+| --- | --- |
+| `absent` | Recorded in HR2000 (as NPL if genuinely unpaid), then cleared by the next leave sync — or the missing attendance is added |
+| `leave_conflict` | Corrected leave lands in the next HR2000 sync |
+| `leave_fraction_error` | Same |
+
+Acknowledging any of those would be a second, competing source of truth for
+something already converging on its own.
+
+#### Absence acknowledgement was removed on 2026-09-23
+
+It existed from the start of this feature, with the semantics *"acknowledging
+an absence DECLARES THE DAY UNPAID"*, and four seeded reasons (absent without
+notice / notified, no leave entitlement / sick without MC / unpaid leave
+agreed). It was removed once it was confirmed that **every unexcused absence
+ends up in HR2000 as an NPL entry regardless**, which
+`sync_leave_ledger_from_snapshot` turns into an `on_leave` day that clears the
+flag on its own.
+
+Two things follow, and both are why removing it cost nothing:
+
+- **It never moved a pay figure.** `acknowledged + unacknowledged` always
+  summed to `daysAbsentCount`, and payroll deducts in HR2000 either way.
+- **It let the review be closed without the record reaching the system that
+  actually pays** — a second, weaker source of truth for a day that has a real
+  one coming.
+
+`acknowledge_attendance_day` now rejects `p_category = 'absent'` outright and
+is the authoritative gate; the UI simply no longer offers the action. The four
+absent-only reasons are `is_active = false` rather than deleted (`reason_id` is
+a FK). `revoke_attendance_day_acknowledgement` still *accepts* `'absent'`, so
+any pre-existing row stays clearable. See
+`docs/setup/LEAVE-TYPES-AND-ABSENCE-ACKNOWLEDGEMENT-DEPLOYMENT-GUIDE.md`.
+
+The plumbing was deliberately left intact — the table, its `category` column,
+the view's `is_unacknowledged_*` columns. Dropping them would mean `DROP VIEW`
+plus rewriting four RPCs, for a feature that is simply no longer reachable.
 
 ### The grain, and why it is the right one
 
@@ -568,30 +596,29 @@ Reasons live in a sibling lookup (`attendance_acknowledgement_reasons`),
 mirroring `attendance_adjustment_reasons`, plus an `applicable_categories
 text[]` to scope reasons per category — the shape `EXPENSE-CLAIMS-DESIGN.md`
 already specifies for `expense_claim_categories.applicable_claim_types`. The
-seeded labels (absent without notice / notified, no leave entitlement / sick
-without MC / unpaid leave agreed / other) are a **proposal, not confirmed
-company policy** — flagged in the migration with the same caveat
-`leave_ledger_types.is_paid` carries.
+seeded labels are a **proposal, not confirmed company policy** — flagged in the
+migration with the same caveat `leave_ledger_types.is_paid` carries. Two are
+live ("Hours Reviewed and Accepted" and "Other"); the four absent-only ones
+(absent without notice / notified, no leave entitlement / sick without MC /
+unpaid leave agreed) are `is_active = false` as of 2026-09-23.
 
-### Authorization is category-dependent, which is why it lives in an RPC
+### The rules live in an RPC, not in RLS
 
-```
-absent                -> self OR direct manager OR HR OR superadmin
-insufficient_half_day -> HR OR superadmin only
-```
+`acknowledge_attendance_day` enforces three things no policy could express
+together:
 
-An employee confirming their own absence is an admission against their own
-interest — the day is unpaid either way, so there is nothing to gain and no
-reason to withhold it. An employee waving away "insufficient half-day hours"
-*is* to their advantage, so that one stays with HR. Splitting that across RLS
-policies would have been far less legible than one `acknowledge_attendance_day`
-function, which is also where the "is this day genuinely flagged right now"
-check lives — without it you could pre-acknowledge a day that was never flagged
-and permanently suppress a problem that had not happened yet.
+1. The category must be `insufficient_half_day`. `absent` is rejected with a
+   hint pointing at HR2000; everything else is rejected as unacknowledgeable.
+2. The actor must be HR or a superadmin. Waving away short half-day hours is to
+   the employee's advantage, so it is not theirs to wave.
+3. **The day must genuinely carry the flag right now.** Without this you could
+   pre-acknowledge a day that was never flagged and permanently suppress a
+   problem that had not happened yet.
 
-`revoke_attendance_day_acknowledgement` is HR/superadmin only even for an
-absence the employee closed themselves: re-opening a settled payroll item is a
-different act from closing one.
+`revoke_attendance_day_acknowledgement` is HR/superadmin only: re-opening a
+settled payroll item is a different act from closing one. It still accepts
+`'absent'`, so a row written before the removal stays clearable rather than
+stranded permanently suppressed.
 
 The RPC is idempotent — two people clicking the same button returns the
 existing row rather than erroring on the unique key.
@@ -608,12 +635,16 @@ existing row rather than erroring on the unique key.
 ### UI
 
 `AttendanceSidebarHR` gained a day-actions block above the Activity Timeline:
-**Add Activity** (see below) and **Acknowledge Absence**. Both live at *sidebar*
-level rather than on a timeline card, for a structural reason —
+**Add Activity** (see below) and **Acknowledge Short Hours**. Both live at
+*sidebar* level rather than on a timeline card, for a structural reason —
 `AttendanceTimelineCard` early-returns for Leave/Holiday rows and gates its
 actions on `event_source === "App"`, and on an absent day `timelineData` is
 empty, so there is no card at all to hang a button off. The absent day is
-exactly the day reconciliation cares about.
+exactly the day reconciliation cares about, and Add Activity is now its only
+in-portal action.
+
+An **Acknowledge Absence** button sat beside them until 2026-09-23. It is gone;
+the RPC rejects the category regardless.
 
 Once set, the panel shows who acknowledged it, when, and why, with a revoke
 action for HR.

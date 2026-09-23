@@ -16,8 +16,12 @@ export const payrollPeriodSummaryExportColumns = [
   { label: "Total Working Days", accessor: (row) => row.totalWorkingDaysCount || 0 },
   { label: "Actual Days Worked", accessor: (row) => row.actualDaysWorkedCount || 0 },
   { label: "Days Absent", accessor: (row) => row.daysAbsentCount || 0 },
-  // Split of "Days Absent" by review status -- see tableConfig.jsx's matching entry.
-  { label: "Confirmed Unpaid Absences", accessor: (row) => row.acknowledgedAbsenceCount || 0 },
+  // See tableConfig.jsx's matching entry. This CHANGES THE CSV FILE SHAPE:
+  // "Confirmed Unpaid Absences" (acknowledgedAbsenceCount) sat here until
+  // 2026-09-23 and was dropped with absence acknowledgement. Keeping it would
+  // have shipped a permanently-zero column reading "no confirmed absences"
+  // rather than "this no longer exists", and would have broken this file's
+  // own stated invariant of matching tableConfig.jsx column for column.
   { label: "Pending Review (Absent)", accessor: (row) => row.unacknowledgedAbsenceCount || 0 },
   { label: "Holiday Days Worked", accessor: (row) => row.holidayDaysWorkedCount || 0 },
   { label: "Holiday Hours Worked", accessor: (row) => Number(row.holidayHoursWorkedTotal || 0).toFixed(2) },

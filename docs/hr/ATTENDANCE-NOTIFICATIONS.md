@@ -133,32 +133,41 @@ flowchart TD
 
     N9 --> Fix{"Employee responds"}
     Fix -->|Adds attendance| Resolved(["Day resolved"])
-    Fix -->|Applies leave| Resolved
-    Fix -->|Acknowledges the absence| ACK["Day declared unpaid"]
+    Fix -->|Tells HR what the day was| HR2000["Recorded in HR2000<br/>as NPL if unpaid"]
     Fix -->|Does nothing| Scan
 
-    ACK --> GAP3[/"NOTHING sent to HR —<br/>KNOWN GAP"/]
+    HR2000 --> Sync["Weekly leave sync"]
+    Sync --> Resolved
 
     N10 --> HRWork["HR reviews Payroll Export"]
-    HRWork --> HRACK{"HR acknowledges?"}
+    HRWork --> HRACK{"HR acknowledges<br/>short half-day hours?"}
     HRACK -->|Yes| GAP4[/"NOTHING sent to employee —<br/>KNOWN GAP"/]
     HRACK -->|No| HRWork
 
     Resolved --> Export(["Payroll package finalised"])
-    GAP3 --> Export
     GAP4 --> Export
 ```
 
+**An absent day is resolved upstream, not in the portal.** Acknowledging an
+absence was removed on 2026-09-23: it never changed a pay figure, and it let
+the review be closed without the record ever reaching HR2000, which is where
+the day is actually deducted. The two arrows out of "Employee responds" above
+are now the only two resolutions.
+
 **Two things this cycle gets right that it previously did not:**
 
-- **Acknowledged days stop nagging.** The reminder used to count the raw flags
-  with no acknowledgement check, so once a day was acknowledged the employee
-  kept being reminded about it every week, indefinitely, with no way to stop
-  it. Acknowledging is the mechanism that exists to close these.
+- **Resolved days stop nagging.** The reminder used to count the raw flags with
+  no suppression check, so a day that had been dealt with kept being reminded
+  about every week, indefinitely, with no way to stop it.
 - **Employees are not chased about approvals.** Hours awaiting approval count
   as outstanding for payroll, but the employee cannot approve their own entry.
   That category is excluded from their reminder and chased to the manager and
   HR instead — the people who can act.
+
+**One thing it still gets wrong:** the reminder will chase an absent day that
+is already sitting in HR2000, waiting for the next sync — a round-trip nobody
+in the portal can see. If that proves noisy, the fix is to surface sync recency
+beside the reminder, not to reinstate acknowledgement.
 
 ---
 
@@ -189,11 +198,17 @@ acknowledging all emit nothing. An employee submits a backfill, gets chased
 about it for days, then hears silence when it is finally approved — and has no
 way to know except by going to look. This is the clearest remaining gap and the
 smallest to close: three functions, one `emit_notification_event` call each.
+The same applies to an absent day cleared by the leave sync — the day quietly
+stops being flagged, and nobody is told it happened.
 
-**2. HR is not told when an employee self-acknowledges an absence.** That
-action declares a day unpaid. It is the correct outcome and the employee is
-permitted to do it, but HR finding out only by re-reading the Payroll Export is
-thin for something with a pay consequence.
+**2. An absent day waiting on HR2000 looks identical to one nobody has touched.**
+Since absences now resolve by being recorded upstream and re-synced, an
+employee who has already told HR keeps getting the same weekly reminder as one
+who has done nothing, until the sync runs. Surfacing sync recency beside the
+reminder would close this.
+
+*(The previous item here — "HR is not told when an employee self-acknowledges
+an absence" — was resolved on 2026-09-23 by removing that ability entirely.)*
 
 **3. `docs/hr/ATTENDANCE-DAILY-ALERTS-DESIGN.md` is not built, and should be
 revisited before it is.** It proposes **17 event types, one per employee-day

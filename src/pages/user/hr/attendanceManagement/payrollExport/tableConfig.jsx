@@ -25,10 +25,16 @@ export function payrollPeriodSummaryTableConfig() {
     { key: "totalWorkingDaysCount", label: "Total Working Days", getValue: (row) => row.totalWorkingDaysCount || 0 },
     { key: "actualDaysWorkedCount", label: "Actual Days Worked", getValue: (row) => row.actualDaysWorkedCount || 0 },
     { key: "daysAbsentCount", label: "Days Absent", getValue: (row) => row.daysAbsentCount || 0 },
-    // Split of daysAbsentCount above by review status -- acknowledgedAbsenceCount
-    // + unacknowledgedAbsenceCount always equals daysAbsentCount. daysAbsentCount
-    // itself stays unchanged (every Absent day counts, reviewed or not).
-    { key: "acknowledgedAbsenceCount", label: "Confirmed Unpaid Absences", getValue: (row) => row.acknowledgedAbsenceCount || 0 },
+    // Kept despite now always equalling daysAbsentCount above, because it is
+    // ACCURATE -- absence acknowledgement was removed on 2026-09-23, so every
+    // absent day is genuinely unresolved until HR2000 clears it -- and it is
+    // the column that carries red/green urgency (see kpiCardConfig.js), which
+    // the plain count does not.
+    //
+    // Its former sibling "Confirmed Unpaid Absences" (acknowledgedAbsenceCount)
+    // was removed in the same pass: the RPC still returns it, but it can only
+    // ever be 0 now, and a permanently-zero column reads as "no confirmed
+    // absences" rather than "this no longer exists".
     { key: "unacknowledgedAbsenceCount", label: "Pending Review (Absent)", getValue: (row) => row.unacknowledgedAbsenceCount || 0 },
     { key: "holidayDaysWorkedCount", label: "Holiday Days Worked", getValue: (row) => row.holidayDaysWorkedCount || 0 },
     { key: "holidayHoursWorkedTotal", label: "Holiday Hours Worked", getValue: (row) => Number(row.holidayHoursWorkedTotal || 0).toFixed(2) },

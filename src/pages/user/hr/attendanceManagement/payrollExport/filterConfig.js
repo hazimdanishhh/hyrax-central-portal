@@ -35,15 +35,19 @@ export function getPayrollExportFilterConfig({ departments, employees, workLocat
       // each value to its row predicate, so this list and that predicate can
       // never drift apart.
       //
-      // "Needs Reconciliation (Any)" is the union of the FIVE unresolved
-      // categories -- everything below except "Absent - Confirmed Unpaid",
-      // which is a resolved state offered for audit drill-down. See
+      // "Needs Reconciliation (Any)" is the union of the five categories
+      // below it. Every option here is now an unresolved state -- see
       // getRowReconciliationFlags for the invariant that keeps that true.
+      //
+      // "Absent - Confirmed Unpaid" (confirmedAbsence) was removed on
+      // 2026-09-23 along with absence acknowledgement itself. It was the one
+      // RESOLVED state in this list, offered for audit drill-down; with
+      // nothing able to produce an acknowledged absence any more it could only
+      // ever filter to an empty table.
       key: "needsReconciliation",
       label: "Reconciliation",
       options: [
         { label: "Needs Reconciliation (Any)", value: "true" },
-        { label: "Absent - Confirmed Unpaid", value: "confirmedAbsence" },
         { label: "Absent - Pending Review", value: "pendingAbsence" },
         { label: "Leave/Attendance Conflict", value: "leaveConflict" },
         { label: "Insufficient Half-Day Hours", value: "insufficientHalfDay" },
@@ -63,9 +67,9 @@ export function getPayrollExportFilterConfig({ departments, employees, workLocat
 // INVARIANT: this list is exactly the "Needs Reconciliation (Any)" filter,
 // because rowNeedsReconciliation() below is literally "did this produce a
 // flag?". So every value in getPayrollExportFilterConfig's dropdown that
-// represents an UNRESOLVED problem must have a branch here. "confirmedAbsence"
-// deliberately does not -- it is a resolved state, offered as a drill-down for
-// audit, and folding it in would make "Any" report reviewed days as problems.
+// represents an UNRESOLVED problem must have a branch here. Since
+// "confirmedAbsence" was removed on 2026-09-23, every value in that dropdown
+// now does -- the list and the dropdown are one-to-one.
 //
 // Keep in step with getReconciliationCategoryPredicate at the bottom of this
 // file: same categories, same source fields. They drifted once (pendingApproval
@@ -74,12 +78,17 @@ export function getPayrollExportFilterConfig({ departments, employees, workLocat
 // them outright) -- that is the failure this invariant exists to prevent.
 export function getRowReconciliationFlags(row) {
   const flags = [];
-  // OUTSTANDING counts, not the raw ones. daysAbsentCount /
-  // insufficientHalfDayHoursCount stay whole for payroll -- an acknowledged
-  // absence is still an absence and still an unpaid day -- so the reconciliation
-  // badge reads the unacknowledged* counterparts instead. Reading the raw counts
-  // here would leave a resolved day flagged forever, which is the exact problem
+  // OUTSTANDING counts, not the raw ones. insufficientHalfDayHoursCount stays
+  // whole for payroll, so the reconciliation badge reads the unacknowledged*
+  // counterpart instead; reading the raw count here would leave an
+  // acknowledged day flagged forever, which is the exact problem
   // acknowledgement exists to fix.
+  //
+  // unacknowledgedAbsenceCount now always equals daysAbsentCount, since
+  // absences stopped being acknowledgeable on 2026-09-23. It is read here
+  // anyway rather than switched to the raw count: the RPC still computes both,
+  // the fallback costs nothing, and this keeps the shape uniform with the
+  // half-day line below.
   //
   // The other two categories have no unacknowledged* variant because they are
   // not acknowledgeable: both clear themselves once corrected leave arrives in
@@ -130,14 +139,14 @@ export function rowNeedsReconciliation(row) {
 // Per-category predicates behind the "Reconciliation" filter's specific
 // values (see getPayrollExportFilterConfig above) and every Overview Cards
 // tile (overviewConfig.js) -- one place so a tile's count and what clicking
-// it actually filters to can never silently disagree. "confirmedAbsence" is
-// the one non-problem category (already reviewed) -- included here anyway so
-// its card can drill down for audit purposes the same way every other card
-// does, not because it needs reconciling.
+// it actually filters to can never silently disagree.
+//
+// Every branch here is now an unresolved problem. "confirmedAbsence"
+// (acknowledgedAbsenceCount > 0) was the one exception -- a resolved state
+// kept for audit drill-down -- and went with absence acknowledgement on
+// 2026-09-23.
 export function getReconciliationCategoryPredicate(value) {
   switch (value) {
-    case "confirmedAbsence":
-      return (row) => (row.acknowledgedAbsenceCount || 0) > 0;
     case "pendingAbsence":
       return (row) => (row.unacknowledgedAbsenceCount || 0) > 0;
     case "leaveConflict":

@@ -56,17 +56,18 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
       cards: [
         // A "Confirmed Unpaid Absences" card (acknowledgedAbsenceCount, blue)
         // sat here and was deliberately dropped: this group answers "what
-        // still needs HR's attention", and a reviewed absence doesn't. The
-        // reviewed portion is still reachable from Payroll Export's own
-        // "Absent - Confirmed Unpaid" reconciliation filter.
+        // still needs HR's attention", and a reviewed absence didn't. As of
+        // 2026-09-23 there is no reviewed portion at all -- absences are no
+        // longer acknowledgeable -- so the count below is the whole of
+        // daysAbsentCount.
         {
-          label: "Unacknowledged Absences",
+          label: "Outstanding Absences",
           value: row.unacknowledgedAbsenceCount || 0,
           link: `/app/hr/attendance/list?employee=${row.employeeUuid}&startDate=${startDate}&endDate=${endDate}&dayState=absent&needsReconciliation=true`,
           variant:
             (row.unacknowledgedAbsenceCount || 0) > 0 ? "redCard" : "greenCard",
           description:
-            "Absences not yet reviewed -- resolve via Add Activity, applying leave, or acknowledging the absence before finalizing payroll.",
+            "Absences with no explanation on record -- resolve by adding the attendance activity if they worked, or by recording the day in HR2000 (as NPL if genuinely unpaid), which the next leave sync will clear.",
         },
         {
           label: "Leave/Attendance Conflicts",

@@ -16,10 +16,10 @@ import {
 export function computePayrollReconciliationOverview(rows) {
   return (rows || []).reduce(
     (acc, row) => {
-      // No confirmedUnpaidAbsences accumulator: these tiles are the
-      // "what still needs attention" row, and a reviewed absence doesn't.
-      // It stays reachable through the "Absent - Confirmed Unpaid" value of
-      // the Reconciliation filter (filterConfig.js) for audit.
+      // No confirmedUnpaidAbsences accumulator, and there never can be one
+      // again: absence acknowledgement was removed on 2026-09-23, so
+      // acknowledgedAbsenceCount is permanently 0 and pendingAbsences now
+      // equals the period's whole daysAbsentCount.
       acc.pendingAbsences += Number(row.unacknowledgedAbsenceCount || 0);
       acc.leaveConflicts += Number(row.leaveAttendanceConflictCount || 0);
       acc.insufficientHalfDay += Number(
@@ -46,11 +46,9 @@ export function computePayrollReconciliationOverview(rows) {
 //
 // These are the five UNRESOLVED categories, matching
 // getRowReconciliationFlags exactly -- so the tiles, the row badges and the
-// "Needs Reconciliation (Any)" filter are all the same set. Confirmed-unpaid
-// absences are deliberately absent: already reviewed and closed (see
-// attendance_reconciliation_acknowledgements_migration.sql's "DECLARES THE
-// DAY UNPAID"), so a tile for them would read as a sixth problem. Still
-// reachable via the filter's "Absent - Confirmed Unpaid" value.
+// "Needs Reconciliation (Any)" filter are all the same set. There is no
+// confirmed-unpaid-absences tile; there was never one, and since 2026-09-23
+// there is nothing left that could fill it.
 //
 // Segmenting/coloring, deliberately NOT a uniform red-when-nonzero across the
 // board (that would just be the same lumped signal repeated five times):

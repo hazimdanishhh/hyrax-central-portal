@@ -88,17 +88,6 @@ export default function AttendanceSidebarHR({
 
   const [addingActivity, setAddingActivity] = useState(false);
 
-  // Only a real absence on a real working day is acknowledgeable -- offering
-  // to "acknowledge an absence" on a Sunday would be nonsense.
-  //
-  // day_state = 'absent' already means exactly that. Under hr_flag this needed
-  // three conditions, because 'Absent' also matched every unworked Saturday
-  // and every unworked public holiday, so the two guards beside it were
-  // load-bearing rather than defensive. day_state's `absent` only occurs on an
-  // ordinary day with no leave and no evidence, so the guards are now built
-  // into the value and cannot be forgotten by a caller.
-  const isAbsentWorkingDay = selectedRow?.day_state === "absent";
-
   // Which single timeline card produced this day's late-arrival /
   // early-leave flags -- see getAnomalyAnchorActivityIds for why only one
   // card may carry each.
@@ -252,20 +241,15 @@ export default function AttendanceSidebarHR({
         />
       )}
 
-      {/* Acknowledging a flag that is CORRECT as it stands -- overwhelmingly,
-          confirming a real absence so it stops being an open payroll item.
-          Absences: employee, manager or HR. Short half-day hours: HR only,
-          since waving that one away is to the employee's advantage. */}
-      {workDateIso && isAbsentWorkingDay && (
-        <AcknowledgeDayPanel
-          employeeId={selectedRow.employee_uuid}
-          workDateIso={workDateIso}
-          category="absent"
-          canAcknowledge
-          canRevoke={mode === "hr"}
-        />
-      )}
+      {/* Acknowledging a flag that is CORRECT as it stands. HR only, since
+          waving away short half-day hours is to the employee's advantage.
 
+          There was a second mount here for category="absent" until
+          2026-09-23. An absent day is not closed by declaring it closed -- it
+          is closed by recording it in HR2000 (as NPL if genuinely unpaid),
+          which the next leave sync turns into an `on_leave` day, or by adding
+          the attendance activity if they did work. acknowledge_attendance_day
+          now rejects 'absent' outright; this is just the UI agreeing. */}
       {workDateIso &&
         mode === "hr" &&
         selectedRow?.is_insufficient_half_day_hours && (
