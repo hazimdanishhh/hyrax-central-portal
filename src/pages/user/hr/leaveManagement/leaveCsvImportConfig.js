@@ -34,5 +34,28 @@ export function getLeaveCsvImportConfig({ runImport, onImported }) {
     }),
     runImport,
     onImported,
+
+    // The sync AUTO-CREATES leave type codes it has not seen (since
+    // 2026-09-23 -- before that, one unknown code aborted the entire upload
+    // and there was no way to add the missing type from the portal, so leave
+    // sync stopped and stayed stopped).
+    //
+    // An auto-created type defaults to is_paid = true, which is right more
+    // often than not but is exactly WRONG for a new no-pay type -- and an
+    // unpaid type reported as paid overstates paidLeaveDaysTotal in the
+    // payroll package. So the import must SAY what it invented. Reporting it
+    // here, with the link, is what makes the "default to paid" safe.
+    resultNotices: (result) => {
+      const created = result?.createdLeaveTypes || [];
+      if (created.length === 0) return [];
+
+      return [
+        {
+          text: `${created.length} new leave type${created.length === 1 ? "" : "s"} (${created.join(", ")}) ${created.length === 1 ? "was" : "were"} created from this file and default to PAID. Confirm whether that is correct --`,
+          linkTo: "/app/hr/leaves/types",
+          linkLabel: "review Leave Types",
+        },
+      ];
+    },
   };
 }

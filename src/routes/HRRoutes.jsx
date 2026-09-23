@@ -4,7 +4,9 @@ import EmployeeOverview from "../pages/user/hr/employeeManagement/overview/Emplo
 import EmployeeManagement from "../pages/user/hr/employeeManagement/list/EmployeeManagement";
 import Departments from "../pages/user/hr/departments/Departments";
 import OrganizationChart from "../pages/user/hr/organizationChart/OrganizationChart";
+import LeaveManagementPageLayout from "../pages/user/hr/leaveManagement/LeaveManagementPageLayout";
 import LeaveManagement from "../pages/user/hr/leaveManagement/LeaveManagement";
+import LeaveTypes from "../pages/user/hr/leaveManagement/leaveTypes/LeaveTypes";
 import Recruitment from "../pages/user/hr/recruitment/Recruitment";
 import AttendancePageLayout from "../pages/user/hr/attendanceManagement/AttendancePageLayout";
 import Performance from "../pages/user/hr/performance/Performance";
@@ -149,16 +151,42 @@ export default (
       <Route path=":employeeId" element={null} />
     </Route>
 
-    {/* LEAVE MANAGEMENT */}
+    {/* LEAVE MANAGEMENT -- tabbed on 2026-09-23, same shape as "attendance"
+        above. "records" keeps the page that used to live at "leaves"
+        itself; "types" is new. See leaveManagementPageTabs.js for why. */}
     <Route
       path="leaves"
       element={
         <AccessRoute departments={["HR"]}>
-          <LeaveManagement />
+          <LeaveManagementPageLayout />
         </AccessRoute>
       }
     >
-      <Route path=":leaveId" element={null} />
+      <Route index element={<Navigate to="records" replace />} />
+
+      <Route
+        path="records"
+        element={
+          <AccessRoute departments={["HR"]}>
+            <LeaveManagement />
+          </AccessRoute>
+        }
+      >
+        <Route path=":leaveId" element={null} />
+      </Route>
+
+      {/* LEAVE TYPES -- the vocabulary the leave sync resolves codes
+          against, and the review queue for the ones it auto-creates. */}
+      <Route
+        path="types"
+        element={
+          <AccessRoute departments={["HR"]}>
+            <LeaveTypes />
+          </AccessRoute>
+        }
+      >
+        <Route path=":leaveTypeId" element={null} />
+      </Route>
     </Route>
 
     {/* RECRUITMENT MANAGEMENT */}

@@ -20,6 +20,14 @@ export default function useLeaveImportMutation() {
       if (data?.status === "applied") {
         showMessage("Leave data synced", "success");
         queryClient.invalidateQueries({ queryKey: ["leave_records"] });
+
+        // The sync auto-creates leave type codes it has not seen, so a
+        // committed run can change the type vocabulary too -- without this,
+        // the Leave Types tab and the type filter on this very page both show
+        // a cached list that is missing exactly the types HR now has to go
+        // and classify.
+        queryClient.invalidateQueries({ queryKey: ["leave_ledger_types_all"] });
+        queryClient.invalidateQueries({ queryKey: ["leave_ledger_types"] });
       }
     },
 

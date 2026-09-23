@@ -48,6 +48,7 @@ import { chartOfAccountsPageTabs } from "../pages/user/finance/chartOfAccounts/c
 import { billsPageTabs } from "../pages/user/finance/bills/billsPageTabs";
 import { attendancePageTabs as hrAttendancePageTabs } from "../pages/user/hr/attendanceManagement/attendancePageTabs";
 import { employeePageTabs } from "../pages/user/hr/employeeManagement/employeePageTabs";
+import { leaveManagementPageTabs } from "../pages/user/hr/leaveManagement/leaveManagementPageTabs";
 import { attendancePageTabs as myAttendancePageTabs } from "../pages/user/employee/attendance/attendancePageTabs";
 import { teamAttendancePageTabs } from "../pages/user/employee/teamAttendance/teamAttendancePageTabs";
 import { itAssetsPageTabs } from "../pages/user/it/ITAssetManagement/itAssetsPageTabs";
@@ -497,6 +498,9 @@ export const sideNavLinkData = [
         path: "hr/leaves",
 
         departments: ["HR"],
+        // Same array LeaveManagementPageLayout.jsx renders as its own
+        // page-tab bar -- see leaveManagementPageTabs.js's header comment.
+        tabs: leaveManagementPageTabs,
       },
 
       {

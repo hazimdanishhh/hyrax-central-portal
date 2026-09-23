@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   UploadSimpleIcon,
   WarningIcon,
@@ -31,6 +32,12 @@ import "./CsvImportModal.scss";
  *   runImport: ({ rows, dryRun, allowShrink }) => Promise<summary>
  *   guardrailMessage: (summary) => string
  *   onImported: () => void                    -- called once a sync actually commits
+ *   resultNotices: (result) => [{ text, linkTo, linkLabel }]
+ *     -- optional. Extra warnings on the result screen for things a sync did
+ *        that the Added/Unchanged/Removed tiles do not express. The leave sync
+ *        uses it to report leave types it AUTO-CREATED, which default to paid
+ *        and need HR to classify them -- silently inventing payroll-affecting
+ *        vocabulary is exactly what this is here to prevent.
  */
 export default function CsvImportModal({ open, onClose, title, icon, config }) {
   // select -> preview -> guardrail -> result -> error
@@ -346,6 +353,26 @@ export default function CsvImportModal({ open, onClose, title, icon, config }) {
                 emphasize={result.removed > 0}
               />
             </div>
+
+            {(config.resultNotices?.(result) || []).map((notice) => (
+              <div
+                key={notice.text}
+                className="csvImportBanner csvImportBannerWarning"
+              >
+                <WarningIcon size={20} weight="fill" />
+                <p className="textRegular textXS">
+                  {notice.text}
+                  {notice.linkTo && (
+                    <>
+                      {" "}
+                      <Link to={notice.linkTo} onClick={handleClose}>
+                        {notice.linkLabel}
+                      </Link>
+                    </>
+                  )}
+                </p>
+              </div>
+            ))}
 
             {result.removed > 0 && (
               <>

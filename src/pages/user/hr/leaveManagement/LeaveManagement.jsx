@@ -1,15 +1,8 @@
 // pages/user/hr/leaveManagement/LeaveManagement.jsx
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import {
-  CalendarIcon,
-  UploadSimpleIcon,
-  InfoIcon,
-} from "@phosphor-icons/react";
+import { UploadSimpleIcon, InfoIcon } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
-import { useTheme } from "../../../../context/ThemeContext";
-import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import NoResult from "../../../../components/crud/noResult/NoResult";
@@ -43,7 +36,6 @@ import DetailRow from "../../../../components/crud/detailRow/DetailRow";
  * edit would just be discarded on the next sync.
  */
 export default function LeaveManagement() {
-  const { darkMode } = useTheme();
   const navigate = useNavigate();
   const { leaveId } = useParams();
   const [searchParams] = useSearchParams();
@@ -107,94 +99,93 @@ export default function LeaveManagement() {
   const sidebarOpen = !!selectedRow;
 
   function handleCloseSidebar() {
-    navigate(`/app/hr/leaves?${searchParams.toString()}`);
+    // `/records`, not `/leaves` -- this page moved under a tab on
+    // 2026-09-23. Closing to the bare `/leaves` would hit the index
+    // redirect, which remounts the route and drops the scroll position.
+    navigate(`/app/hr/leaves/records?${searchParams.toString()}`);
   }
 
+  // No <section>/Breadcrumbs/CardWrapper here: this became a TAB on
+  // 2026-09-23 and LeaveManagementPageLayout.jsx owns the page chrome, the
+  // same split every other tabbed module uses. Rendering it here too drew two
+  // breadcrumbs and nested the card inside itself.
   return (
-    <section className={darkMode ? "sectionDark" : "sectionLight"}>
-      <div className="sectionWrapper">
-        <div className="sectionContent">
-          <Breadcrumbs icon={CalendarIcon} current="Leave Management" />
+    <>
+      <SearchFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        filters={filters}
+        onFilterChange={setFilters}
+        filterConfig={filterConfig}
+        placeholder="Search by employee code or remarks..."
+        enableDateRange
+      />
 
-          <CardWrapper>
-            <SearchFilterBar
-              search={search}
-              onSearchChange={setSearch}
-              filters={filters}
-              onFilterChange={setFilters}
-              filterConfig={filterConfig}
-              placeholder="Search by employee code or remarks..."
-              enableDateRange
-            />
+      <PageHeader>
+        <PageActions
+          actionButtons={[
+            {
+              name: "Import Leave CSV",
+              icon: UploadSimpleIcon,
+              onClick: () => setImportOpen(true),
+              style: "button buttonType5 greenFill buttonFull textXXS",
+            },
+          ]}
+        />
 
-            <PageHeader>
-              <PageActions
-                actionButtons={[
-                  {
-                    name: "Import Leave CSV",
-                    icon: UploadSimpleIcon,
-                    onClick: () => setImportOpen(true),
-                    style: "button buttonType5 greenFill buttonFull textXXS",
-                  },
-                ]}
+        <SortBar
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortOptions={sortOptions}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+        />
+      </PageHeader>
+
+      {hasActiveFilters && (
+        <ActiveFiltersBar
+          search={search}
+          setSearch={setSearch}
+          filters={activeFilters}
+          setFilters={setFilters}
+          filterConfig={filterConfig}
+          resetParams={resetParams}
+        />
+      )}
+
+      <PageResult
+        data={records}
+        totalCount={totalCount}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+        error={error}
+      />
+
+      <div className="cardWrapperScroll">
+        {isLoading || isFetching ? (
+          <CardLayout style="cardLayoutFlexFull">
+            <LoadingIcon />
+          </CardLayout>
+        ) : !hasData ? (
+          <NoResult
+            title={
+              hasActiveFilters
+                ? "No leave records match these filters."
+                : "No leave data yet -- import the HR2000 CSV export to get started."
+            }
+          />
+        ) : (
+          <CardLayout style="cardLayout1 cardGapSmall">
+            {records.map((leave) => (
+              <LeaveCard
+                key={leave.id}
+                leave={leave}
+                to={`${leave.id}?${searchParams.toString()}`}
               />
-
-              <SortBar
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortOptions={sortOptions}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-              />
-            </PageHeader>
-
-            {hasActiveFilters && (
-              <ActiveFiltersBar
-                search={search}
-                setSearch={setSearch}
-                filters={activeFilters}
-                setFilters={setFilters}
-                filterConfig={filterConfig}
-                resetParams={resetParams}
-              />
-            )}
-
-            <PageResult
-              data={records}
-              totalCount={totalCount}
-              page={page}
-              setPage={setPage}
-              totalPages={totalPages}
-              error={error}
-            />
-
-            <div className="cardWrapperScroll">
-              {isLoading || isFetching ? (
-                <CardLayout style="cardLayoutFlexFull">
-                  <LoadingIcon />
-                </CardLayout>
-              ) : !hasData ? (
-                <NoResult
-                  title={
-                    hasActiveFilters
-                      ? "No leave records match these filters."
-                      : "No leave data yet -- import the HR2000 CSV export to get started."
-                  }
-                />
-              ) : (
-                <CardLayout style="cardLayout1 cardGapSmall">
-                  {records.map((leave) => (
-                    <LeaveCard
-                      key={leave.id}
-                      leave={leave}
-                      to={`${leave.id}?${searchParams.toString()}`}
-                    />
-                  ))}
-                </CardLayout>
-              )}
-            </div>
-          </CardWrapper>
-        </div>
+            ))}
+          </CardLayout>
+        )}
       </div>
 
       {/* READ-ONLY ROW DETAIL -- no edit/delete; HR2000 is the system of
@@ -254,6 +245,6 @@ export default function LeaveManagement() {
         icon={UploadSimpleIcon}
         config={importConfig}
       />
-    </section>
+    </>
   );
 }
