@@ -34,12 +34,26 @@ const STATUSBOX_TO_PILL_THEME = {
 // need one) OR `{ label, type, conditions: [{paramKey, value}, ...] }`
 // (multiple params set together as one tab). The multi-condition shape
 // exists because a single raw flag is sometimes not actually what the
-// tab means -- e.g. Attendance's hr_flag='Absent' also fires for every
-// ordinary unworked weekend (no weekend exclusion baked into that flag),
-// so its "Absent" tab needs `hrFlag=Absent` AND `dayType=working`
-// together, or it'd flood HR with harmless Saturdays. Both shapes coexist
-// so existing single-condition callers (Workspace's Overdue/Due Soon/
-// Completed Late) don't need to change.
+// tab means.
+//
+// Attendance used to be the motivating example: hr_flag='Absent' also fired
+// for every ordinary unworked weekend, so its "Absent" tab had to carry
+// `hrFlag=Absent` AND `dayType=working` together or it flooded HR with
+// harmless Saturdays. That is no longer true -- day_state distinguishes
+// `absent` from `weekend` natively, so the tab is a single condition again and
+// can no longer be got wrong by omitting the second half.
+//
+// That also removes a real side effect worth naming: because every paramKey
+// used by any tab is CLEARED on every tab click (see below), `dayType` being
+// half of one tab's definition meant clicking ANY tab silently reset the
+// user's independently-chosen "Day Type" dropdown. A tab clearing other tabs
+// is intended; a tab clearing an unrelated dropdown was not.
+//
+// Attendance's tabs now share their paramKeys with dropdowns deliberately
+// (the "Absent" tab and Day Type = Absent are the same filter reached two
+// ways), so clearing stays coherent: the dropdown simply reflects whichever
+// tab is active. Both shapes coexist so existing single-condition callers
+// (Workspace's Overdue/Due Soon/Completed Late) don't need to change.
 //
 // `type` reuses the same grey/blue/yellow/green/red vocabulary
 // `statusTypeMap` values already use, translated through the same

@@ -11,7 +11,7 @@ import HorizontalBarChartRenderer from "@/components/chartCard/HorizontalBarChar
 import LineChartRenderer from "@/components/chartCard/LineChartRenderer";
 import PieChartRenderer from "@/components/chartCard/PieChartRenderer";
 import {
-  ATTENDANCE_FLAG_COLORS,
+  ATTENDANCE_DAY_STATE_COLORS,
   BLUE_COLOR,
   GREEN_COLOR,
   PURPLE_COLOR,
@@ -27,6 +27,7 @@ import { useEmployee } from "@/context/EmployeeContext";
 import useDashboardQuery from "@/hooks/useDashboardQuery";
 import { fetchMyAttendanceDashboard } from "@/features/employee/attendance/private/api/myAttendanceService";
 import { getMyAttendanceOverviewConfig } from "./overviewConfig";
+import { toLabelledBreakdown } from "@/functions/attendanceDayState";
 
 /**
  * My Attendance Overview -- reuses get_attendance_dashboard unchanged
@@ -68,9 +69,21 @@ export default function MyAttendanceOverview() {
     endDate: filters.endDate || chartToday,
   };
 
-  const hrFlagBreakdownData = dashboard?.hrFlagBreakdownData ?? [];
+  // Raw day_state values from the RPC, relabelled through the single
+  // vocabulary module -- chartColors' keys are the labels, so an
+  // unmapped slice would silently render grey.
+  const dayStateBreakdownData = toLabelledBreakdown(
+    dashboard?.dayStateBreakdownData,
+  );
   const workChannelMixData = dashboard?.workChannelMixData ?? [];
   const leaveTypeBreakdownData = dashboard?.leaveTypeBreakdownData ?? [];
+
+  // The RPC switches to weekly buckets once the range exceeds 60 days.
+  // Read the bucket it reports rather than assuming daily -- the
+  // subtitles used to hardcode "By Day", so a year-to-date view
+  // presented weekly points as daily ones.
+  const trendBucketLabel =
+    dashboard?.trendBucket === "week" ? "By Week" : "By Day";
 
   const dailyAttendanceTrendData =
     dashboard?.dailyAttendanceTrendData?.map((d) => ({
@@ -176,7 +189,7 @@ export default function MyAttendanceOverview() {
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Daily Attendance"
-                    subtitle="Present, By Day"
+                    subtitle={`Present, ${trendBucketLabel}`}
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
@@ -187,7 +200,7 @@ export default function MyAttendanceOverview() {
 
                   <ChartCard
                     title="Hours Worked"
-                    subtitle="Hours Worked, By Day"
+                    subtitle={`Hours Worked, ${trendBucketLabel}`}
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
@@ -223,9 +236,9 @@ export default function MyAttendanceOverview() {
                     viewAllFilter={{ dayType: "working", ...chartPeriodFilter }}
                   >
                     <PieChartRenderer
-                      data={hrFlagBreakdownData}
+                      data={dayStateBreakdownData}
                       mode="semantic"
-                      colorMap={ATTENDANCE_FLAG_COLORS}
+                      colorMap={ATTENDANCE_DAY_STATE_COLORS}
                     />
                   </ChartCard>
 

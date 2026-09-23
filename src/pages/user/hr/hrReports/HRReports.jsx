@@ -17,7 +17,7 @@ import HorizontalBarChartRenderer from "../../../../components/chartCard/Horizon
 import LineChartRenderer from "../../../../components/chartCard/LineChartRenderer";
 import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer";
 import {
-  ATTENDANCE_FLAG_COLORS,
+  ATTENDANCE_DAY_STATE_COLORS,
   BLUE_COLOR,
   EMPLOYMENT_TYPE_COLORS,
   GREEN_COLOR,
@@ -43,6 +43,7 @@ import {
   getHrReportsOverviewConfig,
 } from "./overviewConfig";
 import { useTheme } from "../../../../context/ThemeContext";
+import { toLabelledBreakdown } from "@/functions/attendanceDayState";
 
 // AI Summary plumbing -- not enabled live, matching Sales/Finance Reports'
 // current state (Finance has it fully wired but commented out, Sales
@@ -129,7 +130,12 @@ export default function HRReports() {
   const tenureDistributionData = dashboard?.tenureDistributionData ?? [];
   const workChannelMixData = dashboard?.workChannelMixData ?? [];
   const leaveTypeBreakdownData = dashboard?.leaveTypeBreakdownData ?? [];
-  const hrFlagBreakdownData = dashboard?.hrFlagBreakdownData ?? [];
+  // Raw day_state values from the RPC, relabelled through the single
+  // vocabulary module -- chartColors' keys are the labels, so an
+  // unmapped slice would silently render grey.
+  const dayStateBreakdownData = toLabelledBreakdown(
+    dashboard?.dayStateBreakdownData,
+  );
   const departmentAttendanceData = dashboard?.departmentAttendanceData ?? [];
   const departmentAttritionData = dashboard?.departmentAttritionData ?? [];
   const topManagersData = dashboard?.topManagersData ?? [];
@@ -513,9 +519,9 @@ export default function HRReports() {
                           }}
                         >
                           <PieChartRenderer
-                            data={hrFlagBreakdownData}
+                            data={dayStateBreakdownData}
                             mode="semantic"
-                            colorMap={ATTENDANCE_FLAG_COLORS}
+                            colorMap={ATTENDANCE_DAY_STATE_COLORS}
                           />
                         </ChartCard>
                       </CardLayout>

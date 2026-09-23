@@ -1,3 +1,10 @@
+import {
+  DAY_STATE_OPTIONS,
+  EVIDENCE_QUALITY_OPTIONS,
+  APPROVAL_STATE_OPTIONS,
+  DAY_CALENDAR_TYPE_OPTIONS,
+} from "@/functions/attendanceDayState";
+
 // Filters actually verified against unified_daily_attendance's real columns
 // (hr_unified_daily_attendance_view.sql) and against fetchUnifiedAttendance's
 // filter switch (attendanceOverviewService.js). The previous version of this
@@ -35,30 +42,45 @@ export function getAttendanceActivitiesFilterConfig({
       label: "Manager",
       options: employees.map((e) => ({ label: e.full_name, value: e.id })),
     },
+    // -----------------------------------------------------------------
+    // THE FOUR AXES. These replace the single "Status" dropdown, which was
+    // hr_flag -- one string that had to answer all four of these questions
+    // by picking a single winner, so asking about one meant losing the rest.
+    // A day can now be filtered as "worked, but only one card scan, and
+    // still pending approval" because each is its own column.
+    //
+    // Every option list comes from functions/attendanceDayState.js, which is
+    // verified against the view's own CASE expressions. Do not hand-write
+    // values here: one that is not a real column value returns zero rows
+    // with no error anywhere, which reads exactly like "nothing to do".
+    // -----------------------------------------------------------------
     {
-      key: "hrFlag",
-      label: "Status",
-      // The exact, exhaustive set of values unified_daily_attendance's
-      // hr_flag CASE expression can produce -- hr_unified_daily_attendance_view.sql.
-      options: [
-        { label: "OK", value: "OK" },
-        { label: "Approved", value: "Approved" },
-        { label: "Pending App Approval", value: "Pending App Approval" },
-        { label: "Missing App Check-Out", value: "Missing App Check-Out" },
-        { label: "Incomplete Card Scans", value: "Incomplete Card Scans" },
-        { label: "Absent", value: "Absent" },
-      ],
+      key: "dayState",
+      label: "Day Type",
+      options: DAY_STATE_OPTIONS,
     },
     {
-      // Merged "Working Days Only"/"Weekend Only" into one filter -- they
-      // were two separate dropdown entries that were really just opposite
-      // ends of the same is_weekend boolean (hr_unified_daily_attendance_view.sql).
-      key: "dayType",
-      label: "Day Type",
-      options: [
-        { label: "Working Days Only", value: "working" },
-        { label: "Weekend Only", value: "weekend" },
-      ],
+      key: "evidenceQuality",
+      label: "Data Quality",
+      // Answers "show me everything with a record problem, regardless of
+      // where it came from" -- impossible under hr_flag, whose
+      // 'Missing App Check-Out' and 'Incomplete Card Scans' branches both sat
+      // below the approval branches and so almost never fired.
+      options: EVIDENCE_QUALITY_OPTIONS.map(({ value, label }) => ({ value, label })),
+    },
+    {
+      key: "approvalState",
+      label: "Approval",
+      options: APPROVAL_STATE_OPTIONS.map(({ value, label }) => ({ value, label })),
+    },
+    {
+      key: "calendarType",
+      label: "Calendar",
+      // Supersedes the old two-valued dayType (working/weekend), which was a
+      // toggle over is_weekend and could not express "public holiday" at all
+      // -- nor the weekend-that-is-also-a-holiday case, which contributes to
+      // both statutory wage tiers.
+      options: DAY_CALENDAR_TYPE_OPTIONS,
     },
     {
       // "Present" excludes hr_flag = "Absent" and an unworked Public

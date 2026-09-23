@@ -27,8 +27,22 @@ export const getAttendanceActivitiesSortConfig = () => [
     value: "hours_worked",
   },
   {
-    label: "Status",
-    value: "hr_flag",
+    // day_state, not hr_flag. Both sort alphabetically rather than by
+    // severity, but day_state at least groups sensibly when it does --
+    // 'absent' first, the weekend/holiday family together, the leave_* family
+    // together -- whereas hr_flag's alphabetical order interleaved
+    // 'Approved', 'Absent' and 'Incomplete Card Scans' meaninglessly.
+    label: "Day Type",
+    value: "day_state",
+  },
+  {
+    // Sorting by data quality is genuinely useful now that it is its own
+    // column: it brings every record with a defect to the top regardless of
+    // what kind of day it was or whether it was approved. Under hr_flag this
+    // was impossible -- the quality values were only reachable when no
+    // approval value had already claimed the field.
+    label: "Data Quality",
+    value: "evidence_quality",
   },
   {
     label: "First In",

@@ -12,7 +12,7 @@ import HorizontalBarChartRenderer from "../../../../../components/chartCard/Hori
 import LineChartRenderer from "../../../../../components/chartCard/LineChartRenderer";
 import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
 import {
-  ATTENDANCE_FLAG_COLORS,
+  ATTENDANCE_DAY_STATE_COLORS,
   BLUE_COLOR,
   GREEN_COLOR,
   PURPLE_COLOR,
@@ -33,6 +33,7 @@ import { getAttendanceOverviewFilterConfig } from "./filterConfig";
 import { getAttendanceOverviewConfig } from "./overviewConfig";
 import ExportActions from "../../../../../components/exportActions/ExportActions";
 import { useRef } from "react";
+import { toLabelledBreakdown } from "@/functions/attendanceDayState";
 
 export default function AttendanceOverview() {
   const dashboardRef = useRef(null);
@@ -104,7 +105,12 @@ export default function AttendanceOverview() {
     endDate: filters.endDate || chartToday,
   };
 
-  const hrFlagBreakdownData = dashboard?.hrFlagBreakdownData ?? [];
+  // Raw day_state values from the RPC, relabelled through the single
+  // vocabulary module -- chartColors' keys are the labels, so an
+  // unmapped slice would silently render grey.
+  const dayStateBreakdownData = toLabelledBreakdown(
+    dashboard?.dayStateBreakdownData,
+  );
   const departmentAttendanceData = dashboard?.departmentAttendanceData ?? [];
   const workChannelMixData = dashboard?.workChannelMixData ?? [];
   const topAbsenteeismData = dashboard?.topAbsenteeismData ?? [];
@@ -115,6 +121,13 @@ export default function AttendanceOverview() {
   // than a pre-computed rate -- derived here, same "shape the chart data in
   // the page, not the RPC" convention EmployeeOverview's headcountTrendData
   // already follows.
+  // The RPC switches to weekly buckets once the range exceeds 60 days.
+  // Read the bucket it reports rather than assuming daily -- the
+  // subtitles used to hardcode "By Day", so a year-to-date view
+  // presented weekly points as daily ones.
+  const trendBucketLabel =
+    dashboard?.trendBucket === "week" ? "By Week" : "By Day";
+
   const dailyAttendanceTrendData =
     dashboard?.dailyAttendanceTrendData?.map((d) => ({
       name: d.period,
@@ -259,7 +272,7 @@ export default function AttendanceOverview() {
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Daily Attendance Rate"
-                    subtitle="Present vs Active Roster, By Day"
+                    subtitle={`Present vs Active Roster, ${trendBucketLabel}`}
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
@@ -272,7 +285,7 @@ export default function AttendanceOverview() {
 
                   <ChartCard
                     title="Hours Worked"
-                    subtitle="Average Hours Worked, By Day"
+                    subtitle={`Average Hours Worked, ${trendBucketLabel}`}
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
@@ -341,9 +354,9 @@ export default function AttendanceOverview() {
                     }}
                   >
                     <PieChartRenderer
-                      data={hrFlagBreakdownData}
+                      data={dayStateBreakdownData}
                       mode="semantic"
-                      colorMap={ATTENDANCE_FLAG_COLORS}
+                      colorMap={ATTENDANCE_DAY_STATE_COLORS}
                     />
                   </ChartCard>
 

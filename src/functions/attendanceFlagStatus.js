@@ -2,6 +2,12 @@
  * Maps unified_daily_attendance's hr_flag to StatusBox's `type` class name.
  * Semantically identical to chartColors.js's ATTENDANCE_FLAG_COLORS, but
  * returns a CSS class (StatusBox's prop shape) instead of a hex value.
+ *
+ * DEPRECATED as of the day-model rework -- hr_flag is a compatibility column
+ * scheduled for removal. Use getDayStateDisplay from functions/
+ * attendanceDayState.js, which reads the derived day_state label and needs no
+ * weekend override (see getDisplayAttendanceFlag below for why that override
+ * had to exist at all).
  */
 export default function getHrFlagStatusType(hrFlag) {
   if (!hrFlag) return "grey";
@@ -32,6 +38,14 @@ export default function getHrFlagStatusType(hrFlag) {
  * unworked weekend would render as a red "Absent" badge to every employee
  * and HR reviewer -- every StatusBox render site for hr_flag must go
  * through this instead of calling getHrFlagStatusType directly.
+ *
+ * DEPRECATED as of the day-model rework. This whole function is a workaround
+ * for hr_flag being unable to represent "weekend" -- day_state distinguishes
+ * `weekend` from `absent` natively, so getDayStateDisplay (functions/
+ * attendanceDayState.js) needs no override and no second argument. Prefer it.
+ *
+ * Kept while surfaces migrate in batches, and because it is still correct:
+ * hr_flag itself is unchanged by the rebuild.
  */
 export function getDisplayAttendanceFlag(hrFlag, isWeekend) {
   if (isWeekend && hrFlag === "Absent") {

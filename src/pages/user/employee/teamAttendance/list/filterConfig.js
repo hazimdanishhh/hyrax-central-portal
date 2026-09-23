@@ -1,3 +1,10 @@
+import {
+  DAY_STATE_OPTIONS,
+  EVIDENCE_QUALITY_OPTIONS,
+  APPROVAL_STATE_OPTIONS,
+  DAY_CALENDAR_TYPE_OPTIONS,
+} from "@/functions/attendanceDayState";
+
 // Same shape as HR's getAttendanceActivitiesFilterConfig, minus the
 // "department"/"manager" pickers (scope is always "my direct reports").
 // "employee" options come from the caller's direct-reports list
@@ -18,27 +25,27 @@ export function getTeamAttendanceFilterConfig({
       label: "Work Location",
       options: workLocations.map((w) => ({ label: w.name, value: w.id })),
     },
+    // The four axes -- see HR's filter config for why these replace the
+    // single hr_flag "Status" dropdown.
     {
-      key: "hrFlag",
-      label: "Status",
-      options: [
-        { label: "OK", value: "OK" },
-        { label: "Approved", value: "Approved" },
-        { label: "Pending App Approval", value: "Pending App Approval" },
-        { label: "Missing App Check-Out", value: "Missing App Check-Out" },
-        { label: "Incomplete Card Scans", value: "Incomplete Card Scans" },
-        { label: "Absent", value: "Absent" },
-      ],
+      key: "dayState",
+      label: "Day Type",
+      options: DAY_STATE_OPTIONS,
     },
     {
-      // Merged "Working Days Only"/"Weekend Only" into one filter -- see
-      // the HR filter config's own comment on this same key.
-      key: "dayType",
-      label: "Day Type",
-      options: [
-        { label: "Working Days Only", value: "working" },
-        { label: "Weekend Only", value: "weekend" },
-      ],
+      key: "evidenceQuality",
+      label: "Data Quality",
+      options: EVIDENCE_QUALITY_OPTIONS.map(({ value, label }) => ({ value, label })),
+    },
+    {
+      key: "approvalState",
+      label: "Approval",
+      options: APPROVAL_STATE_OPTIONS.map(({ value, label }) => ({ value, label })),
+    },
+    {
+      key: "calendarType",
+      label: "Calendar",
+      options: DAY_CALENDAR_TYPE_OPTIONS,
     },
     {
       // See the HR filter config's own comment on this same key -- excludes

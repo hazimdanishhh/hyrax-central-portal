@@ -184,8 +184,8 @@ kpi_attendance_totals as (
         -- happened to come in, same as Weekend already isn't (public
         -- holidays integration, kept in sync by copy with
         -- get_attendance_dashboard_rpc.sql).
-        count(*) filter (where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday) as present_count,
-        count(*) filter (where not is_weekend and not is_on_leave and not is_public_holiday) as roster_count,
+        count(*) filter (where day_state = 'worked') as present_count,
+        count(*) filter (where is_expected_working_day and leave_state = 'none') as roster_count,
         -- Overtime: hours beyond the normal 8 paid hours in a day, per
         -- Employment Act s.60A. REDEFINED 2026-09-22 -- this used to mean
         -- "time worked after 6PM, not hours above 8/day", the exact
@@ -199,10 +199,12 @@ kpi_attendance_totals as (
         -- out" is just that one ambiguous scan), same unknown-vs-zero
         -- reasoning as that file's avg_hours_worked/overtime_hours_total.
         round(sum(overtime_hours) filter (
-            where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave
+            where day_state = 'worked'
+             and evidence_quality not in ('single_scan', 'single_scan_and_open_session')
         )::numeric, 2) as overtime_hours_total,
         count(distinct employee_uuid) filter (
-            where hr_flag not in ('Absent', 'Incomplete Card Scans') and not is_weekend and not is_on_leave and overtime_hours > 0
+            where day_state = 'worked'
+             and evidence_quality not in ('single_scan', 'single_scan_and_open_session') and overtime_hours > 0
         ) as employees_with_overtime_count,
 
         -- Public holidays integration -- reconciliation metric, mirrors
@@ -493,8 +495,8 @@ select json_build_object(
             select
                 to_char(date_trunc('month', work_date), 'YYYY-MM') as period,
                 date_trunc('month', work_date) as bucket_start,
-                count(*) filter (where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday) as present_count,
-                count(*) filter (where not is_weekend and not is_on_leave and not is_public_holiday) as roster_count
+                count(*) filter (where day_state = 'worked') as present_count,
+                count(*) filter (where is_expected_working_day and leave_state = 'none') as roster_count
             from period_attendance
             group by date_trunc('month', work_date)
         ) x
@@ -512,7 +514,7 @@ select json_build_object(
                 end as name,
                 count(*) as value
             from period_attendance
-            where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday
+            where day_state = 'worked'
             group by 1
         ) x
     ),
@@ -526,16 +528,14 @@ select json_build_object(
         ) x
     ),
 
-    'hrFlagBreakdownData', (
+    -- Keyed on day_state (2026-09-22), replacing hrFlagBreakdownData -- see
+    -- get_attendance_dashboard_rpc.sql's matching block for why the LIKE
+    -- bucketing of 'On Leave (...)' / 'Public Holiday (...)' is no longer
+    -- needed, and why the raw value is emitted rather than a display label.
+    'dayStateBreakdownData', (
         select coalesce(json_agg(x order by x.value desc), '[]'::json)
         from (
-            select
-                case
-                    when hr_flag like 'On Leave%' then 'On Leave'
-                    when hr_flag like 'Public Holiday%' then 'Public Holiday'
-                    else hr_flag
-                end as name,
-                count(*) as value
+            select day_state as name, count(*) as value
             from period_attendance
             where not is_weekend
             group by 1
@@ -552,8 +552,8 @@ select json_build_object(
             select
                 coalesce(department_name, 'Unassigned') as name,
                 round(
-                    (count(*) filter (where hr_flag <> 'Absent' and not is_weekend and not is_on_leave and not is_public_holiday)::numeric
-                    / nullif(count(*) filter (where not is_weekend and not is_on_leave and not is_public_holiday), 0)) * 100
+                    (count(*) filter (where day_state = 'worked')::numeric
+                    / nullif(count(*) filter (where is_expected_working_day and leave_state = 'none'), 0)) * 100
                 , 1) as value
             from period_attendance
             group by coalesce(department_name, 'Unassigned')

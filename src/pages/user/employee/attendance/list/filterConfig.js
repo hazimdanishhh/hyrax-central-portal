@@ -1,30 +1,39 @@
+import {
+  DAY_STATE_OPTIONS,
+  EVIDENCE_QUALITY_OPTIONS,
+  APPROVAL_STATE_OPTIONS,
+  DAY_CALENDAR_TYPE_OPTIONS,
+} from "@/functions/attendanceDayState";
+
 // Trimmed version of HR's getAttendanceActivitiesFilterConfig -- no
 // employee/department/manager pickers, since this page's scope is always
 // "me". Status + the business-window toggles are still useful self-service
 // slices ("show me my late arrivals", "my overtime days").
 export function getMyAttendanceFilterConfig() {
   return [
+    // The four axes -- see HR's filter config for why these replace the
+    // single hr_flag "Status" dropdown. Kept identical across all three lists
+    // deliberately: an employee, their manager and HR looking at the same day
+    // should have the same words available for it.
     {
-      key: "hrFlag",
-      label: "Status",
-      options: [
-        { label: "OK", value: "OK" },
-        { label: "Approved", value: "Approved" },
-        { label: "Pending App Approval", value: "Pending App Approval" },
-        { label: "Missing App Check-Out", value: "Missing App Check-Out" },
-        { label: "Incomplete Card Scans", value: "Incomplete Card Scans" },
-        { label: "Absent", value: "Absent" },
-      ],
+      key: "dayState",
+      label: "Day Type",
+      options: DAY_STATE_OPTIONS,
     },
     {
-      // Merged "Working Days Only"/"Weekend Only" into one filter -- see
-      // the HR filter config's own comment on this same key.
-      key: "dayType",
-      label: "Day Type",
-      options: [
-        { label: "Working Days Only", value: "working" },
-        { label: "Weekend Only", value: "weekend" },
-      ],
+      key: "evidenceQuality",
+      label: "Data Quality",
+      options: EVIDENCE_QUALITY_OPTIONS.map(({ value, label }) => ({ value, label })),
+    },
+    {
+      key: "approvalState",
+      label: "Approval",
+      options: APPROVAL_STATE_OPTIONS.map(({ value, label }) => ({ value, label })),
+    },
+    {
+      key: "calendarType",
+      label: "Calendar",
+      options: DAY_CALENDAR_TYPE_OPTIONS,
     },
     {
       // See the HR filter config's own comment on this same key -- excludes

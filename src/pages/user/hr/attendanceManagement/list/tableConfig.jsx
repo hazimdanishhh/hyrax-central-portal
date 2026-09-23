@@ -16,7 +16,7 @@
 // editor = data type
 
 import StatusBox from "../../../../../components/status/statusBox/StatusBox";
-import { getDisplayAttendanceFlag } from "../../../../../functions/attendanceFlagStatus";
+import { getDayStateDisplay } from "../../../../../functions/attendanceDayState";
 
 export const attendanceDailySummaryTableConfig = () => [
   {
@@ -77,21 +77,18 @@ export const attendanceDailySummaryTableConfig = () => [
     editor: "text",
   },
   {
-    // hr_flag no longer distinguishes an unworked weekend from a genuine
-    // absence (both now read "Absent") -- is_weekend is the calendar-only
-    // signal that tells them apart at display time. render (not getValue)
-    // is needed here so this reads as a colored StatusBox, same as every
-    // other hr_flag render site (AttendanceCard.jsx, AttendanceSidebarHR.jsx,
-    // TodayAttendanceCard.jsx), instead of a plain-text "Absent" for every
-    // unworked Saturday/Sunday.
-    key: "hr_flag",
-    label: "Status",
-    getValue: (activity) => activity.hr_flag,
+    // day_state. render (not getValue) so this reads as a coloured StatusBox,
+    // same as every other render site (AttendanceCard.jsx,
+    // AttendanceSidebarHR.jsx, TodayAttendanceCard.jsx).
+    //
+    // getValue returns the LABEL, not the raw snake_case value, because it is
+    // what the CSV export writes -- "Weekend (Worked)" is readable in a
+    // spreadsheet, "weekend_worked" is not.
+    key: "day_state",
+    label: "Day Type",
+    getValue: (activity) => getDayStateDisplay(activity.day_state).label,
     render: (_displayValue, activity) => {
-      const { label, type } = getDisplayAttendanceFlag(
-        activity.hr_flag,
-        activity.is_weekend,
-      );
+      const { label, type } = getDayStateDisplay(activity.day_state);
       return <StatusBox status={label} type={type} />;
     },
     editable: false,

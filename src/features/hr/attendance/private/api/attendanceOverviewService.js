@@ -131,9 +131,50 @@ function applyAttendanceFilter(query, key, value) {
     case "manager":
       return query.eq("manager_id", value);
 
+    // ---------------------------------------------------------------------
+    // AXIS FILTERS -- the replacement for hrFlag/dayType below.
+    //
+    // Each maps to exactly one column and answers exactly one question, which
+    // is the whole point: hr_flag had to pick a single winner between
+    // "what kind of day", "how complete is the evidence" and "was it
+    // approved", so asking about one of them meant losing the other two.
+    // These compose -- day_state='worked' AND approval_state='pending' AND
+    // evidence_quality='single_scan' is now an expressible query.
+    //
+    // Values come from functions/attendanceDayState.js, which is verified
+    // against the view's own CASE expressions. A value that is not a real
+    // column value returns zero rows with no error, so do not hand-write them.
+    // ---------------------------------------------------------------------
+    case "dayState":
+      return query.eq("day_state", value);
+
+    case "evidenceQuality":
+      return query.eq("evidence_quality", value);
+
+    case "approvalState":
+      return query.eq("approval_state", value);
+
+    case "evidenceSource":
+      return query.eq("evidence_source", value);
+
+    case "leaveState":
+      return query.eq("leave_state", value);
+
+    // Supersedes dayType below -- that was a two-valued working/weekend
+    // toggle over is_weekend, which could not express "public holiday" at all,
+    // nor the weekend-that-is-also-a-holiday overlap (a real case that
+    // contributes to BOTH statutory wage tiers).
+    case "calendarType":
+      return query.eq("day_calendar_type", value);
+
+    // DEPRECATED -- hr_flag is a compatibility column scheduled for removal.
+    // Kept working so deep links generated before the migration (emails,
+    // notifications, bookmarked URLs) keep resolving. Prefer dayState.
     case "hrFlag":
       return query.eq("hr_flag", value);
 
+    // DEPRECATED -- prefer calendarType. Retained for the same reason as
+    // hrFlag: existing deep links carry it.
     case "dayType":
       // Merged "Working Days Only"/"Weekend Only" into one filter -- they
       // were previously two separate dropdown entries that were really just

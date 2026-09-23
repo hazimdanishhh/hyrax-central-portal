@@ -68,6 +68,14 @@ const SEARCH_MODE_FILTER_KEYS = [
   // saw a single day and read an outstanding month as clean.
   "needsReconciliation",
   "workLocation",
+  // The axis filters -- see HR's list for why omitting any of these silently
+  // pins the page to a single day.
+  "dayState",
+  "evidenceQuality",
+  "approvalState",
+  "evidenceSource",
+  "calendarType",
+  "leaveState",
 ];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {

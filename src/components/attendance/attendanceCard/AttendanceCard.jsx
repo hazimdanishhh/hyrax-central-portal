@@ -11,7 +11,10 @@ import AttendanceClock from "../attendanceClock/AttendanceClock";
 import StatusBox from "../../status/statusBox/StatusBox";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import RowFlagBadge from "../../dataTable/RowFlagBadge";
-import { getDisplayAttendanceFlag } from "../../../functions/attendanceFlagStatus";
+import {
+  getDayStateDisplay,
+  getDayQualityBadges,
+} from "../../../functions/attendanceDayState";
 import { getAttendanceReconciliationFlags } from "../../../functions/attendanceReconciliationFlags";
 import { formatHours } from "../../../functions/formatDate";
 
@@ -24,27 +27,25 @@ import { formatHours } from "../../../functions/formatDate";
 function AttendanceCard({ activity, to, target, rel }) {
   const [showName, setShowName] = useState(false);
 
-  // hr_flag no longer distinguishes an unworked weekend from a genuine
-  // absence (both now read "Absent") -- is_weekend is the calendar-only
-  // signal that tells them apart at display time. See
-  // getDisplayAttendanceFlag's own comment.
-  const attendanceFlagDisplay = getDisplayAttendanceFlag(
-    activity.hr_flag,
-    activity.is_weekend,
-  );
-  // Second, independent tag for a weekend actually WORKED (same pattern as
-  // the is_on_leave tag below: a small fact shown alongside the main status,
-  // not folded into it).
-  //
-  // Reads is_worked_on_weekend directly rather than inferring it from
-  // `is_weekend && hr_flag !== "Absent"`. That inference assumed an unworked
-  // weekend always reads "Absent", which is only true when nothing else
-  // pre-empts that branch -- a Saturday the employee was on leave reads
-  // "On Leave (...)", and a Saturday that's also a public holiday reads
-  // "Public Holiday (...)", so both got tagged as weekend work with nobody
-  // having worked. is_worked_on_weekend already carries the real-attendance
-  // check (get_attendance_dashboard_rpc.sql relies on exactly that for its
-  // weekend KPIs), so this now matches what those tiles count.
+  // The day's headline label, from day_state. No weekend override needed --
+  // day_state distinguishes `weekend` from `absent` natively, which is the
+  // whole reason getDisplayAttendanceFlag had to exist: under hr_flag an
+  // unworked Saturday literally read 'Absent', so every render site had to
+  // remember to override it or show a red absence for an ordinary weekend.
+  const dayStateDisplay = getDayStateDisplay(activity.day_state);
+
+  // Data-quality and approval badges, shown ALONGSIDE the day-state badge
+  // rather than folded into it. This is the combination hr_flag structurally
+  // could not represent: a day that was worked, has only one card scan, and
+  // is still awaiting approval is three independent facts, and hr_flag had to
+  // pick one and discard the other two.
+  const qualityBadges = getDayQualityBadges(activity);
+
+  // Weekend work stays its own tag rather than relying on the day_state label
+  // alone, because a Saturday that is ALSO a public holiday reads
+  // `weekend_public_holiday_worked` -- the weekend entitlement is still owed
+  // and should stay visible. is_worked_on_weekend is what the weekend KPIs
+  // count, so card and tile agree.
   const showWorkedWeekendTag = Boolean(activity.is_worked_on_weekend);
 
   const reconciliationFlags = getAttendanceReconciliationFlags(activity);
@@ -113,13 +114,22 @@ function AttendanceCard({ activity, to, target, rel }) {
           }}
         >
           <StatusBox
-            status={attendanceFlagDisplay.label}
-            type={attendanceFlagDisplay.type}
+            status={dayStateDisplay.label}
+            type={dayStateDisplay.type}
           />
 
-          {/* Worked-on-a-weekend fact, independent of hr_flag -- only shown
-            when the "Weekend" label above ISN'T already covering this day
-            (i.e. they actually attended). */}
+          {/* Data-quality / approval badges, each its own axis. A day can show
+            the day-state badge AND "Incomplete Card Scans" AND "Pending
+            Approval" at once -- three facts that hr_flag could only ever
+            report one of. Renders nothing on a clean day. */}
+          {qualityBadges.map((b) => (
+            <StatusBox key={b.label} status={b.label} type={b.type} />
+          ))}
+
+          {/* Worked-on-a-weekend fact, kept separate so it stays visible on a
+            Saturday that is also a public holiday (where the day-state label
+            leads with the holiday but the rest-day entitlement is still
+            owed). */}
           {showWorkedWeekendTag && <StatusBox status="Weekend" type="grey" />}
 
           {/* AttendanceAnomalyBadges already self-guards (renders nothing

@@ -21,10 +21,11 @@ import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineC
 import AttendanceDayTimelineBar from "../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import RowFlagBadge from "../../dataTable/RowFlagBadge";
+import { getAnomalyAnchorActivityIds } from "../../../functions/attendanceFlagStatus";
 import {
-  getDisplayAttendanceFlag,
-  getAnomalyAnchorActivityIds,
-} from "../../../functions/attendanceFlagStatus";
+  getDayStateDisplay,
+  getDayQualityBadges,
+} from "../../../functions/attendanceDayState";
 import { getAttendanceReconciliationFlags } from "../../../functions/attendanceReconciliationFlags";
 import { formatHours } from "../../../functions/formatDate";
 import AddActivityForm from "./dayActions/AddActivityForm";
@@ -65,14 +66,16 @@ export default function AttendanceSidebarHR({
     enabled: !!selectedRow?.employee_uuid && !!workDateIso,
   });
 
-  // hr_flag no longer distinguishes an unworked weekend from a genuine
-  // absence (both now read "Absent") -- is_weekend is the calendar-only
-  // signal that tells them apart at display time. See
-  // getDisplayAttendanceFlag's own comment.
-  const attendanceFlagDisplay = getDisplayAttendanceFlag(
-    selectedRow?.hr_flag,
-    selectedRow?.is_weekend,
-  );
+  // The day's headline label, from day_state -- no weekend override needed.
+  // See AttendanceCard.jsx's matching comment.
+  const dayStateDisplay = getDayStateDisplay(selectedRow?.day_state);
+
+  // Data-quality / approval badges, each an independent axis. In the sidebar
+  // these matter more than anywhere else: this is the screen HR uses to decide
+  // what to DO about a day, and "approved but the session was never clocked
+  // out" was previously unrepresentable -- hr_flag's 'Approved' branch sat
+  // above 'Missing App Check-Out', so the open session simply vanished.
+  const qualityBadges = getDayQualityBadges(selectedRow || {});
   // Second, independent tag for a weekend actually WORKED. Reads
   // is_worked_on_weekend directly -- see AttendanceCard.jsx's matching comment
   // for why inferring it from `is_weekend && hr_flag !== "Absent"` tagged
@@ -85,16 +88,16 @@ export default function AttendanceSidebarHR({
 
   const [addingActivity, setAddingActivity] = useState(false);
 
-  // Only a real absence on a real working day is acknowledgeable. The
-  // not-weekend / not-holiday guards are load-bearing, not defensive: since
-  // weekend became an independent is_weekend flag, hr_flag = 'Absent' also
-  // matches every unworked Saturday, and offering to "acknowledge an absence"
-  // on a Sunday would be nonsense. Mirrors get_payroll_reconciliation_rows()'s
-  // own predicate exactly.
-  const isAbsentWorkingDay =
-    selectedRow?.hr_flag === "Absent" &&
-    !selectedRow?.is_weekend &&
-    !selectedRow?.is_public_holiday;
+  // Only a real absence on a real working day is acknowledgeable -- offering
+  // to "acknowledge an absence" on a Sunday would be nonsense.
+  //
+  // day_state = 'absent' already means exactly that. Under hr_flag this needed
+  // three conditions, because 'Absent' also matched every unworked Saturday
+  // and every unworked public holiday, so the two guards beside it were
+  // load-bearing rather than defensive. day_state's `absent` only occurs on an
+  // ordinary day with no leave and no evidence, so the guards are now built
+  // into the value and cannot be forgotten by a caller.
+  const isAbsentWorkingDay = selectedRow?.day_state === "absent";
 
   // Which single timeline card produced this day's late-arrival /
   // early-leave flags -- see getAnomalyAnchorActivityIds for why only one
@@ -127,21 +130,24 @@ export default function AttendanceSidebarHR({
             />
           )}
 
-          {/* Show the Daily Macro Flag -- getDisplayAttendanceFlag wraps the
-              single shared mapping every other hr_flag consumer already uses
-              (AttendanceCard.jsx, TodayAttendanceCard.jsx); this used to be
-              its own hand-duplicated ternary that only recognized
-              On Leave/Review Required/Approved/OK, silently defaulting
-              everything else -- including Weekend/Rest Day, Absent, and
-              Public Holiday -- to "red", as if they were errors. */}
-          <StatusBox
-            status={attendanceFlagDisplay.label}
-            type={attendanceFlagDisplay.type}
-          />
+          {/* The day's headline label, from day_state via the one shared
+              mapping every other surface uses (AttendanceCard.jsx,
+              TodayAttendanceCard.jsx). This was once a hand-duplicated ternary
+              here that recognized only On Leave/Review Required/Approved/OK
+              and silently defaulted everything else -- Weekend, Absent, Public
+              Holiday -- to red, as if they were errors. */}
+          <StatusBox status={dayStateDisplay.label} type={dayStateDisplay.type} />
 
-          {/* Worked-on-a-weekend fact, independent of hr_flag -- only shown
-              when the "Weekend" label above ISN'T already covering this day
-              (i.e. they actually attended). */}
+          {/* Data-quality / approval badges -- independent axes, so a day can
+              carry several at once. */}
+          {qualityBadges.map((b) => (
+            <StatusBox key={b.label} status={b.label} type={b.type} />
+          ))}
+
+          {/* Worked-on-a-weekend fact, kept separate so it stays visible on a
+              Saturday that is also a public holiday, where the day-state label
+              leads with the holiday but the rest-day entitlement is still
+              owed. */}
           {showWorkedWeekendTag && <StatusBox status="Weekend" type="grey" />}
 
           {/* Needs Reconciliation warning, same RowFlagBadge the list cards

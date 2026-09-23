@@ -92,6 +92,17 @@ const SEARCH_MODE_FILTER_KEYS = [
   // options with backing applyAttendanceFilter logic.
   "needsReconciliation",
   "workLocation",
+  // The axis filters. Every one of these MUST be here: a filter key absent
+  // from this list still renders in the dropdown and still applies, but leaves
+  // the page in Day mode -- so it silently answers the question for ONE
+  // calendar day instead of the selected range. That is what made a month's
+  // reconciliation backlog read as clean before this list was corrected.
+  "dayState",
+  "evidenceQuality",
+  "approvalState",
+  "evidenceSource",
+  "calendarType",
+  "leaveState",
 ];
 
 const WEEKDAY_DATE_FORMATTER = new Intl.DateTimeFormat("en-MY", {
