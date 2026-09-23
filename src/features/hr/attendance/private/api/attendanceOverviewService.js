@@ -167,14 +167,53 @@ function applyAttendanceFilter(query, key, value) {
     case "calendarType":
       return query.eq("day_calendar_type", value);
 
-    // DEPRECATED -- hr_flag is a compatibility column scheduled for removal.
-    // Kept working so deep links generated before the migration (emails,
-    // notifications, bookmarked URLs) keep resolving. Prefer dayState.
+    // ---------------------------------------------------------------------
+    // LEGACY URL PARAMS. The hr_flag COLUMN no longer exists -- these two
+    // cases translate the old query-string values onto the axis columns.
+    //
+    // They cannot simply be deleted. Notification emails and in-app links
+    // generated before the migration carry `hrFlag=Absent&dayType=working`,
+    // and those live in people's inboxes indefinitely. Without a case here
+    // they would fall through to `default: return query` -- no filter applied
+    // at all -- so the page would show EVERY row instead of the absences the
+    // link promised. Silently wrong, with no error to notice.
+    //
+    // The mapping is necessarily lossy in one direction: hr_flag conflated
+    // four questions, so 'OK' and 'Approved' both really meant "an ordinary
+    // day that was worked", and the distinction they appeared to draw
+    // (hardware-only vs app-approved) is now evidence_source/approval_state.
+    // Both therefore map to day_state = 'worked', which is what each of them
+    // actually meant.
+    //
+    // Delete these once old links have aged out -- they read nothing from the
+    // database that would break first, so there is no forcing function. A
+    // year is a reasonable horizon.
     case "hrFlag":
-      return query.eq("hr_flag", value);
+      switch (value) {
+        case "Absent":
+          return query.eq("day_state", "absent");
+        case "Pending App Approval":
+          return query.eq("approval_state", "pending");
+        case "Missing App Check-Out":
+          return query.eq("evidence_quality", "open_session");
+        case "Incomplete Card Scans":
+          return query.eq("evidence_quality", "single_scan");
+        case "OK":
+        case "Approved":
+          return query.eq("day_state", "worked");
+        default:
+          // An unrecognised legacy value -- including the dynamic
+          // 'On Leave (AL)' / 'Public Holiday (<name>)' forms, which were
+          // never valid filter values anyway since they embedded data.
+          // Returning the query unfiltered would silently show everything,
+          // so match nothing instead: an empty list is an honest answer to
+          // a filter we cannot honour.
+          return query.eq("day_state", "__unmapped_legacy_hr_flag__");
+      }
 
-    // DEPRECATED -- prefer calendarType. Retained for the same reason as
-    // hrFlag: existing deep links carry it.
+    // LEGACY -- superseded by calendarType, which can also express public
+    // holidays and the weekend-that-is-also-a-holiday overlap. Retained for
+    // the same reason as hrFlag above: existing links carry it.
     case "dayType":
       // Merged "Working Days Only"/"Weekend Only" into one filter -- they
       // were previously two separate dropdown entries that were really just

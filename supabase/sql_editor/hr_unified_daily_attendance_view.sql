@@ -33,56 +33,52 @@
 -- approval_state='approved' + evidence_quality='open_session', and
 -- evidence_source='both' + evidence_quality='single_scan'.
 --
--- hr_flag is DELIBERATELY UNCHANGED here, byte for byte. It is kept for one
--- release as a compatibility column so the ~34 frontend files and 10 SQL
--- consumers that read it can migrate in batches instead of in one atomic
--- deploy, and it is dropped in a later migration once nothing references it.
--- Its expression is NOT re-derived from the new axes, because it could not be
--- reproduced exactly: hr_flag's 'Approved' branch uses
--- BOOL_AND(status = 'Approved') across ALL activities INCLUDING Rejected ones,
--- so a day holding one Approved and one Rejected activity computes
--- all_approved = false and falls all the way through to 'OK'. approval_state
--- below deliberately does not carry that quirk (it reports 'approved', which
--- is what actually happened), so the two legitimately disagree on exactly
--- those days. That divergence is a FINDING, not a regression -- see
--- approval_state's own comment.
+-- hr_flag IS GONE (removed 2026-09-23, Ship 3). It survived one release as a
+-- compatibility column so the ~34 frontend files and 10 SQL consumers that
+-- read it could migrate in batches rather than in one atomic deploy. All of
+-- them now read the axis columns, so it has been dropped.
 --
--- Consequently the deploy-time equality check on hr_flag validates the
--- PLUMBING of this rewrite (CTEs, joins, GROUP BY grain, timezone handling),
--- not the label logic -- which is still the check worth running, because a
--- broken join or a slipped timezone is exactly the kind of error a rewrite
--- this size actually produces.
+-- It was never re-derived from the axes while it lived here, because it could
+-- not be reproduced exactly: its 'Approved' branch used
+-- BOOL_AND(status = 'Approved') across ALL activities INCLUDING Rejected ones,
+-- so a day holding one Approved and one Rejected activity computed
+-- all_approved = false and fell all the way through to 'OK' -- reporting
+-- approved app work as a clean hardware-only day. approval_state deliberately
+-- does not carry that quirk.
+--
+-- Two legacy query-string values outlive the column: attendanceOverviewService
+-- .js still accepts `hrFlag=` and `dayType=` and TRANSLATES them onto the axis
+-- columns, because notification emails sent before the migration carry those
+-- params and live in inboxes indefinitely. Those read nothing from the
+-- database, so dropping this column does not break them.
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
--- CREATE OR REPLACE, not DROP + CREATE (changed 2026-09-23).
+-- DROP + CREATE for THIS deploy, not CREATE OR REPLACE.
 --
--- The Ship 1 rebuild genuinely needed a DROP: it added columns of new types
--- and removed estimated_normal_day_ot_hours, neither of which CREATE OR
--- REPLACE can do. That has landed, so the DROP is now pure cost.
+-- This file was switched to CREATE OR REPLACE on 2026-09-23 precisely because
+-- the DROP was no longer needed -- and it is needed again here, once, for the
+-- only reason that forces it: CREATE OR REPLACE VIEW can rewrite the body
+-- freely and can APPEND columns, but it cannot DROP one. Removing hr_flag
+-- raises 42P16 without this.
 --
--- Cost, specifically: `DROP VIEW ... CASCADE` also drops
--- attendance_activity_audit, which joins this view -- so every deploy
--- required running that file immediately afterwards, and left the day
--- sidebar with no data source in between. Forget the second file and the
--- sidebar is simply gone, with nothing to indicate why.
+-- Because DROP ... CASCADE also drops attendance_activity_audit (it joins this
+-- view), hr_attendance_activity_audit_view.sql MUST be run immediately after
+-- this file. Between the two statements the day sidebar has no data source.
 --
--- CREATE OR REPLACE has none of that: the audit view is untouched, there is
--- no window, and it still creates the view on a database that does not have
--- it yet. It is also idempotent, so this file can be re-run freely.
+-- SWITCH THIS BACK to CREATE OR REPLACE after this deploy, unless another
+-- column needs dropping. Leaving the DROP in place reintroduces the trap it
+-- was removed to avoid: every routine change would cascade the audit view away
+-- and require a second file, and forgetting it removes the day sidebar with
+-- nothing to indicate why.
 --
--- WHEN THIS WILL STOP WORKING: CREATE OR REPLACE VIEW can change the query
--- body however it likes, and can APPEND columns, but it cannot drop, rename
--- or retype an existing one -- those raise 42P16. If a future change needs
--- any of those, restore the DROP ... CASCADE for that one deploy and run
--- hr_attendance_activity_audit_view.sql straight after. It fails loudly
--- rather than silently, so there is no way to get this wrong by accident.
---
--- security_invoker is restated here deliberately. Do NOT drop it: without it
--- the view can fall back to OWNER privileges, RLS stops scoping rows, and
--- every page renders perfectly while showing the whole company.
+-- security_invoker is restated below deliberately. Do NOT drop it: without it
+-- the view falls back to OWNER privileges, RLS stops scoping rows, and every
+-- page renders perfectly while showing the whole company.
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.unified_daily_attendance
+DROP VIEW IF EXISTS public.unified_daily_attendance CASCADE;
+
+CREATE VIEW public.unified_daily_attendance
 WITH (security_invoker = on) AS
 
 -- 1. Date Spine: Find all unique dates anyone worked, so we know which days the company was open
@@ -470,57 +466,6 @@ SELECT
     -- REJECTED App Hours). See daily_hw_remote_overlap above.
     GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) AS hours_worked,
 
-    -- 🚨 HYBRID DISCREPANCY & ABSENCE DETECTION 🚨
-    CASE
-        -- 1. Absence Catching: No Hardware AND No Valid App Data
-        WHEN h.hw_check_in IS NULL AND a.app_check_in IS NULL THEN
-            -- Weekend/rest-day is intentionally NOT a branch here anymore --
-            -- it's the independent, always-on is_weekend column instead
-            -- (see expected_shifts above), so it stays visible even on a
-            -- day someone actually worked, which the old hr_flag-only
-            -- encoding could never do (working a Saturday made the
-            -- 'Weekend / Rest Day' label disappear entirely). This means a
-            -- genuine rest day with zero activity now literally reads
-            -- hr_flag = 'Absent' here -- correct per the decision that
-            -- status should only reflect real attendance outcomes, but the
-            -- frontend MUST override the displayed badge to "Weekend" (not
-            -- red "Absent") whenever is_weekend is true, or every
-            -- Saturday/Sunday looks like an unexcused absence in the UI.
-            -- Leave is still checked inside this "nothing happened today"
-            -- branch -- it can only ever replace the Absent fallback below,
-            -- never override Approved/Pending/Missing-Checkout/Incomplete-
-            -- Scans/OK further down, so it can only fix a
-            -- miscategorization, never hide a real anomaly. A
-            -- half-day-leave/half-day-worked day still falls through to
-            -- whichever work-based branch applies -- is_on_leave/
-            -- leave_type_codes/leave_day_fraction below stay populated
-            -- regardless, so that context isn't lost even when it's not the
-            -- headline hr_flag.
-            CASE
-                WHEN dh.holiday_name IS NOT NULL THEN 'Public Holiday (' || dh.holiday_name || ')'
-                WHEN dl.leave_type_codes IS NOT NULL THEN 'On Leave (' || dl.leave_type_codes || ')'
-                ELSE 'Absent'
-            END
-
-        -- 2. Master Override: All existing activities are Approved
-        WHEN a.all_approved = TRUE
-            THEN 'Approved'
-
-        -- 3. Pending Protection: Waiting on HR/Manager to approve remote work
-        WHEN a.has_pending = TRUE
-            THEN 'Pending App Approval'
-
-        -- 4. App Error: They left a remote session running
-        WHEN a.has_missing_app_checkout = TRUE
-            THEN 'Missing App Check-Out'
-
-        -- 5. Hardware Error: They only scanned the building once
-        WHEN h.total_hw_scans = 1
-            THEN 'Incomplete Card Scans'
-
-        -- 6. Perfect Hardware Data (No App data used today, scanned in and out properly)
-        ELSE 'OK'
-    END AS hr_flag,
 
     -- Absolute First In (Ignores Rejected App Logs)
     (SELECT MIN(v) FROM (VALUES (a.app_check_in), (h.hw_check_in)) AS t(v)) AS first_in,
@@ -1029,6 +974,84 @@ LEFT JOIN public.departments d ON u.department_id = d.id
 LEFT JOIN public.employees m ON u.manager_id = m.id
 LEFT JOIN public.profiles p ON u.profile_id = p.id
 LEFT JOIN public.work_locations wl ON wl.id = u.work_location_id
+),
+
+-- ===========================================================================
+-- DERIVED LABEL -- day_state, in its own CTE.
+--
+-- It lives here rather than in the outer SELECT because the reconciliation
+-- columns below TEST it (is_unacknowledged_absent, needs_reconciliation), and
+-- a SELECT list cannot reference a sibling output column's alias -- this
+-- view's oldest and most-repeated constraint. Computing it alongside them
+-- would mean restating its entire CASE inside each one, which is precisely
+-- how a derived label drifts from the facts it claims to summarise.
+--
+-- It cannot go inside final_rows either, for the same reason one level down:
+-- the axis columns it reads (day_calendar_type, evidence_source, leave_state)
+-- are themselves computed there, and would be sibling aliases.
+-- ===========================================================================
+day_rows AS (
+    SELECT
+        fr.*,
+        -- =====================================================================
+        -- DERIVED LABEL -- day_state. A PURE FUNCTION of the axis columns above
+        -- (plus is_insufficient_half_day_hours, itself a pure function of
+        -- leave fraction and hours). It holds no information of its own, so it
+        -- cannot drift from the axes the way hr_flag drifted from reality.
+        --
+        -- This is the one column HR filters on day to day, and the replacement
+        -- for hr_flag's calendar/entitlement/outcome values. hr_flag's
+        -- DATA-QUALITY and APPROVAL values have no counterpart here on purpose:
+        -- they are not properties of what kind of day it was, and folding them
+        -- back in would recreate exactly the single-winner problem this rebuild
+        -- exists to remove. A day is `worked` AND evidence_quality='single_scan'
+        -- AND approval_state='pending' -- three facts, three columns, all true
+        -- at once.
+        --
+        -- Ordering within the ordinary-day branch is significant and mirrors the
+        -- existing boolean flags exactly:
+        --   * over_full_day wins over leave_conflict, because a day that is both
+        --     (leave summing above 1.0 AND real attendance) is first of all a
+        --     data-entry error -- fix the ledger, then re-judge the conflict.
+        --     Both is_leave_attendance_conflict and has_leave_fraction_error
+        --     stay independently true on that row, so neither fact is lost.
+        --   * insufficient_half_day reuses is_insufficient_half_day_hours rather
+        --     than restating `= 0.5 AND hours < 4`, so the label and the flag
+        --     can never disagree.
+        --   * 'partial' leave (0.25 / 0.75 and similar) lands on
+        --     on_leave_partial rather than falling through to worked/absent,
+        --     which is what happens today -- those fractions currently match no
+        --     leave branch anywhere and a zero-attendance 0.75 day reads as a
+        --     plain red Absent.
+        -- =====================================================================
+        CASE fr.day_calendar_type
+
+            WHEN 'weekend_public_holiday' THEN
+                CASE WHEN fr.evidence_source <> 'none' THEN 'weekend_public_holiday_worked'
+                     ELSE 'weekend_public_holiday' END
+
+            WHEN 'weekend' THEN
+                CASE WHEN fr.evidence_source <> 'none' THEN 'weekend_worked'
+                     WHEN fr.leave_state <> 'none' THEN 'weekend_on_leave'
+                     ELSE 'weekend' END
+
+            WHEN 'public_holiday' THEN
+                CASE WHEN fr.evidence_source <> 'none' THEN 'public_holiday_worked'
+                     WHEN fr.leave_state <> 'none' THEN 'public_holiday_on_leave'
+                     ELSE 'public_holiday' END
+
+            ELSE
+                CASE
+                    WHEN fr.leave_state = 'over_full_day' THEN 'leave_data_error'
+                    WHEN fr.leave_state = 'full_day' AND fr.evidence_source <> 'none' THEN 'leave_conflict'
+                    WHEN fr.leave_state = 'full_day' THEN 'on_leave'
+                    WHEN fr.leave_state = 'half_day' AND fr.is_insufficient_half_day_hours THEN 'insufficient_half_day'
+                    WHEN fr.leave_state IN ('half_day', 'partial') THEN 'on_leave_partial'
+                    WHEN fr.evidence_source <> 'none' THEN 'worked'
+                    ELSE 'absent'
+                END
+        END AS day_state
+    FROM final_rows fr
 )
 
 -- ===========================================================================
@@ -1051,8 +1074,7 @@ LEFT JOIN public.work_locations wl ON wl.id = u.work_location_id
 SELECT
     fr.*,
 
-    (fr.hr_flag = 'Absent' AND NOT fr.is_weekend AND NOT fr.is_public_holiday
-        AND ack_absent.id IS NULL) AS is_unacknowledged_absent,
+    (fr.day_state = 'absent' AND ack_absent.id IS NULL) AS is_unacknowledged_absent,
 
     (fr.is_insufficient_half_day_hours AND ack_half_day.id IS NULL)
         AS is_unacknowledged_insufficient_half_day,
@@ -1076,8 +1098,7 @@ SELECT
     -- which is why employees currently get emailed about Sundays. That is a
     -- notification-scoping decision, deliberately not made here.
     (
-        (fr.hr_flag = 'Absent' AND NOT fr.is_weekend AND NOT fr.is_public_holiday
-            AND ack_absent.id IS NULL)
+        (fr.day_state = 'absent' AND ack_absent.id IS NULL)
         OR fr.is_leave_attendance_conflict
         OR (fr.is_insufficient_half_day_hours AND ack_half_day.id IS NULL)
         OR fr.has_leave_fraction_error
@@ -1127,68 +1148,9 @@ SELECT
         WHEN fr.is_weekend
         THEN GREATEST(0, fr.weekend_hours_worked - GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0)))
         ELSE 0
-    END AS approved_weekend_hours_worked,
+    END AS approved_weekend_hours_worked
 
-    -- =====================================================================
-    -- DERIVED LABEL -- day_state. A PURE FUNCTION of the axis columns above
-    -- (plus is_insufficient_half_day_hours, itself a pure function of
-    -- leave fraction and hours). It holds no information of its own, so it
-    -- cannot drift from the axes the way hr_flag drifted from reality.
-    --
-    -- This is the one column HR filters on day to day, and the replacement
-    -- for hr_flag's calendar/entitlement/outcome values. hr_flag's
-    -- DATA-QUALITY and APPROVAL values have no counterpart here on purpose:
-    -- they are not properties of what kind of day it was, and folding them
-    -- back in would recreate exactly the single-winner problem this rebuild
-    -- exists to remove. A day is `worked` AND evidence_quality='single_scan'
-    -- AND approval_state='pending' -- three facts, three columns, all true
-    -- at once.
-    --
-    -- Ordering within the ordinary-day branch is significant and mirrors the
-    -- existing boolean flags exactly:
-    --   * over_full_day wins over leave_conflict, because a day that is both
-    --     (leave summing above 1.0 AND real attendance) is first of all a
-    --     data-entry error -- fix the ledger, then re-judge the conflict.
-    --     Both is_leave_attendance_conflict and has_leave_fraction_error
-    --     stay independently true on that row, so neither fact is lost.
-    --   * insufficient_half_day reuses is_insufficient_half_day_hours rather
-    --     than restating `= 0.5 AND hours < 4`, so the label and the flag
-    --     can never disagree.
-    --   * 'partial' leave (0.25 / 0.75 and similar) lands on
-    --     on_leave_partial rather than falling through to worked/absent,
-    --     which is what happens today -- those fractions currently match no
-    --     leave branch anywhere and a zero-attendance 0.75 day reads as a
-    --     plain red Absent.
-    -- =====================================================================
-    CASE fr.day_calendar_type
-
-        WHEN 'weekend_public_holiday' THEN
-            CASE WHEN fr.evidence_source <> 'none' THEN 'weekend_public_holiday_worked'
-                 ELSE 'weekend_public_holiday' END
-
-        WHEN 'weekend' THEN
-            CASE WHEN fr.evidence_source <> 'none' THEN 'weekend_worked'
-                 WHEN fr.leave_state <> 'none' THEN 'weekend_on_leave'
-                 ELSE 'weekend' END
-
-        WHEN 'public_holiday' THEN
-            CASE WHEN fr.evidence_source <> 'none' THEN 'public_holiday_worked'
-                 WHEN fr.leave_state <> 'none' THEN 'public_holiday_on_leave'
-                 ELSE 'public_holiday' END
-
-        ELSE
-            CASE
-                WHEN fr.leave_state = 'over_full_day' THEN 'leave_data_error'
-                WHEN fr.leave_state = 'full_day' AND fr.evidence_source <> 'none' THEN 'leave_conflict'
-                WHEN fr.leave_state = 'full_day' THEN 'on_leave'
-                WHEN fr.leave_state = 'half_day' AND fr.is_insufficient_half_day_hours THEN 'insufficient_half_day'
-                WHEN fr.leave_state IN ('half_day', 'partial') THEN 'on_leave_partial'
-                WHEN fr.evidence_source <> 'none' THEN 'worked'
-                ELSE 'absent'
-            END
-    END AS day_state
-
-FROM final_rows fr
+FROM day_rows fr
 LEFT JOIN public.attendance_reconciliation_acknowledgements ack_absent
     ON ack_absent.employee_id = fr.employee_uuid
    AND ack_absent.work_date = fr.work_date

@@ -105,32 +105,12 @@ export const PRODUCT_TYPE_COLORS = {
   MIXED: "#ffb74d",
 };
 
-// ATTENDANCE HR_FLAG (unified_daily_attendance) -- same green/yellow/red
-// convention StatusBox already uses for this field elsewhere (AttendanceCard).
+// ATTENDANCE DAY STATE (unified_daily_attendance.day_state).
 //
-// DEPRECATED as of the day-model rework. hr_flag is a compatibility column
-// scheduled for removal; use ATTENDANCE_DAY_STATE_COLORS below instead, which
-// is keyed on day_state and does not conflate calendar type, approval state
-// and data quality into one scale. Retained only until every chart has moved.
-export const ATTENDANCE_FLAG_COLORS = {
-  OK: "#4bc793",
-  Approved: "#4bc793",
-  "Pending App Approval": "#ffb74d",
-  "Missing App Check-Out": "#d76363",
-  "Incomplete Card Scans": "#dd8b48",
-  Absent: "#d76363",
-  // HR2000 leave ledger integration -- get_attendance_dashboard_rpc.sql's
-  // hrFlagBreakdownData buckets every dynamic "On Leave (AL)"/"On Leave
-  // (AL+MC)" value into this one flat "On Leave" category before grouping,
-  // so it always resolves here instead of falling back to PieChartRenderer's
-  // unmapped grey. Matches AttendanceType.jsx/StatusBox's own purple.
-  "On Leave": PURPLE_COLOR,
-  "Public Holiday": BLUE_COLOR,
-};
-
-// ATTENDANCE DAY STATE (unified_daily_attendance.day_state) -- the replacement
-// for ATTENDANCE_FLAG_COLORS above, keyed on the derived label rather than on
-// hr_flag's conflated string.
+// Replaced ATTENDANCE_FLAG_COLORS, which is gone along with the hr_flag column
+// itself. That map was keyed on a single string that conflated calendar type,
+// leave, data quality and approval state, so it could only ever colour one of
+// those at a time. The three maps here are the separate axes.
 //
 // Keys are the LABELS from attendanceDayState.js, not the raw snake_case
 // values, because the chart renderers group by display label. Keep the two in

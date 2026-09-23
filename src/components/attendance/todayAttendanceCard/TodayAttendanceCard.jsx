@@ -26,7 +26,7 @@ import AttendanceDayTimelineBar from "@/components/attendance/attendanceDayTimel
 import AttendanceTimelineCard from "@/components/attendance/attendanceSidebarHR/attendanceTimelineCard/AttendanceTimelineCard";
 import AttendanceAnomalyBadges from "@/components/attendance/attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import StatusBox from "@/components/status/statusBox/StatusBox";
-import { getAnomalyAnchorActivityIds } from "@/functions/attendanceFlagStatus";
+import { getAnomalyAnchorActivityIds } from "@/functions/attendanceAnomalyAnchors";
 import { getDayStateDisplay } from "@/functions/attendanceDayState";
 import useElapsedSince from "@/functions/useElapsedSince";
 import { useEmployee } from "@/context/EmployeeContext";

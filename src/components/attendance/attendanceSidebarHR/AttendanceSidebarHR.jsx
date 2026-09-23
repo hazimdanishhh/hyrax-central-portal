@@ -21,7 +21,7 @@ import AttendanceTimelineCard from "./attendanceTimelineCard/AttendanceTimelineC
 import AttendanceDayTimelineBar from "../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceAnomalyBadges from "../attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import RowFlagBadge from "../../dataTable/RowFlagBadge";
-import { getAnomalyAnchorActivityIds } from "../../../functions/attendanceFlagStatus";
+import { getAnomalyAnchorActivityIds } from "../../../functions/attendanceAnomalyAnchors";
 import {
   getDayStateDisplay,
   getDayQualityBadges,
