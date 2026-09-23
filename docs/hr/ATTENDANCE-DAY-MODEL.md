@@ -208,6 +208,8 @@ Things that are not bugs, but will look odd once:
 
 - `docs/hr/PAYROLL-DATA-REQUIREMENTS.md` — what payroll needs and where each
   figure comes from
+- [`ATTENDANCE-NOTIFICATIONS.md`](./ATTENDANCE-NOTIFICATIONS.md) — what the
+  portal sends, to whom, and when, across the whole lifecycle
 - `docs/hr/ATTENDANCE-SELF-SERVICE-ARCHITECTURE.md` — how employees fix their
   own attendance
 - `docs/setup/ATTENDANCE-DAY-MODEL-DEPLOYMENT-GUIDE.md` — technical deployment
