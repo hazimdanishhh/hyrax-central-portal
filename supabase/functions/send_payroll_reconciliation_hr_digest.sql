@@ -44,7 +44,7 @@ begin
         v_period_end   := (date_trunc('month', v_today_myt) - interval '1 day')::date;
 
         with period_rows as materialized (
-            select uda.employee_uuid, uda.work_date, uda.hr_flag, uda.is_weekend,
+            select uda.employee_uuid, uda.work_date, uda.day_state, uda.is_weekend,
                    uda.is_public_holiday,
                    uda.is_leave_attendance_conflict, uda.is_insufficient_half_day_hours,
                    uda.has_leave_fraction_error
@@ -66,7 +66,7 @@ begin
             select
                 p.employee_uuid,
                 bool_or(
-                    p.hr_flag = 'Absent' and not p.is_weekend and not p.is_public_holiday
+                    p.day_state = 'absent'
                     and not exists (
                         select 1 from acknowledged a
                         where a.employee_id = p.employee_uuid

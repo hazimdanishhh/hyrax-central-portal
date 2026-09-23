@@ -48,7 +48,9 @@ select json_agg(
     json_build_object(
         'workDate', g.work_date,
         'category', g.category,
-        'hrFlag', g.hr_flag,
+        -- Renamed from 'hrFlag' 2026-09-23 with the column it reads.
+        -- get_payroll_reconciliation_rows() now returns day_state.
+        'dayState', g.day_state,
         'leaveTypeCodes', g.leave_type_codes,
         'leaveDayFraction', g.leave_day_fraction,
         'hoursWorked', g.hours_worked,

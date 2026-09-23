@@ -29,6 +29,16 @@
 -- authorization logic to get wrong here because there is none to write.
 --
 -- stable: pure read, consistent within a statement.
+--
+-- DROP FIRST: this function's RETURNS TABLE gained day_state in place of
+-- hr_flag (2026-09-23). `create or replace function` cannot change an output
+-- column's name or type -- it raises 42P13 "cannot change name of input
+-- parameter" / "cannot change return type of existing function" -- so the old
+-- definition has to go first. Dropping and recreating a function is safe here:
+-- nothing holds a reference to it across the statement boundary, and it is
+-- recreated in the same file.
+drop function if exists public.get_attendance_backfill_prefill(uuid[], date[]);
+
 create or replace function public.get_attendance_backfill_prefill(
     p_employee_ids uuid[],
     p_dates        date[]
@@ -45,7 +55,7 @@ returns table (
     public_holiday_name     text,
     is_on_leave             boolean,
     leave_day_fraction      numeric,
-    hr_flag                 text,
+    day_state               text,
     hw_check_in             timestamp,
     hw_check_out            timestamp,
     app_check_in            timestamp,
@@ -70,7 +80,7 @@ as $$
         uda.public_holiday_name,
         uda.is_on_leave,
         uda.leave_day_fraction,
-        uda.hr_flag,
+        uda.day_state,
         uda.hw_check_in,
         uda.hw_check_out,
         uda.app_check_in,

@@ -420,8 +420,7 @@ export default function AttendanceOverview() {
                     // plotted.
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      hrFlag: "Absent",
-                      dayType: "working",
+                      dayState: "absent",
                       ...chartPeriodFilter,
                     }}
                   >

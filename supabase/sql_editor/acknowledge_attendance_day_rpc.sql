@@ -80,16 +80,24 @@ begin
     -- you could pre-acknowledge a day that was never flagged, permanently
     -- suppressing a problem that had not happened yet.
     --
-    -- Mirrors get_payroll_reconciliation_rows()'s own predicates exactly: the
-    -- absent branch needs the not-weekend / not-holiday guards, because
-    -- hr_flag = 'Absent' alone also matches every unworked Saturday since
-    -- weekend became an independent is_weekend flag.
+    -- Mirrors get_payroll_reconciliation_rows()'s own predicates exactly.
+    --
+    -- day_state = 'absent' replaces the old three-condition test
+    -- (hr_flag = 'Absent' and not is_weekend and not is_public_holiday). Those
+    -- guards were load-bearing, not defensive -- hr_flag = 'Absent' also
+    -- matched every unworked Saturday -- but they had to be remembered by each
+    -- caller. day_state's `absent` only occurs on an ordinary day with no
+    -- leave and no evidence, so they are now built into the value.
+    --
+    -- is_insufficient_half_day_hours gained the same calendar guard in the
+    -- view on 2026-09-23. Until then it had none, so a half-day leave recorded
+    -- against a Saturday was flagged as needing reconciliation but could not
+    -- be acknowledged here -- an unresolvable state. Both branches now agree
+    -- on which days are eligible.
     select
         case p_category
             when 'absent' then
-                uda.hr_flag = 'Absent'
-                and not uda.is_weekend
-                and not uda.is_public_holiday
+                uda.day_state = 'absent'
             when 'insufficient_half_day' then
                 uda.is_insufficient_half_day_hours
         end

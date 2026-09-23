@@ -130,7 +130,7 @@ export function getHrReportsOverviewConfig(
       // separate "Weekend / Rest Day" value -- an unworked Saturday simply
       // reads 'Absent'), landing HR on roughly twice the rows the tile counted.
       // The Attendance Rate tile above already passes it; this one didn't.
-      filter: { ...baseFilter, hrFlag: "Absent", dayType: "working", ...periodFilter },
+      filter: { ...baseFilter, dayState: "absent", ...periodFilter },
       metrics: [],
       title:
         "Absent-flagged records divided by all working-day records this period.",

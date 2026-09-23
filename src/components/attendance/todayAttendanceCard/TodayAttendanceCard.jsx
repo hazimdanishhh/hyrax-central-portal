@@ -26,10 +26,8 @@ import AttendanceDayTimelineBar from "@/components/attendance/attendanceDayTimel
 import AttendanceTimelineCard from "@/components/attendance/attendanceSidebarHR/attendanceTimelineCard/AttendanceTimelineCard";
 import AttendanceAnomalyBadges from "@/components/attendance/attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import StatusBox from "@/components/status/statusBox/StatusBox";
-import {
-  getDisplayAttendanceFlag,
-  getAnomalyAnchorActivityIds,
-} from "@/functions/attendanceFlagStatus";
+import { getAnomalyAnchorActivityIds } from "@/functions/attendanceFlagStatus";
+import { getDayStateDisplay } from "@/functions/attendanceDayState";
 import useElapsedSince from "@/functions/useElapsedSince";
 import { useEmployee } from "@/context/EmployeeContext";
 import { fetchEmployeeDayDetails } from "@/features/hr/attendance/private/api/attendanceOverviewService";
@@ -97,14 +95,9 @@ export default function TodayAttendanceCard() {
 
   const hasAnyStatus = Boolean(today || currentStatus);
 
-  // hr_flag no longer distinguishes an unworked weekend from a genuine
-  // absence (both now read "Absent") -- is_weekend is the calendar-only
-  // signal that tells them apart at display time. See
-  // getDisplayAttendanceFlag's own comment.
-  const todayFlagDisplay = getDisplayAttendanceFlag(
-    today?.hr_flag,
-    today?.is_weekend,
-  );
+  // day_state distinguishes `weekend` from `absent` natively, so no
+  // display-time override is needed -- see AttendanceCard.jsx.
+  const todayFlagDisplay = getDayStateDisplay(today?.day_state);
 
   // Which single timeline card produced today's late-arrival / early-leave
   // flags -- same resolution AttendanceSidebarHR does, shared so the Dashboard
@@ -162,7 +155,7 @@ export default function TodayAttendanceCard() {
                           attendanceType={`On Leave (${leaveTypeCodesToday})`}
                         />
                       )}
-                    {today?.hr_flag && (
+                    {today?.day_state && (
                       <StatusBox
                         status={todayFlagDisplay.label}
                         type={todayFlagDisplay.type}

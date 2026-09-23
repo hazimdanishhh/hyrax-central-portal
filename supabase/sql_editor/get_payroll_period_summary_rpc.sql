@@ -173,17 +173,28 @@ attendance_summary as (
         -- Mirrors PAYROLL-DATA-REQUIREMENTS.md's own documented-correct
         -- "Days absent" definition -- hr_flag = 'Absent' alone overcounts
         -- unworked weekends/holidays, both of which also read 'Absent'.
-        count(*) filter (where hr_flag = 'Absent' and not is_weekend and not is_public_holiday) as days_absent_count,
+        count(*) filter (where day_state = 'absent') as days_absent_count,
         -- Scheduled calendar workdays this period -- see this file's own
         -- header comment for the reconciliation identity and its one
         -- documented, expected gap source.
-        count(*) filter (where not is_weekend and not is_public_holiday) as total_working_days_count,
+        count(*) filter (where is_expected_working_day) as total_working_days_count,
         -- Of those scheduled workdays, how many the employee actually has
-        -- real attendance for -- every hr_flag value except 'Absent' and
-        -- 'On Leave (...)'.
+        -- real attendance for.
+        --
+        -- EXACT translation of the old five-value hr_flag whitelist, not
+        -- day_state = 'worked'. On an ordinary day those five values are
+        -- precisely "evidence exists" -- 'Absent' and 'On Leave (...)' are the
+        -- only other reachable values, and both mean no evidence.
+        --
+        -- day_state = 'worked' would NOT be equivalent: it excludes a day with
+        -- half-day leave plus half a day worked, which reads
+        -- 'on_leave_partial'. Those days have always counted as a day worked
+        -- here, and this is a payroll output, so the count is left as it was
+        -- rather than changed as a side effect of a rename. Whether a half-day
+        -- should count as 1 or 0.5 is a payroll policy question, not a
+        -- refactoring one.
         count(*) filter (
-            where not is_weekend and not is_public_holiday
-            and hr_flag in ('OK', 'Approved', 'Pending App Approval', 'Missing App Check-Out', 'Incomplete Card Scans')
+            where is_expected_working_day and evidence_source <> 'none'
         ) as actual_days_worked_count,
         count(*) filter (where is_worked_on_holiday) as holiday_days_worked_count,
         -- Approved-only sum (see hours_worked_total's own comment above) --
@@ -199,7 +210,7 @@ attendance_summary as (
         -- acknowledgeable flags. The counts above stay whole for payroll; these
         -- drive the reconciliation UI.
         count(*) filter (
-            where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
+            where day_state = 'absent'
               and ack_absent.employee_id is null
         ) as unacknowledged_absence_count,
         -- CONFIRMED (already reviewed) counterpart -- same base predicate as
@@ -210,7 +221,7 @@ attendance_summary as (
         -- leaving "how many of these Days Absent are actually confirmed"
         -- invisible.
         count(*) filter (
-            where hr_flag = 'Absent' and not is_weekend and not is_public_holiday
+            where day_state = 'absent'
               and ack_absent.employee_id is not null
         ) as acknowledged_absence_count,
         count(*) filter (

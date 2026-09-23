@@ -42,7 +42,9 @@ function toAttendanceCardActivity(row, { employeeUuid, employeeName }) {
     id: employeeUuid,
     full_name: employeeName,
     work_date: formatDate(row.workDate),
-    hr_flag: row.hrFlag,
+    // get_payroll_reconciliation_detail_rpc renamed this key with the
+    // column behind it -- AttendanceCard now reads day_state.
+    day_state: row.dayState,
     is_weekend: row.isWeekend,
     daily_activities: row.dailyActivities,
     is_on_leave: Boolean(row.leaveTypeCodes),

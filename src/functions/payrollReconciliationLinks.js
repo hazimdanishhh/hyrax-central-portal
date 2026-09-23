@@ -7,7 +7,11 @@
 // unlike the self-scoped My Attendance route the email/notifications link
 // to), for PayrollReconciliationSidebar.jsx's own per-section deep links.
 const CATEGORY_QUERY_PARAMS = {
-  absent: "hrFlag=Absent&dayType=working",
+  // day_state = absent already means "ordinary working day, no leave, no
+  // evidence", so the paired dayType=working is no longer needed -- and
+  // cannot be forgotten. Under hr_flag, omitting it meant the link also
+  // matched every unworked Saturday.
+  absent: "dayState=absent",
   leave_conflict: "leaveAttendanceConflict=true",
   insufficient_half_day: "insufficientHalfDayHours=true",
   leave_fraction_error: "leaveFractionError=true",
@@ -20,11 +24,9 @@ const CATEGORY_QUERY_PARAMS = {
   // specifically about the 4 reconciliation flags, not every summary field.
   worked_on_holiday: "workedOnHoliday=true",
   worked_on_weekend: "workedOnWeekend=true",
-  // Added 2026-09-22 for the sidebar's new "Pending Approval Hours" KPI card
-  // -- hrFlag already has this exact value as a real, existing Attendance
-  // List filter option (getAttendanceActivitiesFilterConfig), so this is a
-  // genuinely precise deep link, not a "close enough" one like `absent` below.
-  pending_approval: "hrFlag=Pending App Approval",
+  // Approval is its own axis now, so this targets it directly rather than
+  // through a conflated status value.
+  pending_approval: "approvalState=pending",
   // No extra flag -- just scope to this employee/period, for fields with no
   // single corresponding Attendance List filter (hours worked, leave days,
   // etc.). An intentionally valid, empty-string entry -- see the `params

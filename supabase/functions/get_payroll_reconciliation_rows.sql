@@ -1,5 +1,5 @@
 -- arguments: p_employee_uuid uuid, p_start_date date, p_end_date date
--- returns: table (work_date, category, hr_flag, leave_type_codes,
+-- returns: table (work_date, category, day_state, leave_type_codes,
 --                  leave_day_fraction, hours_worked, is_weekend,
 --                  is_public_holiday, public_holiday_name, first_in,
 --                  last_out, overtime_hours, is_early_leave, is_late_arrival,
@@ -75,7 +75,7 @@ create or replace function public.get_payroll_reconciliation_rows(
 returns table (
     work_date            date,
     category             text,
-    hr_flag              text,
+    day_state            text,
     leave_type_codes     text,
     leave_day_fraction   numeric,
     hours_worked         numeric,
@@ -151,14 +151,14 @@ begin
           and ack.work_date >= p_start_date
           and ack.work_date <= p_end_date
     )
-    select r.work_date, 'absent'::text, r.hr_flag, r.leave_type_codes,
+    select r.work_date, 'absent'::text, r.day_state, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
            r.is_public_holiday, r.public_holiday_name,
            r.first_in, r.last_out, r.overtime_hours, r.is_early_leave,
            r.is_late_arrival, r.is_worked_on_holiday, r.holiday_hours_worked,
            r.daily_activities
     from period_rows r
-    where r.hr_flag = 'Absent' and not r.is_weekend and not r.is_public_holiday
+    where r.day_state = 'absent'
       and not exists (
           select 1 from acknowledged a
           where a.work_date = r.work_date and a.category = 'absent'
@@ -166,7 +166,7 @@ begin
 
     union all
 
-    select r.work_date, 'leave_conflict', r.hr_flag, r.leave_type_codes,
+    select r.work_date, 'leave_conflict', r.day_state, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
            r.is_public_holiday, r.public_holiday_name,
            r.first_in, r.last_out, r.overtime_hours, r.is_early_leave,
@@ -177,7 +177,7 @@ begin
 
     union all
 
-    select r.work_date, 'insufficient_half_day', r.hr_flag, r.leave_type_codes,
+    select r.work_date, 'insufficient_half_day', r.day_state, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
            r.is_public_holiday, r.public_holiday_name,
            r.first_in, r.last_out, r.overtime_hours, r.is_early_leave,
@@ -192,7 +192,7 @@ begin
 
     union all
 
-    select r.work_date, 'leave_fraction_error', r.hr_flag, r.leave_type_codes,
+    select r.work_date, 'leave_fraction_error', r.day_state, r.leave_type_codes,
            r.leave_day_fraction, r.hours_worked, r.is_weekend,
            r.is_public_holiday, r.public_holiday_name,
            r.first_in, r.last_out, r.overtime_hours, r.is_early_leave,

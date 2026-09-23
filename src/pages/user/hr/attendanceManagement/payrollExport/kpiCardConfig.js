@@ -62,7 +62,7 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
         {
           label: "Unacknowledged Absences",
           value: row.unacknowledgedAbsenceCount || 0,
-          link: `/app/hr/attendance/list?employee=${row.employeeUuid}&startDate=${startDate}&endDate=${endDate}&hrFlag=Absent&dayType=working&needsReconciliation=true`,
+          link: `/app/hr/attendance/list?employee=${row.employeeUuid}&startDate=${startDate}&endDate=${endDate}&dayState=absent&needsReconciliation=true`,
           variant:
             (row.unacknowledgedAbsenceCount || 0) > 0 ? "redCard" : "greenCard",
           description:
@@ -87,7 +87,7 @@ export function getPayrollSummaryKpiCards(row, { startDate, endDate }) {
         {
           label: "Pending App Approval Hours",
           value: Number(row.pendingApprovalHoursTotal || 0).toFixed(2),
-          link: `/app/hr/attendance/list?employee=${row.employeeUuid}&startDate=${startDate}&endDate=${endDate}&hrFlag=Pending+App+Approval`,
+          link: `/app/hr/attendance/list?employee=${row.employeeUuid}&startDate=${startDate}&endDate=${endDate}&approvalState=pending`,
           variant:
             Number(row.pendingApprovalHoursTotal || 0) > 0
               ? "redCard"

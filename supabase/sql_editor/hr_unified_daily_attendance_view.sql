@@ -698,8 +698,21 @@ SELECT
     -- a SELECT list can't reference a sibling output column's alias (same
     -- constraint overtime_hours/is_late_arrival's own comments already
     -- document).
+    -- CALENDAR GUARD added 2026-09-23. This previously tested only the leave
+    -- fraction and the hours, with no weekend or holiday exclusion -- unlike
+    -- is_unacknowledged_absent beside it, which has always carried one. HR2000
+    -- does not prevent leave being recorded against a Saturday or a public
+    -- holiday, and such a day trivially satisfies `= 0.5 AND 0 < 4`, so it was
+    -- flagged as needing reconciliation forever.
+    --
+    -- That was not merely noise, it was an UNRESOLVABLE state: the day showed
+    -- up in the reconciliation queue and in the employee's notifications, but
+    -- acknowledge_attendance_day() would not accept it (its absent branch
+    -- excluded non-working days, so HR could clear a Saturday absence but not
+    -- a Saturday half-day). Flagged, chased, and impossible to close.
     COALESCE(
-        dl.leave_day_fraction_total = 0.5
+        NOT u.is_weekend AND dh.holiday_name IS NULL
+        AND dl.leave_day_fraction_total = 0.5
         AND GREATEST(0, COALESCE(h.hw_hours, 0) - COALESCE(ro.overlap_hours, 0)) + COALESCE(a.app_hours, 0) < 4,
         false
     ) AS is_insufficient_half_day_hours,

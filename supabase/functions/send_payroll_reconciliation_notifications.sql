@@ -78,7 +78,7 @@ begin
                   and r.work_date >= v_period_start
                   and r.work_date <= v_period_end
                   and (
-                    (v_code = 'absent' and r.hr_flag = 'Absent' and not r.is_weekend and not r.is_public_holiday)
+                    (v_code = 'absent' and r.day_state = 'absent')
                     or (v_code = 'leave_conflict' and r.is_leave_attendance_conflict)
                     or (v_code = 'insufficient_half_day' and r.is_insufficient_half_day_hours)
                     or (v_code = 'leave_fraction_error' and r.has_leave_fraction_error)

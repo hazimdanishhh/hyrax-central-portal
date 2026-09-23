@@ -218,7 +218,7 @@ Batches are ordered so each one only depends on those before it.
 | 2.2 | The three attendance lists — filters, sort, tabs, cards | **DONE** (uncommitted) |
 | 2.3a | Charts moved to `day_state` (SQL + 4 overview pages) | **DONE** (uncommitted) |
 | 2.3b | Dashboard KPI predicates off `hr_flag` | **DONE** (uncommitted) |
-| 2.4 | Payroll Export + its RPCs + the reconciliation sidebar | not started |
+| 2.4 | Payroll Export + its RPCs + the reconciliation sidebar | **DONE** |
 | 2.5 | Forms, settings, backfill wizard | not started |
 
 ### Batch 2.1 — shared vocabulary (done)
@@ -499,6 +499,52 @@ wrong silently.
 **The frontend must ship with 3–4.** The chart JSON key changed
 (`hrFlagBreakdownData` → `dayStateBreakdownData`), so an old frontend against
 a new RPC charts nothing.
+
+### Batch 2.4 — payroll and reconciliation (done)
+
+`hr_flag` now survives in exactly **one live SQL file: the view that defines
+it.** Every other SQL consumer is migrated.
+
+| File | Change |
+|---|---|
+| `supabase/functions/get_payroll_reconciliation_rows.sql` | `hr_flag` → `day_state` in the `RETURNS TABLE` signature and all four category branches |
+| `supabase/sql_editor/get_payroll_period_summary_rpc.sql` | absent counts, working-day and actual-days-worked predicates |
+| `supabase/sql_editor/get_payroll_reconciliation_detail_rpc.sql` | JSON key `hrFlag` → `dayState` |
+| `supabase/sql_editor/acknowledge_attendance_day_rpc.sql` | the acknowledgement write guard |
+| `supabase/sql_editor/get_attendance_backfill_prefill_rpc.sql` | output column, plus a `drop function` it was missing |
+| both notification functions | their own copies of the absent predicate |
+| `hr_unified_daily_attendance_view.sql` | calendar guard on `is_insufficient_half_day_hours` |
+
+**An unresolvable state, found and fixed.** `is_insufficient_half_day_hours`
+had no calendar guard, so a half-day leave recorded against a Saturday (HR2000
+does not prevent this) was flagged as needing reconciliation — but
+`acknowledge_attendance_day()` refused it, because its absent branch excluded
+non-working days. HR could clear a Saturday *absence* but not a Saturday
+*half-day*: flagged, chased, and impossible to close. Both ends now agree on
+which days are eligible.
+
+**One deliberate non-change.** `actual_days_worked_count` looks like it should
+become `day_state = 'worked'`, but that would newly **exclude** a day with
+half-day leave plus half a day worked, which has always counted as a day
+worked. That is a payroll output, and whether a half-day counts as 1 or 0.5 is
+a payroll policy question, not a refactoring one. It uses the exact equivalent
+instead: `is_expected_working_day and evidence_source <> 'none'`.
+
+**Deep links** now target the axes — `dayState=absent` (no longer needing the
+paired `dayType=working`, which could be forgotten), `approvalState=pending`,
+`evidenceQuality=single_scan` / `open_session`.
+
+### What is left of `hr_flag`
+
+Five frontend files, **all of them the intentional compatibility shim**:
+
+- `attendanceOverviewService.js` — the deprecated `hrFlag`/`dayType` filter
+  cases, kept so deep links already sent in emails and notifications resolve
+- `attendanceFlagStatus.js` — the deprecated helper module itself
+- `"hrFlag"` in three `SEARCH_MODE_FILTER_KEYS` arrays, so those old links
+  still promote the page to Search mode
+
+Ship 3 removes exactly these, then drops the column from the view.
 
 ### What changes for users, per batch
 

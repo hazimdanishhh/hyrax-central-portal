@@ -346,8 +346,7 @@ export default function TeamAttendanceOverview() {
                     // chart had just plotted, padded with ordinary weekends.
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      hrFlag: "Absent",
-                      dayType: "working",
+                      dayState: "absent",
                       ...chartPeriodFilter,
                     }}
                   >

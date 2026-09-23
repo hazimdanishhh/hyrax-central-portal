@@ -277,7 +277,7 @@ export function getAttendanceOverviewConfig(
       // actually selected, mirroring pending_period_count.
       filter: {
         ...baseFilter,
-        hrFlag: "Pending App Approval",
+        approvalState: "pending",
         ...(isPeriodFiltered && {
           startDate: filters.startDate,
           endDate: filters.endDate,
@@ -328,7 +328,7 @@ export function getAttendanceOverviewConfig(
           to: "../list",
           filter: {
             ...baseFilter,
-            hrFlag: "Missing App Check-Out",
+            evidenceQuality: "open_session",
             ...(isPeriodFiltered && {
               startDate: filters.startDate,
               endDate: filters.endDate,
@@ -343,7 +343,7 @@ export function getAttendanceOverviewConfig(
           to: "../list",
           filter: {
             ...baseFilter,
-            hrFlag: "Incomplete Card Scans",
+            evidenceQuality: "single_scan",
             ...todaySnapshotDates,
           },
         },
@@ -566,8 +566,7 @@ export function getAttendanceOverviewConfig(
           to: "../list",
           filter: {
             ...baseFilter,
-            hrFlag: "Absent",
-            dayType: "working",
+            dayState: "absent",
             ...periodFilter,
           },
         },
