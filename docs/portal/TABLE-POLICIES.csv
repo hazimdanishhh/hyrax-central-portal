@@ -17,6 +17,13 @@ public,addresses,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXI
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
 public,ai_dashboard_summaries,table,true,false,Allow authenticated read access,SELECT,true,{authenticated},true,null
+public,attendance_acknowledgement_reasons,table,true,false,Authenticated users can view acknowledgement reasons,SELECT,true,{authenticated},true,null
+public,attendance_acknowledgement_reasons,table,true,false,HR can manage acknowledgement reasons,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))"
+public,attendance_acknowledgement_reasons,table,true,false,Superadmin can manage acknowledgement reasons,ALL,true,{authenticated},is_superadmin(),is_superadmin()
 public,attendance_activities,table,true,false,Enable users to insert their own data only,INSERT,true,{authenticated},null,"(employee_id = ( SELECT employees.id
    FROM employees
   WHERE (employees.profile_id = auth.uid())))"
@@ -52,21 +59,36 @@ public,attendance_activities,table,true,false,Superadmin CRUD,ALL,true,{authenti
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))"
-public,attendance_logs,table,true,false,Employees can view own scan logs,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+public,attendance_adjustment_reasons,table,true,false,Authenticated users can view attendance adjustment reasons,SELECT,true,{authenticated},true,null
+public,attendance_adjustment_reasons,table,true,false,HR can manage attendance adjustment reasons,ALL,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))","(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))"
+public,attendance_adjustment_reasons,table,true,false,Superadmin can manage attendance adjustment reasons,ALL,true,{authenticated},is_superadmin(),is_superadmin()
+public,attendance_logs,table,true,false,Employees can view own scan logs,SELECT,true,{authenticated},"(employee_id = ( SELECT e.employee_id
    FROM employees e
-  WHERE ((e.employee_id = attendance_logs.employee_id) AND (e.id = current_employee_id()))))",null
-public,attendance_logs,table,true,false,HR can view all scan logs,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+  WHERE (e.id = ( SELECT current_employee_id() AS current_employee_id))))",null
+public,attendance_logs,table,true,false,HR can view all scan logs,SELECT,true,{authenticated},"( SELECT (EXISTS ( SELECT 1
+           FROM profiles
+          WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.department_id = 7)))) AS ""exists"")",null
+public,attendance_logs,table,true,false,MGM Manager VIEW,SELECT,true,{authenticated},"( SELECT (EXISTS ( SELECT 1
+           FROM ((profiles p
+             JOIN roles r ON ((r.id = p.role_id)))
+             JOIN departments d ON ((d.id = p.department_id)))
+          WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (d.sub = 'MGM'::text) AND (r.name = 'manager'::text)))) AS ""exists"")",null
+public,attendance_logs,table,true,false,Managers can view subordinates' scan logs,SELECT,true,{authenticated},"(employee_id IN ( SELECT sub.employee_id
+   FROM employees sub
+  WHERE (sub.manager_id = ( SELECT current_employee_id() AS current_employee_id))))",null
+public,attendance_logs,table,true,false,Superadmin can view all scan logs,SELECT,true,{authenticated},( SELECT is_superadmin() AS is_superadmin),null
+public,attendance_reconciliation_acknowledgements,table,true,false,Employees can view their own acknowledgements,SELECT,true,{authenticated},(employee_id = current_employee_id()),null
+public,attendance_reconciliation_acknowledgements,table,true,false,HR can view all acknowledgements,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.department_id = 7))))",null
-public,attendance_logs,table,true,false,MGM Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
-   FROM ((profiles p
-     JOIN roles r ON ((r.id = p.role_id)))
-     JOIN departments d ON ((d.id = p.department_id)))
-  WHERE ((p.id = auth.uid()) AND (d.sub = 'MGM'::text) AND (r.name = 'manager'::text))))",null
-public,attendance_logs,table,true,false,Managers can view subordinates' scan logs,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+public,attendance_reconciliation_acknowledgements,table,true,false,Managers can view their direct reports acknowledgements,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM employees sub
-  WHERE ((sub.employee_id = attendance_logs.employee_id) AND (sub.manager_id = current_employee_id()))))",null
-public,attendance_logs,table,true,false,Superadmin can view all scan logs,SELECT,true,{authenticated},is_superadmin(),null
+  WHERE ((sub.id = attendance_reconciliation_acknowledgements.employee_id) AND (sub.manager_id = current_employee_id()))))",null
+public,attendance_reconciliation_acknowledgements,table,true,false,Superadmin can view all acknowledgements,SELECT,true,{authenticated},is_superadmin(),null
 public,attendance_types,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,clients,table,true,false,Enable read access for all users,SELECT,true,{authenticated},true,null
 public,clients,table,true,false,MGM Department CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
@@ -505,6 +527,9 @@ public,sap_invoice_lines,table,true,false,Operations Department VIEW,SELECT,true
 public,sap_invoice_lines,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_invoice_lines,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
 public,sap_invoice_lines,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -525,6 +550,9 @@ public,sap_invoices,table,true,false,Operations Department VIEW,SELECT,true,{aut
 public,sap_invoices,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_invoices,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
 public,sap_invoices,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -586,6 +614,9 @@ public,sap_payment_applications,table,true,false,MGM Department VIEW,SELECT,true
 public,sap_payment_applications,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_payment_applications,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
 public,sap_payment_applications,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1
@@ -602,6 +633,9 @@ public,sap_payments,table,true,false,MGM Department VIEW,SELECT,true,{authentica
 public,sap_payments,table,true,false,Sales Manager VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 2) AND (profiles.department_id = 3))))",null
+public,sap_payments,table,true,false,Sales Staff VIEW,SELECT,true,{authenticated},"(EXISTS ( SELECT 1
+   FROM profiles
+  WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 1) AND (profiles.department_id = 3))))",null
 public,sap_payments,table,true,false,Superadmin CRUD,ALL,true,{authenticated},"(EXISTS ( SELECT 1
    FROM profiles
   WHERE ((profiles.id = auth.uid()) AND (profiles.role_id = 3))))","(EXISTS ( SELECT 1

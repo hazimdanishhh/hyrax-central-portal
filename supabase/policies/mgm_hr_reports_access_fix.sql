@@ -110,6 +110,37 @@ using (
   )
 );
 
+-- === attendance_reconciliation_acknowledgements ===
+-- ADDED 2026-09-23. This table was created after the original MGM audit and
+-- never got a matching policy, so it was the only table in this set an MGM
+-- manager could not read -- while they CAN read attendance_logs,
+-- attendance_activities, leave_ledger_entries and employees.
+--
+-- That asymmetry was not merely a missing row, it inverted a result.
+-- unified_daily_attendance LEFT JOINs this table to compute
+-- is_unacknowledged_absent / is_unacknowledged_insufficient_half_day /
+-- needs_reconciliation, and the view runs security_invoker. An MGM manager
+-- therefore saw every attendance row but matched ZERO acknowledgement rows,
+-- so every day HR had already reviewed and closed read back as still
+-- outstanding. Reconciliation looked permanently undone, for a role whose
+-- whole purpose on that page is oversight.
+--
+-- Wrapped in (select ...) like the attendance_logs policy above -- this table
+-- is joined once per row of the view, so the condition wants to be an
+-- InitPlan rather than a per-row subquery.
+drop policy if exists "MGM Manager VIEW" on public.attendance_reconciliation_acknowledgements;
+create policy "MGM Manager VIEW" on public.attendance_reconciliation_acknowledgements
+for select to authenticated
+using (
+  (select exists (
+    select 1
+    from public.profiles p
+    join public.roles r on r.id = p.role_id
+    join public.departments d on d.id = p.department_id
+    where p.id = (select auth.uid()) and d.sub = 'MGM' and r.name = 'manager'
+  ))
+);
+
 -- === employee_lifecycle_cases ===
 drop policy if exists "MGM Manager VIEW" on public.employee_lifecycle_cases;
 create policy "MGM Manager VIEW" on public.employee_lifecycle_cases

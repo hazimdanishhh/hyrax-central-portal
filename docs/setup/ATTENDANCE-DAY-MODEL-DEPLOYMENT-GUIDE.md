@@ -583,6 +583,75 @@ Ship 3 removes exactly these, then drops the column from the view.
 
 ---
 
+## 4. Notifications — consolidation and targeting fixes
+
+Run whole, any order, all idempotent. **Steps 2 and 3 belong together**: step 2
+stops emitting `attendance.approval_pending` and starts emitting two new event
+types; until step 3 exists there is no rule for them, so nothing sends — and a
+missing rule raises nothing, it is silent.
+
+| # | File |
+|---|---|
+| 1 | `supabase/policies/mgm_hr_reports_access_fix.sql` |
+| 2 | `supabase/functions/check_attendance_approvals_pending.sql` |
+| 3 | `supabase/sql_editor/seed_attendance_approval_pending_notification_rule.sql` |
+| 4 | `supabase/sql_editor/seed_payroll_reconciliation_notification_rules.sql` |
+
+### The HR spam, and why it was worse than one-per-employee
+
+`check_attendance_approvals_pending()` looped over pending **activity rows**,
+emitting one event each, and every event fanned out to the employee's manager
+**plus every HR manager and staff profile**. The multiplier was rows ×
+recipients.
+
+`create_attendance_backfill()` deliberately routes self-reconciliation rows
+here rather than emitting its own notification — so one employee fixing ten
+days of their own attendance produced ten Pending rows, therefore **ten
+separate notifications to every person in HR**, 24 hours later, repeating
+daily until someone actioned them.
+
+Now one per manager and one company-wide digest for HR, following
+`check_tasks_due_soon.sql`, which was refactored the same way for the same
+reason.
+
+**Two event types, not one.** An event carries a single `link_to`, and the two
+audiences need different destinations. The old version sent everyone the bare
+`/app/hr/attendance/list` — including managers, who have no HR route access,
+so it was a dead link for most recipients. Both links now filter on
+`approvalState=pending`.
+
+**The cooldown still stamps per row**, once at the end. Stamping per recipient
+would let a row — always in two sets, one manager and HR — be cleared by
+whichever fired first, silently suppressing the other.
+
+### Two bugs found while in there
+
+**The weekly reconciliation digest was reaching nobody.**
+`payroll.reconciliation_digest_weekly` had `target_departments => ['HR']` AND
+`target_roles => ['superadmin']`. `fan_out_notification_event` **ANDs** those
+when both are set, so it resolved to "profiles in the HR department whose role
+is superadmin" — almost certainly zero people, since a superadmin sits in IT or
+MGM. A rule matching no recipients raises nothing, so it failed silently. Split
+into two rules, which is how an OR is expressed here.
+
+**`seed_payroll_reconciliation_notification_rules.sql` had no delete guard** —
+a bare INSERT, so every re-run created another copy of each rule, and a
+duplicate rule means a duplicate notification to everyone it matches, on every
+event. Now deletes before inserting, which also cleans up any duplicates
+already present.
+
+### Still outstanding on notifications
+
+- `payroll.reconciliation_outstanding` sends **up to four per employee per
+  week** — nested loops over employee × category. Same consolidation applies.
+- Approving, rejecting and acknowledging send **nothing back to the employee**
+  (verified: zero `emit_notification_event` calls in all three).
+- `docs/hr/ATTENDANCE-DAILY-ALERTS-DESIGN.md` proposes **17 event types, one
+  per employee-day per flag**, and is not built. It would multiply exactly the
+  problem fixed above; revisit the design before building it.
+
+---
+
 ## Rollback (Ship 1)
 
 ```
