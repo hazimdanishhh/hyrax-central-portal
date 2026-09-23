@@ -16,6 +16,16 @@ const YES_NO = [
   { label: "No", value: false },
 ];
 
+// NOT free text. leave_ledger_types.category is `not null` with
+// `check (category in ('statutory_leave', 'business_activity'))` -- defined in
+// hyrax-data-platform/infrastructure/leave_ledger_migration.sql, NOT in this
+// repo, which is why it is easy to miss. A text input here would let HR type
+// anything and get a raw 23514 constraint violation back.
+const LEAVE_CATEGORIES = [
+  { label: "Statutory Leave", value: "statutory_leave" },
+  { label: "Business Activity", value: "business_activity" },
+];
+
 export const leaveTypeTableConfig = ({ creating = false } = {}) => [
   {
     key: "id",
@@ -48,11 +58,21 @@ export const leaveTypeTableConfig = ({ creating = false } = {}) => [
     required: true,
   },
   {
+    // Today this only groups types for reporting. The sync defaults every
+    // auto-created type to statutory_leave, which is the status-quo-preserving
+    // guess -- see sync_leave_ledger_rpc.sql section 2b.
     key: "category",
     label: "Category",
     getValue: "category",
+    displayValue: (row) =>
+      LEAVE_CATEGORIES.find((c) => c.value === row.category)?.label ||
+      row.category ||
+      "",
     editable: true,
-    editor: "text",
+    editor: "select",
+    options: LEAVE_CATEGORIES,
+    isSearchable: false,
+    required: true,
   },
   {
     // THE FIELD THIS WHOLE TAB EXISTS FOR.
@@ -86,6 +106,19 @@ export const leaveTypeTableConfig = ({ creating = false } = {}) => [
     editor: "select",
     options: YES_NO,
     isSearchable: false,
+  },
+  {
+    // The evidence behind "Needs Review". Every seeded type carries its own
+    // rationale here ("Genuinely ambiguous guess", "coin-flip guess",
+    // "is_paid=false has real payroll consequences if wrong") -- so whoever
+    // clears the flag can see what the original guess was based on, and
+    // record what they confirmed it against.
+    key: "notes",
+    label: "Notes",
+    getValue: "notes",
+    editable: true,
+    editor: "textarea",
+    show: false,
   },
   {
     // Retirement, in place of deletion. leave_ledger_entries references this

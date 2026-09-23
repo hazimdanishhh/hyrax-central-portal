@@ -186,6 +186,26 @@ begin
     --   label = code               -- an honest placeholder. Inventing a
     --                                prettier label would disguise the fact
     --                                that nobody has looked at it yet.
+    --   category                   -- NOT OPTIONAL. The column is `not null`
+    --     = 'statutory_leave'        with `check (category in
+    --                                ('statutory_leave','business_activity'))`
+    --                                and NO default (defined in
+    --                                hyrax-data-platform/infrastructure/
+    --                                leave_ledger_migration.sql, not in this
+    --                                repo). Omitting it raises 23502 and the
+    --                                whole sync fails -- reintroducing exactly
+    --                                the total blockage this section exists to
+    --                                remove.
+    --
+    --                                'statutory_leave' specifically, not
+    --                                'business_activity': a statutory-leave
+    --                                day is counted as LEAVE, which is how
+    --                                every leave day is treated today. If
+    --                                business_activity ever comes to mean
+    --                                "counts as worked", defaulting there
+    --                                would invent hours nobody recorded.
+    --                                Status quo is the safe guess for an
+    --                                unreviewed code.
     --
     -- RUNS ON DRY RUN TOO, deliberately. _resolved below INNER JOINs
     -- leave_ledger_types, so on a preview an unknown code would silently drop
@@ -201,8 +221,9 @@ begin
     -- import.
     with ins as (
         insert into public.leave_ledger_types
-            (code, label, is_paid, needs_hr_confirmation, is_active)
-        select distinct v.leave_type_raw, v.leave_type_raw, true, true, true
+            (code, label, category, is_paid, needs_hr_confirmation, is_active)
+        select distinct v.leave_type_raw, v.leave_type_raw,
+               'statutory_leave', true, true, true
         from _validated v
         where v.structural_error is null
           and not exists (

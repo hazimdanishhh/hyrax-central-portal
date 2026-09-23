@@ -11,8 +11,14 @@
 // seen.
 import { supabase } from "@/lib/supabaseClient";
 
+// `notes` is included deliberately. Every seeded type carries its own
+// rationale there -- "Genuinely ambiguous guess", "coin-flip guess",
+// "is_paid=false has real payroll consequences if wrong" -- which is precisely
+// the context someone needs while deciding whether needs_hr_confirmation can
+// be cleared. Leaving it out would have made the review queue a form with no
+// evidence in it.
 const COLUMNS =
-  "id, code, label, category, is_paid, needs_hr_confirmation, is_active";
+  "id, code, label, category, is_paid, needs_hr_confirmation, notes, is_active";
 
 /**
  * Every type, including inactive ones -- unlike fetchLeaveLedgerTypes in
