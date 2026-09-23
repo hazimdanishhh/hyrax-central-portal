@@ -1,5 +1,12 @@
 # Attendance Self-Service Architecture
 
+> **Day model.** How a day of attendance is classified -- the Day Type
+> labels, the four independent facts behind them, and what HR is expected
+> to do about each -- is documented once in
+> [ATTENDANCE-DAY-MODEL.md](./ATTENDANCE-DAY-MODEL.md). That file is the
+> source of truth for the vocabulary this document uses.
+
+
 Employees previously had no way to see their own current attendance status, and no visibility into two real automatic mechanisms that affect them (a biometric scan silently ending an open remote session, and a scheduled end-of-day auto-clock-out). This doc covers the frontend widgets, the notification rules, and the data-correctness fixes built to close that gap. For the existing HR/Team/My Attendance CRUD pages themselves (list/overview pages, RPCs), see `DEPARTMENT-PAGES-TABLES.md` and `RPC-REFERENCE.md`; for the notification system's own generic architecture (event log, rules, fan-out), see `NOTIFICATIONS-ARCHITECTURE.md`.
 
 ## The policy this is all built around

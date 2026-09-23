@@ -1,5 +1,12 @@
 # Payroll Data Requirements
 
+> **Day model.** How a day of attendance is classified -- the Day Type
+> labels, the four independent facts behind them, and what HR is expected
+> to do about each -- is documented once in
+> [ATTENDANCE-DAY-MODEL.md](./ATTENDANCE-DAY-MODEL.md). That file is the
+> source of truth for the vocabulary this document uses.
+
+
 Research/checklist doc, written before any payroll-facing RPC or dashboard design begins — not an implementation plan. Cross-references what a real payroll run needs, per employee per pay cycle, against what actually exists in this schema today (`hyrax-central-portal` + `hyrax-data-platform`), so future RPC/dashboard work can be scoped against real gaps instead of assumptions.
 
 `unified_daily_attendance` and `attendance_activity_audit` are defined entirely in `hyrax-central-portal/supabase/sql_editor/` — `hyrax-data-platform`'s schema dump is a stale, reference-only snapshot of the raw base tables, not the source of truth for these views.
