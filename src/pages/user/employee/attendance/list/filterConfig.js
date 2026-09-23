@@ -58,12 +58,12 @@ export function getMyAttendanceFilterConfig() {
     {
       key: "lateArrival",
       label: "Late Arrival",
-      options: [{ label: "First In After 9:00 AM", value: "true" }],
+      options: [{ label: "Late Arrival", value: "true" }],
     },
     {
       key: "earlyLeave",
       label: "Early Leave",
-      options: [{ label: "Last Out Before 5:00 PM", value: "true" }],
+      options: [{ label: "Early Leave", value: "true" }],
     },
     {
       key: "leaveAttendanceConflict",

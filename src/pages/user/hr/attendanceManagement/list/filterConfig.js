@@ -106,15 +106,26 @@ export function getAttendanceActivitiesFilterConfig({
       label: "Overtime",
       options: [{ label: "Overtime Only (Beyond 8h/Day)", value: "true" }],
     },
+    // Both option labels were "First In After 9:00 AM" / "Last Out Before
+    // 5:00 PM" until 2026-09-23. Neither was true any more, and stating a
+    // threshold the filter does not apply is worse than stating none:
+    //   * Neither fires on a day worked IN FULL (true_hours_worked >= 8), so
+    //     "after 9:00 AM" promised rows the filter deliberately omits.
+    //   * The early-leave cutoff is per work location (KL 17:00, Meru 17:30),
+    //     so "5:00 PM" was only ever right for one site.
+    //   * Early leave also skips single-scan days, where the arrival scan was
+    //     previously being read as a departure.
+    // The columns (is_late_arrival / is_early_leave) carry the full rule; see
+    // hr_unified_daily_attendance_view.sql. The label now just names the fact.
     {
       key: "lateArrival",
       label: "Late Arrival",
-      options: [{ label: "First In After 9:00 AM", value: "true" }],
+      options: [{ label: "Late Arrival", value: "true" }],
     },
     {
       key: "earlyLeave",
       label: "Early Leave",
-      options: [{ label: "Last Out Before 5:00 PM", value: "true" }],
+      options: [{ label: "Early Leave", value: "true" }],
     },
     {
       // HR2000 leave/attendance conflict detection -- see

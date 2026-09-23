@@ -378,7 +378,7 @@ export function getAttendanceOverviewConfig(
         },
       ],
       title:
-        "Average first_in time-of-day across working-day records in the selected period (Weekend/Rest-Day and Absent records excluded). Late Arrivals is a fixed 09:00 company-wide assumption, not a real per-employee/department shift -- no shift/schedule table exists in this system yet; revisit this threshold once one does.",
+        "Average first check-in time across ordinary working days in the selected period -- weekends, public holidays, leave days and absences are all excluded. Late Arrivals counts days where someone arrived after 09:00 AND came up short of a full 8 paid hours: arriving late and staying late is not flagged, matching how overtime is already measured by duration rather than clock time. The 09:00 threshold is a fixed company-wide assumption, not a real per-employee/department shift -- no shift/schedule table exists in this system yet; revisit once one does.",
     },
     {
       icon: SignOutIcon,
@@ -397,7 +397,7 @@ export function getAttendanceOverviewConfig(
         },
       ],
       title:
-        "Average last_out time-of-day across working-day records in the selected period (Weekend/Rest-Day and Absent records excluded). Early Leave means leaving before 5:00 PM (17:00), a fixed company-wide assumption for now -- will become per-work-location once employees carry a work location assignment (see docs/WORK-LOCATIONS-ARCHITECTURE.md).",
+        "Average last check-out time across ordinary working days in the selected period -- weekends, public holidays, leave days and absences are all excluded, as are days with a single badge scan and no check-out (that scan is an arrival, not a departure). Early Leave counts days where someone left before their work location's cutoff -- KL 5:00 PM, Meru 5:30 PM -- AND came up short of a full 8 paid hours, so arriving early and leaving early is not flagged.",
     },
 
     // ==========================================

@@ -446,6 +446,7 @@ export default function AttendanceTimelineCard({
               ~1080px JPEGs. The anchor gives HR the full-resolution image
               without needing a lightbox component (none exists in this
               codebase, and adding one is out of scope). */}
+            {/* ISSUE FOUND: image is not shown here and in the edit form */}
             {activity.photo_url && (
               <a
                 href={activity.photo_url}

@@ -223,20 +223,22 @@ function applyAttendanceFilter(query, key, value) {
       return query;
 
     case "presentOnly":
-      // "Present" means hr_flag isn't Absent and isn't an unworked Public
-      // Holiday -- NOT is_weekend = false. An unworked weekend already
-      // reads hr_flag = "Absent" (hr_flag no longer has a "Weekend / Rest
-      // Day" value at all), so excluding "Absent" alone already excludes
-      // it; a separate is_weekend exclusion would ALSO wrongly exclude a
-      // worked Saturday (hr_flag = "Approved"/etc.) even though the
-      // employee clearly was present that day -- that was a real bug.
-      // hr_flag only ever reads "Public Holiday (...)" on a day with zero
-      // real attendance (a worked holiday falls through to Approved/OK/etc
-      // instead), so excluding that prefix can never wrongly exclude a
-      // worked day either, mirroring exactly how excluding "Absent" can't.
-      return query
-        .neq("hr_flag", "Absent")
-        .not("hr_flag", "ilike", "Public Holiday%");
+      // "Present" is exactly "we have evidence this person was here", which
+      // is what the evidence_source axis was built to answer.
+      //
+      // BROKEN UNTIL 2026-09-23: this read `hr_flag` -- `.neq("hr_flag",
+      // "Absent").not("hr_flag", "ilike", "Public Holiday%")` -- and hr_flag
+      // was dropped from the view in Ship 3, so every request 400'd with
+      // "column does not exist" and the list failed to load entirely.
+      //
+      // The replacement is also simpler than what it replaces. The old
+      // version needed two string tests plus a paragraph explaining why
+      // is_weekend must NOT be excluded (a worked Saturday is still present)
+      // and why the "Public Holiday%" prefix was safe (hr_flag only ever read
+      // that on a zero-attendance day). evidence_source states the same thing
+      // directly: 'none' means nothing told us they were here, anything else
+      // means something did -- on any kind of calendar day.
+      return query.neq("evidence_source", "none");
 
     case "onLeave":
       return query.eq("is_on_leave", true);
@@ -247,32 +249,42 @@ function applyAttendanceFilter(query, key, value) {
       // column, redefined 2026-09-22 -- it previously meant "time worked
       // after 6PM"). No query change was needed for that switch: this reads
       // the column, so the view's formula swap corrected this filter
-      // automatically. The is_weekend/Absent guards below are now
-      // redundant-but-harmless -- overtime_hours is already 0 on both --
-      // kept for consistency with the neighbouring cases.
-      return query
-        .gt("overtime_hours", 0)
-        .eq("is_weekend", false)
-        .neq("hr_flag", "Absent");
+      // automatically.
+      //
+      // The `.eq("is_weekend", false).neq("hr_flag", "Absent")` guards that
+      // used to sit here are GONE (2026-09-23). Their own comment already
+      // called them "redundant-but-harmless ... kept for consistency" -- and
+      // they turned out not to be harmless: hr_flag was dropped from the view
+      // in Ship 3, so this filter 400'd and the list failed to load. They were
+      // genuinely redundant, which is why removing rather than translating
+      // them is correct: the view forces overtime_hours to 0 on weekends and
+      // public holidays (those pay under their own s.60(3)/s.60D(3) tiers),
+      // and a day with no attendance has no hours to exceed 8 in the first
+      // place. `> 0` already implies every guard they expressed.
+      return query.gt("overtime_hours", 0);
 
+    // Both of these carried the same dead `.neq("hr_flag", "Absent")` the two
+    // cases above did, and both 400'd for the same reason -- reported from the
+    // Attendance Overview KPI cards, whose Late Arrivals / Early Leave tiles
+    // deep-link straight into these filters.
+    //
+    // Dropping the extra guards rather than translating them is not a
+    // shortcut: BOTH columns already bake every one of those conditions in.
+    // is_late_arrival / is_early_leave are each
+    // `NOT is_weekend AND no holiday AND no leave AND <threshold test>`, and
+    // the threshold test needs a real first_in / last_out to compare against,
+    // so a day with no attendance can never satisfy either. `= true` alone is
+    // strictly equivalent to what the three-clause version meant to express.
+    //
+    // Keeping the guards in the view rather than restating them per consumer
+    // is the same discipline these two columns were created for: they drive
+    // the card badge, the day sidebar, the dashboard KPI and this filter, and
+    // they used to disagree.
     case "lateArrival":
-      // Late arrival is now computed once in unified_daily_attendance
-      // (is_late_arrival, same 09:00 threshold), matching earlyLeave's own
-      // is_early_leave pattern below -- so this filter and
-      // get_attendance_dashboard_rpc.sql's lateArrivalsCount KPI can never
-      // silently disagree.
-      return query
-        .eq("is_late_arrival", true)
-        .eq("is_weekend", false)
-        .neq("hr_flag", "Absent");
+      return query.eq("is_late_arrival", true);
 
     case "earlyLeave":
-      // Early leave is before 5PM (unified_daily_attendance's
-      // is_early_leave column, company-wide flat threshold for now).
-      return query
-        .eq("is_early_leave", true)
-        .eq("is_weekend", false)
-        .neq("hr_flag", "Absent");
+      return query.eq("is_early_leave", true);
 
     // HR2000 leave/attendance conflict detection -- all three already
     // tightly scoped by daily_leave's leave_day_fraction_total in the view
