@@ -78,16 +78,23 @@ using (
 );
 
 -- === attendance_logs ===
+-- Wrapped in `(select ...)` 2026-09-22 so Postgres evaluates it ONCE as an
+-- InitPlan instead of per row. attendance_logs is the hot table here:
+-- unified_daily_attendance scans ~52,000 of its rows per request under
+-- security_invoker, and every SELECT policy on the table is tested against
+-- each one. The condition was never correlated, so this is purely a planner
+-- hint -- the rule is unchanged. See attendance_logs_crud.sql for the full
+-- explanation and the two policies that needed real restructuring.
 drop policy if exists "MGM Manager VIEW" on public.attendance_logs;
 create policy "MGM Manager VIEW" on public.attendance_logs
 for select to authenticated
 using (
-  exists (
+  (select exists (
     select 1 from profiles p
     join roles r on r.id = p.role_id
     join departments d on d.id = p.department_id
-    where p.id = auth.uid() and d.sub = 'MGM' and r.name = 'manager'
-  )
+    where p.id = (select auth.uid()) and d.sub = 'MGM' and r.name = 'manager'
+  ))
 );
 
 -- === attendance_activities ===

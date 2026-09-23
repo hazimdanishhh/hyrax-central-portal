@@ -19,9 +19,15 @@
 -- `set search_path = ''` + fully-qualified `public.profiles`: standard
 -- hardening for SECURITY DEFINER functions, so a malicious search_path set
 -- by the caller can't redirect an unqualified table reference elsewhere.
+-- STABLE (added 2026-09-22) -- see current_employee_id.sql for the full
+-- reasoning. Omitting it defaulted this to VOLATILE, which forced the planner
+-- to call it once per row rather than once per query. It appears in 22 RLS
+-- policies and runs its own query, so across a ~52,000-row scan of
+-- attendance_logs it was the single largest cost in the attendance pages.
 create or replace function public.is_superadmin()
 returns boolean
 language plpgsql
+stable
 security definer
 set search_path = ''
 as $$
