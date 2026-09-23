@@ -54,31 +54,33 @@
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
--- DROP + CREATE for THIS deploy, not CREATE OR REPLACE.
+-- CREATE OR REPLACE, not DROP + CREATE.
 --
--- This file was switched to CREATE OR REPLACE on 2026-09-23 precisely because
--- the DROP was no longer needed -- and it is needed again here, once, for the
--- only reason that forces it: CREATE OR REPLACE VIEW can rewrite the body
--- freely and can APPEND columns, but it cannot DROP one. Removing hr_flag
--- raises 42P16 without this.
+-- Routine changes to this view must NOT drop it. `DROP VIEW ... CASCADE` also
+-- drops attendance_activity_audit, which joins this view -- so a drop obliges
+-- whoever runs it to run hr_attendance_activity_audit_view.sql immediately
+-- afterwards, leaves the day sidebar with no data source in between, and
+-- removes the sidebar entirely with nothing to explain why if that second
+-- file is forgotten. CREATE OR REPLACE has none of that, is idempotent, and
+-- still creates the view on a database that does not yet have it.
 --
--- Because DROP ... CASCADE also drops attendance_activity_audit (it joins this
--- view), hr_attendance_activity_audit_view.sql MUST be run immediately after
--- this file. Between the two statements the day sidebar has no data source.
+-- WHEN A DROP IS UNAVOIDABLE: CREATE OR REPLACE can rewrite the query body
+-- however it likes and can APPEND columns, but it cannot DROP, RENAME or
+-- RETYPE one -- those raise 42P16. Only then, and only for that one deploy:
 --
--- SWITCH THIS BACK to CREATE OR REPLACE after this deploy, unless another
--- column needs dropping. Leaving the DROP in place reintroduces the trap it
--- was removed to avoid: every routine change would cascade the audit view away
--- and require a second file, and forgetting it removes the day sidebar with
--- nothing to indicate why.
+--     DROP VIEW IF EXISTS public.unified_daily_attendance CASCADE;
+--     CREATE VIEW public.unified_daily_attendance WITH (security_invoker = on) AS ...
+--
+-- then run hr_attendance_activity_audit_view.sql straight after, then restore
+-- this file to CREATE OR REPLACE. It has been needed exactly twice: the Ship 1
+-- axis rebuild, and the Ship 3 removal of hr_flag. It fails loudly, so there
+-- is no way to need it and not notice.
 --
 -- security_invoker is restated below deliberately. Do NOT drop it: without it
 -- the view falls back to OWNER privileges, RLS stops scoping rows, and every
 -- page renders perfectly while showing the whole company.
 -- ---------------------------------------------------------------------------
-DROP VIEW IF EXISTS public.unified_daily_attendance CASCADE;
-
-CREATE VIEW public.unified_daily_attendance
+CREATE OR REPLACE VIEW public.unified_daily_attendance
 WITH (security_invoker = on) AS
 
 -- 1. Date Spine: Find all unique dates anyone worked, so we know which days the company was open

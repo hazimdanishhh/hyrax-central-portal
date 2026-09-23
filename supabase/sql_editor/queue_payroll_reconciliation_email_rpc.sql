@@ -140,8 +140,18 @@ begin
         from public.get_payroll_reconciliation_rows(p_employee_uuid, p_start_date, p_end_date) r
         where r.category = v_code;
 
+        -- Per-section deep links. Unlike the weekly in-app reminder -- which
+        -- is one notification and therefore one link -- this email renders a
+        -- section per category, so each one keeps its own filter.
+        --
+        -- 'absent' updated 2026-09-23 from `hrFlag=Absent&dayType=working` to
+        -- `dayState=absent`. The old pair still resolves (attendanceOverview
+        -- Service.js translates legacy params for links already sent), but
+        -- there is no reason to keep MINTING them: day_state = 'absent'
+        -- already means "ordinary working day, no leave, no evidence", so the
+        -- paired dayType guard is built in and cannot be forgotten.
         v_category_query_params := case v_code
-            when 'absent' then 'hrFlag=Absent&dayType=working'
+            when 'absent' then 'dayState=absent'
             when 'leave_conflict' then 'leaveAttendanceConflict=true'
             when 'insufficient_half_day' then 'insufficientHalfDayHours=true'
             when 'leave_fraction_error' then 'leaveFractionError=true'
