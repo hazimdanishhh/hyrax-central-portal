@@ -1,3 +1,5 @@
+import "./StatTile.scss";
+
 /**
  * A single big-number + caption tile, used in the summary strip above a bulk
  * operation's preview/result table (e.g. "12 Would Add", "3 Would Skip").
@@ -12,7 +14,7 @@
  */
 export default function StatTile({ label, value, emphasize }) {
   return (
-    <div className={`csvImportStatTile ${emphasize ? "emphasize" : ""}`}>
+    <div className={`generalCard ${emphasize ? "greenCard" : "yellowCard"}`}>
       <p className="textBold textL">{value ?? 0}</p>
       <p className="textLight textXXS">{label}</p>
     </div>

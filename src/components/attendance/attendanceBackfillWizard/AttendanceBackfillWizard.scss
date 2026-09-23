@@ -8,17 +8,22 @@
   flex-direction: column;
   gap: 0.8rem;
   width: 100%;
+  padding: 0.8rem;
+  padding-top: 0;
+  text-align: start;
 }
 
 .backfillDateRange {
   display: flex;
   gap: 0.8rem;
   flex-wrap: wrap;
+  width: 100%;
 
   label {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+    width: 48%;
   }
 }
 
@@ -26,20 +31,20 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  max-height: 22rem;
-  overflow-y: auto;
+  // max-height: 22rem;
+  // overflow-y: auto;
   width: 100%;
 }
 
 .backfillDateRow {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
   justify-content: space-between;
   padding: 0.4rem 0.6rem;
   border-radius: 8px;
-  border: 1px solid rgba(128, 128, 128, 0.2);
+  border: 1px solid $neutral500;
 }
 
 .backfillDateLabel {
@@ -47,7 +52,13 @@
   align-items: center;
   gap: 0.4rem;
   cursor: pointer;
-  min-width: 11rem;
+  width: 100%;
+  flex-wrap: wrap;
+
+  .backfillCheckbox {
+    width: 20px;
+    aspect-ratio: 1/1;
+  }
 }
 
 .backfillDateTags {
@@ -61,7 +72,6 @@
 // rather than reporting an entity's status, and StatusBox's sizing is built
 // for a card header.
 .backfillTag {
-  font-size: 0.65rem;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
   white-space: nowrap;
@@ -70,43 +80,86 @@
     background: rgba(128, 128, 128, 0.18);
   }
   &.blue {
-    background: rgba(59, 130, 246, 0.18);
+    background: rgba($info600, 0.15);
+    color: $info600;
   }
   &.purple {
-    background: rgba(139, 92, 246, 0.18);
+    background: rgba($secondary, 0.15);
+    color: $secondary;
   }
   &.yellow {
-    background: rgba(234, 179, 8, 0.2);
+    background: rgba($warning600, 0.15);
+    color: $warning600;
   }
   &.red {
     background: rgba(239, 68, 68, 0.18);
   }
 }
 
-.backfillShapeSelect {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.3rem;
-  border-radius: 6px;
-}
-
 .backfillCheckboxRow {
   display: flex;
-  align-items: flex-start;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.8rem;
   cursor: pointer;
+
+  .backfillCheckbox {
+    width: 25px;
+    aspect-ratio: 1/1;
+  }
 }
 
 // Per-date editable clock times, shown for timed attendance types only.
 .backfillDateTimes {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 0.3rem;
+  width: 100%;
+
+  @media screen and (max-width: 350px) {
+    flex-wrap: wrap;
+  }
+}
+
+.backfillFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  position: sticky;
+  bottom: 0;
+  padding: 0.8rem 0;
+  border-top: 1px solid $neutral500;
+}
+
+.backfillActionButtons {
+  display: flex;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
 
-.backfillTimeInput {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.3rem;
-  border-radius: 6px;
-  width: 5.5rem;
+.backfillResultBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  padding: 0.4rem;
+  border-radius: 0.4rem;
+
+  &.green {
+    border: 1px solid $success600;
+    background: rgba($success600, 0.15);
+    color: $success600;
+  }
+
+  &.red {
+    border: 1px solid $error600;
+    background: rgba($error600, 0.15);
+    color: $error600;
+  }
+
+  &.yellow {
+    border: 1px solid $warning600;
+    background: rgba($warning600, 0.15);
+    color: $warning600;
+  }
 }

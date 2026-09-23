@@ -31,6 +31,7 @@ import {
 } from "./backfillWizardUtils";
 import "../../crud/csvImportModal/CsvImportModal.scss";
 import "./AttendanceBackfillWizard.scss";
+import { useTheme } from "../../../context/ThemeContext";
 
 /**
  * Bulk "record attendance that wasn't captured" wizard.
@@ -61,6 +62,7 @@ export default function AttendanceBackfillWizard({
   currentEmployeeId,
   attendanceTypes = [],
 }) {
+  const { darkMode } = useTheme();
   const isSelfScope = scope === "self";
 
   // employees -> dates -> details -> preview -> result | error
@@ -85,7 +87,8 @@ export default function AttendanceBackfillWizard({
     useAttendanceBackfill();
 
   const employeeIds = useMemo(
-    () => (isSelfScope ? [currentEmployeeId].filter(Boolean) : selectedEmployeeIds),
+    () =>
+      isSelfScope ? [currentEmployeeId].filter(Boolean) : selectedEmployeeIds,
     [isSelfScope, currentEmployeeId, selectedEmployeeIds],
   );
 
@@ -189,9 +192,11 @@ export default function AttendanceBackfillWizard({
       map[date] = {
         isWeekend: rows.some((r) => r.is_weekend),
         isPublicHoliday: rows.some((r) => r.is_public_holiday),
-        holidayName: rows.find((r) => r.public_holiday_name)?.public_holiday_name,
+        holidayName: rows.find((r) => r.public_holiday_name)
+          ?.public_holiday_name,
         onLeaveCount: rows.filter((r) => r.is_on_leave).length,
-        hasAttendanceCount: rows.filter((r) => r.has_existing_attendance).length,
+        hasAttendanceCount: rows.filter((r) => r.has_existing_attendance)
+          .length,
         employeeCount: rows.length,
         // No prefill row at all means this date isn't in
         // unified_daily_attendance's spine: no company-wide activity, and not
@@ -370,28 +375,28 @@ export default function AttendanceBackfillWizard({
               placeholder="Add employees..."
             />
 
-            <div className="csvImportActions">
+            <CardLayout style="backfillActionButtons">
               <Button
                 name="Next"
                 icon2={CaretRightIcon}
-                style="button buttonType2"
+                style="button buttonType4 approval"
                 onClick={() => setStep("details")}
                 disabled={selectedEmployeeIds.length === 0}
               />
-            </div>
+            </CardLayout>
           </CardLayout>
         )}
 
         {/* ---------------- STEP 2: DATES ---------------- */}
         {step === "dates" && (
-          <CardLayout style="cardLayout1 cardGapSmall">
+          <CardLayout style="cardLayout1">
             <p className="textRegular textXS">
               Pick the date range, then confirm which days to record. Weekends,
               public holidays, full-day leave, and days that already have
               attendance start unticked.
             </p>
 
-            <div className="backfillDateRange">
+            <CardLayout style="cardLayout2">
               <label className="textRegular textXXS">
                 From
                 <input
@@ -414,7 +419,7 @@ export default function AttendanceBackfillWizard({
                   }}
                 />
               </label>
-            </div>
+            </CardLayout>
 
             {prefillLoading ? (
               <LoadingIcon />
@@ -429,6 +434,7 @@ export default function AttendanceBackfillWizard({
                       <div key={date} className="backfillDateRow">
                         <label className="backfillDateLabel">
                           <input
+                            className="backfillCheckbox"
                             type="checkbox"
                             checked={!!selection.selected}
                             onChange={(e) =>
@@ -441,39 +447,43 @@ export default function AttendanceBackfillWizard({
                               }))
                             }
                           />
-                          <span className="textRegular textXXS">
+                          <span className="textBold textXXS">
                             {formatDateLabel(date)}
                           </span>
-                        </label>
 
-                        <div className="backfillDateTags">
-                          {ctx.isWeekend && (
-                            <span className="backfillTag grey">Weekend</span>
-                          )}
-                          {ctx.isPublicHoliday && (
-                            <span className="backfillTag blue">
-                              {ctx.holidayName || "Public Holiday"}
-                            </span>
-                          )}
-                          {ctx.onLeaveCount > 0 && (
-                            <span className="backfillTag purple">
-                              On leave ({ctx.onLeaveCount})
-                            </span>
-                          )}
-                          {ctx.hasAttendanceCount > 0 && (
-                            <span className="backfillTag yellow">
-                              Has attendance ({ctx.hasAttendanceCount})
-                            </span>
-                          )}
-                          {ctx.notInSpine && (
-                            <span className="backfillTag red">
-                              Not in attendance calendar
-                            </span>
-                          )}
-                          {date > todayDateString() && (
-                            <span className="backfillTag blue">Future</span>
-                          )}
-                        </div>
+                          <div className="backfillDateTags">
+                            {ctx.isWeekend && (
+                              <span className="backfillTag textXS grey">
+                                Weekend
+                              </span>
+                            )}
+                            {ctx.isPublicHoliday && (
+                              <span className="backfillTag textXS blue">
+                                {ctx.holidayName || "Public Holiday"}
+                              </span>
+                            )}
+                            {ctx.onLeaveCount > 0 && (
+                              <span className="backfillTag textXS purple">
+                                On leave ({ctx.onLeaveCount})
+                              </span>
+                            )}
+                            {ctx.hasAttendanceCount > 0 && (
+                              <span className="backfillTag textXS yellow">
+                                Has attendance ({ctx.hasAttendanceCount})
+                              </span>
+                            )}
+                            {ctx.notInSpine && (
+                              <span className="backfillTag textXS red">
+                                Not in attendance calendar
+                              </span>
+                            )}
+                            {date > todayDateString() && (
+                              <span className="backfillTag textXS blue">
+                                Future
+                              </span>
+                            )}
+                          </div>
+                        </label>
 
                         {/* The shape selector shows for EVERY type, including
                             whole-day ones -- a trip can still be a half day.
@@ -544,7 +554,7 @@ export default function AttendanceBackfillWizard({
                               }
                             />
                             {rowTimes.perEmployee && (
-                              <span className="backfillTag grey">
+                              <span className="backfillTag textXS grey">
                                 per employee
                               </span>
                             )}
@@ -557,34 +567,39 @@ export default function AttendanceBackfillWizard({
               )
             )}
 
-            {/* Leave conflicts are decided HERE, not on the details step --
+            <div
+              className={`backfillFooter ${darkMode ? `sectionDark` : `sectionLight`}`}
+            >
+              {/* Leave conflicts are decided HERE, not on the details step --
                 this is where the "On leave (N)" chips are actually on screen. */}
-            <label className="backfillCheckboxRow">
-              <input
-                type="checkbox"
-                checked={allowLeaveConflict}
-                onChange={(e) => setAllowLeaveConflict(e.target.checked)}
-              />
-              <span className="textRegular textXXS">
-                Record even on days with a full day of leave already logged
-                (this will raise a leave/attendance conflict for review)
-              </span>
-            </label>
+              <label className="backfillCheckboxRow">
+                <input
+                  className="backfillCheckbox"
+                  type="checkbox"
+                  checked={allowLeaveConflict}
+                  onChange={(e) => setAllowLeaveConflict(e.target.checked)}
+                />
+                <span className="textRegular textXXS">
+                  Record even on days with a full day of leave already logged
+                  (this will raise a leave/attendance conflict for review)
+                </span>
+              </label>
 
-            <div className="csvImportActions">
-              <Button
-                name="Back"
-                icon={CaretLeftIcon}
-                style="button buttonType4"
-                onClick={() => setStep("details")}
-              />
-              <Button
-                name="Preview"
-                icon2={CaretRightIcon}
-                style="button buttonType2"
-                onClick={handlePreview}
-                disabled={!canLeaveDates || previewing}
-              />
+              <CardLayout style="backfillActionButtons">
+                <Button
+                  name="Back"
+                  icon={CaretLeftIcon}
+                  style="button buttonType4"
+                  onClick={() => setStep("details")}
+                />
+                <Button
+                  name="Preview"
+                  icon2={CaretRightIcon}
+                  style="button buttonType4 greenFill"
+                  onClick={handlePreview}
+                  disabled={!canLeaveDates || previewing}
+                />
+              </CardLayout>
             </div>
           </CardLayout>
         )}
@@ -630,7 +645,7 @@ export default function AttendanceBackfillWizard({
             </p>
             <TextareaEditor value={notes} onChange={setNotes} />
 
-            <div className="csvImportActions">
+            <CardLayout style="backfillActionButtons">
               {!isSelfScope && (
                 <Button
                   name="Back"
@@ -642,39 +657,47 @@ export default function AttendanceBackfillWizard({
               <Button
                 name="Next"
                 icon2={CaretRightIcon}
-                style="button buttonType2"
+                style="button buttonType4 greenFill"
                 onClick={() => setStep("dates")}
                 disabled={!canLeaveDetails}
               />
-            </div>
+            </CardLayout>
           </CardLayout>
         )}
 
         {/* ---------------- STEP 4: PREVIEW ---------------- */}
         {step === "preview" && preview && (
-          <CardLayout style="cardLayout1 cardGapSmall">
-            <div className="csvImportStatRow">
-              <StatTile label="Would Add" value={preview.wouldAddCount} emphasize />
+          <CardLayout style="cardLayout1">
+            <CardLayout className="cardLayout3">
+              <StatTile
+                label="Would Add"
+                value={preview.wouldAddCount}
+                emphasize
+              />
               <StatTile label="Would Skip" value={preview.wouldSkipCount} />
               <StatTile label="Total Hours" value={preview.totalHours} />
-            </div>
+            </CardLayout>
 
             <BackfillRowsTable rows={preview.rows} />
 
-            <div className="csvImportActions">
-              <Button
-                name="Back"
-                icon={CaretLeftIcon}
-                style="button buttonType4"
-                onClick={() => setStep("dates")}
-              />
-              <Button
-                name={`Add ${preview.wouldAddCount} Record${preview.wouldAddCount === 1 ? "" : "s"}`}
-                icon2={CheckCircleIcon}
-                style="button buttonType2"
-                onClick={handleCommit}
-                disabled={committing || preview.wouldAddCount === 0}
-              />
+            <div
+              className={`backfillFooter ${darkMode ? `sectionDark` : `sectionLight`}`}
+            >
+              <CardLayout style="backfillActionButtons">
+                <Button
+                  name="Back"
+                  icon={CaretLeftIcon}
+                  style="button buttonType4"
+                  onClick={() => setStep("dates")}
+                />
+                <Button
+                  name={`Add ${preview.wouldAddCount} Record${preview.wouldAddCount === 1 ? "" : "s"}`}
+                  icon2={CheckCircleIcon}
+                  style="button buttonType4 greenFill"
+                  onClick={handleCommit}
+                  disabled={committing || preview.wouldAddCount === 0}
+                />
+              </CardLayout>
             </div>
           </CardLayout>
         )}
@@ -682,7 +705,7 @@ export default function AttendanceBackfillWizard({
         {/* ---------------- STEP 5: RESULT ---------------- */}
         {step === "result" && result && (
           <CardLayout style="cardLayout1 cardGapSmall">
-            <div className="csvImportBanner csvImportBannerSuccess">
+            <div className="backfillResultBanner green">
               <CheckCircleIcon size={20} weight="fill" />
               <p className="textRegular textXS">
                 {result.addedCount} attendance record
@@ -699,7 +722,7 @@ export default function AttendanceBackfillWizard({
                 Absenteeism leaderboard and any payroll summary for that
                 period. Better said plainly than discovered later. */}
             {result.addedCount > 0 && (
-              <div className="csvImportBanner csvImportBannerWarning">
+              <div className="backfillResultBanner yellow">
                 <WarningIcon size={20} weight="fill" />
                 <p className="textRegular textXS">
                   Attendance figures for the affected dates have changed,
@@ -710,10 +733,12 @@ export default function AttendanceBackfillWizard({
 
             <BackfillRowsTable rows={result.rows} />
 
-            <div className="csvImportActions">
+            <div
+              className={`backfillFooter ${darkMode ? `sectionDark` : `sectionLight`}`}
+            >
               <Button
                 name="Done"
-                style="button buttonType2"
+                style="button buttonType4 greenFill"
                 onClick={handleClose}
               />
             </div>
@@ -753,11 +778,13 @@ export default function AttendanceBackfillWizard({
               />
             )}
 
-            <div className="csvImportActions">
+            <div
+              className={`backfillFooter ${darkMode ? `sectionDark` : `sectionLight`}`}
+            >
               <Button
                 name="Try Again"
                 icon2={ArrowClockwiseIcon}
-                style="button buttonType4"
+                style="button buttonType4 rejection"
                 onClick={reset}
               />
             </div>
@@ -773,14 +800,17 @@ function BackfillRowsTable({ rows }) {
 
   return (
     <DataTable
-      data={rows.map((r, i) => ({ ...r, _key: `${r.employeeId}-${r.workDate}-${i}` }))}
+      data={rows.map((r, i) => ({
+        ...r,
+        _key: `${r.employeeId}-${r.workDate}-${i}`,
+      }))}
       rowKey="_key"
       columns={[
         { key: "fullName", label: "Employee", getValue: (r) => r.fullName },
         { key: "workDate", label: "Date", getValue: (r) => r.workDate },
         {
           key: "times",
-          label: "Times",
+          label: "In/Out Times (UTC)",
           getValue: (r) =>
             `${String(r.clockInAt).slice(11, 16)} - ${String(r.clockOutAt).slice(11, 16)}`,
         },

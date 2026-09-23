@@ -478,12 +478,12 @@ export default function AttendanceManagement() {
           // setLayout={setLayout}
           // options={layoutOptions}
           actionButtons={[
-            // {
-            //   name: "Backfill Attendance",
-            //   icon: CalendarPlusIcon,
-            //   onClick: () => setBackfillOpen(true),
-            //   style: "button buttonType5 greenFill buttonFull textXXS",
-            // },
+            {
+              name: "Backfill Attendance",
+              icon: CalendarPlusIcon,
+              onClick: () => setBackfillOpen(true),
+              style: "button buttonType5 greenFill buttonFull textXXS",
+            },
             {
               // Kept alongside the bulk wizard rather than replaced by it:
               // this is the only path that can attach an attendance PHOTO
