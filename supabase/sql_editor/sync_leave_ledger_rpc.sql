@@ -7,18 +7,32 @@
 -- dedupe_ordinal below. The frontend sends every parsed row unfiltered; all
 -- real validation happens here, server-side.
 --
--- Two-phase validation, deliberately asymmetric:
+-- Three-way validation, deliberately asymmetric:
 --   - Structural errors (bad date format, day_fraction not 0.5/1.0, blank
---     employee_code, or a leave_type code this table has never seen before)
---     REJECT THE WHOLE UPLOAD -- raised as a Postgres exception, nothing
---     written. These signal "wrong file" or "HR2000 export changed shape",
---     not a normal data blip -- silently skipping an unrecognized leave-type
---     code would mean an entire future leave category vanishes from every
---     sync without anyone noticing, unacceptable once this feeds payroll.
+--     employee_code) REJECT THE WHOLE UPLOAD -- raised as a Postgres
+--     exception, nothing written. These signal "wrong file" or "HR2000 export
+--     changed shape", not a normal data blip.
 --   - An employee_code that's well-formed but doesn't match any
 --     employees.employee_id is SKIPPED (that one row only) -- the expected,
 --     anticipated case (new hire not yet in `employees`, a typo, a resigned
 --     employee HR2000 still carries), not a corruption signal.
+--   - A leave_type code this table has never seen before is CREATED
+--     (2026-09-23), flagged needs_hr_confirmation, and reported back as
+--     createdLeaveTypes. See section 2b.
+--
+--     This used to be a whole-upload rejection. The reasoning then was sound
+--     and still is: "silently skipping an unrecognized leave-type code would
+--     mean an entire future leave category vanishes from every sync without
+--     anyone noticing, unacceptable once this feeds payroll." Creating the
+--     type honours that concern BETTER than rejecting did -- nothing is
+--     skipped, nothing vanishes, and the new category arrives flagged for a
+--     decision instead of stopping the pipeline.
+--
+--     Rejecting had a failure mode nobody accounted for: leave_ledger_types is
+--     SELECT-only, so there was no way to add the missing type from the
+--     portal. One new HR2000 code stopped leave sync permanently, and since
+--     NPL entries arriving by sync are what resolve an absent day, a blocked
+--     sync means absences never clear either.
 --
 -- Guardrail: mirrors hyrax-data-platform vigilance_iot's
 -- VIGILANCE_MAX_WRITE_ROWS/VIGILANCE_ALLOW_BULK pattern, but inverted --
@@ -35,6 +49,11 @@
 --   p_dry_run = true                          -> status: 'preview'
 --   p_dry_run = false, guardrail trips, no override -> status: 'blocked_guardrail'
 --   p_dry_run = false, applied                -> status: 'applied'
+--
+-- All three carry `createdLeaveTypes`, a (possibly empty) array of codes this
+-- call added to leave_ledger_types. The import screen should surface it --
+-- these types are live and default to PAID until HR reclassifies them in the
+-- Leave Types tab.
 --
 -- Recommended frontend flow: call once with p_dry_run := true to render a
 -- before/after preview screen; HR confirms; call again with
@@ -69,6 +88,7 @@ declare
     v_kept_count               integer;
     v_result                   jsonb;
     v_guardrail_tripped        boolean;
+    v_created_types            jsonb;
 begin
     -- 1. AuthZ: superadmin OR HR department.
     if not public.is_superadmin()
@@ -109,9 +129,19 @@ begin
                 then 'invalid_day_fraction_format'
             when p.day_fraction_raw::numeric not in (0.5, 1.0)
                 then 'day_fraction_not_half_or_full'
-            when not exists (
-                select 1 from public.leave_ledger_types lt where lt.code = p.leave_type_raw
-            ) then 'unrecognized_leave_type_code'
+            -- 'unrecognized_leave_type_code' USED TO BE HERE, and it made a
+            -- code the portal had not seen abort the ENTIRE upload -- "nothing
+            -- was written" -- with no way to add the type from the portal,
+            -- since leave_ledger_types is SELECT-only. HR2000 introducing a
+            -- single new code stopped leave sync completely and indefinitely.
+            --
+            -- That became untenable once NPL entries arriving by sync became
+            -- the way an absent day is resolved: a blocked sync means
+            -- absences never clear. Unknown codes are now created below.
+            --
+            -- The remaining checks are unchanged and still hard-reject: a
+            -- malformed date or fraction is BAD DATA, whereas an unseen code
+            -- is merely NEW VOCABULARY. Only the latter was relaxed.
             else null
         end as structural_error
     from _parsed p;
@@ -131,6 +161,58 @@ begin
             using detail = v_rejected_rows::text,
                   hint   = 'error.details is a JSON array of {src_ordinal, employee_code, leave_date, leave_type, day_fraction, reason}.';
     end if;
+
+    -- 2b. Create any leave type the file uses that we have not seen before.
+    --
+    -- Runs in the SAME transaction as everything below, so a failure later
+    -- rolls these back too -- the type vocabulary can never end up ahead of
+    -- the entries that justified it.
+    --
+    -- `on conflict (code) do nothing` for concurrency: two HR users importing
+    -- overlapping exports at once must not deadlock or duplicate.
+    --
+    -- DEFAULTS, and the trade they make:
+    --   is_paid = true             -- most leave types are paid, so this is
+    --                                right more often than not. But a new
+    --                                NO-PAY type counts as PAID until someone
+    --                                reclassifies it, which overstates
+    --                                paidLeaveDaysTotal and understates
+    --                                unpaidLeaveDaysTotal in the payroll
+    --                                package. That exposure is bounded only by
+    --                                the flag below actually being acted on.
+    --   needs_hr_confirmation      -- what puts it at the top of the Leave
+    --     = true                     Types tab as a review queue. Without that
+    --                                tab, this default would be unsafe.
+    --   label = code               -- an honest placeholder. Inventing a
+    --                                prettier label would disguise the fact
+    --                                that nobody has looked at it yet.
+    --
+    -- RUNS ON DRY RUN TOO, deliberately. _resolved below INNER JOINs
+    -- leave_ledger_types, so on a preview an unknown code would silently drop
+    -- its rows and the previewed counts would be wrong -- a preview that
+    -- under-reports is worse than a preview with a side effect. The side
+    -- effect is a lookup row, flagged for review and deactivatable in the tab;
+    -- it writes nothing to leave_ledger_entries.
+    -- RETURNING, so v_created_types holds exactly what THIS run inserted.
+    -- Re-deriving it afterwards by selecting types where
+    -- needs_hr_confirmation is true would list every unconfirmed type the
+    -- file happens to mention -- and nearly all seeded types carry that flag
+    -- already -- reporting long-standing vocabulary as brand new on every
+    -- import.
+    with ins as (
+        insert into public.leave_ledger_types
+            (code, label, is_paid, needs_hr_confirmation, is_active)
+        select distinct v.leave_type_raw, v.leave_type_raw, true, true, true
+        from _validated v
+        where v.structural_error is null
+          and not exists (
+              select 1 from public.leave_ledger_types lt
+              where lt.code = v.leave_type_raw
+          )
+        on conflict (code) do nothing
+        returning code
+    )
+    select jsonb_agg(code order by code) into v_created_types from ins;
 
     -- 3. Resolve employee_code -> employees.id; unresolved rows are skipped,
     -- not rejected.
@@ -208,6 +290,10 @@ begin
 
         return jsonb_build_object(
             'status', 'blocked_guardrail',
+            -- Reported even here: the types were created before the guardrail
+            -- was evaluated, so HR should know they exist rather than be
+            -- surprised by them in the tab after a "blocked" result.
+            'createdLeaveTypes', coalesce(v_created_types, '[]'::jsonb),
             'currentRowCount', v_current_count,
             'incomingRowCount', v_incoming_count,
             'thresholdPct', 70,
@@ -241,6 +327,7 @@ begin
 
         return jsonb_build_object(
             'status', 'preview',
+            'createdLeaveTypes', coalesce(v_created_types, '[]'::jsonb),
             'currentRowCount', v_current_count,
             'incomingRowCount', v_incoming_count,
             'wouldAddCount', v_would_add_count,
@@ -317,6 +404,7 @@ begin
 
     v_result := jsonb_build_object(
         'status', 'applied',
+        'createdLeaveTypes', coalesce(v_created_types, '[]'::jsonb),
         'currentRowCountBefore', v_current_count,
         'incomingRowCount', v_incoming_count,
         -- "updated" here means "reconfirmed present, identical content --
