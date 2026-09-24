@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "../../buttons/button/Button";
 import { CameraIcon } from "@phosphor-icons/react";
 import CardLayout from "../../cardLayout/CardLayout";
@@ -7,12 +7,25 @@ export default function ImageUploadEditor({
   value,
   onChange,
   readOnly,
-  show,
   allowReplace,
 }) {
   const inputRef = useRef();
 
-  const preview = value instanceof File ? URL.createObjectURL(value) : value;
+  // Object URLs must be created/revoked in an effect, not inline during
+  // render -- creating one on every render leaks a new blob URL each time
+  // (never revoked) and makes the <img> reload/flicker on unrelated re-renders.
+  const [preview, setPreview] = useState(
+    typeof value === "string" ? value : null,
+  );
+  useEffect(() => {
+    if (!(value instanceof File)) {
+      setPreview(typeof value === "string" ? value : null);
+      return;
+    }
+    const url = URL.createObjectURL(value);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [value]);
 
   return (
     <CardLayout style="cardLayout1">

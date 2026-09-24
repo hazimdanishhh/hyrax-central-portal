@@ -57,6 +57,15 @@ export function AttendanceProvider({ children }) {
       return;
     }
 
+    // Pinned to Asia/Kuala_Lumpur explicitly. "en-MY" is a LOCALE (controls
+    // date order, AM/PM style, etc.), not a timezone -- toLocaleString and
+    // friends fall back to the VIEWER'S OWN DEVICE timezone when `timeZone`
+    // isn't passed, so a session on a device set to a different timezone
+    // would see its own clock-in/out shown at the wrong date and time, even
+    // though the stored timestamptz value is correct. Same reasoning
+    // formatDate.js's toMYTTimeInputValue/toMYTDatePart already apply.
+    const displayOptions = { timeZone: "Asia/Kuala_Lumpur" };
+
     const normalizedData = data
       ? {
           ...data,
@@ -64,12 +73,14 @@ export function AttendanceProvider({ children }) {
           // CLOCK IN
           clocked_in_date: data.clocked_in_at
             ? new Date(data.clocked_in_at).toLocaleDateString("en-MY", {
+                ...displayOptions,
                 dateStyle: "medium",
               })
             : null,
 
           clocked_in_time: data.clocked_in_at
             ? new Date(data.clocked_in_at).toLocaleTimeString("en-MY", {
+                ...displayOptions,
                 timeStyle: "short",
               })
             : null,
@@ -77,12 +88,14 @@ export function AttendanceProvider({ children }) {
           // CLOCK OUT
           clocked_out_date: data.clocked_out_at
             ? new Date(data.clocked_out_at).toLocaleDateString("en-MY", {
+                ...displayOptions,
                 dateStyle: "medium",
               })
             : null,
 
           clocked_out_time: data.clocked_out_at
             ? new Date(data.clocked_out_at).toLocaleTimeString("en-MY", {
+                ...displayOptions,
                 timeStyle: "short",
               })
             : null,
@@ -95,6 +108,7 @@ export function AttendanceProvider({ children }) {
 
           clocked_in_at: data.clocked_in_at
             ? new Date(data.clocked_in_at).toLocaleString("en-MY", {
+                ...displayOptions,
                 dateStyle: "medium",
                 timeStyle: "short",
               })
@@ -102,6 +116,7 @@ export function AttendanceProvider({ children }) {
 
           clocked_out_at: data.clocked_out_at
             ? new Date(data.clocked_out_at).toLocaleString("en-MY", {
+                ...displayOptions,
                 dateStyle: "medium",
                 timeStyle: "short",
               })

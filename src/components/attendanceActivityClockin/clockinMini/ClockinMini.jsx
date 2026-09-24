@@ -35,6 +35,7 @@ export default function ClockinMini({ navIsOpen }) {
           style="button buttonType2Clockout textBold textXXS"
           icon={ClockUserIcon}
           name={navIsOpen ? "Clock Out" : null}
+          title={navIsOpen ? undefined : "Clock Out"}
           onClick={handleClockOut}
         />
       ) : (
@@ -42,6 +43,7 @@ export default function ClockinMini({ navIsOpen }) {
           style="button buttonType2Clockin textBold textXXS"
           icon={ClockUserIcon}
           name={navIsOpen ? "Clock In" : null}
+          title={navIsOpen ? undefined : "Clock In"}
           onClick={openClockIn}
         />
       )}

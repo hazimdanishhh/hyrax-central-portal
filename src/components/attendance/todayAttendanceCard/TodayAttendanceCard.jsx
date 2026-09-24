@@ -1,6 +1,6 @@
 // components/attendance/todayAttendanceCard/TodayAttendanceCard.jsx
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -24,6 +24,7 @@ import AttendanceType from "@/components/attendance/attendanceType/AttendanceTyp
 import AttendanceClock from "@/components/attendance/attendanceClock/AttendanceClock";
 import AttendanceDayTimelineBar from "@/components/attendance/attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import AttendanceTimelineCard from "@/components/attendance/attendanceSidebarHR/attendanceTimelineCard/AttendanceTimelineCard";
+import AttendanceSubmissionSidebar from "@/components/attendance/attendanceSubmission/AttendanceSubmissionSidebar";
 import AttendanceAnomalyBadges from "@/components/attendance/attendanceAnomalyBadges/AttendanceAnomalyBadges";
 import StatusBox from "@/components/status/statusBox/StatusBox";
 import { getAnomalyAnchorActivityIds } from "@/functions/attendanceAnomalyAnchors";
@@ -55,6 +56,11 @@ function todayISODate() {
  */
 export default function TodayAttendanceCard() {
   const { employee } = useEmployee();
+
+  // Easier-to-find route to the same submission form My/Team/HR Attendance
+  // already use, so the dashboard isn't limited to the bare live clock-in
+  // sidebar below for anything that isn't "right now".
+  const [activitiesOpen, setActivitiesOpen] = useState(false);
 
   const { today, chartData, totalHoursThisWeek, isLoading } =
     useMyAttendanceThisWeek();
@@ -115,6 +121,12 @@ export default function TodayAttendanceCard() {
           <SectionHeader icon={ClockUserIcon} title="ATTENDANCE" />
 
           <div style={{ display: "flex", gap: "0.2rem" }}>
+            <Button
+              name="Add Activities"
+              style="button buttonType4 greenFill textXXXS textBold"
+              icon={CalendarDotsIcon}
+              onClick={() => setActivitiesOpen(true)}
+            />
             <RouterButton
               name="Overview"
               to="/app/employee/attendance/overview"
@@ -223,30 +235,34 @@ export default function TodayAttendanceCard() {
                       the card's own fingerprint button below already
                       handles clocking in/out. */}
                   <div className="todayActivityTimeline">
-                    <p className="textBold textXS">Today's Activity</p>
-                    {todayDetailsLoading ? (
-                      <LoadingIcon />
-                    ) : !todayDetails || todayDetails.length === 0 ? (
-                      <p className="textLight textXXS">
-                        No activity logged yet today.
-                      </p>
-                    ) : (
-                      todayDetails.map((activity) => (
-                        <AttendanceTimelineCard
-                          key={activity.activity_id}
-                          activity={activity}
-                          mode="readonly"
-                          isLateArrival={
-                            !!today?.is_late_arrival &&
-                            activity.activity_id === earliestActivityId
-                          }
-                          isEarlyLeave={
-                            !!today?.is_early_leave &&
-                            activity.activity_id === latestActivityId
-                          }
-                        />
-                      ))
-                    )}
+                    <p className="textBold textXS textStart">
+                      Today's Activity
+                    </p>
+                    <div className="cardLayout1 cardGapSmall cardLayoutNoPadding attendanceCardTimelineList">
+                      {todayDetailsLoading ? (
+                        <LoadingIcon />
+                      ) : !todayDetails || todayDetails.length === 0 ? (
+                        <p className="textLight textXXS">
+                          No activity logged yet today.
+                        </p>
+                      ) : (
+                        todayDetails.map((activity) => (
+                          <AttendanceTimelineCard
+                            key={activity.activity_id}
+                            activity={activity}
+                            mode="readonly"
+                            isLateArrival={
+                              !!today?.is_late_arrival &&
+                              activity.activity_id === earliestActivityId
+                            }
+                            isEarlyLeave={
+                              !!today?.is_early_leave &&
+                              activity.activity_id === latestActivityId
+                            }
+                          />
+                        ))
+                      )}
+                    </div>
                   </div>
                 </>
               )}
@@ -260,6 +276,7 @@ export default function TodayAttendanceCard() {
                   }
                   icon={FingerprintSimpleIcon}
                   size={64}
+                  title={currentActivity ? "Clock Out" : "Clock In"}
                   onClick={currentActivity ? handleClockOut : openClockIn}
                 />
               </CardLayout>
@@ -308,6 +325,13 @@ export default function TodayAttendanceCard() {
             />
           ))}
       </AnimatePresence>
+
+      <AttendanceSubmissionSidebar
+        open={activitiesOpen}
+        onClose={() => setActivitiesOpen(false)}
+        scope="self"
+        currentEmployeeId={employee?.id}
+      />
     </>
   );
 }

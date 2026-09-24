@@ -72,11 +72,13 @@ export function submissionHeaderConfig({
       key: "adjustmentReasonId",
       label: "Reason",
       editor: "select",
-      required: true,
+      // Required unless every selected date is strictly in the future --
+      // reasonRequired is computed once in AttendanceSubmissionForm.jsx from
+      // the selected days, so no date logic needs to live here.
+      required: (values, { reasonRequired }) => Boolean(reasonRequired),
       options: adjustmentReasons.map((r) => ({ label: r.label, value: r.id })),
       placeholder: "Select reason",
-      // Unchanged from the existing forms, per the brief. The reason's own
-      // requires_notes still applies on top of the type's.
+      // The reason's own requires_notes still applies on top of the type's.
     },
     {
       key: "photo",

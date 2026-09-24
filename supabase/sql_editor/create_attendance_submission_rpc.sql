@@ -57,15 +57,37 @@
 -- ===========================================================================
 -- p_employee_id          uuid   -- exactly one
 -- p_attendance_type_id   bigint -- one, for every row
--- p_adjustment_reason_id bigint -- one, for every row
+-- p_days                 jsonb  -- [{ work_date, day_shape, clock_in_time,
+--                                    clock_out_time }, ...]
 -- p_notes                text   -- one, for every row (nullable)
 -- p_photo_url            text   -- one, for every row (nullable)
 -- p_photo_path           text   -- the storage object behind p_photo_url
--- p_days                 jsonb  -- [{ work_date, day_shape, clock_in_time,
---                                    clock_out_time }, ...]
+-- p_allow_leave_conflict boolean
+-- p_adjustment_reason_id bigint -- nullable; see REASON REQUIREMENT below.
+--                                  Last in the parameter list (rather than
+--                                  next to p_attendance_type_id, where it
+--                                  reads more naturally) because it is the
+--                                  only nullable param besides the ones that
+--                                  already default -- Postgres requires every
+--                                  parameter after the first defaulted one to
+--                                  also have a default, and p_days can't.
 --
 -- work_date is 'YYYY-MM-DD'; the two times are 'HH:MM'. day_shape is
 -- 'full' | 'am_half' | 'pm_half'.
+--
+-- ===========================================================================
+-- REASON REQUIREMENT AND SCANNER-ONLY TYPES (added 2026-09-24)
+-- ===========================================================================
+-- p_adjustment_reason_id is required unless every date in p_days is strictly
+-- after today (Asia/Kuala_Lumpur): a past or current-day entry is asserting
+-- something happened and needs a reason, a future date is just a plan. Also
+-- enforced client-side (AttendanceSubmissionForm.jsx) so the UI's own
+-- required-field marker agrees with this.
+--
+-- Separately, a type with is_self_selectable = false (Office, Blending
+-- Plant) can never be submitted for a future date, regardless of reason --
+-- those types exist only to reconcile a failed scanner day, never to
+-- pre-declare one.
 --
 -- ONE STORAGE OBJECT, N REFERENCES. Every created row carries the same
 -- photo_url/photo_path. That is the honest shape for "one piece of evidence
@@ -85,15 +107,35 @@
 --
 -- security definer + set search_path = '' + fully-qualified public.* names:
 -- the same hardening every other SECURITY DEFINER function in this schema uses.
-create or replace function public.create_attendance_submission(
+--
+-- p_adjustment_reason_id moved to the end of the parameter list (2026-09-24,
+-- to make it nullable) -- a reordered signature is a new overload as far as
+-- Postgres is concerned, so this drops the old 8-arg signature explicitly
+-- rather than relying on CREATE OR REPLACE, which would otherwise leave it
+-- behind as an orphaned overload.
+--
+-- BOTH possible signatures are dropped, so this file stays re-runnable no
+-- matter how many times it's been applied: the pre-reorder signature (reason
+-- 3rd) on a first run, or this file's own post-reorder signature (reason
+-- last) on any run after that -- a plain `create function` against a
+-- signature that already exists (e.g. from a previous run of this same file)
+-- fails with 42723 otherwise.
+drop function if exists public.create_attendance_submission(
+    uuid, bigint, bigint, jsonb, text, text, text, boolean
+);
+drop function if exists public.create_attendance_submission(
+    uuid, bigint, jsonb, text, text, text, boolean, bigint
+);
+
+create function public.create_attendance_submission(
     p_employee_id          uuid,
     p_attendance_type_id   bigint,
-    p_adjustment_reason_id bigint,
     p_days                 jsonb,
     p_notes                text default null,
     p_photo_url            text default null,
     p_photo_path           text default null,
-    p_allow_leave_conflict boolean default false
+    p_allow_leave_conflict boolean default false,
+    p_adjustment_reason_id bigint default null
 ) returns jsonb
 language plpgsql
 security definer
@@ -112,6 +154,7 @@ declare
     v_shift_end         time;
     v_added             jsonb;
     v_skipped           jsonb;
+    v_today_myt         date := (now() at time zone 'Asia/Kuala_Lumpur')::date;
 begin
     -- -----------------------------------------------------------------------
     -- 1. Who is asking, and may they write for this employee?
@@ -180,10 +223,15 @@ begin
         raise exception 'Unknown attendance type';
     end if;
 
-    select * into v_reason from public.attendance_adjustment_reasons
-    where id = p_adjustment_reason_id and is_active;
-    if not found then
-        raise exception 'Unknown or inactive reason';
+    -- Nullable now -- see REASON REQUIREMENT above. Only validated when one
+    -- is actually supplied; whether it was REQUIRED to be supplied is decided
+    -- below, once the dates are known.
+    if p_adjustment_reason_id is not null then
+        select * into v_reason from public.attendance_adjustment_reasons
+        where id = p_adjustment_reason_id and is_active;
+        if not found then
+            raise exception 'Unknown or inactive reason';
+        end if;
     end if;
 
     -- Evidence requirements come from the TYPE, enforced here and not only in
@@ -222,6 +270,21 @@ begin
 
     if exists (select 1 from _days group by work_date having count(*) > 1) then
         raise exception 'The same date appears more than once in this submission';
+    end if;
+
+    -- REASON REQUIREMENT: required unless every date is strictly in the
+    -- future. See the header comment for why.
+    if p_adjustment_reason_id is null
+       and exists (select 1 from _days where work_date <= v_today_myt) then
+        raise exception 'A reason is required for a submission that includes today or a past date';
+    end if;
+
+    -- SCANNER-ONLY TYPES cannot be pre-declared for a future date. `= false`
+    -- (not `is distinct from true`) so a type without the column populated is
+    -- treated as selectable, matching attendanceActivityConfig.js's `!== false`.
+    if v_type.is_self_selectable = false
+       and exists (select 1 from _days where work_date > v_today_myt) then
+        raise exception '% is scanner-only and cannot be recorded for a future date', v_type.name;
     end if;
 
     -- A whole-day type derives its own times regardless of what was sent --
@@ -278,12 +341,24 @@ begin
     select
         r.*,
         case
+            -- Plain scalar comparison, not tstzrange(): the same choice
+            -- create_attendance_backfill_rpc.sql already makes, and for the
+            -- same reason -- tstzrange() raises "range lower bound must be
+            -- less than or equal to range upper bound" the instant it tries
+            -- to build a range for ANY existing row whose clocked_out_at is
+            -- before its clocked_in_at (a corrupted/legacy row, e.g. from a
+            -- manual HR edit with no ordering check), which would fail every
+            -- future submission for that employee regardless of the date
+            -- being submitted now. coalesce(clocked_out_at, clocked_in_at)
+            -- treats a still-open session as a zero-width interval at its
+            -- start, so a submission spanning an open session still collides
+            -- with it.
             when exists (
                 select 1 from public.attendance_activities aa
                 where aa.employee_id = p_employee_id
                   and aa.approval_status::text <> 'Rejected'
-                  and tstzrange(aa.clocked_in_at, coalesce(aa.clocked_out_at, aa.clocked_in_at), '[]')
-                      && tstzrange(r.clocked_in_at, r.clocked_out_at, '[]')
+                  and aa.clocked_in_at < r.clocked_out_at
+                  and coalesce(aa.clocked_out_at, aa.clocked_in_at) > r.clocked_in_at
             ) then 'overlaps_existing_activity'
 
             when not p_allow_leave_conflict and exists (
@@ -353,5 +428,5 @@ end;
 $$;
 
 grant execute on function public.create_attendance_submission(
-    uuid, bigint, bigint, jsonb, text, text, text, boolean
+    uuid, bigint, jsonb, text, text, text, boolean, bigint
 ) to authenticated;

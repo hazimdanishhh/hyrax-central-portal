@@ -282,7 +282,7 @@ export default function AttendanceSidebarHR({
         </p>
       ) : (
         /* 2. MAP THROUGH EACH ACTIVITY IN THE DAY */
-        <div className="cardLayout1 cardGapSmall cardLayoutNoPadding">
+        <div className="cardLayout1 cardGapSmall cardLayoutNoPadding attendanceCardTimelineList">
           {timelineData.map((activity) => (
             <AttendanceTimelineCard
               key={activity.activity_id}

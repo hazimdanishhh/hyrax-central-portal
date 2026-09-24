@@ -3,6 +3,8 @@
 // Kept separate from submissionTableConfig.jsx so the configs stay declarative
 // and the rules stay testable on their own.
 
+import { todayDateString } from "../attendanceBackfillWizard/backfillWizardUtils";
+
 /** Minutes since midnight for an "HH:MM" string, or null. */
 export function toMinutes(hhmm) {
   if (!hhmm || typeof hhmm !== "string") return null;
@@ -47,14 +49,27 @@ export function validateSubmission({
   selectedType,
   selectedReason,
   dayProblems,
+  reasonRequired,
 }) {
   const problems = [];
   const selectedDays = (days || []).filter((d) => d.selected);
 
   if (!employeeId) problems.push("Choose an employee.");
   if (!attendanceTypeId) problems.push("Choose an attendance type.");
-  if (!adjustmentReasonId) problems.push("Choose a reason.");
+  if (reasonRequired && !adjustmentReasonId) problems.push("Choose a reason.");
   if (selectedDays.length === 0) problems.push("Select at least one date.");
+
+  // Scanner-only types (Office, Blending Plant) exist purely to reconcile a
+  // failed-scanner day, never to pre-declare one. Enforced again server-side
+  // in create_attendance_submission_rpc.sql.
+  if (selectedType?.is_self_selectable === false) {
+    const todayStr = todayDateString();
+    if (selectedDays.some((d) => d.workDate > todayStr)) {
+      problems.push(
+        `${selectedType.name} is scanner-only and can only be recorded for today or earlier, not future dates.`,
+      );
+    }
+  }
 
   // Matches the RPC's own cap. Enforced here too so a 200-day range fails
   // before an upload rather than after it.

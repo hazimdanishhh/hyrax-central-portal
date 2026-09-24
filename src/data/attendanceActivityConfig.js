@@ -33,8 +33,15 @@ export function attendanceActivityConfig({ attendanceTypes = [] }) {
       // `!== false` rather than `=== true`: tolerates a row created before the
       // is_self_selectable column existed, where the value could be undefined
       // in a cached response.
+      //
+      // Full-day types (Overseas Trip, Local Trip) are also excluded here:
+      // both RPCs derive their fixed 08:30-shift-end times server-side, but a
+      // live "clock in now" button has no such handling and would record
+      // whatever moment the button was pressed as if it were a whole day.
+      // They stay reachable through Add Activities (AttendanceSubmissionForm),
+      // which already has full is_full_day handling.
       options: attendanceTypes
-        .filter((a) => a.is_self_selectable !== false)
+        .filter((a) => a.is_self_selectable !== false && !a.is_full_day)
         .map((a) => ({
           label: a.name,
           value: a.id,

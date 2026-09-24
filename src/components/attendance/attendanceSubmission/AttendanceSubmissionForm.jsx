@@ -159,6 +159,16 @@ export default function AttendanceSubmissionForm({
 
   const fullDay = isFullDayType(selectedType);
 
+  // A reason explains something that already happened, so it's required
+  // unless every selected date is strictly in the future -- a future date is
+  // a plan, not an assertion. No dates picked yet defaults to required, the
+  // same conservative default the type-driven evidence flags use below.
+  const reasonRequired = useMemo(() => {
+    const selectedDays = days.filter((d) => d.selected);
+    if (selectedDays.length === 0) return true;
+    return selectedDays.some((d) => d.workDate <= todayDateString());
+  }, [days]);
+
   // employees carries work_location_id, NOT an embedded object
   // (attendanceActivitiesMetadataService fetches the locations separately), so
   // the cutoff is resolved here. Reading this wrong would not error -- it
@@ -338,6 +348,7 @@ export default function AttendanceSubmissionForm({
     selectedType,
     selectedReason,
     dayProblems,
+    reasonRequired,
   });
 
   const selectedCount = days.filter((d) => d.selected).length;
@@ -360,7 +371,7 @@ export default function AttendanceSubmissionForm({
       const result = await submitAttendance({
         employeeId,
         attendanceTypeId: Number(attendanceTypeId),
-        adjustmentReasonId: Number(adjustmentReasonId),
+        adjustmentReasonId: adjustmentReasonId ? Number(adjustmentReasonId) : null,
         days: toSubmissionDays(days, { isFullDay: fullDay }),
         notes: notes || null,
         photo,
@@ -417,7 +428,7 @@ export default function AttendanceSubmissionForm({
                       notes,
                       photo,
                     },
-                    { selectedType, selectedReason },
+                    { selectedType, selectedReason, reasonRequired },
                   )
                 : col.required;
 

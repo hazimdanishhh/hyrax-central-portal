@@ -169,7 +169,7 @@ export default function useAttendanceActivityMutations() {
     } catch (err) {
       console.error("Clock in failed:", err);
       setError(err);
-      showMessage("Clock in failed", "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
 
       throw err;
     } finally {
@@ -185,14 +185,18 @@ export default function useAttendanceActivityMutations() {
       setSaving(true);
       showMessage("Clocking out attendance", "loading");
 
-      const { data, error } = await supabase
-        .from("attendance_activities")
-        .update({
-          clocked_out_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select(`*, attendance_type:attendance_type_id(id, name)`)
-        .maybeSingle();
+      // RPC, not a raw table update: clocked_out_at must be the DATABASE's
+      // clock (`now()`, evaluated server-side in
+      // clock_out_attendance_activity.sql), never the caller's device clock.
+      // A raw `new Date().toISOString()` here is exactly what produced a
+      // production row with clocked_out_at before clocked_in_at when one
+      // employee's device clock was wrong -- clocked_in_at never had this
+      // risk, since it is left off the insert and falls back to the column's
+      // own `DEFAULT now()`.
+      const { data, error } = await supabase.rpc(
+        "clock_out_attendance_activity",
+        { p_activity_id: id },
+      );
 
       if (error) throw error;
 
@@ -200,7 +204,7 @@ export default function useAttendanceActivityMutations() {
       return data;
     } catch (err) {
       console.error("Clock out failed:", err);
-      showMessage("Clock out failed", "error");
+      showMessage(getFriendlyError(err, errorConfig), "error");
       // RETHROW -- same reason as updateAttendanceActivity above. This one
       // matters more than it looks: a swallowed clock-out failure leaves the
       // session open while the UI refetches and carries on, and an open
