@@ -1,0 +1,11 @@
+id,name,created_at,requires_photo,requires_location,requires_notes,is_self_selectable,is_full_day
+1,Site Visit,2026-02-23 06:38:53.73903+00,true,false,true,true,false
+2,Business Meeting,2026-02-23 06:38:53.73903+00,true,false,true,true,false
+3,Work From Home,2026-02-23 06:38:53.73903+00,false,false,true,true,false
+4,Training,2026-02-27 07:06:11.239117+00,true,false,true,true,false
+19,Overseas Trip,2026-09-22 01:53:44.093974+00,false,false,false,true,true
+20,Local Trip,2026-09-22 01:53:44.093974+00,false,false,false,true,true
+21,Company Event,2026-09-22 01:53:44.093974+00,false,false,false,true,false
+22,Driving Duty,2026-09-22 01:53:44.093974+00,false,false,false,true,false
+23,Office,2026-09-22 01:53:44.093974+00,false,false,false,false,false
+24,Blending Plant,2026-09-22 01:53:44.093974+00,false,false,false,false,false

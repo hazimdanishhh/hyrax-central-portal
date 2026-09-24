@@ -1,8 +1,33 @@
--- get_attendance_backfill_prefill: everything the Backfill Attendance wizard
--- needs to render sensible, per-employee-per-date defaults BEFORE anything is
--- written.
+-- get_attendance_backfill_prefill: everything a per-date attendance entry
+-- form needs to render sensible defaults, and warn about a date, BEFORE
+-- anything is written.
 --
 -- Run this once in the Supabase SQL editor. DEPLOYMENT STEP 7.
+--
+-- ===========================================================================
+-- TWO CONSUMERS, as of 2026-09-24 -- DO NOT DELETE THIS ALONGSIDE
+-- create_attendance_backfill.
+-- ===========================================================================
+-- This function was named and documented for a single caller
+-- (AttendanceBackfillWizard.jsx) when it was written, and that name is now
+-- misleading: it has a SECOND, independent consumer --
+-- src/components/attendance/attendanceSubmission/AttendanceSubmissionForm.jsx,
+-- via the same attendanceBackfillService.js wrapper
+-- (fetchAttendanceBackfillPrefill), called with a single-employee array.
+--
+-- That form is what "Backfill Attendance"/"Add Attendance" and the day
+-- sidebar's own "Add Activity" now render, and its calendar-context tags
+-- (Weekend / Public Holiday / On leave / Has attendance / Not in attendance
+-- calendar) come from THIS function. If create_attendance_backfill and
+-- AttendanceBackfillWizard are ever retired, this one is NOT part of that
+-- retirement -- it must stay, because the newer form depends on it directly
+-- and was deliberately NOT given its own copy of this logic. Duplicating it
+-- would have reintroduced exactly the kind of drift this codebase has
+-- repeatedly had to undo (see the comment on unified_daily_attendance reuse
+-- below, which is the same argument one level up).
+--
+-- Read supabase/sql_editor/create_attendance_submission_rpc.sql's own header
+-- before removing anything named "backfill" in this schema.
 --
 -- Answers, for each (employee, date) the user has selected:
 --   - what times should this default to?        -> shift_end_time
