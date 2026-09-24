@@ -37,6 +37,29 @@ export default function EditableField({
     : "static";
   const componentKey = `${col.key}-${dependencyString}`;
 
+  // `required` may be a FUNCTION of the form's live values, not just a boolean
+  // -- the same treatment `options` already gets below.
+  //
+  // This is what lets a requirement depend on a sibling field chosen in the
+  // same form. The motivating case is attendance evidence: whether a photo is
+  // mandatory is a property of the attendance TYPE the user just picked
+  // (attendance_types.requires_photo), so it cannot be known when the column
+  // config is built -- the config is built by the page, which has no access to
+  // the form's internal state.
+  //
+  // The alternative was threading a `selectedTypeId` through every caller and
+  // rebuilding the config on each keystroke; attendanceActivityConfig already
+  // accepts such a parameter and no caller ever passed it, which is precisely
+  // why `selectedType?.requires_location` there had silently never worked.
+  //
+  // Resolved once per render and used by all three consumers below (the
+  // validator, the editor's own `required` prop, and the label asterisk) so
+  // they cannot disagree about whether the field is mandatory right now.
+  const isRequired =
+    typeof col.required === "function"
+      ? col.required(currentFormValues, rowData)
+      : col.required;
+
   const controller = (
     <Controller
       name={col.key}
@@ -50,7 +73,7 @@ export default function EditableField({
         // own required semantics minus that boolean special case.
         validate: {
           required: (value) =>
-            !col.required || isFilled(value) || `${col.label} is required`,
+            !isRequired || isFilled(value) || `${col.label} is required`,
           // Cross-field ordering checks (e.g. Join Date before Confirmation
           // Date) -- `rowData` covers a comparison against a value that
           // isn't even part of this form's own columns; `formValues` covers
@@ -104,7 +127,7 @@ export default function EditableField({
               col.clears.forEach((clearKey) => setValue(clearKey, null));
             }
           }}
-          required={col.required}
+          required={isRequired}
           isSearchable={col.isSearchable}
           readOnly={!col.editable}
           min={col.min}
@@ -127,9 +150,9 @@ export default function EditableField({
 
   return (
     <div className={`dataSidebarField ${col.half ? "half" : ""}`}>
-      <label className={`textBold textXXS ${col.required ? "required" : ""}`}>
+      <label className={`textBold textXXS ${isRequired ? "required" : ""}`}>
         {col.label}
-        <span className="dataSidebarRequired">{col.required && "*"}</span>
+        <span className="dataSidebarRequired">{isRequired && "*"}</span>
       </label>
       {controller}
     </div>

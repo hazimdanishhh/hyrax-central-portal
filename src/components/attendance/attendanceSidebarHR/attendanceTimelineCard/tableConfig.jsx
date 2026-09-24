@@ -7,6 +7,8 @@
 // options = for option input
 // editable = boolean
 
+import { evidenceRequired } from "@/functions/attendanceEvidenceRules";
+
 export const attendanceActivityTableConfig = ({
   employees,
   attendanceTypes,
@@ -53,12 +55,23 @@ export const attendanceActivityTableConfig = ({
     required: true,
   },
   {
+    // ASYMMETRIC BY DESIGN, and the asymmetry is not obvious from here.
+    // `allowReplace` is deliberately unset: per ImageUploadEditor's own
+    // comment, an attendance photo is meant to stay as originally captured,
+    // so once one exists the editor renders no "Change Photo" button.
+    //
+    // But it DOES still render "Take Photo" when the activity has no photo
+    // yet (the editor gates on `!preview || allowReplace`), so this field is
+    // add-only rather than read-only. That add path is what produced the one
+    // corrupted row in the database -- see
+    // src/services/storage/applyAttendancePhotoUpload.js, which
+    // AttendanceTimelineCard's handleRequestSave now calls to make it work.
     key: "photo_url",
     label: "Attendance Photo",
     getValue: (activity) => activity.photo_url,
     editable: true,
     editor: "image",
-    // required: true,
+    required: evidenceRequired(attendanceTypes, "requires_photo"),
   },
   {
     key: "notes",

@@ -17,14 +17,21 @@ import { attendanceActivitiesChangeClockOutTimeConfig } from "../../../../pages/
 import Button from "../../../buttons/button/Button";
 import LoadingIcon from "../../../loadingIcon/LoadingIcon";
 import DataForm from "../../../crud/dataForm/DataForm";
+import { useMessage } from "../../../../context/MessageContext";
 import StatusBadge from "../../../status/statusBadge/StatusBadge";
 import StatusBox from "../../../status/statusBox/StatusBox";
 import AttendanceType from "../../attendanceType/AttendanceType";
 import AttendanceDayTimelineBar from "../../attendanceDayTimelineBar/AttendanceDayTimelineBar";
 import { attendanceActivityTableConfig } from "./tableConfig";
 import AttendanceClock from "../../attendanceClock/AttendanceClock";
+// Only used inside the commented-out per-pair duration list below
+// (~line 412). Left as a hard import rather than removed: whether that block
+// comes back or gets deleted for good is still an open decision, not this
+// pass's to make.
+// eslint-disable-next-line no-unused-vars
 import { formatTime } from "@/functions/formatDate";
 import "./AttendanceTimelineCard.scss";
+import { applyAttendancePhotoUpload } from "../../../../services/storage/applyAttendancePhotoUpload";
 
 // "3h 25m" / "45m" / "8h" -- shared by the per-pair duration list and the
 // two headline hour totals below it.
@@ -48,7 +55,8 @@ const ENTRY_METHOD_LABELS = {
 
 // "8:36 AM - 12:01 PM (3h 25m)" -- HR auditing needs the actual duration of
 // each inferred in/out pair spelled out, not just visible on a bar segment's
-// hover tooltip.
+// hover tooltip. Same commented-out block as formatTime above.
+// eslint-disable-next-line no-unused-vars
 function formatPairDuration(startIso, endIso) {
   const totalMinutes = Math.max(
     0,
@@ -77,6 +85,7 @@ export default function AttendanceTimelineCard({
   isEarlyLeave = false,
 }) {
   const queryClient = useQueryClient();
+  const { showMessage } = useMessage();
   const [isEditing, setIsEditing] = useState("none"); // "none" | "edit" | "clockIn" | "clockOut"
 
   const entryMethodLabel = ENTRY_METHOD_LABELS[activity.entry_method];
@@ -86,8 +95,10 @@ export default function AttendanceTimelineCard({
   // buttons below. Fetched eagerly for Hardware rows (not lazy-on-click
   // anymore) -- the odd/even pair breakdown below is now this card's
   // primary content, not a supplementary drill-down, so it can't wait for
-  // a click. `scansExpanded` still gates only the fully raw, ungrouped
-  // scan list further down.
+  // a click. `scansExpanded` still gates only the fully raw, ungrouped scan
+  // list further down -- the "Show Raw Scan Log" section it gates (~line 519)
+  // is currently commented out; decision pending.
+  // eslint-disable-next-line no-unused-vars
   const [scansExpanded, setScansExpanded] = useState(false);
   const { scans, isLoading: scansLoading } = useAttendanceLogScans({
     employeeCode: activity.company_employee_code,
@@ -255,13 +266,48 @@ export default function AttendanceTimelineCard({
   // SAVE + UPDATE
   // ==============
   async function handleRequestSave(data) {
-    await updateRow(data);
+    // MUST run before updateRow. ImageUploadEditor stages a raw `File` on
+    // photo_url, and nothing downstream turns it into a stored object --
+    // normalizeFields doesn't recognise a File, so it reaches PostgREST and
+    // serialises to the string "{}". That is exactly how the one
+    // photo-bearing activity in the database was corrupted: this save path
+    // had no upload step while AttendanceManagement's had one inline.
+    //
+    // A no-op unless a new photo was actually staged, so it is safe on every
+    // save. employee_uuid (not employee_id) is the audit view's own spelling
+    // for the same employees.id value the storage path is keyed on.
+    // try/catch is LOAD-BEARING, not defensive. DataForm's onSubmit calls
+    // `onSave?.(submitted)` WITHOUT awaiting it, so anything this function
+    // throws becomes an unhandled promise rejection: no toast, no console
+    // error the user would look for, no state change -- the form simply sits
+    // there as though nothing was clicked. The mutation hook surfaces its own
+    // failures, but the upload happens BEFORE the mutation, so an upload
+    // error had nowhere at all to go.
+    try {
+      const payload = await applyAttendancePhotoUpload(
+        data,
+        activity.employee_uuid,
+      );
 
-    await queryClient.invalidateQueries({
-      queryKey: ["attendance_activities"],
-    });
+      await updateRow(payload);
 
-    setIsEditing("none");
+      await queryClient.invalidateQueries({
+        queryKey: ["attendance_activities"],
+      });
+
+      setIsEditing("none");
+    } catch (err) {
+      // Deliberately does NOT close the form -- the staged photo is still in
+      // form state, so leaving it open lets the user retry without
+      // re-capturing. Storage failures (bucket missing, RLS refusal) surface
+      // here; row-write failures are also caught, and show twice, which is
+      // better than the previous zero.
+      console.error("Attendance activity save failed:", err);
+      showMessage(
+        err?.message || "Could not save this activity. Please try again.",
+        "error",
+      );
+    }
   }
 
   // ==============
@@ -371,7 +417,7 @@ export default function AttendanceTimelineCard({
         pairedSegments.length > 0 && (
           <>
             <AttendanceDayTimelineBar timelineData={pairedSegments} />
-            <div className="attendanceScanLogList">
+            {/* <div className="attendanceScanLogList">
               {pairedSegments.map((seg, i) => (
                 <p
                   key={`${seg.check_in_time}-${i}`}
@@ -384,7 +430,7 @@ export default function AttendanceTimelineCard({
                     : " – no matching out scan yet"}
                 </p>
               ))}
-            </div>
+            </div> */}
 
             {/* Two totals, deliberately kept separate rather than reduced
                 to one number: Number 1 is the naive full span (what
@@ -411,7 +457,7 @@ export default function AttendanceTimelineCard({
                 </span>
               </p>
               <p className="textRegular textXXS">
-                Total From Pairs:{" "}
+                Pairs:{" "}
                 <span className="textBold">
                   {formatMinutesDuration(scannedPairsMinutes)}
                 </span>
@@ -446,7 +492,15 @@ export default function AttendanceTimelineCard({
               ~1080px JPEGs. The anchor gives HR the full-resolution image
               without needing a lightbox component (none exists in this
               codebase, and adding one is out of scope). */}
-            {/* ISSUE FOUND: image is not shown here and in the edit form */}
+            {/* Nothing rendered here until 2026-09-24, for a reason that
+                was upstream of this JSX entirely: no photo had ever been
+                stored. The one row that had a value held '{}' -- a File
+                serialized by PostgREST, because this card's save path
+                skipped the upload step. Fixed in handleRequestSave above.
+                If a photo still fails to appear AFTER a successful upload,
+                the cause is the bucket, not this code: photo_url is a
+                getPublicUrl() result and only resolves while the
+                `attendance` bucket is public. */}
             {activity.photo_url && (
               <a
                 href={activity.photo_url}
@@ -470,7 +524,7 @@ export default function AttendanceTimelineCard({
           double check the ground truth directly (e.g. an unexpected extra
           scan). Inline expand, not a second sidebar -- usually just a
           handful of rows. */}
-      {activity.event_source === "Hardware" && (
+      {/* {activity.event_source === "Hardware" && (
         <>
           <Button
             onClick={() => setScansExpanded((prev) => !prev)}
@@ -499,7 +553,7 @@ export default function AttendanceTimelineCard({
               </div>
             ))}
         </>
-      )}
+      )} */}
 
       {/* ACTION BUTTONS SPECIFIC TO THIS ACTIVITY */}
       {activity.event_source === "App" && (
@@ -513,7 +567,14 @@ export default function AttendanceTimelineCard({
                 icon={ClockUserIcon}
                 name="Clock Out"
                 onClick={async () => {
-                  await clockOutAttendanceActivity(activity.activity_id);
+                  // clockOutAttendanceActivity rethrows as of 2026-09-24;
+                  // an onClick that rejects is an unhandled rejection, which
+                  // shows the user nothing beyond the mutation's own toast.
+                  try {
+                    await clockOutAttendanceActivity(activity.activity_id);
+                  } catch (err) {
+                    console.error("Clock out failed:", err);
+                  }
                 }}
               />
             )}

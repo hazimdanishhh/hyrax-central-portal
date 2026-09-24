@@ -1,0 +1,50 @@
+.attendanceSubmissionFormContainer {
+  display: flex;
+  flex-direction: column;
+  padding: 0.8rem;
+  padding-top: 0;
+  gap: 0.8rem;
+
+  &.sidebarAttendanceSubmissionFormContainer {
+    border: 2px solid $success500;
+    padding: 0.4rem;
+    gap: 0.4rem;
+    border-radius: 0.8rem;
+  }
+}
+
+// Per-date editable clock times, shown for timed attendance types only.
+.attendanceSubmissionDateTimes {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+
+  @media screen and (max-width: 425px) {
+    flex-wrap: wrap;
+  }
+}
+
+.attendanceSubmissionProblem {
+  list-style-type: disc;
+  margin-left: 1rem;
+  text-align: start;
+}
+
+.attendanceSubmissionFormFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  position: sticky;
+  bottom: 0;
+  padding: 0.8rem 0;
+  border-top: 1px solid $neutral500;
+
+  .attendanceSubmissionActionButtons {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    justify-content: end;
+  }
+}

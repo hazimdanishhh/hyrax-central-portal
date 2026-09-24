@@ -29,6 +29,9 @@ import {
 import { getAttendanceReconciliationFlags } from "../../../functions/attendanceReconciliationFlags";
 import { formatHours } from "../../../functions/formatDate";
 import AddActivityForm from "./dayActions/AddActivityForm";
+// SWAP POINT: change AttendanceSubmissionForm back to AddActivityForm
+// at the mount below to revert. AddActivityForm itself is untouched.
+import AttendanceSubmissionForm from "../attendanceSubmission/AttendanceSubmissionForm";
 import AcknowledgeDayPanel from "./dayActions/AcknowledgeDayPanel";
 import "./dayActions/DayActions.scss";
 
@@ -125,7 +128,10 @@ export default function AttendanceSidebarHR({
               here that recognized only On Leave/Review Required/Approved/OK
               and silently defaulted everything else -- Weekend, Absent, Public
               Holiday -- to red, as if they were errors. */}
-          <StatusBox status={dayStateDisplay.label} type={dayStateDisplay.type} />
+          <StatusBox
+            status={dayStateDisplay.label}
+            type={dayStateDisplay.type}
+          />
 
           {/* Data-quality / approval badges -- independent axes, so a day can
               carry several at once. */}
@@ -216,28 +222,33 @@ export default function AttendanceSidebarHR({
           all to hang a button off. */}
       <div className="dayActionHeader">
         <p className="textBold textS">Activity Timeline</p>
-
-        {!addingActivity && workDateIso && (
-          <div className="dayActionHeaderButtons">
-            <Button
-              name={
-                mode === "self" ? "Report Missing Activity" : "Add Activity"
-              }
-              icon={PlusCircleIcon}
-              style="button buttonType4 approval textBold textXXS"
-              onClick={() => setAddingActivity(true)}
-            />
-          </div>
-        )}
       </div>
 
+      {!addingActivity && workDateIso && (
+        <Button
+          name={mode === "self" ? "Report Missing Activity" : "Add Activity"}
+          icon={PlusCircleIcon}
+          style="button buttonType4 greenFill textBold textXXS"
+          onClick={() => setAddingActivity(true)}
+        />
+      )}
+
       {addingActivity && workDateIso && (
-        <AddActivityForm
+        // AttendanceSubmissionForm's lockDate mode: same fields and logic as
+        // HR's own "Add Activity" flow (type, reason, day shape/times, photo,
+        // notes, calendar-context tags), minus a date/employee picker -- both
+        // are already fixed by the day this sidebar is open on. isSelf is not
+        // passed: create_attendance_submission derives Pending-vs-Approved
+        // from auth.uid() itself, the same "who is actually asking" check
+        // AddActivityForm's own header comment describes, so there is nothing
+        // for the caller to assert.
+        <AttendanceSubmissionForm
           employeeId={selectedRow.employee_uuid}
           workDateIso={workDateIso}
-          isSelf={mode === "self"}
+          lockDate
           onCancel={() => setAddingActivity(false)}
           onSaved={() => setAddingActivity(false)}
+          sidebar={true}
         />
       )}
 

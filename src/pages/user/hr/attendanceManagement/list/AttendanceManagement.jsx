@@ -8,11 +8,13 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "../../../../../components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "../../../../../components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
 import AttendanceBackfillWizard from "../../../../../components/attendance/attendanceBackfillWizard/AttendanceBackfillWizard";
+// SWAP POINT -- see MyAttendance.jsx.
+import AttendanceSubmissionSidebar from "../../../../../components/attendance/attendanceSubmission/AttendanceSubmissionSidebar";
 import Button from "../../../../../components/buttons/button/Button";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -37,7 +39,7 @@ import useAttendanceAdjustmentReasons from "../../../../../features/hr/attendanc
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { supabase } from "../../../../../lib/supabaseClient";
-import { uploadAttendancePhoto } from "../../../../../services/storage/uploadAttendancePhoto";
+import { applyAttendancePhotoUpload } from "../../../../../services/storage/applyAttendancePhotoUpload";
 import { buildStatusTabs } from "../../../../../functions/statusTabs";
 import { getAttendanceStatusTabsConfig } from "../../../../../functions/attendanceStatusTabsConfig";
 import { getAttendanceReconciliationFlags } from "../../../../../functions/attendanceReconciliationFlags";
@@ -304,7 +306,16 @@ export default function AttendanceManagement() {
   // CLOCKING OUT
   // ==============
   const handleClockOut = async (id) => {
-    await clockOutAttendanceActivity(id);
+    // clockOutAttendanceActivity rethrows as of 2026-09-24 (it used to swallow
+    // and return undefined, so this function carried on refetching for a write
+    // that never happened). Catch here so a failure surfaces as the mutation's
+    // own toast rather than an unhandled rejection, and still refetch -- the
+    // row's true state is what the user needs to see next.
+    try {
+      await clockOutAttendanceActivity(id);
+    } catch (err) {
+      console.error("Clock out failed:", err);
+    }
 
     // Day mode's roster, Search mode's list, AND the sidebar's per-day punch
     // timeline (AttendanceSidebarHR's own useQuery, keyed
@@ -370,7 +381,22 @@ export default function AttendanceManagement() {
   // ==============
   // CONFIRM ACTION DELETE / SAVE / UPDATE
   // ==============
+  // DOUBLE-SUBMIT GUARD. `loading={saving}` on the ActionModal already
+  // disables its confirm button -- but `saving` is the MUTATION's isPending,
+  // and on a save the photo upload (compression + network) runs BEFORE the
+  // mutation is ever called. During that window `saving` is still false, the
+  // button is still live, and a second click runs this whole handler again:
+  // two uploads, two rows. Confirmed in production -- one Add Activity
+  // submit produced two identical rows.
+  //
+  // A ref, not state: it must flip synchronously within the same click, and
+  // a setState would not have committed before a fast second click read it.
+  const submittingRef = useRef(false);
+
   async function handleConfirmAction(formValues) {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     try {
       // DELETE
       if (modalType === "delete") {
@@ -379,22 +405,16 @@ export default function AttendanceManagement() {
 
       // SAVE OR UPDATE
       if (modalType === "save") {
-        const data = { ...pendingSaveRow };
-
-        /**
-         * Upload only if new photo selected
-         * File object = new capture/photo
-         * string URL = existing image already saved
-         */
-        if (data.photo_url instanceof File) {
-          const uploaded = await uploadAttendancePhoto(
-            data.photo_url,
-            data.employee_id,
-          );
-
-          data.photo_url = uploaded.url;
-          data.photo_path = uploaded.path; // optional but recommended
-        }
+        // Upload only if a new photo was staged -- a File means a fresh
+        // capture, a string means the existing image is already stored.
+        // Extracted to a shared helper on 2026-09-24 so this and
+        // AttendanceTimelineCard's own save path cannot drift apart again;
+        // the timeline card never had this step, which is how one row ended
+        // up with photo_url = '{}'. See applyAttendancePhotoUpload.js.
+        const data = await applyAttendancePhotoUpload(
+          { ...pendingSaveRow },
+          pendingSaveRow.employee_id,
+        );
 
         if (data.id) {
           await updateRow(data);
@@ -452,6 +472,14 @@ export default function AttendanceManagement() {
       closeActionModal();
     } catch (err) {
       console.error(err);
+      showMessage(
+        err?.message || "Could not complete that action. Please try again.",
+        "error",
+      );
+    } finally {
+      // finally, not at the end of try -- otherwise a failed save would latch
+      // the guard on and silently block every retry.
+      submittingRef.current = false;
     }
   }
 
@@ -479,23 +507,27 @@ export default function AttendanceManagement() {
           // options={layoutOptions}
           actionButtons={[
             {
-              name: "Backfill Attendance",
+              name: "Add Activities",
               icon: CalendarPlusIcon,
               onClick: () => setBackfillOpen(true),
               style: "button buttonType5 greenFill buttonFull textXXS",
             },
-            {
-              // Kept alongside the bulk wizard rather than replaced by it:
-              // this is the only path that can attach an attendance PHOTO
-              // (see handleConfirmAction's uploadAttendancePhoto branch),
-              // which the wizard has no concept of.
-              name: "Add Activity",
-              icon: PlusCircleIcon,
-              onClick: () => {
-                navigate(`new?${searchParams.toString()}`);
-              },
-              style: "button buttonType5 greenFill buttonFull textXXS",
-            },
+            // DISABLED 2026-09-24, not deleted -- see
+            // createAttendanceActivityFormConfig.jsx's own header for why.
+            // The rationale this comment used to give ("the only path that can
+            // attach a photo") is what changed: "Add Activities" above now
+            // does that too, through the RPC, so this direct-table-insert form
+            // has nothing left it uniquely provides. The route it opens
+            // (/app/hr/attendance/list/new) and its config are untouched --
+            // uncomment this block to bring the button back.
+            // {
+            //   name: "Add Activity",
+            //   icon: PlusCircleIcon,
+            //   onClick: () => {
+            //     navigate(`new?${searchParams.toString()}`);
+            //   },
+            //   style: "button buttonType5 greenFill buttonFull textXXS",
+            // },
           ]}
         />
 
@@ -739,7 +771,7 @@ export default function AttendanceManagement() {
           create_attendance_backfill re-derives the caller's rights per row
           from auth.uid() using approve_attendance's own three-branch test, so
           opening this page does not itself grant anything. */}
-      <AttendanceBackfillWizard
+      <AttendanceSubmissionSidebar
         open={backfillOpen}
         onClose={() => setBackfillOpen(false)}
         scope="hr"

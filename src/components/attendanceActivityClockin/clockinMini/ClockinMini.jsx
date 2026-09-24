@@ -24,6 +24,7 @@ export default function ClockinMini({ navIsOpen }) {
     closeClockIn,
     handleClockIn,
     handleClockOut,
+    saving,
   } = useClockInOutAction();
 
   return (
@@ -99,6 +100,12 @@ export default function ClockinMini({ navIsOpen }) {
               rowData={{}}
               columns={columns}
               onSave={handleClockIn}
+              // `saving` is what disables DataForm's submit button
+              // (DataForm.jsx:193). Both clock-in sidebars omitted it, so the
+              // button stayed live for the whole insert -- the other half of
+              // the duplicate-row problem, alongside the ref guard in
+              // useClockInOutAction.
+              saving={saving}
               creating
             />
           ))}

@@ -11,11 +11,20 @@
 // is why the Table view rendered blank Employee/Attendance-Type/Photo
 // columns against daily-summary rows that don't have those fields.
 //
-// This form is kept alongside the bulk Backfill Attendance wizard rather
-// than replaced by it, for exactly one reason: it is the only path that can
-// attach an attendance PHOTO (AttendanceManagement.jsx's handleConfirmAction
-// uploads it via uploadAttendancePhoto). Everything else it does, the wizard
-// does better and in bulk.
+// SUPERSEDED 2026-09-24, kept as a file rather than deleted. This form wrote
+// straight to attendance_activities, which is exactly why it existed alongside
+// the Backfill wizard: it was the only "add" path that could attach a photo,
+// which the wizard had no concept of. Both of those are now false --
+// AttendanceSubmissionForm (create_attendance_submission) captures a photo
+// too, and additionally goes through the RPC's own authorization, overlap
+// guard and server-derived provenance, none of which a direct table insert
+// ever got. AttendanceManagement.jsx's "Add Activity" button that opened this
+// form is commented out, not deleted, for the same one-line-revert reason
+// every other surface in this pass was swapped rather than removed.
+//
+// This file, and createAttendanceActivity/updateAttendanceActivity in
+// useAttendanceActivityMutations.js, are unmodified and still reachable
+// directly at /app/hr/attendance/list/new if ever needed.
 //
 // THE BUG THIS CONFIG USED TO HAVE, now fixed: it had no date or time fields
 // at all. A row created through it therefore fell back to
@@ -37,6 +46,8 @@
 // editor = data type
 // options = for option input
 // editable = boolean
+
+import { evidenceRequired } from "@/functions/attendanceEvidenceRules";
 
 export const createAttendanceActivityFormConfig = ({
   employees,
@@ -170,11 +181,17 @@ export const createAttendanceActivityFormConfig = ({
     required: true,
   },
   {
+    // Required-ness comes from the chosen attendance type
+    // (attendance_types.requires_photo), not from this file -- see
+    // src/functions/attendanceEvidenceRules.js. Every surface that creates an
+    // activity now asks the same question of the same column, so the rule
+    // cannot drift between forms the way it had.
     key: "photo_url",
     label: "Attendance Photo",
     getValue: (activity) => activity.photo_url,
     editable: true,
     editor: "image",
+    required: evidenceRequired(attendanceTypes, "requires_photo"),
   },
   {
     key: "notes",
@@ -182,6 +199,7 @@ export const createAttendanceActivityFormConfig = ({
     getValue: (activity) => activity.notes,
     editable: true,
     editor: "textarea",
+    required: evidenceRequired(attendanceTypes, "requires_notes"),
   },
   ];
 };

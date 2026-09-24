@@ -12,6 +12,9 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "@/components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "@/components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
 import AttendanceBackfillWizard from "@/components/attendance/attendanceBackfillWizard/AttendanceBackfillWizard";
+// SWAP POINT: change this one component name at the mount below to revert to
+// AttendanceBackfillWizard. Both take the same props.
+import AttendanceSubmissionSidebar from "@/components/attendance/attendanceSubmission/AttendanceSubmissionSidebar";
 import Button from "@/components/buttons/button/Button";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import ActiveFiltersBar from "@/components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -242,7 +245,10 @@ export default function MyAttendance() {
               // have no clock in/out to begin with -- business trips, company
               // events, training. Correcting a day that went wrong is the day
               // sidebar's job, reached by opening that day.
-              name: "Add Attendance",
+              // "Add Activities" to match the panel it opens
+              // (AttendanceSubmissionSidebar's own title) and HR's identical
+              // rename on the same button -- was "Add Attendance".
+              name: "Add Activities",
               icon: CalendarPlusIcon,
               onClick: () => setBackfillOpen(true),
               style: "button buttonType5 greenFill buttonFull textXXS",
@@ -388,7 +394,7 @@ export default function MyAttendance() {
           create_attendance_backfill lands these rows as 'Pending', never
           Approved: an employee asserting time nobody observed is exactly what
           the existing manager/HR approval step is for. */}
-      <AttendanceBackfillWizard
+      <AttendanceSubmissionSidebar
         open={backfillOpen}
         onClose={() => setBackfillOpen(false)}
         scope="self"

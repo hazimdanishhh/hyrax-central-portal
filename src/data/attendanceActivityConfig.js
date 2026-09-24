@@ -1,9 +1,17 @@
-export function attendanceActivityConfig({
-  attendanceTypes = [],
-  selectedTypeId = null,
-}) {
-  const selectedType = attendanceTypes.find((a) => a.id === selectedTypeId);
+import { evidenceRequired } from "@/functions/attendanceEvidenceRules";
 
+/**
+ * Columns for the EMPLOYEE'S LIVE CLOCK-IN sidebar (ClockinMini in the nav,
+ * TodayAttendanceCard on the dashboard -- both via useClockInOutAction).
+ *
+ * `selectedTypeId` used to be a parameter here, and no caller ever passed it,
+ * so `selectedType?.requires_location` silently evaluated to undefined and the
+ * per-type rule never worked. It is gone: requirements are now expressed as
+ * predicates over the form's live values (see attendanceEvidenceRules.js),
+ * which is the only way a column config built OUTSIDE the form can depend on a
+ * field chosen INSIDE it.
+ */
+export function attendanceActivityConfig({ attendanceTypes = [] }) {
   return [
     {
       key: "attendance_type_id",
@@ -33,29 +41,43 @@ export function attendanceActivityConfig({
         })),
       required: true,
     },
-    // {
-    //   key: "photo_url",
-    //   label: "Attendance Photo",
-    //   getValue: (activity) => activity.photo_url,
-    //   editable: true,
-    //   editor: "image",
-    //   required: true,
-    // },
-    // {
-    //   key: "location",
-    //   label: "Location",
-    //   editable: true,
-    //   editor: "text",
-    //   required: selectedType?.requires_location || false,
-    //   show: selectedType?.requires_location !== false,
-    // },
+    {
+      // UNCOMMENTED 2026-09-24. This field existed but was disabled, which
+      // made a remote clock-in unverifiable by design: no photo, no location,
+      // no device -- a button press. ImageUploadEditor's camera wiring
+      // (capture="user") has been working the whole time and was simply
+      // unreachable from any employee surface.
+      //
+      // Shown always, required only when the chosen type says so. Every type
+      // currently ships requires_photo = false, so this renders as an optional
+      // "Take Photo" button and nothing changes until HR turns a type on.
+      key: "photo_url",
+      label: "Attendance Photo",
+      getValue: (activity) => activity.photo_url,
+      editable: true,
+      editor: "image",
+      required: evidenceRequired(attendanceTypes, "requires_photo"),
+    },
     {
       key: "notes",
       label: "Notes",
       editable: true,
       editor: "text",
-      required: false,
+      required: evidenceRequired(attendanceTypes, "requires_notes"),
       show: true,
     },
+    // `location` stays commented out, deliberately and for now.
+    // attendance_types.requires_location exists and is dead data until there
+    // is something real to put in the column. A free-text box the employee
+    // types into is not evidence of where they were; device geolocation is,
+    // and it needs a permission prompt, a denial fallback, an accuracy
+    // threshold and a privacy decision. Scoped as its own pass rather than
+    // bolted onto this one.
+    // {
+    //   key: "location",
+    //   label: "Location",
+    //   editable: true,
+    //   editor: "text",
+    // },
   ];
 }

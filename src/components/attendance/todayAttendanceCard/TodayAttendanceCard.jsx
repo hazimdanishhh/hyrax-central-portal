@@ -87,6 +87,7 @@ export default function TodayAttendanceCard() {
     closeClockIn,
     handleClockIn,
     handleClockOut,
+    saving,
   } = useClockInOutAction();
 
   const elapsedSinceClockIn = useElapsedSince(
@@ -297,6 +298,12 @@ export default function TodayAttendanceCard() {
               rowData={{}}
               columns={columns}
               onSave={handleClockIn}
+              // `saving` is what disables DataForm's submit button
+              // (DataForm.jsx:193). Both clock-in sidebars omitted it, so the
+              // button stayed live for the whole insert -- the other half of
+              // the duplicate-row problem, alongside the ref guard in
+              // useClockInOutAction.
+              saving={saving}
               creating
             />
           ))}

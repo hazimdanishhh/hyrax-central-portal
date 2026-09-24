@@ -12,6 +12,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AttendanceCard from "@/components/attendance/attendanceCard/AttendanceCard";
 import AttendanceSidebarHR from "@/components/attendance/attendanceSidebarHR/AttendanceSidebarHR";
 import AttendanceBackfillWizard from "@/components/attendance/attendanceBackfillWizard/AttendanceBackfillWizard";
+// SWAP POINT -- see MyAttendance.jsx.
+import AttendanceSubmissionSidebar from "@/components/attendance/attendanceSubmission/AttendanceSubmissionSidebar";
 import Button from "@/components/buttons/button/Button";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import ActiveFiltersBar from "@/components/crud/activeFiltersBar/ActiveFiltersBar";
@@ -299,7 +301,8 @@ export default function TeamAttendance() {
               // Declaring, not correcting -- see MyAttendance's note. A
               // manager fixing a report's broken day does it from that day's
               // sidebar.
-              name: "Add Attendance",
+              // "Add Activities" -- see MyAttendance's matching note.
+              name: "Add Activities",
               icon: CalendarPlusIcon,
               onClick: () => setBackfillOpen(true),
               style: "button buttonType5 greenFill buttonFull textXXS",
@@ -475,7 +478,7 @@ export default function TeamAttendance() {
           create_attendance_backfill independently re-checks
           employees.manager_id per row against auth.uid(), so the picker is a
           convenience, not the access control. */}
-      <AttendanceBackfillWizard
+      <AttendanceSubmissionSidebar
         open={backfillOpen}
         onClose={() => setBackfillOpen(false)}
         scope="team"

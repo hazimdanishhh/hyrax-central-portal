@@ -55,6 +55,17 @@ export default function useAttendanceActivityMutations() {
       console.error("Failed to update attendance, please try again", err);
       setError(err);
       showMessage(getFriendlyError(err, errorConfig), "error");
+      // RETHROW. Until 2026-09-24 this swallowed the error and returned
+      // undefined, which every caller read as success: the sidebar closed, the
+      // modal closed, and queries were invalidated for a write that never
+      // happened. The user saw a red toast and a form that behaved exactly as
+      // if it had saved.
+      //
+      // createAttendanceActivity, deleteAttendanceActivity and
+      // clockInAttendanceActivity all rethrow already -- this and
+      // clockOutAttendanceActivity were the two outliers, and callers were
+      // written against the wrong half of the pair.
+      throw err;
     } finally {
       setSaving(false);
     }
@@ -190,6 +201,11 @@ export default function useAttendanceActivityMutations() {
     } catch (err) {
       console.error("Clock out failed:", err);
       showMessage("Clock out failed", "error");
+      // RETHROW -- same reason as updateAttendanceActivity above. This one
+      // matters more than it looks: a swallowed clock-out failure leaves the
+      // session open while the UI refetches and carries on, and an open
+      // session is precisely what blocks the next clock-in.
+      throw err;
     } finally {
       setSaving(false);
     }

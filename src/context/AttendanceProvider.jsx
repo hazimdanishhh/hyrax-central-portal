@@ -23,16 +23,36 @@ export function AttendanceProvider({ children }) {
 
     setLoading(true);
 
+    // .order().limit(1) rather than a bare .maybeSingle().
+    //
+    // A partial unique index now makes more than one open session per employee
+    // impossible (attendance_activities_open_session_constraint.sql), but this
+    // query is what turned that situation from a nuisance into an unrecoverable
+    // one, so it is worth making structurally safe rather than relying on the
+    // constraint alone:
+    //
+    //   two open rows -> .maybeSingle() returns PGRST116 -> the catch below set
+    //   currentActivity = null -> the widget decided the employee was NOT
+    //   clocked in and offered "Clock In" -> the next click made a third row.
+    //
+    // Newest-first is the honest pick if a duplicate ever does exist: it is the
+    // session the employee just started and expects to be able to close.
     const { data, error } = await supabase
       .from("attendance_activities")
       .select(`*, attendance_type:attendance_type_id(id, name)`)
       .eq("employee_id", employeeId)
       .is("clocked_out_at", null)
+      .order("clocked_in_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
+      // Deliberately does NOT clear currentActivity. A failed FETCH tells us
+      // nothing about whether a session is open -- and assuming "not clocked
+      // in" is the dangerous assumption, because it invites a duplicate
+      // clock-in. Keeping the last known state means a transient network
+      // error shows a stale Clock Out button rather than a wrong Clock In one.
       console.error("Failed to fetch current activity:", error);
-      setCurrentActivity(null);
       setLoading(false);
       return;
     }
