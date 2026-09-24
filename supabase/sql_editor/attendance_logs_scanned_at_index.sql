@@ -1,0 +1,31 @@
+-- Index for public.attendance_logs, which has never had one.
+--
+-- Run this once in the Supabase SQL editor. Idempotent (IF NOT EXISTS).
+--
+-- ===========================================================================
+-- WHY
+-- ===========================================================================
+-- attendance_logs (51,963 rows and growing -- it's the hardware door-scanner
+-- log) had zero indexes of any kind. Every query against it, for any date
+-- range no matter how narrow, was a full sequential scan -- confirmed
+-- repeatedly in supabase/diagnostics/results/*.csv: the same
+-- `Seq Scan on attendance_logs (rows=51963)` appears for a single-day query
+-- exactly as it would for a full year, because there was nothing else the
+-- planner could do.
+--
+-- hr_unified_daily_attendance_view.sql's daily_hardware CTE and
+-- get_company_activity_dates.sql were both just given their own bounded
+-- `WHERE scanned_at >= (CURRENT_DATE - INTERVAL '2 years')` predicates. That
+-- bound only pays off if Postgres can turn it into a range scan instead of
+-- still reading every row and filtering afterward -- which needs this index.
+--
+-- PLAIN COLUMN, not an expression index on date(scanned_at AT TIME ZONE
+-- 'Asia/Kuala_Lumpur'): this codebase already hit and documented that the
+-- 2-argument timezone() form is STABLE, not IMMUTABLE, so Postgres refuses it
+-- in an index expression ("functions in index expression must be marked
+-- IMMUTABLE") -- see attendance_activities_add_entry_method_columns.sql's own
+-- comment on idx_attendance_activities_employee_clocked_in, which hit the
+-- exact same constraint and settled on the same plain-column-plus-range-
+-- predicate shape used here.
+create index if not exists idx_attendance_logs_scanned_at
+    on public.attendance_logs (scanned_at);

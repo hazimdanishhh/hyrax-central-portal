@@ -126,17 +126,19 @@ declare
     v_caller_employee_id uuid;
 begin
 
--- 0. Authorization guard (added for HR UAT hardening): this RPC reads
--- unified_daily_attendance, a plain view with no `security_invoker = on`
--- (contrast hr_attendance_activities_hr_view.sql, which has it) -- so it
--- runs with the view owner's privileges, meaning RLS on the underlying
--- attendance_logs/attendance_activities never actually applies through it.
--- Without this guard, any authenticated user could call this RPC directly
--- (bypassing My Attendance/Team Attendance/HR's own frontend scoping) and
--- get back every active employee's present/absent/overtime/leave/anomaly
--- data company-wide, just by passing no filters. Mirrors the identical
--- fix already applied to get_finance_dashboard for the same root cause
--- (see supabase/access-control/README.md) -- same helper functions
+-- 0. Authorization guard (added for HR UAT hardening): this RPC itself has
+-- no security_invoker/security definer clause, so it runs with the caller's
+-- own privileges by Postgres's default -- but this function's body still
+-- performs its OWN reads across departments/employees regardless of who
+-- calls it, so RLS on the underlying tables alone is not enough to keep an
+-- ordinary employee from calling this RPC directly (bypassing My Attendance/
+-- Team Attendance/HR's own frontend scoping) and getting back every active
+-- employee's present/absent/overtime/leave/anomaly data company-wide, just by
+-- passing no filters. (unified_daily_attendance itself DOES declare
+-- `security_invoker = on` -- hr_unified_daily_attendance_view.sql:83-84 --
+-- correcting an earlier version of this comment that claimed otherwise.)
+-- Mirrors the identical fix already applied to get_finance_dashboard for the
+-- same root cause (see supabase/access-control/README.md) -- same helper functions
 -- (public.is_superadmin(), public.current_employee_id()), same
 -- errcode = '42501' convention.
 --
@@ -241,7 +243,12 @@ prev_period_rows as materialized (
 -- unified_daily_attendance's per-day collapsed leave_type_codes string), so
 -- per-type totals stay accurate even on a multi-leave-type day. Mirrors
 -- period_rows' own filter set/default-to-month-to-date behavior exactly.
-employee_leave_rows as (
+--
+-- MATERIALIZED: referenced 4x below (kpi_totals). Same rationale as
+-- period_rows/prev_period_rows above -- cheap today since leave_ledger_entries
+-- is small, but a multiply-referenced CTE's materialization is a planner
+-- heuristic, not a guarantee, and this table will only grow.
+employee_leave_rows as materialized (
     select
         le.employee_id as leave_emp_uuid,
         lt.label as leave_type_label,
@@ -271,7 +278,9 @@ employee_leave_rows as (
 -- leaveDaysCount's delta via the same calcDelta convention every other tile
 -- on this page already uses. Now joins leave_ledger_types too (previously
 -- didn't need to), so unpaidLeaveDaysCount can have a delta too.
-prev_employee_leave_rows as (
+--
+-- MATERIALIZED: referenced 2x below (kpi_totals), same rationale as above.
+prev_employee_leave_rows as materialized (
     select le.day_fraction, le.employee_id as leave_emp_uuid, lt.is_paid
     from leave_ledger_entries le
     join leave_ledger_types lt on lt.id = le.leave_type_id
@@ -285,7 +294,12 @@ prev_employee_leave_rows as (
     and le.leave_date <= v_prev_end_date
 ),
 
-today_rows as (
+-- MATERIALIZED: referenced 2x below (kpi_totals' present_today_count and
+-- incomplete_scans_today_count). Same rationale as period_rows above -- this
+-- reads unified_daily_attendance too, just scoped to a single day, so the
+-- multiply-referenced-CTE risk is the same in kind even though today's
+-- absolute cost is smaller.
+today_rows as materialized (
     select uda.*
     from unified_daily_attendance uda
     where uda.work_date = current_date
@@ -315,7 +329,9 @@ approved_activity_rows as (
 -- header comment's "Pass 4" note). kpi_totals below further splits this
 -- into a backlog-scoped and a period-scoped scalar; which one actually
 -- surfaces in the final kpis object depends on v_has_period.
-pending_activity_rows as (
+--
+-- MATERIALIZED: referenced 4x below (kpi_totals). Same rationale as above.
+pending_activity_rows as materialized (
     select aa.*
     from attendance_activities aa
     join employees e on e.id = aa.employee_id
@@ -330,7 +346,9 @@ pending_activity_rows as (
 -- pending_activity_rows, unbounded by date. Condition mirrors
 -- unified_daily_attendance's own has_missing_app_checkout definition
 -- exactly (clocked_out_at is null, not Rejected).
-open_session_rows as (
+--
+-- MATERIALIZED: referenced 2x below (kpi_totals). Same rationale as above.
+open_session_rows as materialized (
     select aa.*
     from attendance_activities aa
     join employees e on e.id = aa.employee_id

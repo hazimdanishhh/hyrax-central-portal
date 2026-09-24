@@ -200,6 +200,14 @@ daily_hardware AS (
         MIN(scanned_at) AS hw_check_in_ts,
         MAX(scanned_at) AS hw_check_out_ts
     FROM public.attendance_logs
+    -- Bounded to the same 2-years-back floor expected_shifts's own spine
+    -- already enforces (see that CTE's comment) -- a scan older than this can
+    -- never join to anything below, since expected_shifts has no row for it.
+    -- Provably lossless, and the difference between a full Seq Scan of every
+    -- attendance_logs row ever inserted (51,963 and growing) and an
+    -- idx_attendance_logs_scanned_at-backed range scan on every single call
+    -- this view ever serves, including a one-day query.
+    WHERE scanned_at >= (CURRENT_DATE - INTERVAL '2 years')
     GROUP BY employee_id, DATE(scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur')
 ),
 
@@ -356,36 +364,35 @@ daily_app AS (
 
     FROM public.attendance_activities aa
     LEFT JOIN public.attendance_types at ON aa.attendance_type_id = at.id
+    -- Same 2-years-back bound as daily_hardware, same reason: lossless
+    -- against expected_shifts's own floor, and this table is the live app
+    -- clock-in log -- it will keep growing the way attendance_logs already
+    -- has, so this is future-proofing, not just cosmetic today.
+    WHERE aa.clocked_in_at >= (CURRENT_DATE - INTERVAL '2 years')
     GROUP BY aa.employee_id, DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur')
 ),
 
--- 4b. Leave: one row per employee-date that has ANY leave entries that day
+-- 4b. Leave, one row per employee-date that has ANY leave entries that day
 -- (there can be more than one -- confirmed AM/PM half-day splits). Sums
 -- day_fraction (useful later for payroll's paid/unpaid day counting) and
 -- collapses the type(s) present that day into a label for hr_flag.
-daily_leave AS (
-    SELECT
-        le.employee_id AS leave_emp_uuid,
-        le.leave_date AS work_date,
-        SUM(le.day_fraction) AS leave_day_fraction_total,
-        CASE
-            WHEN COUNT(DISTINCT le.leave_type_id) = 1 THEN MAX(lt.code)
-            ELSE STRING_AGG(DISTINCT lt.code, '+' ORDER BY lt.code)
-        END AS leave_type_codes,
-        -- Paid vs. unpaid split, for payroll prep -- CAVEAT: lt.is_paid is
-        -- an unconfirmed guess for nearly every leave type today
-        -- (leave_ledger_types.needs_hr_confirmation), pending real HR/
-        -- payroll sign-off (see hyrax-data-platform's
-        -- leave_ledger_migration.sql). Surfaced at face value, not flagged
-        -- in the UI, per the user's explicit decision -- same "disclose in
-        -- code comments only" treatment this view already gives
-        -- is_late_arrival's 09:00 threshold assumption.
-        SUM(le.day_fraction) FILTER (WHERE lt.is_paid) AS paid_leave_day_fraction,
-        SUM(le.day_fraction) FILTER (WHERE NOT lt.is_paid) AS unpaid_leave_day_fraction
-    FROM public.leave_ledger_entries le
-    JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
-    GROUP BY le.employee_id, le.leave_date
-),
+--
+-- REMOVED AS A STANDALONE CTE (2026-09) -- it is now computed inline as a
+-- LATERAL in final_rows's own FROM clause, alongside daily_hw_remote_overlap,
+-- for the same reason. This CTE was joined by (employee, work_date) equality
+-- against expected_shifts's full-year date spine, and a real full-year
+-- EXPLAIN capture showed Postgres choosing a NESTED LOOP for that join
+-- instead of a hash join -- driven by a compounding cardinality
+-- underestimate that traces back to active_company_dates' function-sourced
+-- spine, which no amount of ROWS-hinting on that function fully corrects
+-- (Postgres cannot get accurate selectivity statistics for a filter applied
+-- to an opaque function's output). Confirmed cost: "Rows Removed by Join
+-- Filter: 63005561" -- ~21,240 outer rows x ~2,967 leave rows re-scanned per
+-- row, ~90% of a 12+ second full-year query, unaffected by every other fix
+-- in this file. A LATERAL sidesteps the estimate problem entirely: its cost
+-- is one indexed probe per outer row (leave_ledger_entries_employee_date_idx)
+-- regardless of what the planner thinks the outer row count is -- the same
+-- reasoning that already makes daily_hw_remote_overlap's LATERAL fast.
 
 -- 4c. Public holidays / company off-days -- resolves at most ONE holiday
 -- per employee-day, preferring a holiday scoped to that employee's own
@@ -763,10 +770,10 @@ SELECT
     -- of attendance.
     COALESCE(dl.leave_day_fraction_total > 1, false) AS has_leave_fraction_error,
 
-    -- Paid vs. unpaid leave, for payroll prep -- see daily_leave's own
-    -- comment for the is_paid confirmation caveat. Left nullable when no
-    -- leave that day, matching leave_day_fraction's own existing
-    -- (uncoalesced) convention exactly.
+    -- Paid vs. unpaid leave, for payroll prep -- see the dl LATERAL's own
+    -- comment (in this CTE's FROM clause below) for the is_paid confirmation
+    -- caveat. Left nullable when no leave that day, matching
+    -- leave_day_fraction's own existing (uncoalesced) convention exactly.
     dl.paid_leave_day_fraction,
     dl.unpaid_leave_day_fraction,
 
@@ -972,7 +979,7 @@ SELECT
     (NOT u.is_weekend AND dh.holiday_name IS NULL) AS is_expected_working_day,
 
     -- AXIS 2 -- ENTITLEMENT. What leave was recorded against this day?
-    -- Sourced from HR2000 via leave_ledger_entries (daily_leave sums
+    -- Sourced from HR2000 via leave_ledger_entries (the dl LATERAL sums
     -- day_fraction across the possibly-several rows for one employee-day --
     -- confirmed AM/PM half-day splits are real).
     --
@@ -1062,7 +1069,38 @@ FROM expected_shifts u
 LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date
 LEFT JOIN daily_hw_remote_overlap ro ON u.employee_uuid = ro.app_emp_uuid AND u.work_date = ro.work_date
 LEFT JOIN daily_app a ON u.employee_uuid = a.app_emp_uuid AND u.work_date = a.work_date
-LEFT JOIN daily_leave dl ON u.employee_uuid = dl.leave_emp_uuid AND u.work_date = dl.work_date
+-- LATERAL against leave_ledger_entries directly, not a join to a standalone
+-- daily_leave CTE -- see the removed CTE's own comment (where daily_leave
+-- used to be defined, just above daily_holiday's comment block) for why.
+-- MAX(le.employee_id), not le.employee_id bare: this SELECT has no GROUP BY
+-- (there is only ever one employee in scope per LATERAL invocation, via the
+-- WHERE below), so every column must be an aggregate for dl.leave_emp_uuid
+-- to correctly read NULL on a no-leave day, matching what the old LEFT JOIN
+-- produced -- a bare column reference here would be a GROUP BY error.
+-- Cast through text: uuid has no built-in MAX() aggregate.
+LEFT JOIN LATERAL (
+    SELECT
+        MAX(le.employee_id::text)::uuid AS leave_emp_uuid,
+        SUM(le.day_fraction) AS leave_day_fraction_total,
+        CASE
+            WHEN COUNT(DISTINCT le.leave_type_id) = 1 THEN MAX(lt.code)
+            ELSE STRING_AGG(DISTINCT lt.code, '+' ORDER BY lt.code)
+        END AS leave_type_codes,
+        -- Paid vs. unpaid split, for payroll prep -- CAVEAT: lt.is_paid is
+        -- an unconfirmed guess for nearly every leave type today
+        -- (leave_ledger_types.needs_hr_confirmation), pending real HR/
+        -- payroll sign-off (see hyrax-data-platform's
+        -- leave_ledger_migration.sql). Surfaced at face value, not flagged
+        -- in the UI, per the user's explicit decision -- same "disclose in
+        -- code comments only" treatment this view already gives
+        -- is_late_arrival's 09:00 threshold assumption.
+        SUM(le.day_fraction) FILTER (WHERE lt.is_paid) AS paid_leave_day_fraction,
+        SUM(le.day_fraction) FILTER (WHERE NOT lt.is_paid) AS unpaid_leave_day_fraction
+    FROM public.leave_ledger_entries le
+    JOIN public.leave_ledger_types lt ON lt.id = le.leave_type_id
+    WHERE le.employee_id = u.employee_uuid
+      AND le.leave_date = u.work_date
+) dl ON true
 LEFT JOIN daily_holiday dh ON u.employee_uuid = dh.holiday_emp_uuid AND u.work_date = dh.work_date
 LEFT JOIN public.departments d ON u.department_id = d.id
 LEFT JOIN public.employees m ON u.manager_id = m.id
@@ -1205,13 +1243,15 @@ SELECT
     -- fr.hours_worked / fr.overtime_hours / fr.holiday_hours_worked /
     -- fr.weekend_hours_worked.
     --
-    -- (These used to be forced into this outer SELECT by CREATE OR REPLACE
-    -- VIEW's append-only rule -- anything added inside final_rows would have
-    -- landed BEFORE the reconciliation columns once flattened by fr.*, which
-    -- Postgres reads as renaming a column rather than appending, 42P16. That
-    -- constraint is gone now this file is a DROP + CREATE; they stay here
-    -- only because they need daily_app's approved_app_hours, which
-    -- final_rows does not expose as an output column.)
+    -- These stay in this outer SELECT (rather than being exposed as columns
+    -- on final_rows/day_rows) because this view is CREATE OR REPLACE, which
+    -- can only APPEND new columns at the true end of the whole view's output
+    -- -- final_rows/day_rows's own "*" wildcards flow into the middle of that
+    -- output (day_state and every column below get appended after them), so
+    -- adding a column anywhere inside final_rows shifts every later column's
+    -- position and Postgres rejects it as a rename, 42P16 (see the
+    -- HR2000-leave-ledger comment above on final_rows, which hit this exact
+    -- constraint once already).
     -- ===================================================================
 
     GREATEST(0, COALESCE(a2.app_hours, 0) - COALESCE(a2.approved_app_hours, 0))
@@ -1253,6 +1293,31 @@ LEFT JOIN public.attendance_reconciliation_acknowledgements ack_half_day
     ON ack_half_day.employee_id = fr.employee_uuid
    AND ack_half_day.work_date = fr.work_date
    AND ack_half_day.category = 'insufficient_half_day'
-LEFT JOIN daily_app a2
-    ON a2.app_emp_uuid = fr.employee_uuid
-   AND a2.work_date = fr.work_date;
+-- Computes app_hours/approved_app_hours DIRECTLY from attendance_activities,
+-- rather than joining the daily_app CTE a second time -- the same fix, for
+-- the same reason, already applied to daily_hw_remote_overlap above for
+-- daily_hardware. A non-recursive CTE referenced more than once is
+-- materialized in full by Postgres before any caller's predicate can reach
+-- it; removing this second reference leaves daily_app referenced ONCE (inside
+-- final_rows as "a"), so it inlines and the outer work_date predicate can
+-- finally prune it. The LATERAL is cheap: one indexed lookup per row, driven
+-- by idx_attendance_activities_employee_clocked_in, not a re-aggregation of
+-- the whole table.
+LEFT JOIN LATERAL (
+    SELECT
+        ROUND((SUM(
+            CASE WHEN aa.approval_status::text != 'Rejected'
+                 THEN EXTRACT(EPOCH FROM (aa.clocked_out_at - aa.clocked_in_at))
+                 ELSE 0
+            END
+        ) / 3600)::numeric, 2) AS app_hours,
+        ROUND((SUM(
+            CASE WHEN aa.approval_status::text = 'Approved'
+                 THEN EXTRACT(EPOCH FROM (aa.clocked_out_at - aa.clocked_in_at))
+                 ELSE 0
+            END
+        ) / 3600)::numeric, 2) AS approved_app_hours
+    FROM public.attendance_activities aa
+    WHERE aa.employee_id = fr.employee_uuid
+      AND DATE(aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur') = fr.work_date
+) a2 ON true;

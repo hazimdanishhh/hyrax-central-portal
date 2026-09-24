@@ -14,6 +14,7 @@ import {
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
+import { formatHours } from "../../../../../functions/formatDate";
 
 // Mirrors getEmployeesOverviewConfig's tile shape and previous-period delta
 // pattern exactly (calcDelta -> "up/down X% vs last period" sub-metric), and
@@ -76,10 +77,10 @@ export function getAttendanceOverviewConfig(
 
   // Hours as a decimal (e.g. 4.2) -- switches to days once it crosses 24h,
   // since "Oldest Pending Approval" can genuinely span multiple days.
-  const formatHours = (hours) => {
-    if (hours === null || hours === undefined) return "N/A";
-    return hours >= 24 ? `${(hours / 24).toFixed(1)}d` : `${hours.toFixed(1)}h`;
-  };
+  // const formatHours = (hours) => {
+  //   if (hours === null || hours === undefined) return "N/A";
+  //   return hours >= 24 ? `${(hours / 24).toFixed(1)}d` : `${hours.toFixed(1)}h`;
+  // };
 
   const avgHoursDelta = calcDelta(kpis.avgHoursWorked, kpis.prevAvgHoursWorked);
   const absentDaysDelta = calcDelta(
@@ -408,7 +409,7 @@ export function getAttendanceOverviewConfig(
       icon: HourglassHighIcon,
       label: "Average Hours Worked",
       sublabel: "This Period",
-      value: `${kpis.avgHoursWorked || 0}h`,
+      value: formatHours(kpis.avgHoursWorked) || 0,
       variant: avgHoursWorkedStatus.variant,
       status: {
         icon: avgHoursWorkedStatus.statusIcon,
@@ -431,7 +432,7 @@ export function getAttendanceOverviewConfig(
       icon: AlarmIcon,
       label: "Overtime Hours",
       sublabel: "Total, This Period",
-      value: `${kpis.overtimeHoursTotal || 0}h`,
+      value: formatHours(kpis.overtimeHoursTotal),
       variant: overtimeStatus.variant,
       status: {
         icon: overtimeStatus.statusIcon,
@@ -471,7 +472,7 @@ export function getAttendanceOverviewConfig(
       icon: CalendarStarIcon,
       label: "Holiday Work",
       sublabel: "Total Hours, This Period",
-      value: `${kpis.holidayHoursWorkedTotal || 0}h`,
+      value: formatHours(kpis.holidayHoursWorkedTotal),
       variant: holidayWorkedStatus.variant,
       status: {
         icon: holidayWorkedStatus.statusIcon,
@@ -509,7 +510,7 @@ export function getAttendanceOverviewConfig(
       icon: CalendarDotsIcon,
       label: "Weekend Work",
       sublabel: "Total Hours, This Period",
-      value: `${kpis.weekendHoursWorkedTotal || 0}h`,
+      value: formatHours(kpis.weekendHoursWorkedTotal),
       variant: weekendWorkedStatus.variant,
       status: {
         icon: weekendWorkedStatus.statusIcon,

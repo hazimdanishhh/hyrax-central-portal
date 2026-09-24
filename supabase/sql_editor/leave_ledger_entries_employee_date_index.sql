@@ -1,0 +1,25 @@
+-- Re-tracking a live index that exists in Supabase but has no file anywhere
+-- in this repo.
+--
+-- Run this once in the Supabase SQL editor. Idempotent (IF NOT EXISTS) --
+-- safe to run even though this index is very likely already live, which is
+-- exactly the point: it brings the repo back in sync with reality.
+--
+-- ===========================================================================
+-- WHY THIS FILE EXISTS NOW
+-- ===========================================================================
+-- Found during the attendance dashboard performance investigation (2026-09):
+-- every EXPLAIN capture in supabase/diagnostics/results/*.csv that touches
+-- leave_ledger_entries shows Postgres using an index named
+-- leave_ledger_entries_employee_date_idx for date-scoped lookups -- but no
+-- CREATE INDEX for it exists anywhere in supabase/. It was created directly
+-- in Studio, out-of-band, the same class of drift this repo already hit once
+-- for attendance_activities' RLS policies (see
+-- supabase/policies/attendance_activities_crud.sql's own header: "The live
+-- policies were created ad hoc in Studio and were never reviewable here").
+--
+-- Naming and column order match what the live diagnostics show in use, and
+-- mirror the same (employee_id, <timestamp column>) shape already established
+-- for attendance_activities' idx_attendance_activities_employee_clocked_in.
+create index if not exists leave_ledger_entries_employee_date_idx
+    on public.leave_ledger_entries (employee_id, leave_date);
