@@ -27,15 +27,18 @@ import { formatHours } from "../../../../../functions/formatDate";
 //      two tiles telling nearly the same story. Absent Days + its delta are
 //      now this tile's own sub-metrics.
 //   2. Needs Reconciliation  -- records that need an HR decision: pending
-//      approvals, leave conflicts, insufficient half-day hours, leave
-//      fraction errors. Deliberately NOT Absent (Attendance Rate already
-//      owns that) and NOT Missing Check-Outs/Incomplete Scans (those are
-//      DATA QUALITY gaps -- incomplete punch data -- not records needing a
-//      decision; see Data Quality below). Headline is needs_reconciliation's
-//      own real 5-condition flag from the view, which is a SUPERSET of the 4
-//      rows shown (it also counts unacknowledged absences and an unapproved
-//      app-hours delta, neither broken out here for the reasons above) --
-//      deliberate, not a bug.
+//      approvals, leave conflicts, insufficient half-day hours, absences.
+//      Its own "Absent" row is the same plain fact as Attendance Rate's own
+//      Absent Days, just a different time window -- this row follows the
+//      tile's own backlog-vs-period rule (is it STILL outstanding right
+//      now), Absent Days follows Attendance Rate's This-Month/period rule
+//      (how many absences happened this month). NOT Missing Check-Outs/
+//      Incomplete Scans either (those are DATA QUALITY gaps -- incomplete
+//      punch data -- not records needing a decision; see Data Quality
+//      below). Headline is needs_reconciliation's own real 5-condition flag
+//      from the view, a SUPERSET of the 4 rows shown (it also counts an
+//      unapproved app-hours delta, not broken out here since Pending
+//      Approvals is its practical proxy) -- deliberate, not a bug.
 //   3. Average Check-In      -- what time, plus Late Arrivals. Colored by
 //      its own late-arrival RATE, not a raw count.
 //   4. Average Check-Out     -- what time, plus Early Leave. Colored by its
@@ -519,27 +522,28 @@ export function getAttendanceOverviewConfig(
         needsReconciliation: "true",
         ...actionableFilter,
       },
-      // Deliberately NOT Missing Check-Outs/Incomplete Card Scans/
-      // Unacknowledged Absences/Unapproved Hours Delta -- see the 2026-09-25
-      // discussion: Absenteeism Rate already owns absence (Unacknowledged
-      // Absences would just be the same fact twice), and Missing Check-Outs/
-      // Incomplete Card Scans are DATA-QUALITY gaps (we don't have complete
-      // punch data), not RECONCILIATION items (a record exists and needs a
-      // decision) -- open question whether those two get their own tile
-      // elsewhere, not resolved here. Unapproved Hours Delta dropped because
-      // Pending Approvals is its practical cause/proxy (an activity sits as
-      // app_hours but not approved_app_hours specifically because it's
-      // Pending) -- showing both would be the same underlying fact twice.
+      // Deliberately NOT Missing Check-Outs/Incomplete Card Scans/Unapproved
+      // Hours Delta -- Missing Check-Outs/Incomplete Card Scans are DATA-
+      // QUALITY gaps (we don't have complete punch data), not RECONCILIATION
+      // items (a record exists and needs a decision) -- see Data Quality
+      // instead. Unapproved Hours Delta dropped because Pending Approvals is
+      // its practical cause/proxy (an activity sits as app_hours but not
+      // approved_app_hours specifically because it's Pending) -- showing
+      // both would be the same underlying fact twice. The "Absent" row below
+      // reads the same plain day_state = 'absent' fact Attendance Rate's own
+      // Absent Days does -- see that row's own comment below for why an
+      // absence needs no separate acknowledgement flag here.
       //
       // NOTE: the headline above (needsReconciliationCount) is the view's
-      // real 5-condition needs_reconciliation flag, which is a SUPERSET of
-      // these 4 rows (it also counts unacknowledged absences and the
-      // unapproved-hours delta, neither broken out here for the reasons
-      // above) -- so the headline will not exactly equal the sum of the 4
-      // rows below. Deliberate, not a bug: this still keeps the headline as
-      // the one true "does this need review at all" figure (matching the
-      // List page's own identically-named tile), while the visible
-      // breakdown stays to the kinds that are genuinely distinct questions.
+      // real 5-condition needs_reconciliation flag, which counts only
+      // UNACKNOWLEDGED absences (is_unacknowledged_absent) and the
+      // unapproved-hours delta -- both narrower than/different from what
+      // this tile's own Absent/Pending Approvals rows show. So the headline
+      // will not exactly equal the sum of the rows below. Deliberate, not a
+      // bug: this still keeps the headline as the one true "does this need
+      // review at all" figure (matching the List page's own identically-named
+      // tile), while the visible breakdown stays to the kinds that are
+      // genuinely distinct questions.
       metrics: [
         {
           label: "Pending Approvals",
@@ -571,19 +575,25 @@ export function getAttendanceOverviewConfig(
             ...actionableFilter,
           },
         },
+        // Same plain day_state = 'absent' fact Attendance Rate's own "Absent
+        // Days" sub-metric reads -- an absence is considered needing
+        // reconciliation regardless of any separate acknowledgement state,
+        // so there's no separate flag/filter for it. The only difference
+        // from Attendance Rate's version is the time window: this follows
+        // the backlog family like every other row in this tile (is it
+        // STILL outstanding right now, regardless of which date range is on
+        // screen), Attendance Rate follows This-Month/period (how many
+        // absences happened this month). Reuses the exact same `dayState`
+        // filter Attendance Rate's own Absent Days row does.
         {
-          label: "Leave Fraction Errors",
-          value: kpis.leaveFractionErrorCount || 0,
+          label: "Absent",
+          value: kpis.absentBacklogCount || 0,
           to: "../list",
-          filter: {
-            ...baseFilter,
-            leaveFractionError: "true",
-            ...actionableFilter,
-          },
+          filter: { ...baseFilter, dayState: "absent", ...actionableFilter },
         },
       ],
       title:
-        "Records that need HR's attention: pending approvals, leave conflicts, insufficient half-day hours, and leave data errors.",
+        "Records that need HR's attention: pending approvals, leave conflicts, insufficient half-day hours, and absences.",
     },
   ];
 }

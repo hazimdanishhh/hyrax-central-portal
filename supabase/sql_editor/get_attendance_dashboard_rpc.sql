@@ -48,11 +48,19 @@
 -- defaulting to This Month" means for the regular metrics that always read
 -- from it).
 --
--- Avg Approval Turnaround / Oldest Pending Approval (and the
--- is_unacknowledged_absent / unapproved-app-hours-delta components of
--- needs_reconciliation) were computed here at one point but never displayed
--- anywhere in the frontend -- removed 2026-09-25 rather than kept as dead
--- calculations. Re-add if a real UI need for them comes back.
+-- Avg Approval Turnaround / Oldest Pending Approval / the unapproved-app-
+-- hours-delta component of needs_reconciliation were computed here at one
+-- point but never displayed anywhere in the frontend -- removed 2026-09-25
+-- rather than kept as dead calculations. Re-add if a real UI need for them
+-- comes back. (An is_unacknowledged_absent version of the Needs
+-- Reconciliation tile's Absent row was tried in that same pass, then
+-- dropped the same day per the user's own call: an absence is considered
+-- needing reconciliation regardless of any separate acknowledgement state,
+-- so v_absent_backlog_count below deliberately reads the plain day_state =
+-- 'absent' fact -- the exact same one Attendance Rate's own Absent Days
+-- sub-metric reads. The only difference between the two is which window
+-- each applies: this tile's own backlog-vs-period rule here, This-Month/
+-- period there.)
 --
 -- KPI/metric selection ("Pass 2", metrics-expansion pass): cross-referenced
 -- against hyrax-data-platform/docs/sap-data-architecture-plans/
@@ -148,14 +156,24 @@ declare
     -- if/else does not.
     v_needs_reconciliation_count bigint;
     v_leave_conflict_count bigint;
+    -- Absent, backlog-scoped -- deliberately the SAME plain day_state =
+    -- 'absent' fact Attendance Rate's own Absent Days sub-metric uses (not
+    -- is_unacknowledged_absent -- per the user's own call, an absence is
+    -- considered needing reconciliation regardless of any separate
+    -- acknowledgement flag, so no new filter/column distinction is needed).
+    -- The only difference from Attendance Rate's version is which window it
+    -- reads: this follows the tile's own backlog-vs-period rule (is this
+    -- still outstanding right now), Attendance Rate follows This-Month/
+    -- period (how many absences happened this month). Same underlying
+    -- column, two different time windows, both meaningful.
+    v_absent_backlog_count bigint;
     -- 2 of needs_reconciliation's own 5 real components
     -- (hr_unified_daily_attendance_view.sql) that the Needs Reconciliation
-    -- tile's sub-metrics are actually built from. (The other 3 --
-    -- is_unacknowledged_absent, the unapproved-app-hours delta -- were
-    -- computed here too at one point but never surfaced anywhere in the
-    -- frontend; removed 2026-09-25 rather than left as dead calculations.)
-    -- Same pre-computation, same reasoning as v_needs_reconciliation_count
-    -- above.
+    -- tile's sub-metrics are actually built from. (The unapproved-app-hours
+    -- delta was computed here too at one point but never surfaced anywhere
+    -- in the frontend; removed 2026-09-25 rather than left as a dead
+    -- calculation.) Same pre-computation, same reasoning as
+    -- v_needs_reconciliation_count above.
     v_insufficient_half_day_count bigint;
     v_leave_fraction_error_count bigint;
     -- Incomplete Card Scans -- 2026-09-25: moved into this same backlog-vs-
@@ -238,20 +256,27 @@ v_has_period := (p_start_date is not null and p_end_date is not null);
 -- needs_reconciliation itself is the OR of 5 conditions
 -- (hr_unified_daily_attendance_view.sql) -- 2 of them (leave conflict,
 -- insufficient half-day) counted here since the Needs Reconciliation tile's
--- sub-metrics are built from them. evidence_quality (Incomplete Card Scans)
--- isn't one of the 5, but joins this same pre-computation because it now
--- needs the identical backlog-vs-period behavior.
+-- sub-metrics are built from them. has_leave_fraction_error is also counted
+-- (its own sub-metric was removed from the frontend 2026-09-25, but the
+-- calculation itself was left as-is, not part of that cleanup).
+-- day_state = 'absent' isn't one of the 5 either (is_unacknowledged_absent
+-- is, but the tile deliberately uses the plain fact instead -- see
+-- v_absent_backlog_count's own declaration comment), and neither is
+-- evidence_quality (Incomplete Card Scans) -- both join this same
+-- pre-computation because they need the identical backlog-vs-period
+-- behavior, not because they're formula components.
 if v_has_period then
     select
         count(*) filter (where needs_reconciliation),
         count(*) filter (where is_leave_attendance_conflict),
+        count(*) filter (where day_state = 'absent'),
         count(*) filter (where is_unacknowledged_insufficient_half_day),
         count(*) filter (where has_leave_fraction_error),
         count(*) filter (where evidence_quality in ('single_scan', 'single_scan_and_open_session'))
     into
         v_needs_reconciliation_count, v_leave_conflict_count,
-        v_insufficient_half_day_count, v_leave_fraction_error_count,
-        v_incomplete_scans_count
+        v_absent_backlog_count, v_insufficient_half_day_count,
+        v_leave_fraction_error_count, v_incomplete_scans_count
     from unified_daily_attendance uda
     where (p_department_id is null or uda.department_id = p_department_id)
     and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
@@ -270,13 +295,14 @@ else
     select
         count(*) filter (where needs_reconciliation),
         count(*) filter (where is_leave_attendance_conflict),
+        count(*) filter (where day_state = 'absent'),
         count(*) filter (where is_unacknowledged_insufficient_half_day),
         count(*) filter (where has_leave_fraction_error),
         count(*) filter (where evidence_quality in ('single_scan', 'single_scan_and_open_session'))
     into
         v_needs_reconciliation_count, v_leave_conflict_count,
-        v_insufficient_half_day_count, v_leave_fraction_error_count,
-        v_incomplete_scans_count
+        v_absent_backlog_count, v_insufficient_half_day_count,
+        v_leave_fraction_error_count, v_incomplete_scans_count
     from unified_daily_attendance uda
     where (p_department_id is null or uda.department_id = p_department_id)
     and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
@@ -705,6 +731,7 @@ select json_build_object(
             -- v_needs_reconciliation_count's own declaration comment.
             'needsReconciliationCount', v_needs_reconciliation_count,
             'leaveConflictCount', v_leave_conflict_count,
+            'absentBacklogCount', v_absent_backlog_count,
             'insufficientHalfDayCount', v_insufficient_half_day_count,
             'leaveFractionErrorCount', v_leave_fraction_error_count,
             'leaveDaysCount', leave_days_count,
