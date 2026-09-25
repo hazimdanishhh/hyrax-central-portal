@@ -23,8 +23,12 @@
 --
 --   1. NO FILTERS AT ALL: every REGULAR metric (Attendance Rate -- which
 --      Absenteeism/Absent Days folded into, 2026-09-25 -- Check-In/Check-Out,
---      Workload, Leave) defaults to THIS MONTH -- a sensible, bounded
---      snapshot, not an unbounded multi-year scan. Every ACTIONABLE metric
+--      Workload, Leave) defaults to the FULL CURRENT MONTH (1st through the
+--      last day, not month-to-date/1st-through-today) -- a sensible, bounded
+--      snapshot, not an unbounded multi-year scan, and one that lets the
+--      previous-period delta compare against a complete previous month
+--      rather than a truncated one (see step 1's own comment). Every
+--      ACTIONABLE metric
 --      (Pending Approvals, Missing Check-Outs, Incomplete Card Scans, Needs
 --      Reconciliation, Leave Conflict) instead shows the TRUE CURRENT
 --      BACKLOG, unbounded by date -- HR needs to see everything still
@@ -43,10 +47,15 @@
 --      historical audit of a past payroll cycle.
 --
 -- v_has_period (declared below) drives every regular/actionable metric's own
--- backlog-vs-period switch; period_rows itself defaults to This Month
--- (unrelated to v_has_period -- it's simply what "the selected period,
--- defaulting to This Month" means for the regular metrics that always read
--- from it).
+-- backlog-vs-period switch; period_rows itself reads v_effective_start_date/
+-- v_effective_end_date, which default to the full current month (unrelated
+-- to v_has_period -- it's simply what "the selected period, defaulting to
+-- the full current month" means for the regular metrics that always read
+-- from it). The previous-period calculation (step 1) now always runs, using
+-- that same effective range, so prev_period_rows/prev_employee_leave_rows
+-- are never intentionally empty anymore -- an unfiltered call correctly
+-- compares the full current month against the full previous month, not
+-- "no comparison available".
 --
 -- Avg Approval Turnaround / Oldest Pending Approval / the unapproved-app-
 -- hours-delta component of needs_reconciliation were computed here at one
@@ -139,6 +148,18 @@ $$
 declare
     result json;
     v_interval integer;
+    -- The REGULAR family's actual effective range -- 2026-09-25: previously
+    -- each CTE independently coalesced p_start_date/p_end_date inline
+    -- (month-to-date: 1st of the month through TODAY when unfiltered).
+    -- Computed once here instead so the previous-period calculation below
+    -- can use the SAME effective range the regular metrics themselves use,
+    -- not just the raw (possibly both-null) params -- see v_prev_start_date/
+    -- v_prev_end_date's own comment for why that matters. Defaults to the
+    -- FULL current month (1st through the last day), not month-to-date: an
+    -- in-progress month should still compare against a complete previous
+    -- month, not a partial one.
+    v_effective_start_date date;
+    v_effective_end_date date;
     v_prev_start_date date;
     v_prev_end_date date;
     v_trend_bucket text;
@@ -233,13 +254,29 @@ if not coalesce(v_is_hr_or_superadmin, false) then
     end if;
 end if;
 
--- 1. Calculate the Previous Period for Deltas (mirrors get_hr_employees_dashboard)
-if p_start_date is not null and p_end_date is not null then
-    v_interval := p_end_date - p_start_date;
-    v_prev_end_date := p_start_date - 1;
-    v_prev_start_date := v_prev_end_date - v_interval;
-end if;
+-- 1. Effective range for the REGULAR family + previous-period calculation
+-- for deltas (mirrors get_hr_employees_dashboard's own interval approach).
+-- 2026-09-25: this used to only run when the caller explicitly sent BOTH
+-- dates, leaving prev_period_rows/prev_employee_leave_rows permanently
+-- empty (by their own WHERE clause) on every unfiltered call -- meaning no
+-- "vs last period" delta ever appeared on first page load, only once a user
+-- explicitly picked a range. Now always computed, using the SAME effective
+-- range period_rows/employee_leave_rows read below -- an in-progress month
+-- correctly compares against the FULL previous month
+-- (same day-count-based interval as any explicit filter), not a truncated
+-- one.
+v_effective_start_date := coalesce(p_start_date, date_trunc('month', current_date)::date);
+v_effective_end_date := coalesce(p_end_date, (date_trunc('month', current_date) + interval '1 month' - interval '1 day')::date);
 
+v_interval := v_effective_end_date - v_effective_start_date;
+v_prev_end_date := v_effective_start_date - 1;
+v_prev_start_date := v_prev_end_date - v_interval;
+
+-- Drives the ACTIONABLE family's backlog-vs-period switch (see header
+-- comment) -- deliberately still the RAW params, not v_effective_*: whether
+-- the CALLER explicitly picked a range is what actionable metrics care
+-- about, independent of whatever implicit default the regular family now
+-- resolves to.
 v_has_period := (p_start_date is not null and p_end_date is not null);
 
 -- 1a. Needs Reconciliation and its real components -- computed here, once,
@@ -321,18 +358,19 @@ v_trend_bucket := case
 end;
 
 with
--- Period-bound rows, scoped by the same department/employee filters.
--- Defaults to THIS MONTH when the caller sends no range at all (see header
--- comment's 3-question framing) -- every REGULAR metric (Attendance Rate,
--- Avg Approval Turnaround, Punctuality, Workload, Absenteeism, Leave) reads
--- from this CTE and inherits that default; the ACTIONABLE metrics (Pending
--- Approvals, Missing Check-Outs, Oldest Pending Approval, Needs
--- Reconciliation, Leave Conflict) deliberately do NOT read from this CTE
--- when unfiltered -- they use their own true-backlog sources instead (see
--- pending_activity_rows/open_session_rows below and the
--- v_needs_reconciliation_count pre-computation above). Note
--- SearchFilterBar's own date-range presets always send an explicit range, so
--- this default only matters on a completely unfiltered first load.
+-- Period-bound rows, scoped by the same department/employee filters. Reads
+-- v_effective_start_date/v_effective_end_date (computed in step 1 above),
+-- which default to the FULL current month, not month-to-date, when the
+-- caller sends no range at all -- see header comment's 3-question framing.
+-- Every REGULAR metric (Attendance Rate, Check-In/Check-Out, Workload,
+-- Leave) reads from this CTE and inherits that default; the ACTIONABLE
+-- metrics (Pending Approvals, Missing Check-Outs, Incomplete Card Scans,
+-- Needs Reconciliation, Leave Conflict) deliberately do NOT read from this
+-- CTE when unfiltered -- they use their own true-backlog sources instead
+-- (see pending_activity_rows/open_session_rows below and the
+-- v_needs_reconciliation_count pre-computation above). Note SearchFilterBar's
+-- own date-range presets always send an explicit range, so this default only
+-- matters on a completely unfiltered first load.
 -- MATERIALIZED: unified_daily_attendance is expensive (its own
 -- active_company_dates CTE cross-joins every active employee against a
 -- multi-year date spine). period_rows/prev_period_rows are each read by
@@ -348,15 +386,20 @@ period_rows as materialized (
     and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
     and (p_manager_id is null or uda.manager_id = p_manager_id)
-    and uda.work_date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
-    and uda.work_date <= coalesce(p_end_date, current_date)
+    and uda.work_date >= v_effective_start_date
+    and uda.work_date <= v_effective_end_date
 ),
 
+-- Always populated now (2026-09-25 -- previously only when the caller sent
+-- an explicit range, leaving this permanently empty otherwise and every
+-- delta reading as "no comparison available" on an unfiltered load).
+-- v_prev_start_date/v_prev_end_date are computed in step 1 from the SAME
+-- effective range period_rows above uses, so an unfiltered call correctly
+-- compares the full current month against the full previous month.
 prev_period_rows as materialized (
     select uda.*
     from unified_daily_attendance uda
-    where p_start_date is not null and p_end_date is not null
-    and (p_department_id is null or uda.department_id = p_department_id)
+    where (p_department_id is null or uda.department_id = p_department_id)
     and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
     and (p_employee_id is null or uda.employee_uuid = p_employee_id)
     and (p_manager_id is null or uda.manager_id = p_manager_id)
@@ -368,7 +411,7 @@ prev_period_rows as materialized (
 -- directly to leave_ledger_types/employees (not through
 -- unified_daily_attendance's per-day collapsed leave_type_codes string), so
 -- per-type totals stay accurate even on a multi-leave-type day. Mirrors
--- period_rows' own filter set/default-to-month-to-date behavior exactly.
+-- period_rows' own filter set/effective-range default exactly.
 --
 -- MATERIALIZED: referenced 4x below (kpi_totals). Same rationale as
 -- period_rows/prev_period_rows above -- cheap today since leave_ledger_entries
@@ -396,14 +439,13 @@ employee_leave_rows as materialized (
     and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or le.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
-    and le.leave_date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
-    and le.leave_date <= coalesce(p_end_date, current_date)
+    and le.leave_date >= v_effective_start_date
+    and le.leave_date <= v_effective_end_date
 ),
 
--- Same shape, previous-period window -- mirrors prev_period_rows, feeds
--- leaveDaysCount's delta via the same calcDelta convention every other tile
--- on this page already uses. Now joins leave_ledger_types too (previously
--- didn't need to), so unpaidLeaveDaysCount can have a delta too.
+-- Same shape, previous-period window -- mirrors prev_period_rows above
+-- (always populated now, same reasoning), feeds leaveDaysCount's delta via
+-- the same calcDelta convention every other tile on this page already uses.
 --
 -- MATERIALIZED: referenced 2x below (kpi_totals), same rationale as above.
 prev_employee_leave_rows as materialized (
@@ -411,8 +453,7 @@ prev_employee_leave_rows as materialized (
     from leave_ledger_entries le
     join leave_ledger_types lt on lt.id = le.leave_type_id
     join employees e on e.id = le.employee_id
-    where p_start_date is not null and p_end_date is not null
-    and (p_department_id is null or e.department_id = p_department_id)
+    where (p_department_id is null or e.department_id = p_department_id)
     and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or le.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
@@ -469,6 +510,10 @@ kpi_totals as (
         -- hr_flag value too ('Public Holiday (...)'), not Absent/Weekend, and
         -- must not silently count as present either.
         (select count(*) from period_rows where day_state = 'worked') as present_period_count,
+        -- Prior-period sibling, for attendanceRatePct's own subvalue delta
+        -- (2026-09-25) -- prev_period_rows is always meaningfully bounded
+        -- (see prev_absent_days_count's comment below), same pattern.
+        (select count(*) from prev_period_rows where day_state = 'worked') as prev_present_period_count,
 
         -- Pending Approvals / Missing Check-Outs -- backlog (unbounded by
         -- date, the TRUE current state) vs. period-scoped (originated within
@@ -516,6 +561,12 @@ kpi_totals as (
         (select to_char(make_interval(secs => avg(extract(epoch from first_in::time))), 'HH24:MI')
          from period_rows
          where day_state = 'worked' and first_in is not null) as avg_check_in_time,
+        -- Prior-period sibling (2026-09-25), same guard, from
+        -- prev_period_rows -- lets the frontend show "X min earlier/later"
+        -- instead of a meaningless "%" delta on a time-of-day value.
+        (select to_char(make_interval(secs => avg(extract(epoch from first_in::time))), 'HH24:MI')
+         from prev_period_rows
+         where day_state = 'worked' and first_in is not null) as prev_avg_check_in_time,
         -- The `last_out is not null` guard here does real work as of
         -- 2026-09-23. It was previously unreachable: last_out was
         -- MAX(app_check_out, hw_check_out), and on a single-scan day
@@ -526,6 +577,11 @@ kpi_totals as (
         (select to_char(make_interval(secs => avg(extract(epoch from last_out::time))), 'HH24:MI')
          from period_rows
          where day_state = 'worked' and last_out is not null) as avg_check_out_time,
+        -- Prior-period sibling (2026-09-25) -- same reasoning as
+        -- prev_avg_check_in_time above.
+        (select to_char(make_interval(secs => avg(extract(epoch from last_out::time))), 'HH24:MI')
+         from prev_period_rows
+         where day_state = 'worked' and last_out is not null) as prev_avg_check_out_time,
 
         -- Late arrivals: computed once in unified_daily_attendance
         -- (is_late_arrival -- see that view's own comment for the 09:00
@@ -620,22 +676,16 @@ kpi_totals as (
         (select count(distinct employee_uuid) from period_rows where is_worked_on_weekend) as employees_worked_on_weekend_count,
 
         (select count(*) from period_rows where day_state = 'absent') as absent_days_count,
-        -- NULL (not 0) when unfiltered -- 2026-09-25 fix. prev_period_rows is
-        -- intentionally EMPTY whenever no date range was picked (its own
-        -- WHERE clause requires p_start_date/p_end_date is not null), so a
-        -- bare count(*) over it returned 0 regardless of whether that meant
-        -- "a real previous period with zero absences" or "there's no
-        -- previous-period concept to compare against at all". calcDelta
-        -- (overviewConfig.js) then read that 0 as "previous was zero,
-        -- current is N" and rendered a false "up 100%" on every unfiltered
-        -- load. NULL correctly tells the frontend "no comparison available"
-        -- (calcDelta already treats null specially), while a REAL filtered
-        -- previous period that happens to be genuinely zero still reports
-        -- as 0, not null -- only the "no period selected at all" case
-        -- changes.
-        case when v_has_period
-            then (select count(*) from prev_period_rows where day_state = 'absent')
-            else null end as prev_absent_days_count,
+        -- prev_period_rows is now always meaningfully bounded (see its own
+        -- comment -- 2026-09-25, the full previous month by default), so a
+        -- plain count(*) is correct: a real zero-absence previous period
+        -- reports 0, matching current_period's own shape, no special-casing
+        -- needed. (An earlier version of this fix wrapped this in
+        -- `case when v_has_period ... else null end`, back when
+        -- prev_period_rows was still intentionally empty whenever no range
+        -- was picked -- no longer applicable now that it's never empty by
+        -- construction.)
+        (select count(*) from prev_period_rows where day_state = 'absent') as prev_absent_days_count,
 
         -- needs_reconciliation/leave_conflict themselves are NOT computed
         -- here -- see v_needs_reconciliation_count/v_leave_conflict_count,
@@ -653,19 +703,19 @@ kpi_totals as (
         -- was expected to attend. A company holiday isn't a working day
         -- regardless of whether one person happened to come in that day.
         (select count(*) from period_rows where is_expected_working_day and leave_state = 'none') as working_day_records_count,
+        -- Prior-period sibling (2026-09-25), for attendanceRatePct's own
+        -- delta -- same guard, from prev_period_rows.
+        (select count(*) from prev_period_rows where is_expected_working_day and leave_state = 'none') as prev_working_day_records_count,
 
         -- HR2000 leave ledger integration -- leave days this period, its
         -- prior-period sibling (same calcDelta convention as avg_hours_worked/
         -- overtime_hours_total above), and a distinct-employee count for the
         -- KPI tile's sub-metric.
         (select coalesce(sum(day_fraction), 0) from employee_leave_rows) as leave_days_count,
-        -- NULL (not 0) when unfiltered -- same 2026-09-25 fix as
-        -- prev_absent_days_count above; this one was doubly wrong before,
-        -- since it explicitly coalesced an already-empty-by-design
-        -- prev_employee_leave_rows down to 0.
-        case when v_has_period
-            then (select coalesce(sum(day_fraction), 0) from prev_employee_leave_rows)
-            else null end as prev_leave_days_count,
+        -- prev_employee_leave_rows is now always meaningfully bounded (same
+        -- reasoning as prev_absent_days_count above) -- plain coalesce-to-0
+        -- is correct again.
+        (select coalesce(sum(day_fraction), 0) from prev_employee_leave_rows) as prev_leave_days_count,
         (select count(distinct leave_emp_uuid) from employee_leave_rows) as employees_on_leave_count,
 
         -- Paid vs. unpaid split of leave_days_count -- see
@@ -673,10 +723,7 @@ kpi_totals as (
         -- caveat.
         (select coalesce(sum(day_fraction) filter (where is_paid), 0) from employee_leave_rows) as paid_leave_days_count,
         (select coalesce(sum(day_fraction) filter (where not is_paid), 0) from employee_leave_rows) as unpaid_leave_days_count,
-        -- NULL (not 0) when unfiltered -- same fix as prev_leave_days_count.
-        case when v_has_period
-            then (select coalesce(sum(day_fraction) filter (where not is_paid), 0) from prev_employee_leave_rows)
-            else null end as prev_unpaid_leave_days_count
+        (select coalesce(sum(day_fraction) filter (where not is_paid), 0) from prev_employee_leave_rows) as prev_unpaid_leave_days_count
 )
 
 select json_build_object(
@@ -695,6 +742,13 @@ select json_build_object(
             'attendanceRatePct', case when working_day_records_count > 0
                 then round((present_period_count::numeric / working_day_records_count) * 100, 1)
                 else 0 end,
+            -- Prior-period sibling (2026-09-25), for the tile's own subvalue
+            -- delta -- null (not 0) when the prior period had no working-day
+            -- records, so calcDelta on the frontend renders "no comparison"
+            -- rather than a false 100%/-100% swing.
+            'prevAttendanceRatePct', case when prev_working_day_records_count > 0
+                then round((prev_present_period_count::numeric / prev_working_day_records_count) * 100, 1)
+                else null end,
             -- Backlog (unbounded) fallback, period-originated once a date
             -- range is selected -- see header comment's 3-question framing.
             'pendingApprovalsCount', case when v_has_period then pending_period_count else pending_backlog_count end,
@@ -704,7 +758,9 @@ select json_build_object(
             -- declaration comment.
             'incompleteScansCount', v_incomplete_scans_count,
             'avgCheckInTime', avg_check_in_time,
+            'prevAvgCheckInTime', prev_avg_check_in_time,
             'avgCheckOutTime', avg_check_out_time,
+            'prevAvgCheckOutTime', prev_avg_check_out_time,
             'lateArrivalsCount', late_arrivals_count,
             'lateArrivalRatePct', case when working_day_records_count > 0
                 then round((late_arrivals_count::numeric / working_day_records_count) * 100, 1)

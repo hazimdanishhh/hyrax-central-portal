@@ -50,8 +50,8 @@ export default function OverviewCards({ items = [], style }) {
                   </p>
                 )}
                 <div className="overviewCardValue">
-                  <p className="textXS">{item.subvalue}</p>
                   <h2 className="textXL">{item.value}</h2>
+                  <p className="textXXS">{item.subvalue}</p>
                 </div>
                 {/* Severity badge for dynamic tiles (see getStatusVariant) --
                     icon + word, never color alone, so a colorblind or

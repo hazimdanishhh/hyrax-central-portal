@@ -5,8 +5,6 @@ import {
   HourglassHighIcon,
   SignInIcon,
   SignOutIcon,
-  TrendDownIcon,
-  TrendUpIcon,
   WarningCircleIcon,
   WarningOctagonIcon,
 } from "@phosphor-icons/react";
@@ -60,6 +58,18 @@ import { formatHours } from "../../../../../functions/formatDate";
 //      both answer "did anyone work when nobody was expected to").
 //   8. Leave Days            -- total leave taken, paid/unpaid split.
 //
+// Previous-period deltas (2026-09-25): every REGULAR-family value that has a
+// matching `prev*` RPC field shows its own change since last period -- as
+// the tile's own `subvalue` for a headline, or folded into a sub-metric's
+// own `value` string in brackets (e.g. "12 (↑9%)") -- never as its own
+// separate "Prev. Period" row anymore. Average Check-In/Check-Out are
+// time-of-day values, not magnitudes, so their delta reads "X min
+// earlier/later" instead of a percentage. ACTIONABLE-family tiles (Needs
+// Reconciliation, Data Quality) show no delta at all, by deliberate choice --
+// a live backlog has no meaningful "previous backlog" without a historical
+// snapshot this schema doesn't keep, so no delta is more honest than a
+// misleading one.
+//
 // Filter matching + "This Month" default (see get_attendance_dashboard_rpc.sql's
 // own header for the full 3-question rationale). Two families, both driven
 // by the RPC's own kpis.* values (this file never re-derives them, just
@@ -107,8 +117,12 @@ export function getAttendanceOverviewConfig(
   const deltaText = (delta) =>
     delta === null ? "" : delta > 0 ? `↑ ${delta}%` : `↓ ${Math.abs(delta)}%`;
 
-  const deltaIcon = (delta) =>
-    delta === null ? null : delta >= 0 ? TrendUpIcon : TrendDownIcon;
+  // Folds a delta into its own value's display string instead of a separate
+  // "Prev. Period" row (2026-09-25) -- `null` (no prior-period data) renders
+  // as the bare value, same "no comparison" convention deltaText itself
+  // uses.
+  const valueWithDelta = (value, delta) =>
+    delta === null ? value : `${value} (${deltaText(delta)})`;
 
   // "08:42" (24h, from the RPC) -> "8:42 AM". Purely a display transform --
   // the date component is a fixed placeholder, only the HH:MM matters.
@@ -119,6 +133,29 @@ export function getAttendanceOverviewConfig(
     });
   };
 
+  // Average Check-In/Check-Out are a time-of-day, not a magnitude -- a "%
+  // increase" is meaningless for a clock time, so this reads "X min
+  // earlier/later" instead. Both operate on the RPC's raw "HH24:MI" strings
+  // (avgCheckInTime/prevAvgCheckInTime etc.), before formatTimeDisplay
+  // reformats them for display.
+  const timeDeltaMinutes = (current, previous) => {
+    if (!current || !previous) return null;
+    const [ch, cm] = current.split(":").map(Number);
+    const [ph, pm] = previous.split(":").map(Number);
+    return ch * 60 + cm - (ph * 60 + pm);
+  };
+
+  const timeDeltaText = (current, previous) => {
+    const diff = timeDeltaMinutes(current, previous);
+    if (diff === null) return "";
+    if (diff === 0) return "same as last period";
+    return diff > 0 ? `↓ ${diff} min later` : `↑ ${Math.abs(diff)} min earlier`;
+  };
+
+  const attendanceRateDelta = calcDelta(
+    kpis.attendanceRatePct,
+    kpis.prevAttendanceRatePct,
+  );
   const avgHoursDelta = calcDelta(kpis.avgHoursWorked, kpis.prevAvgHoursWorked);
   const absentDaysDelta = calcDelta(
     kpis.absentDaysCount,
@@ -144,6 +181,18 @@ export function getAttendanceOverviewConfig(
     kpis.weekendHoursWorkedTotal,
     kpis.prevWeekendHoursWorkedTotal,
   );
+  // Combined delta for the Non-Working-Day Hours headline -- no single
+  // `prevNonWorkingDayHoursTotal` RPC field exists, but its two components
+  // (prevHolidayHoursWorkedTotal/prevWeekendHoursWorkedTotal) already do, so
+  // this sums them client-side rather than needing new SQL. `null` only when
+  // BOTH components are missing -- one present and one absent still yields a
+  // real (if partial) comparison.
+  const prevNonWorkingDayHoursTotal =
+    kpis.prevHolidayHoursWorkedTotal == null &&
+    kpis.prevWeekendHoursWorkedTotal == null
+      ? null
+      : (kpis.prevHolidayHoursWorkedTotal || 0) +
+        (kpis.prevWeekendHoursWorkedTotal || 0);
 
   // Carried into every link below -- the Overview's own department/employee
   // narrowing, so a tile click never silently resets it.
@@ -231,6 +280,10 @@ export function getAttendanceOverviewConfig(
   });
   const nonWorkingDayHoursTotal =
     (kpis.holidayHoursWorkedTotal || 0) + (kpis.weekendHoursWorkedTotal || 0);
+  const nonWorkingDayHoursDelta = calcDelta(
+    nonWorkingDayHoursTotal,
+    prevNonWorkingDayHoursTotal,
+  );
   // Public holidays integration -- "any nonzero total" convention: a
   // payroll-relevant fact worth HR's attention, not necessarily a problem,
   // hence "warning" not "critical". 0.01 approximates "any nonzero" for a
@@ -257,6 +310,7 @@ export function getAttendanceOverviewConfig(
       label: "Attendance Rate",
       sublabel: periodLabel,
       value: `${kpis.attendanceRatePct || 0}%`,
+      subvalue: deltaText(attendanceRateDelta),
       variant: attendanceRateStatus.variant,
       status: {
         icon: attendanceRateStatus.statusIcon,
@@ -281,14 +335,9 @@ export function getAttendanceOverviewConfig(
         },
         {
           label: "Absent Days",
-          value: kpis.absentDaysCount || 0,
+          value: valueWithDelta(kpis.absentDaysCount || 0, absentDaysDelta),
           to: "../list",
           filter: { ...baseFilter, dayState: "absent", ...periodFilter },
-        },
-        {
-          label: "Absent, Prev. Period",
-          value: deltaText(absentDaysDelta),
-          icon: deltaIcon(absentDaysDelta),
         },
       ],
       title:
@@ -300,6 +349,7 @@ export function getAttendanceOverviewConfig(
       label: "Average Check-In",
       sublabel: periodLabel,
       value: formatTimeDisplay(kpis.avgCheckInTime),
+      subvalue: timeDeltaText(kpis.avgCheckInTime, kpis.prevAvgCheckInTime),
       variant: lateArrivalStatus.variant,
       status: {
         icon: lateArrivalStatus.statusIcon,
@@ -323,6 +373,7 @@ export function getAttendanceOverviewConfig(
       label: "Average Check-Out",
       sublabel: periodLabel,
       value: formatTimeDisplay(kpis.avgCheckOutTime),
+      subvalue: timeDeltaText(kpis.avgCheckOutTime, kpis.prevAvgCheckOutTime),
       variant: earlyLeaveStatus.variant,
       status: {
         icon: earlyLeaveStatus.statusIcon,
@@ -357,8 +408,10 @@ export function getAttendanceOverviewConfig(
       metrics: [
         {
           label: "Overtime Hours",
-          value: formatHours(kpis.overtimeHoursTotal),
-          icon: deltaIcon(overtimeDelta),
+          value: valueWithDelta(
+            formatHours(kpis.overtimeHoursTotal),
+            overtimeDelta,
+          ),
           to: "../list",
           filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
         },
@@ -384,6 +437,7 @@ export function getAttendanceOverviewConfig(
       label: "Non-Working-Day Hours",
       sublabel: `${periodLabel}`,
       value: formatHours(nonWorkingDayHoursTotal),
+      subvalue: deltaText(nonWorkingDayHoursDelta),
       variant: nonWorkingDayHoursStatus.variant,
       status: {
         icon: nonWorkingDayHoursStatus.statusIcon,
@@ -393,8 +447,10 @@ export function getAttendanceOverviewConfig(
       metrics: [
         {
           label: "Holiday Hours",
-          value: formatHours(kpis.holidayHoursWorkedTotal),
-          icon: deltaIcon(holidayHoursWorkedDelta),
+          value: valueWithDelta(
+            formatHours(kpis.holidayHoursWorkedTotal),
+            holidayHoursWorkedDelta,
+          ),
           to: "../list",
           filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
         },
@@ -406,8 +462,10 @@ export function getAttendanceOverviewConfig(
         },
         {
           label: "Weekend Hours",
-          value: formatHours(kpis.weekendHoursWorkedTotal),
-          icon: deltaIcon(weekendHoursWorkedDelta),
+          value: valueWithDelta(
+            formatHours(kpis.weekendHoursWorkedTotal),
+            weekendHoursWorkedDelta,
+          ),
           to: "../list",
           filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
         },
@@ -431,6 +489,7 @@ export function getAttendanceOverviewConfig(
       label: "Leave Days",
       sublabel: `${periodLabel}`,
       value: kpis.leaveDaysCount || 0,
+      subvalue: deltaText(leaveDaysDelta),
       variant: "blueCard",
       to: "../list",
       filter: { ...baseFilter, onLeave: "true", ...periodFilter },
@@ -450,17 +509,10 @@ export function getAttendanceOverviewConfig(
         // in code comments (see get_attendance_dashboard_rpc.sql).
         {
           label: "Unpaid Leave Days",
-          value: kpis.unpaidLeaveDaysCount || 0,
-        },
-        {
-          label: "Total vs Prev. Period",
-          value: deltaText(leaveDaysDelta),
-          icon: deltaIcon(leaveDaysDelta),
-        },
-        {
-          label: "Unpaid vs Prev. Period",
-          value: deltaText(unpaidLeaveDaysDelta),
-          icon: deltaIcon(unpaidLeaveDaysDelta),
+          value: valueWithDelta(
+            kpis.unpaidLeaveDaysCount || 0,
+            unpaidLeaveDaysDelta,
+          ),
         },
       ],
       title: "Total leave days taken, including how many were unpaid.",

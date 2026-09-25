@@ -357,3 +357,62 @@ get_operations_dashboard(
 **Chart datasets:** `backlogAgingData` (0-30/31-60/61-90/90+ buckets by `current_date - order_date`, open orders only — **as of today**), `shipmentTrendData` (monthly delivery count), `topUndeliveredItemsData` (top 10 items by `open_qty`, now also carrying `item_group_name` — added 2026-09, joined `sap_item_groups` by `sap_items.item_group_code`), `stockPositionData` (company-wide `stock_on_hand`/`committed_stock`/`on_order`/`available_qty`/`is_over_committed`, top 10 by over-commitment — **as of today**, also carrying `item_group_name` since 2026-09; still no per-warehouse breakdown — `sap_item_warehouse_stock` (OITW) was extracted 2026-08 for Finance Expansion Phase 4, so the data now exists, but this RPC hasn't been updated to consume it yet), `stockByProductGroupData` (added 2026-09, Item Grouping — `stock_on_hand`/`committed_stock`/`on_order` summed across **all** active items per `sap_item_groups.group_name`, not a top-N cut — 13 groups is already a complete small set. See `hyrax-data-platform/docs/sap-data-architecture-plans/09-item-grouping-execution-plan.md`. Frontend: Operations Reports' "Stock by Product Group" chart, `HorizontalMultiBarRenderer`, same On Hand/Committed pairing as `stockPositionData`'s own chart).
 
 **Known gap:** the freshness banner watches `sap_sales_orders`/`sap_deliveries`/`sap_items` but not `sap_invoices`, despite `avgShipToInvoiceDays`/`avgOrderToInvoiceDays` depending on it (see `DASHBOARD-CURRENT-STATE.md` §7).
+
+## `get_attendance_dashboard`
+
+Backs Attendance Overview (`AttendanceOverview.jsx`), reused unchanged by My Attendance Overview (`MyAttendanceOverview.jsx`, self-scoped via `p_employee_id`) and Team Attendance Overview (`TeamAttendanceOverview.jsx`, scoped via `p_manager_id`, reusing HR's own tile config). Has its own authorization guard (not just RLS): HR/superadmin get an unrestricted call, anyone else only a genuinely self-scoped (`p_employee_id` = their own) or manager-scoped (`p_manager_id` = their own) call — the historic all-null-params-means-"company-wide" default is rejected outright.
+
+**Signature:**
+
+```
+get_attendance_dashboard(
+  p_start_date       date default null,
+  p_end_date         date default null,
+  p_department_id    bigint default null,
+  p_employee_id      uuid default null,
+  p_manager_id       uuid default null,
+  p_work_location_id bigint default null
+)
+```
+
+**Filter matching + default range (2026-09-25 restructuring, refined same day):** every field below belongs to one of two families, both scoped by all four of department/employee/manager/work location with no exception:
+
+- **REGULAR** (Attendance Rate/Absent Days, Check-In/Check-Out, Hours Worked, Non-Working-Day Hours, Leave) — default to the **FULL current month** (1st through the last day) when no date range is picked, exactly the selected range once one is. Deliberately not month-to-date (1st through today): a month-to-date default would also truncate the previous-period comparison window (see below). Read from `period_rows`, a `materialized` CTE over `unified_daily_attendance`, bounded by `v_effective_start_date`/`v_effective_end_date` (plpgsql variables computed once at the top of the function, not inlined per-CTE).
+- **ACTIONABLE** (Pending Approvals, Missing Check-Outs, Incomplete Card Scans, Needs Reconciliation and its own rows, Absent-for-reconciliation) — default to the **true current backlog** (unbounded by date) when no range is picked, "originated in the selected period" once one is. `v_has_period` (a plpgsql variable, not a CTE — deliberately based on the RAW params, not `v_effective_*`, since it tracks whether the caller explicitly picked a range) drives this switch. Needs Reconciliation's own components are pre-computed once via a plain `if/else` *before* the main query runs, specifically so the unbounded backlog scan and the period-bound scan are never both paid for on the same call — a CTE referenced anywhere in the final query is materialized unconditionally in Postgres even in the branch that isn't used, a plpgsql `if/else` is not.
+
+**Previous-period deltas** always run now (2026-09-25 fix): `v_prev_start_date`/`v_prev_end_date` are computed from the same effective range `period_rows` uses (a full month's worth of days, stepped back one full interval — the full previous month), not gated behind "did the caller send both dates". Previously this only ran on an explicit filter, so `prev_period_rows`/`prev_employee_leave_rows` were permanently empty on every unfiltered call and no "vs last period" delta ever appeared on first load.
+
+**Base CTEs:** `period_rows`/`prev_period_rows` (`unified_daily_attendance`, `materialized`, the regular-family source, both always populated), `employee_leave_rows`/`prev_employee_leave_rows` (`leave_ledger_entries` joined to `leave_ledger_types`, same effective-range default), `pending_activity_rows`/`open_session_rows` (`attendance_activities`, unconditionally unbounded — cheap since this table is small, unlike the view), Needs Reconciliation's own pre-computation (`unified_daily_attendance`, unbounded when no period, exact-range when one is picked, computed via the `if/else` above, not a CTE).
+
+**`kpis`:**
+
+| Field | Formula | Family |
+| --- | --- | --- |
+| `presentPeriodCount` / `workingDayRecordsCount` | `count` where `day_state='worked'` / `is_expected_working_day and leave_state='none'` | Regular |
+| `attendanceRatePct` | `presentPeriodCount / workingDayRecordsCount * 100` — always the selected period, never a live "today" snapshot | Regular |
+| `pendingApprovalsCount` | `count` of `attendance_activities` where `approval_status='Pending'` | Actionable |
+| `missingCheckoutsCount` | `count` where `clocked_out_at is null and approval_status <> 'Rejected'` | Actionable |
+| `incompleteScansCount` | `count` where `evidence_quality in ('single_scan','single_scan_and_open_session')` | Actionable |
+| `avgCheckInTime` / `avgCheckOutTime` | avg time-of-day, `day_state='worked'` only | Regular |
+| `lateArrivalsCount` / `lateArrivalRatePct` | `count`/`rate` where `is_late_arrival` | Regular |
+| `earlyLeaveCount` / `earlyLeaveRatePct` | `count`/`rate` where `is_early_leave` | Regular |
+| `avgHoursWorked` / `prevAvgHoursWorked` | `avg(hours_worked)`, single-scan days excluded (unknown, not zero, hours) | Regular |
+| `overtimeHoursTotal` / `prevOvertimeHoursTotal` / `employeesWithOvertimeCount` | `sum(overtime_hours)` beyond 8 paid hours/day (Employment Act s.60A) | Regular |
+| `holidayHoursWorkedTotal` / `prevHolidayHoursWorkedTotal` / `employeesWorkedOnHolidayCount` | `sum(holiday_hours_worked)` where `is_worked_on_holiday` | Regular |
+| `weekendHoursWorkedTotal` / `prevWeekendHoursWorkedTotal` / `employeesWorkedOnWeekendCount` | `sum(weekend_hours_worked)` where `is_worked_on_weekend` | Regular |
+| `absentDaysCount` / `prevAbsentDaysCount` | `count` where `day_state='absent'` — Attendance Rate's own sub-metric | Regular |
+| `needsReconciliationCount` | the view's own 5-condition `needs_reconciliation` flag (unacknowledged absence, leave conflict, unacknowledged insufficient half-day, leave fraction error, unapproved app-hours delta) | Actionable |
+| `leaveConflictCount` | `count` where `is_leave_attendance_conflict` | Actionable |
+| `absentBacklogCount` | **Same plain `day_state='absent'` fact as `absentDaysCount`** — deliberately not `is_unacknowledged_absent`, since an absence is considered needing reconciliation regardless of any separate acknowledgement state. Only difference from `absentDaysCount` is the time window (backlog vs. the full-month regular default) | Actionable |
+| `insufficientHalfDayCount` | `count` where `is_unacknowledged_insufficient_half_day` | Actionable |
+| `leaveFractionErrorCount` | `count` where `has_leave_fraction_error` — **not currently displayed on any tile** (removed from the Needs Reconciliation tile 2026-09-25; calculation left in place, not part of that cleanup) | Actionable |
+| `leaveDaysCount` / `prevLeaveDaysCount` / `employeesOnLeaveCount` | `sum(day_fraction)` / distinct-employee count, `leave_ledger_entries` | Regular |
+| `paidLeaveDaysCount` / `unpaidLeaveDaysCount` / `prevUnpaidLeaveDaysCount` | paid/unpaid split via `leave_ledger_types.is_paid` — `paidLeaveDaysCount` **not currently displayed** (only Unpaid is shown) | Regular |
+
+Deltas (`prev*`) are plain aggregates again as of the second 2026-09-25 fix — `prev_period_rows`/`prev_employee_leave_rows` are never intentionally empty anymore (see "Previous-period deltas" above), so a real zero-comparison previous period correctly reports `0`. (History: an earlier same-day fix wrapped `prevAbsentDaysCount`/`prevLeaveDaysCount`/`prevUnpaidLeaveDaysCount` in `case when v_has_period then ... else null end`, because at that point `prev_period_rows` genuinely was always empty on an unfiltered call, and a bare `count`/`coalesce(...,0)` over it read as "previous was zero, current is N" — a false "↑100%" in the frontend's `calcDelta`. Once the previous-period calculation was extended to always run, that wrapping became unnecessary and was removed.)
+
+**Removed 2026-09-25** (computed at one point, never displayed anywhere in the frontend, dropped rather than kept as dead calculations): `avgApprovalTurnaroundHours`, `oldestPendingApprovalHours`, `unapprovedHoursDeltaCount`, `absenteeismRatePct` (folded into `attendanceRatePct`), `holidayDaysWorkedCount`/`prevHolidayDaysWorkedCount`, `weekendDaysWorkedCount`/`prevWeekendDaysWorkedCount`, `activeHeadcountToday`/`presentTodayCount` (an earlier "today" snapshot no longer used now that Attendance Rate is always period-based).
+
+**Chart datasets:** `dayStateBreakdownData` (pie, `day_state` composition, weekends excluded), `evidenceQualityBreakdownData` (pie, data-quality composition — **computed but not currently rendered on any of the three Overview pages**, a good pairing candidate for the Data Quality KPI tile), `trendBucket` (`'day'`/`'week'`, switches past a 60-day range), `dailyAttendanceTrendData` / `hoursWorkedTrendData` (bucketed by `trendBucket`), `departmentAttendanceData` (attendance rate by department — HR Overview only; dropped on My/Team, meaningless at n=1/small-team scope), `workChannelMixData` (Office/Remote/Both/Unclassified pie), `topAbsenteeismData` / `topOvertimeData` (top 10 leaderboards — HR/Team only, dropped on My for the same n=1 reason as the department chart), `leaveTypeBreakdownData` (bar, `employee_leave_rows` by type).
+
+**Known gap:** no leaderboard pairs with `needsReconciliationCount` the way `topAbsenteeismData`/`topOvertimeData` pair with their own KPIs — an open question, not yet decided, whether a "Top Needs-Reconciliation" top-10 is worth adding.
