@@ -3,6 +3,7 @@ import {
   EVIDENCE_QUALITY_OPTIONS,
   APPROVAL_STATE_OPTIONS,
   DAY_CALENDAR_TYPE_OPTIONS,
+  EVIDENCE_SOURCE_OPTIONS,
 } from "@/functions/attendanceDayState";
 
 // Filters actually verified against unified_daily_attendance's real columns
@@ -72,6 +73,16 @@ export function getAttendanceActivitiesFilterConfig({
       key: "approvalState",
       label: "Approval",
       options: APPROVAL_STATE_OPTIONS.map(({ value, label }) => ({ value, label })),
+    },
+    {
+      // Backend case already existed (applyAttendanceFilter's
+      // "evidenceSource" case) but was never a selectable option here --
+      // added 2026-09-25 so the Work Channel Mix chart's per-slice
+      // drill-through (Attendance Overview restructuring pass) points at a
+      // real, currently-selectable filter rather than a hidden backdoor.
+      key: "evidenceSource",
+      label: "Work Channel",
+      options: EVIDENCE_SOURCE_OPTIONS.map(({ value, label }) => ({ value, label })),
     },
     {
       key: "calendarType",

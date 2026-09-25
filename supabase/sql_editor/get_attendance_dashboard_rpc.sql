@@ -206,6 +206,14 @@ declare
     -- incomplete scan from 3 days ago still needs the same follow-up
     -- regardless of which date range HR happens to be looking at.
     v_incomplete_scans_count bigint;
+    -- Top Needs Reconciliation / Top Data Quality Issues leaderboards (added
+    -- 2026-09-25, chart restructuring pass) -- per-employee counterpart to
+    -- v_needs_reconciliation_count/v_incomplete_scans_count above, same
+    -- backlog-vs-period if/else pattern and same reasoning (avoid paying for
+    -- both an unbounded per-employee scan and a period-bound one on every
+    -- call), just a json array instead of a scalar.
+    v_top_needs_reconciliation_data json;
+    v_top_data_quality_data json;
     -- Authorization guard state -- see "0. Authorization guard" below.
     v_is_hr_or_superadmin boolean;
     v_caller_employee_id uuid;
@@ -347,6 +355,86 @@ else
     and (p_manager_id is null or uda.manager_id = p_manager_id);
 end if;
 
+-- 1b. Top Needs Reconciliation / Top Data Quality Issues leaderboards --
+-- same backlog-vs-period switch and same filter set as 1a above.
+--
+-- PERFORMANCE FIX (2026-09-25, same day as this block was first added): the
+-- original version ran TWO separate full unified_daily_attendance scans here
+-- (one per leaderboard) on top of 1a's own scan -- three full scans of the
+-- most expensive table in this RPC on every call, which is what made the
+-- dashboard noticeably slower right after this pass shipped. Rewritten to a
+-- single `with` CTE that scans the view ONCE per branch, computing both
+-- leaderboards' per-employee counts in one pass; the two `into` targets then
+-- each read from that same (already-tiny, one-row-per-employee) CTE result
+-- instead of re-scanning the view. Three scans down to one.
+if v_has_period then
+    with employee_backlog as materialized (
+        select uda.employee_uuid, uda.full_name,
+               count(*) filter (where uda.needs_reconciliation) as reconciliation_count,
+               count(*) filter (where uda.evidence_quality in ('single_scan', 'open_session', 'single_scan_and_open_session')) as data_quality_count
+        from unified_daily_attendance uda
+        where (p_department_id is null or uda.department_id = p_department_id)
+        and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
+        and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+        and (p_manager_id is null or uda.manager_id = p_manager_id)
+        and uda.work_date >= p_start_date
+        and uda.work_date <= p_end_date
+        group by uda.employee_uuid, uda.full_name
+    )
+    select
+        (select coalesce(json_agg(x order by x.value desc), '[]'::json)
+         from (
+             select full_name as name, reconciliation_count as value,
+                    json_build_object('employee', employee_uuid) as filter
+             from employee_backlog
+             where reconciliation_count > 0
+             order by reconciliation_count desc
+             limit 10
+         ) x),
+        (select coalesce(json_agg(x order by x.value desc), '[]'::json)
+         from (
+             select full_name as name, data_quality_count as value,
+                    json_build_object('employee', employee_uuid) as filter
+             from employee_backlog
+             where data_quality_count > 0
+             order by data_quality_count desc
+             limit 10
+         ) x)
+    into v_top_needs_reconciliation_data, v_top_data_quality_data;
+else
+    with employee_backlog as materialized (
+        select uda.employee_uuid, uda.full_name,
+               count(*) filter (where uda.needs_reconciliation) as reconciliation_count,
+               count(*) filter (where uda.evidence_quality in ('single_scan', 'open_session', 'single_scan_and_open_session')) as data_quality_count
+        from unified_daily_attendance uda
+        where (p_department_id is null or uda.department_id = p_department_id)
+        and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
+        and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+        and (p_manager_id is null or uda.manager_id = p_manager_id)
+        group by uda.employee_uuid, uda.full_name
+    )
+    select
+        (select coalesce(json_agg(x order by x.value desc), '[]'::json)
+         from (
+             select full_name as name, reconciliation_count as value,
+                    json_build_object('employee', employee_uuid) as filter
+             from employee_backlog
+             where reconciliation_count > 0
+             order by reconciliation_count desc
+             limit 10
+         ) x),
+        (select coalesce(json_agg(x order by x.value desc), '[]'::json)
+         from (
+             select full_name as name, data_quality_count as value,
+                    json_build_object('employee', employee_uuid) as filter
+             from employee_backlog
+             where data_quality_count > 0
+             order by data_quality_count desc
+             limit 10
+         ) x)
+    into v_top_needs_reconciliation_data, v_top_data_quality_data;
+end if;
+
 -- 2. Trend-chart bucket size: day by default, week once the selected range
 -- exceeds 60 days (e.g. "This Year") -- keeps the two trend charts readable
 -- instead of rendering an unreadable ~250-point daily line. Both trend
@@ -420,6 +508,14 @@ prev_period_rows as materialized (
 employee_leave_rows as materialized (
     select
         le.employee_id as leave_emp_uuid,
+        -- Employee/department identity, added 2026-09-25 for the new Top
+        -- Leave Days by Employee/Department charts (per HR's own ask) --
+        -- previously this CTE only carried what leaveTypeBreakdownData
+        -- needed. Same employees/departments join shape used elsewhere in
+        -- this RPC (e.g. pending_activity_rows).
+        e.full_name as leave_employee_name,
+        e.department_id as leave_department_id,
+        coalesce(d.name, 'Unassigned') as leave_department_name,
         lt.label as leave_type_label,
         le.day_fraction,
         -- Paid vs. unpaid leave, for payroll prep -- see kpi_totals'
@@ -431,10 +527,19 @@ employee_leave_rows as materialized (
         -- flagged in the UI, matching this codebase's existing convention of
         -- disclosing this kind of assumption only in code comments (same
         -- treatment as is_late_arrival's 09:00 threshold).
+        --
+        -- SECOND CAVEAT (2026-09-25): leave_ledger_types today also mixes
+        -- genuine personal leave with what should really be classified as
+        -- work-related activity (e.g. official business trips) -- until that
+        -- upstream classification is cleaned up, leaveDaysCount and every
+        -- chart sourced from this CTE (Leave by Type, and the two new Top
+        -- Leave Days charts) will over-count "leave". No dashboard-side fix
+        -- is possible until the source classification is corrected.
         lt.is_paid
     from leave_ledger_entries le
     join leave_ledger_types lt on lt.id = le.leave_type_id
     join employees e on e.id = le.employee_id
+    left join departments d on d.id = e.department_id
     where (p_department_id is null or e.department_id = p_department_id)
     and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or le.employee_id = p_employee_id)
@@ -496,6 +601,38 @@ open_session_rows as materialized (
     and (p_work_location_id is null or e.work_location_id = p_work_location_id)
     and (p_employee_id is null or aa.employee_id = p_employee_id)
     and (p_manager_id is null or e.manager_id = p_manager_id)
+),
+
+-- Trailing 12 months, FIXED-WINDOW family (new chart, 2026-09-25 chart
+-- restructuring pass) -- deliberately NOT bounded by p_start_date/
+-- p_end_date, always the current month plus the 11 before it, same
+-- "always-on trend" convention Sales Reports' own trailing-12-months
+-- Bookings-vs-Invoiced chart uses (get_sales_reports_dashboard_rpc.sql) --
+-- seasonal attendance patterns are only legible across a fixed multi-month
+-- window, not whatever arbitrary range happens to be selected elsewhere on
+-- the page. Still respects every non-date filter (department/employee/
+-- manager/work location), same as every other family -- only the date
+-- dimension is fixed.
+--
+-- PERFORMANCE (2026-09-25): deliberately NOT materialized and NOT `select
+-- uda.*` -- unlike period_rows/prev_period_rows/employee_leave_rows above,
+-- this CTE is read by exactly ONE consumer (attendanceRateTrailing12MonthsData
+-- below), so there's no multiply-reference cost to save by forcing
+-- materialization -- the planner is free to inline this and push the date/
+-- filter predicates straight into the view scan. Selecting only the 6
+-- columns the aggregate below actually touches (rather than every column
+-- unified_daily_attendance exposes) also meaningfully cuts what has to be
+-- materialized/copied across a full 12-month, all-employee window, which is
+-- the widest scan in this whole RPC.
+trailing_12_months_rows as (
+    select uda.work_date, uda.day_state, uda.is_expected_working_day, uda.leave_state
+    from unified_daily_attendance uda
+    where (p_department_id is null or uda.department_id = p_department_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
+    and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_manager_id is null or uda.manager_id = p_manager_id)
+    and uda.work_date >= (date_trunc('month', current_date) - interval '11 months')::date
+    and uda.work_date <= (date_trunc('month', current_date) + interval '1 month' - interval '1 day')::date
 ),
 
 kpi_totals as (
@@ -820,27 +957,89 @@ select json_build_object(
     'dayStateBreakdownData', (
         select coalesce(json_agg(x order by x.value desc), '[]'::json)
         from (
-            select day_state as name, count(*) as value
+            select day_state as name, count(*) as value,
+                   -- Chart drill-through (2026-09-25 restructuring pass):
+                   -- `name` above is already the raw filter-safe value (see
+                   -- this field's own header comment), but the filter is
+                   -- still built explicitly as its own object rather than
+                   -- relying on the frontend to reuse `name` after the
+                   -- display-labelling pass overwrites it (toLabelledBreakdown
+                   -- mutates `name` into a label for rendering).
+                   json_build_object('dayState', day_state) as filter
             from period_rows
             where not is_weekend
             group by 1
         ) x
     ),
 
-    -- Data-quality composition -- a SEPARATE chart, not a slice of the one
-    -- above, because it is a separate axis. Under hr_flag these competed for
-    -- one field and the approval branches won, so 'Incomplete Card Scans' and
-    -- 'Missing App Check-Out' were almost never reported at all. Excludes
-    -- 'none' (a day with no record has no record quality to speak of).
+    -- Data-quality composition -- RECLASSIFIED 2026-09-25 (chart
+    -- restructuring pass) from REGULAR (period-bound, via period_rows) to
+    -- ACTIONABLE, so it always matches its own Data Quality KPI tile's
+    -- family/window exactly (current backlog when unfiltered, period-scoped
+    -- once a range is picked). This field existed before but was computed
+    -- from period_rows and rendered nowhere on any page -- reviving it with
+    -- the wrong family would have shown a number that silently disagreed
+    -- with the tile it's meant to pair with. Reuses the SAME already-computed
+    -- values the Data Quality KPI itself reads -- no separate scan:
+    -- open_session_rows (Missing Check-Outs, same backlog-vs-period bound as
+    -- missing_checkout_backlog_count/missing_checkout_period_count below) and
+    -- v_incomplete_scans_count (Incomplete Card Scans, pre-computed above).
+    -- Exactly 2 categories, matching that tile's own 2 sub-metrics precisely
+    -- so this pie's total always equals dataQualityCount.
     'evidenceQualityBreakdownData', (
         select coalesce(json_agg(x order by x.value desc), '[]'::json)
         from (
-            select evidence_quality as name, count(*) as value
-            from period_rows
-            where not is_weekend and evidence_quality <> 'none'
-            group by 1
+            select 'Missing Check-Outs' as name,
+                   (select count(*) from open_session_rows
+                    where not v_has_period
+                       or (clocked_in_at::date >= p_start_date and clocked_in_at::date <= p_end_date)) as value,
+                   json_build_object('evidenceQuality', 'open_session') as filter
+            union all
+            select 'Incomplete Card Scans' as name,
+                   v_incomplete_scans_count as value,
+                   json_build_object('evidenceQuality', 'single_scan') as filter
         ) x
+        where x.value > 0
     ),
+
+    -- Reconciliation Reasons Breakdown -- NEW (2026-09-25 chart restructuring
+    -- pass), ACTIONABLE family, pairs with the Needs Reconciliation KPI tile
+    -- the same way Top Absenteeism pairs with the Attendance Rate tile.
+    -- Reuses the exact same values that tile's own 4 sub-metric rows read
+    -- (v_leave_conflict_count/v_absent_backlog_count/
+    -- v_insufficient_half_day_count pre-computed above, pending_activity_rows
+    -- counted the same backlog-vs-period way pendingApprovalsCount itself
+    -- is) so this chart's total always reconciles with that tile -- no
+    -- separate scan.
+    'reconciliationReasonsBreakdownData', (
+        select coalesce(json_agg(x order by x.value desc), '[]'::json)
+        from (
+            select 'Pending Approvals' as name,
+                   (select count(*) from pending_activity_rows
+                    where not v_has_period
+                       or (clocked_in_at::date >= p_start_date and clocked_in_at::date <= p_end_date)) as value,
+                   json_build_object('approvalState', 'pending') as filter
+            union all
+            select 'Leave Conflicts' as name, v_leave_conflict_count as value,
+                   json_build_object('leaveAttendanceConflict', 'true') as filter
+            union all
+            select 'Insufficient Half-Day Hours' as name, v_insufficient_half_day_count as value,
+                   json_build_object('insufficientHalfDayHours', 'unresolved') as filter
+            union all
+            select 'Absent' as name, v_absent_backlog_count as value,
+                   json_build_object('dayState', 'absent') as filter
+        ) x
+        where x.value > 0
+    ),
+
+    -- Top 10 employees by outstanding Needs Reconciliation records --
+    -- pre-computed above (v_top_needs_reconciliation_data) via the same
+    -- backlog-vs-period if/else as needsReconciliationCount itself.
+    'topNeedsReconciliationData', coalesce(v_top_needs_reconciliation_data, '[]'::json),
+
+    -- Top 10 employees by outstanding Data Quality records -- pre-computed
+    -- above (v_top_data_quality_data), same reasoning.
+    'topDataQualityData', coalesce(v_top_data_quality_data, '[]'::json),
 
     -- Date x present-count/roster-count, period-bound, bucketed by
     -- v_trend_bucket (day, or week once the range exceeds 60 days).
@@ -864,8 +1063,31 @@ select json_build_object(
                 -- must stay reconciled with the headline attendanceRatePct
                 -- definition (same present/roster ratio).
                 count(*) filter (where day_state = 'worked') as present_count,
-                count(*) filter (where is_expected_working_day and leave_state = 'none') as roster_count
+                count(*) filter (where leave_state = 'none') as roster_count,
+                -- Chart drill-through (2026-09-25): the exact date range
+                -- this bucket spans, sized to whichever bucket is actually
+                -- active (a single day, or a full week once v_trend_bucket
+                -- switches) -- computed here rather than in the frontend so
+                -- a point's filter can never disagree with what the point
+                -- was actually aggregated from.
+                json_build_object(
+                    'startDate', to_char(date_trunc(v_trend_bucket, work_date), 'YYYY-MM-DD'),
+                    'endDate', to_char(
+                        date_trunc(v_trend_bucket, work_date)
+                            + case when v_trend_bucket = 'week' then interval '6 days' else interval '0 days' end,
+                        'YYYY-MM-DD'
+                    )
+                ) as filter
+            -- WORKING DAYS ONLY (2026-09-25 fix): previously ungrouped
+            -- period_rows included weekend/public-holiday dates as their own
+            -- bucket too -- each one had present_count=0/roster_count=0 (no
+            -- one is expected to work), rendering as a false 0% dip every
+            -- weekend on a 'day' bucket, or diluting a whole week's rate
+            -- down on a 'week' bucket. is_expected_working_day already
+            -- excludes both (see working_day_records_count's own comment
+            -- below for the same guard on the headline KPI).
             from period_rows
+            where is_expected_working_day
             group by date_trunc(v_trend_bucket, work_date)
         ) x
     ),
@@ -887,8 +1109,24 @@ select json_build_object(
                 round(avg(hours_worked) filter (
                     where day_state = 'worked'
                       and evidence_quality not in ('single_scan', 'single_scan_and_open_session')
-                )::numeric, 2) as avg_hours
+                )::numeric, 2) as avg_hours,
+                -- Chart drill-through (2026-09-25) -- same bucket-sized
+                -- date-range filter as dailyAttendanceTrendData above.
+                json_build_object(
+                    'startDate', to_char(date_trunc(v_trend_bucket, work_date), 'YYYY-MM-DD'),
+                    'endDate', to_char(
+                        date_trunc(v_trend_bucket, work_date)
+                            + case when v_trend_bucket = 'week' then interval '6 days' else interval '0 days' end,
+                        'YYYY-MM-DD'
+                    )
+                ) as filter
+            -- WORKING DAYS ONLY (2026-09-25 fix) -- same reasoning as
+            -- dailyAttendanceTrendData above: without this, a weekend/
+            -- holiday bucket has no `day_state = 'worked'` rows to average,
+            -- so avg_hours came back null (rendered as 0 by the frontend) --
+            -- a false 0-hour dip every weekend.
             from period_rows
+            where is_expected_working_day
             group by date_trunc(v_trend_bucket, work_date)
         ) x
     ),
@@ -907,9 +1145,16 @@ select json_build_object(
                 round(
                     (count(*) filter (where day_state = 'worked')::numeric
                     / nullif(count(*) filter (where is_expected_working_day and leave_state = 'none'), 0)) * 100
-                , 1) as value
+                , 1) as value,
+                -- Chart drill-through (2026-09-25): null for the
+                -- "Unassigned" bucket (department_id itself is null there)
+                -- -- left unclickable rather than risk an ambiguous
+                -- "department is null" filter the list page doesn't support.
+                case when department_id is not null
+                    then json_build_object('department', department_id)
+                    else null end as filter
             from period_rows
-            group by coalesce(department_name, 'Unassigned')
+            group by coalesce(department_name, 'Unassigned'), department_id
         ) x
     ),
 
@@ -920,20 +1165,36 @@ select json_build_object(
         select coalesce(json_agg(x order by x.value desc), '[]'::json)
         from (
             select
-                case
-                    when hw_check_in is not null and app_check_in is not null then 'Both'
-                    when hw_check_in is not null then 'Office'
-                    when app_check_in is not null then 'Remote'
-                    else 'Unclassified'
-                end as name,
-                count(*) as value
-            from period_rows
-            -- `and not is_on_leave`/`and not is_public_holiday` -- otherwise
-            -- a pure on-leave or holiday zero-scan day gets miscategorized
-            -- as 'Unclassified' channel instead of being excluded like
-            -- Absent.
-            where day_state = 'worked'
-            group by 1
+                channel as name,
+                count(*) as value,
+                -- Chart drill-through (2026-09-25): mirrors the SAME
+                -- hw/app-presence bucketing below rather than reading
+                -- evidence_source directly, so this filter can never
+                -- disagree with the bucket a row was actually counted into.
+                -- 'Unclassified' has no single matching evidenceSource value
+                -- and is left unclickable.
+                case channel
+                    when 'Both' then json_build_object('evidenceSource', 'both')
+                    when 'Office' then json_build_object('evidenceSource', 'hardware')
+                    when 'Remote' then json_build_object('evidenceSource', 'app')
+                    else null
+                end as filter
+            from (
+                select
+                    case
+                        when hw_check_in is not null and app_check_in is not null then 'Both'
+                        when hw_check_in is not null then 'Office'
+                        when app_check_in is not null then 'Remote'
+                        else 'Unclassified'
+                    end as channel
+                from period_rows
+                -- `and not is_on_leave`/`and not is_public_holiday` --
+                -- otherwise a pure on-leave or holiday zero-scan day gets
+                -- miscategorized as 'Unclassified' channel instead of being
+                -- excluded like Absent.
+                where day_state = 'worked'
+            ) c
+            group by channel
         ) x
     ),
 
@@ -942,10 +1203,11 @@ select json_build_object(
     'topAbsenteeismData', (
         select coalesce(json_agg(x), '[]'::json)
         from (
-            select full_name as name, count(*) as value
+            select full_name as name, count(*) as value,
+                   json_build_object('employee', employee_uuid) as filter
             from period_rows
             where day_state = 'absent'
-            group by full_name
+            group by full_name, employee_uuid
             order by count(*) desc
             limit 10
         ) x
@@ -956,11 +1218,12 @@ select json_build_object(
     'topOvertimeData', (
         select coalesce(json_agg(x), '[]'::json)
         from (
-            select full_name as name, round(sum(overtime_hours)::numeric, 2) as value
+            select full_name as name, round(sum(overtime_hours)::numeric, 2) as value,
+                   json_build_object('employee', employee_uuid) as filter
             from period_rows
             where day_state = 'worked'
              and evidence_quality not in ('single_scan', 'single_scan_and_open_session')
-            group by full_name
+            group by full_name, employee_uuid
             having sum(overtime_hours) > 0
             order by value desc
             limit 10
@@ -977,6 +1240,64 @@ select json_build_object(
             select leave_type_label as name, sum(day_fraction) as value
             from employee_leave_rows
             group by leave_type_label
+        ) x
+    ),
+
+    -- Top Leave Days by Employee -- NEW (2026-09-25 chart restructuring
+    -- pass, per HR's own explicit ask), REGULAR family, same window as the
+    -- Leave Days KPI tile. Inherits employee_leave_rows' own two disclosed
+    -- caveats (is_paid confirmation, and leave types that should really be
+    -- classified as work-related activity -- see that CTE's own comment).
+    'topLeaveDaysByEmployeeData', (
+        select coalesce(json_agg(x order by x.value desc), '[]'::json)
+        from (
+            select leave_employee_name as name, sum(day_fraction) as value,
+                   json_build_object('employee', leave_emp_uuid) as filter
+            from employee_leave_rows
+            group by leave_employee_name, leave_emp_uuid
+            order by sum(day_fraction) desc
+            limit 10
+        ) x
+    ),
+
+    -- Top Leave Days by Department -- same caveats as above. Not top-10-capped
+    -- -- department count is small enough that "top" would just mean "all,
+    -- sorted".
+    'leaveDaysByDepartmentData', (
+        select coalesce(json_agg(x order by x.value desc), '[]'::json)
+        from (
+            select leave_department_name as name, sum(day_fraction) as value,
+                   case when leave_department_id is not null
+                       then json_build_object('department', leave_department_id)
+                       else null end as filter
+            from employee_leave_rows
+            group by leave_department_name, leave_department_id
+        ) x
+    ),
+
+    -- Trailing 12 months attendance rate -- FIXED-WINDOW family (new chart,
+    -- 2026-09-25 restructuring pass), sourced from trailing_12_months_rows
+    -- above (always the current month + the 11 before it, ignores the
+    -- page's date filter entirely). Same present/roster ratio as the
+    -- headline Attendance Rate KPI, bucketed by month. Filter payload is a
+    -- startDate/endDate pair spanning that month, for the chart-element
+    -- drill-through convention.
+    'attendanceRateTrailing12MonthsData', (
+        select coalesce(json_agg(x order by x.bucket_start), '[]'::json)
+        from (
+            select
+                to_char(date_trunc('month', work_date), 'Mon YYYY') as period,
+                date_trunc('month', work_date) as bucket_start,
+                round(
+                    (count(*) filter (where day_state = 'worked')::numeric
+                    / nullif(count(*) filter (where is_expected_working_day and leave_state = 'none'), 0)) * 100
+                , 1) as value,
+                json_build_object(
+                    'startDate', to_char(date_trunc('month', work_date), 'YYYY-MM-DD'),
+                    'endDate', to_char((date_trunc('month', work_date) + interval '1 month' - interval '1 day')::date, 'YYYY-MM-DD')
+                ) as filter
+            from trailing_12_months_rows
+            group by date_trunc('month', work_date)
         ) x
     )
 

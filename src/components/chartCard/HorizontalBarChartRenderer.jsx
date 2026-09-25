@@ -11,6 +11,18 @@ import CustomYAxisTick from "./CustomYAxisTick";
 import { useTheme } from "../../context/ThemeContext";
 import { compactNumber } from "../../functions/formatNumber";
 
+// Opens a chart click-through in a new tab (2026-09-25) -- centralized here
+// (and in PieChartRenderer/LineChartRenderer's own click handlers) rather
+// than in each page's callback, so "how a chart click navigates" only ever
+// needs changing in these three renderer files, not every dashboard page
+// that uses them. A callback that still performs its own navigation (e.g.
+// Finance's onBarClick handlers, which call `navigate()` directly and return
+// nothing) is unaffected -- this only acts when the callback RETURNS a URL.
+function openChartClickThrough(url) {
+  if (!url) return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 export default function HorizontalBarChartRenderer({ data, colorMap, onBarClick }) {
   const { darkMode } = useTheme();
 
@@ -56,7 +68,16 @@ export default function HorizontalBarChartRenderer({ data, colorMap, onBarClick 
           // no-op cursor/handler for every other chart using this renderer
           // that doesn't pass it. Recharts' own onClick natively receives
           // the full data-point object each Bar rectangle was drawn from.
-          onClick={onBarClick ? (entry) => onBarClick(entry) : undefined}
+          // If `onBarClick` returns a URL (the Attendance Overview
+          // convention -- see DASHBOARD-CONVENTIONS.md's chart drill-through
+          // section), it opens in a new tab (2026-09-25); a callback that
+          // navigates itself (Finance's own handlers) and returns nothing is
+          // unaffected.
+          onClick={
+            onBarClick
+              ? (entry) => openChartClickThrough(onBarClick(entry))
+              : undefined
+          }
           cursor={onBarClick ? "pointer" : undefined}
         />
       </BarChart>

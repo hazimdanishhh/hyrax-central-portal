@@ -322,16 +322,10 @@ export function getAttendanceOverviewConfig(
       filter: { ...baseFilter, calendarType: "ordinary", ...periodFilter },
       metrics: [
         {
-          label: "Present",
-          value: kpis.presentPeriodCount || 0,
+          label: "Present Days",
+          value: `${kpis.presentPeriodCount || 0} / ${kpis.workingDayRecordsCount || 0}`,
           to: "../list",
           filter: { ...baseFilter, presentOnly: "true", ...periodFilter },
-        },
-        {
-          label: "Working-Day Records",
-          value: kpis.workingDayRecordsCount || 0,
-          to: "../list",
-          filter: { ...baseFilter, calendarType: "ordinary", ...periodFilter },
         },
         {
           label: "Absent Days",

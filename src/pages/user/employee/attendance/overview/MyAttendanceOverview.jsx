@@ -5,6 +5,7 @@ import {
   ChartPieSliceIcon,
   GaugeIcon,
 } from "@phosphor-icons/react";
+import { useResolvedPath } from "react-router";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import ChartCard from "@/components/chartCard/ChartCard";
 import HorizontalBarChartRenderer from "@/components/chartCard/HorizontalBarChartRenderer";
@@ -28,15 +29,25 @@ import useDashboardQuery from "@/hooks/useDashboardQuery";
 import { fetchMyAttendanceDashboard } from "@/features/employee/attendance/private/api/myAttendanceService";
 import { getMyAttendanceOverviewConfig } from "./overviewConfig";
 import { toLabelledBreakdown } from "@/functions/attendanceDayState";
+import buildFilterUrl from "@/functions/convertFilter";
 
 /**
  * My Attendance Overview -- reuses get_attendance_dashboard unchanged
  * (p_employee_id already scopes every CTE). No employee/department picker
- * (scope is always self); Departments chart and the Needs Attention
- * leaderboards are dropped (meaningless scoped to one person).
+ * (scope is always self); Departments chart, the Needs Attention
+ * leaderboards, the Data Quality & Reconciliation section, and the two new
+ * Leave-by-employee/department leaderboards are all dropped (meaningless
+ * scoped to one person -- see AttendanceOverview.jsx for the full set this
+ * page is a reduced version of). Does gain the Trailing-12-Months trend
+ * (2026-09-25) -- seasonal context is meaningful even for one person.
  */
 export default function MyAttendanceOverview() {
   const dashboardRef = useRef(null);
+  // Chart clicks open in a new tab via window.open, which needs an
+  // already-resolved absolute path (see AttendanceOverview.jsx's own
+  // comment for the full "../list resolved to the wrong parent" bug this
+  // fixes).
+  const listPath = useResolvedPath("../list").pathname;
   const { employee } = useEmployee();
 
   const {
@@ -60,6 +71,11 @@ export default function MyAttendanceOverview() {
   const isPeriodFiltered = Boolean(filters.startDate) && Boolean(filters.endDate);
   const overviewItems = getMyAttendanceOverviewConfig(kpis, isPeriodFiltered, filters);
 
+  // Same REGULAR subtitle vocabulary the KPI tiles use -- see
+  // DASHBOARD-CONVENTIONS.md §4b/Part C. My Attendance has no ACTIONABLE
+  // charts (see file header comment), so only periodLabel is needed here.
+  const periodLabel = isPeriodFiltered ? "This Period" : "This Month";
+
   const chartToday = new Date().toISOString().slice(0, 10);
   const chartMonthStart = `${new Date().getFullYear()}-${String(
     new Date().getMonth() + 1,
@@ -68,6 +84,16 @@ export default function MyAttendanceOverview() {
     startDate: filters.startDate || chartMonthStart,
     endDate: filters.endDate || chartToday,
   };
+
+  // Chart-element drill-through (2026-09-25 -- see AttendanceOverview.jsx's
+  // own comment for the full rationale). No chartBaseFilter needed here --
+  // this page has no department/employee picker, scope is always self.
+  // Returns a URL rather than navigating -- HorizontalBarChartRenderer/
+  // PieChartRenderer/LineChartRenderer each open it in a new tab themselves.
+  const goToRegular = (filter) =>
+    filter ? `${listPath}${buildFilterUrl({ ...chartPeriodFilter, ...filter })}` : null;
+  const goToDated = (filter) =>
+    filter ? `${listPath}${buildFilterUrl(filter)}` : null;
 
   // Raw day_state values from the RPC, relabelled through the single
   // vocabulary module -- chartColors' keys are the labels, so an
@@ -91,12 +117,21 @@ export default function MyAttendanceOverview() {
       "Attendance Rate": d.roster_count
         ? Math.round((d.present_count / d.roster_count) * 100)
         : 0,
+      filter: d.filter,
     })) ?? [];
 
   const hoursWorkedTrendData =
     dashboard?.hoursWorkedTrendData?.map((d) => ({
       name: d.period,
       "Avg Hours": d.avg_hours ?? 0,
+      filter: d.filter,
+    })) ?? [];
+
+  const attendanceRateTrailing12MonthsData =
+    dashboard?.attendanceRateTrailing12MonthsData?.map((d) => ({
+      name: d.period,
+      "Attendance Rate": d.value ?? 0,
+      filter: d.filter,
     })) ?? [];
 
   return (
@@ -182,30 +217,45 @@ export default function MyAttendanceOverview() {
                   </div>
                   <p className="textXS textLight">
                     Your daily attendance and average hours worked over the
-                    selected period.
+                    selected period, plus a 12-month trend for seasonal
+                    context.
                   </p>
                 </div>
 
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Daily Attendance"
-                    subtitle={`Present, ${trendBucketLabel}`}
+                    subtitle={`Present, ${trendBucketLabel} — ${periodLabel}`}
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
                       data={dailyAttendanceTrendData}
                       lines={[{ dataKey: "Attendance Rate", color: BLUE_COLOR }]}
+                      onPointClick={(payload) => goToDated(payload?.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Hours Worked"
-                    subtitle={`Hours Worked, ${trendBucketLabel}`}
+                    subtitle={`Hours Worked, ${trendBucketLabel} — ${periodLabel}`}
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
                       data={hoursWorkedTrendData}
                       lines={[{ dataKey: "Avg Hours", color: GREEN_COLOR }]}
+                      onPointClick={(payload) => goToDated(payload?.filter)}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Attendance Rate — Trailing 12 Months"
+                    subtitle="Not Affected by the Date Filter"
+                    style="cardGapSmall"
+                  >
+                    <LineChartRenderer
+                      data={attendanceRateTrailing12MonthsData}
+                      lines={[{ dataKey: "Attendance Rate", color: BLUE_COLOR }]}
+                      onPointClick={(payload) => goToDated(payload?.filter)}
                     />
                   </ChartCard>
                 </CardLayout>
@@ -230,29 +280,37 @@ export default function MyAttendanceOverview() {
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Status Breakdown"
-                    subtitle="By Record, This Period (Excludes Weekends)"
+                    subtitle={`By Record, ${periodLabel} (Excludes Weekends)`}
                     style="cardGapSmall"
                     viewAllTo="../list"
-                    viewAllFilter={{ dayType: "working", ...chartPeriodFilter }}
+                    viewAllFilter={{
+                      calendarType: "ordinary",
+                      ...chartPeriodFilter,
+                    }}
                   >
                     <PieChartRenderer
                       data={dayStateBreakdownData}
                       mode="semantic"
                       colorMap={ATTENDANCE_DAY_STATE_COLORS}
+                      onSliceClick={(entry) => goToRegular(entry.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Work Channel Mix"
-                    subtitle="Office (Hardware Scan) vs Remote (App), This Period"
+                    subtitle={`Office (Hardware Scan) vs Remote (App), ${periodLabel}`}
                     style="cardGapSmall"
                     viewAllTo="../list"
-                    viewAllFilter={{ dayType: "working", ...chartPeriodFilter }}
+                    viewAllFilter={{
+                      calendarType: "ordinary",
+                      ...chartPeriodFilter,
+                    }}
                   >
                     <PieChartRenderer
                       data={workChannelMixData}
                       mode="semantic"
                       colorMap={WORK_CHANNEL_COLORS}
+                      onSliceClick={(entry) => goToRegular(entry.filter)}
                     />
                   </ChartCard>
                 </CardLayout>
@@ -276,7 +334,7 @@ export default function MyAttendanceOverview() {
                 <CardLayout>
                   <ChartCard
                     title="Leave by Type"
-                    subtitle="Total Days, This Period"
+                    subtitle={`Total Days, ${periodLabel}`}
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{ onLeave: "true", ...chartPeriodFilter }}

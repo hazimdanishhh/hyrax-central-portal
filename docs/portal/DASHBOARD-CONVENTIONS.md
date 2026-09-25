@@ -123,7 +123,7 @@ Two figures can legitimately disagree (e.g. GL revenue vs. invoice-subledger rev
 - The **RCT2 join trap**: join `sap_payment_applications.payment_ref` → `sap_payments.doc_entry`, never `receipt_number` (see `hyrax-data-platform/docs/data-dictionary.md`). Separately, the FK from a payment-application row to the _invoice_ it settles is `doc_entry` (confirmed — **not** `inv_entry`), filtered `WHERE inv_type = 13` — `doc_entry` is a polymorphic FK whose target depends on `inv_type`, so there's no database-level FK constraint for it; always apply the `inv_type = 13` filter yourself. See that same doc's "RCT2 → invoice link" section.
 - SAP's `GrosProfit` has master-data defects — sanitize by nulling GP when `abs(gross_profit) > abs(total_amount_myr) * 5`; reuse that guard anywhere GP is summed.
 - **Point-in-time vs. period-bound**: dashboards mix both. "As of today" snapshot metrics (AR aging, overdue customers, open backlog, stock position, active pipeline) deliberately ignore the date-range filter; period-bound metrics (revenue, collections, fill rate, on-time %) respect it. Comment this distinction explicitly at the field level in any new RPC.
-- **Previous-period delta pattern**: compute a same-length immediately-preceding window (`v_prev_start_date`/`v_prev_end_date`) server-side, then a client-side `calcDelta(current, previous)` helper turns that into "↑/↓ X% vs last period."
+- **Previous-period delta pattern**: compute a same-length immediately-preceding window (`v_prev_start_date`/`v_prev_end_date`) server-side, then a client-side `calcDelta(current, previous)` helper turns that into "↑/↓ X% vs last period." For where that delta actually gets displayed on the tile (headline `subvalue` vs. a sub-metric's own bracketed value), which metrics should skip a delta entirely, and how to pick each metric's default time window, see §4b.
 - **Proration formula**: day-overlap proration of a monthly target/budget against an arbitrary date range — reuse the existing formula (`sales_targets`/`sales_budgets` proration) rather than re-deriving it, so multiple pages never silently drift apart on the same calculation.
 - **Don't trust a SAP-mirror "identity/link" field until it's verified against live data.** Confirmed twice now: the RCT2→invoice FK above, and `sap_sales_persons.employee_id` (EmpID), which was assumed to bridge to Supabase `employees` but turned out empty in production and conceptually wrong (it's designed to reference SAP's own unused OHEM module, not a company employee code) — see `DASHBOARD-ROADMAP.md` §1.1 for the real bridge (`employee_sales_rep_mapping`, auto-populated per SAP rep via trigger). A field name or a doc's stated intent isn't evidence it's populated or means what it says — check.
 - **`json_build_object` has a hard ~50-pair (100-argument) ceiling** — Postgres's `FUNC_MAX_ARGS`, not a config setting. Each key and value is a separate argument, so a `kpis` object that's grown additively across several build phases can hit it without anyone adding a huge single change — `get_finance_dashboard_rpc.sql` did, at 51 pairs/102 args, and had to be split into 4 calls merged via `jsonb ||` (see that file's header comment, fixing error `54023`). Split a `json_build_object` once it passes ~40 pairs, well before the ceiling, along whatever domain boundaries the object's own comments already suggest.
@@ -168,7 +168,84 @@ Static-hero/informational tiles never call `getStatusVariant` — they keep hard
 
 Applied first to Attendance Overview (`src/pages/user/hr/attendanceManagement/overview/overviewConfig.js`), through several passes the same day (2026-09-25) as review surfaced sharper distinctions: 11 tiles → 7 (Attendance Rate; Needs Reconciliation; Punctuality; Hours Worked; Non-Working-Day Hours; Absenteeism Rate; Leave Days) → 8, the current end state (Attendance Rate — Absenteeism Rate folded in as its own sub-metrics, one color signal instead of two near-duplicate tiles; Needs Reconciliation — trimmed to Pending Approvals/Leave Conflicts/Insufficient Half-Day Hours/Absent; Average Check-In; Average Check-Out — Punctuality split back into two, since arriving late and leaving early are different behaviors a merged count hid; Data Quality — new, Missing Check-Outs + Incomplete Card Scans moved out of Needs Reconciliation; Hours Worked; Non-Working-Day Hours; Leave Days). Treat this as the reference example — not yet re-applied to Finance/Sales/other dashboards, but the pattern to reach for the next time one of them gets a tile-by-tile restructuring pass.
 
-A related convention from the same pass, worth carrying forward too: split each tile's default TIME WINDOW by what kind of question it answers, not by tile. **Regular** metrics (a description — "how much/how many happened") default to the full current period (a full month, not month-to-date — a partial period also truncates any previous-period comparison). **Actionable** metrics (something still outstanding that needs a decision) default to the true current backlog, unbounded by date, regardless of any date filter picked elsewhere on the page — an old unresolved item shouldn't disappear from view just because the date filter narrowed to something else. Both families still respect every non-date filter (department/employee/etc.) with no exception, and both switch to "exactly the selected range" once a date filter is explicitly picked. See `get_attendance_dashboard_rpc.sql`'s own header comment for the full worked-out version of this rule.
+A related convention from the same pass, split each tile's default TIME WINDOW by what kind of question it answers, not by tile — fully worked out in **§4b** below, the reference to follow for any dashboard's next tile-by-tile restructuring.
+
+## 4b. KPI tile anatomy & previous-period convention (added 2026-09-25)
+
+Established while restructuring Attendance Overview's KPI cards, immediately after §4a's tile-grouping pass — this is the reference shape for every tile on every dashboard, not an Attendance-specific rule. Next dashboard to get a tile-by-tile pass (Sales/Finance/HR Reports) should follow this, the same way §3 already treats `get_finance_dashboard_rpc.sql` as the Reports-page build template.
+
+### Tile anatomy, top to bottom
+
+1. **Title** (`label`) — the one question this tile answers, in a few words.
+2. **Subtitle** (`sublabel`) — states the tile's time window in plain words, so nobody has to guess whether a number resets monthly, reflects a manually-picked range, or is a live running total. Comes from a `periodLabel`/`actionableLabel` pair computed once per page load from whether a date filter is active:
+   - **REGULAR** family: `"This Month"` (or whatever the default period is — see below) when unfiltered, `"This Period"` once a range is picked.
+   - **ACTIONABLE** family: `"Current Backlog"` when unfiltered, `"This Period"` once a range is picked.
+   Never leave a tile with no subtitle, and never use a bare word like "Total" that doesn't disclose the window.
+3. **Main value** — the headline figure (a sum-of-sub-metrics per §4a, or a plain average/total).
+4. **Main value's own previous-period delta** — the tile's `subvalue` slot (rendered by `OverviewCards` right on the headline), never a separate tile and never a separate sub-metric row. `deltaText(calcDelta(current, previous))` for a magnitude (`"↑ 9%"` / `"↓ 4%"`); for a time-of-day value, a minutes-based phrase instead (see below). Left blank when there's genuinely no meaningful comparison for that metric (see "When to skip a delta").
+5. **Sub-metric rows** (`metrics[]`) — each folds its OWN delta into its OWN `value` string, in brackets: `"12 (↑9%)"`, via a small `valueWithDelta(value, delta)` helper. `OverviewCards`' sub-metric rows have no separate subvalue slot, so the bracket is the only place a sub-metric's own delta can live — never add a sibling "X vs Prev. Period" row for it.
+
+### Two time-window families — decide per metric, not per tile
+
+Every KPI belongs to exactly one family; a single tile's sub-metrics can legally mix both as long as each row's own label makes which family it's in unambiguous (rare — most tiles are one family throughout).
+
+- **REGULAR** — descriptive: "how much/how many happened." Defaults to the full current default period (see below) when no date filter is picked, matches the exact selected range once one is.
+- **ACTIONABLE** — decision-needed: "what's still outstanding right now." Defaults to the true current backlog, unbounded by date, when no date filter is picked — an old unresolved item must not disappear from view just because the date filter narrowed elsewhere on the page — and narrows to "originated within the selected period" once a range is picked.
+
+Both families respect every non-date filter (department, employee, entity, location, etc.) with no exception; only the date dimension differs between them.
+
+**Deciding which family a metric belongs to:** ask whether the number describes something that already happened in a period ("60 absences in August" — REGULAR), or something still open right now regardless of when it originated ("14 approvals still pending" — ACTIONABLE). A metric that could be framed either way is ACTIONABLE if the practical daily question is "what do I need to clear today" — the common case for anything HR/ops needs to action.
+
+### Picking the REGULAR family's default period
+
+"This Month" isn't universal — match whichever period the number is actually reviewed against:
+
+- **Attendance/HR operational metrics** → This Month (reviewed monthly, resets monthly).
+- **Sales quota/target-linked metrics** → This Quarter or This Fiscal Year, matching the cadence the underlying target/budget is itself set against — don't default to a period shorter than the target's own cadence, or the tile reads as permanently behind.
+- **Finance statement-style metrics** → This Fiscal Year (statements are conventionally read within-fiscal-year, not calendar-month).
+
+Whichever period is chosen, it must be a **full, complete period** (full month/quarter/year), never a to-date partial one — a to-date default also silently truncates its own previous-period comparison window (an 8-day September isn't a fair comparison against a full August). "Year to Date" stays available as its own explicit, separately-labeled option where it's genuinely the question being asked, never silently substituted for "This Year."
+
+### When to skip the previous-period delta entirely
+
+Not every number can honestly get one — showing a fabricated or misleading delta is worse than showing none:
+
+- **ACTIONABLE/backlog metrics** — a live backlog has no meaningful "previous backlog" without a historical snapshot most schemas don't keep. Don't approximate one from a period-bound proxy ("originated in the previous period") — that measures a genuinely different fact (in-flow vs. current outstanding total), not the same number at an earlier time.
+- **Time-of-day values** (average check-in/check-out, or any other clock-time average) — a percentage delta is meaningless for a time. Compute the same prior-window comparison as any other metric, but express the difference in minutes (`"5 min later"` / `"3 min earlier"`), not a ratio.
+- **A count with no prior-period counterpart in the RPC yet** — don't invent one from unrelated data. Either add the missing `prev_*` aggregate (usually cheap once that tile's prior-period CTE already exists for its other metrics) or leave that one sub-metric delta-free until it's worth the SQL.
+
+### Reference implementation
+
+`get_attendance_dashboard_rpc.sql` (SQL side: `prev_period_rows`/`prev_employee_leave_rows` CTEs, one `prev_*` scalar per REGULAR metric — see `RPC-REFERENCE.md`'s own `get_attendance_dashboard` section) + `src/pages/user/hr/attendanceManagement/overview/overviewConfig.js` (frontend side: `calcDelta`, `deltaText`, `valueWithDelta`, `timeDeltaText` helpers, `periodLabel`/`actionableLabel` subtitles).
+
+## 4c. Extending REGULAR/ACTIONABLE to charts, plus a third FIXED-WINDOW family (added 2026-09-25)
+
+§4b's REGULAR/ACTIONABLE split isn't a KPI-tile-only rule — it applies one-to-one to every chart on the same page, decided by the same test: *does this chart describe something that already happened in a period (REGULAR), or something still outstanding right now regardless of when it originated (ACTIONABLE)?* A chart that revives an existing-but-unrendered dataset, or pairs with an existing KPI tile, must match that tile's own family exactly — reviving a dead REGULAR dataset to sit next to an ACTIONABLE tile (Attendance's `evidenceQualityBreakdownData` was originally built this way) produces a chart whose total silently disagrees with the KPI above it. Get a chart's own values from the SAME already-computed backlog-vs-period source its sibling KPI reads, not a fresh period-bound scan.
+
+**A third family exists for charts only: FIXED-WINDOW** — a chart deliberately unbounded by the page's date filter, for a specific comparative purpose (typically seasonality) a period filter would defeat. Borrowed from Sales Reports' own trailing-12-months Bookings-vs-Invoiced trend, and now also used by Attendance Overview's "Attendance Rate — Trailing 12 Months." A FIXED-WINDOW chart still respects every non-date filter (department/employee/etc.) — only the date dimension is fixed.
+
+**Subtitle vocabulary** — every chart's subtitle discloses its family in the same words its family's sibling KPI tiles already use, so a user who has learned to read a KPI sublabel reads a chart's subtitle for free:
+- REGULAR: `"{what this measures}, {periodLabel}"` (`periodLabel` = `"This Month"`/whatever the module's own default period is, or `"This Period"` once filtered).
+- ACTIONABLE: `"{what this measures}, {actionableLabel}"` (`actionableLabel` = `"Current Backlog"` or `"This Period"`).
+- FIXED-WINDOW: an explicit, un-abbreviated phrase, e.g. `"Trailing 12 Months — not affected by the date filter"` — never left to a bare title with no window disclosed at all.
+
+Title stays a bare description of what's plotted; the subtitle is the one place a chart's time-window family is always disclosed. `ChartCard` (`src/components/chartCard/ChartCard.jsx`) supports exactly one `title` + one `subtitle` string per chart — fold the family wording into that single string rather than requesting a new prop/badge slot for it.
+
+## 4d. Chart-element drill-through (added 2026-09-25)
+
+**The baseline, going forward for every dashboard, not just Attendance:** a chart's individual bars/slices/points should be clickable through to the specific filtered records they represent — not only the `ChartCard`-level "View All" link, which narrows to the whole chart's scope but not to one bar's category. First proven in Finance (`ChartOfAccountsOverview.jsx`/`FinancialReports.jsx`'s OpEx breakdown, 2026-09, via `HorizontalBarChartRenderer`'s `onBarClick` prop), then generalized across all four chart types during Attendance Overview's 2026-09-25 restructuring.
+
+**Renderer contract, one per chart type** (`src/components/chartCard/`): each renderer stays dumb — it fires the raw Recharts datum up to the page via an optional prop, the page decides the destination and calls `navigate()`. No renderer performs navigation itself.
+- **Bar/horizontal-bar**: `onBarClick(entry)` — ship-ready, already ubiquitous.
+- **Pie**: `onSliceClick(entry)` — each `<Cell>` maps 1:1 to one datum, no multi-dimension ambiguity.
+- **Line**: `onPointClick(payload, line)` — a clicked point represents a *bucketed period* (day/week/month), not a single filterable category. The filter it produces must be a `startDate`/`endDate` pair sized to that bucket, computed **server-side** (see below), not re-derived client-side from the bucket label.
+- A **grouped/multi-series bar** (different filterable categories per series, e.g. an account broken out by quarter) needs a filter that combines both the row's category and the clicked series — more design work than the single-series case; don't assume the single-series contract generalizes for free.
+
+**Where the filter comes from: the RPC, not the frontend.** Every clickable dataset's per-datum JSON object carries its own `filter` object, e.g. `{ name, value, filter: { department: 7 } }` — mirroring `OverviewCards`' existing `metrics[].filter`/`to` pattern. The click handler does `navigate(`${viewAllTo}${buildFilterUrl(entry.filter)}`)`, reusing `buildFilterUrl` (`src/functions/convertFilter.js`, already generic — any key/value object, not just a single value) unchanged. `filter` is `null` for a bucket with no sensible single filter (e.g. an "Unassigned"/"Unclassified" bucket) — leave that click a no-op rather than navigating to an unfiltered list. Building the filter server-side, not client-side, means a chart's click target can never disagree with what the bar/slice/point was actually aggregated from — this is why line-chart date ranges are computed in SQL from the same bucket boundary the point's value came from, not reconstructed from the displayed label afterward.
+
+**The real per-chart blocker is identity, not the renderer.** `buildFilterUrl`/`ChartCard` are already generic enough for any chart; what actually gates whether a chart *can* be made clickable is whether its underlying query already carries a stable id (department/employee id, not just a display name) per row, and whether the target list page has a real, currently-selectable filter for that id. Two concrete fixes this pass needed before wiring clicks: `departmentAttendanceData`/`topAbsenteeismData`/`topOvertimeData` only grouped by display name, not id, so `department_id`/`employee_uuid` had to be added to their `GROUP BY`; and Attendance's Work Channel Mix chart needed a filter option (`evidenceSource`) added to `filterConfig.js` that the list page's query switch already technically supported but had never exposed as a selectable filter. **Don't guess a filter mapping you haven't verified** — Attendance's `leaveTypeBreakdownData` was deliberately left non-clickable this pass because the list page has no verified per-leave-type filter column; shipping a guessed filter key that silently matches zero rows is worse than no drill-through at all.
+
+**Not yet done:** retrofitting this onto Sales/Finance's own Pie/Line charts (only their Bar charts have it today) is separate follow-up work, not a blocker for adopting this convention on new dashboards going forward.
 
 ## 5. Department module boundaries — no inter-departmental linking (added 2026-09)
 

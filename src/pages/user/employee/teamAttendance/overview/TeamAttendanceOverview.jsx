@@ -5,7 +5,9 @@ import {
   ChartPieSliceIcon,
   GaugeIcon,
   WarningCircleIcon,
+  WarningOctagonIcon,
 } from "@phosphor-icons/react";
+import { useResolvedPath } from "react-router";
 import CardLayout from "@/components/cardLayout/CardLayout";
 import ChartCard from "@/components/chartCard/ChartCard";
 import HorizontalBarChartRenderer from "@/components/chartCard/HorizontalBarChartRenderer";
@@ -34,16 +36,23 @@ import { getAttendanceOverviewConfig } from "@/pages/user/hr/attendanceManagemen
 import { fetchTeamAttendanceDashboard } from "@/features/employee/attendance/private/api/teamAttendanceService";
 import { getTeamAttendanceOverviewFilterConfig } from "./filterConfig";
 import { toLabelledBreakdown } from "@/functions/attendanceDayState";
+import buildFilterUrl from "@/functions/convertFilter";
 
 /**
  * Team Attendance Overview -- a manager's direct reports only, via the new
  * p_manager_id param on get_attendance_dashboard. Reuses HR's tile/chart
  * config completely unchanged: every tile and chart (including the Top
- * Absenteeism/Top Overtime leaderboards) is meaningful scoped to a team,
- * unlike My Attendance where a "leaderboard of one" doesn't make sense.
+ * Absenteeism/Top Overtime leaderboards, and the 2026-09-25 Data Quality &
+ * Reconciliation section) is meaningful scoped to a team, unlike My
+ * Attendance where a "leaderboard of one" doesn't make sense.
  */
 export default function TeamAttendanceOverview() {
   const dashboardRef = useRef(null);
+  // Chart clicks open in a new tab via window.open, which needs an
+  // already-resolved absolute path (see AttendanceOverview.jsx's own
+  // comment for the full "../list resolved to the wrong parent" bug this
+  // fixes).
+  const listPath = useResolvedPath("../list").pathname;
   const { employee } = useEmployee();
 
   const { data: subordinates = [], isLoading: subordinatesLoading } =
@@ -75,6 +84,11 @@ export default function TeamAttendanceOverview() {
   const isPeriodFiltered = Boolean(filters.startDate) && Boolean(filters.endDate);
   const overviewItems = getAttendanceOverviewConfig(kpis, isPeriodFiltered, filters);
 
+  // Same REGULAR/ACTIONABLE subtitle vocabulary the KPI tiles use -- see
+  // DASHBOARD-CONVENTIONS.md §4b/Part C.
+  const periodLabel = isPeriodFiltered ? "This Period" : "This Month";
+  const actionableLabel = isPeriodFiltered ? "This Period" : "Current Backlog";
+
   const chartBaseFilter = {
     ...(filters.employee && { employee: filters.employee }),
   };
@@ -89,6 +103,24 @@ export default function TeamAttendanceOverview() {
     startDate: filters.startDate || chartMonthStart,
     endDate: filters.endDate || chartToday,
   };
+  const chartActionableFilter = isPeriodFiltered
+    ? { startDate: filters.startDate, endDate: filters.endDate }
+    : {};
+
+  // Chart-element drill-through (2026-09-25 -- see AttendanceOverview.jsx's
+  // own comment for the full rationale, mirrored here unchanged). Returns a
+  // URL rather than navigating -- HorizontalBarChartRenderer/
+  // PieChartRenderer/LineChartRenderer each open it in a new tab themselves.
+  const goToRegular = (filter) =>
+    filter
+      ? `${listPath}${buildFilterUrl({ ...chartBaseFilter, ...chartPeriodFilter, ...filter })}`
+      : null;
+  const goToActionable = (filter) =>
+    filter
+      ? `${listPath}${buildFilterUrl({ ...chartBaseFilter, ...chartActionableFilter, ...filter })}`
+      : null;
+  const goToDated = (filter) =>
+    filter ? `${listPath}${buildFilterUrl({ ...chartBaseFilter, ...filter })}` : null;
 
   // Raw day_state values from the RPC, relabelled through the single
   // vocabulary module -- chartColors' keys are the labels, so an
@@ -101,6 +133,18 @@ export default function TeamAttendanceOverview() {
   const topAbsenteeismData = dashboard?.topAbsenteeismData ?? [];
   const topOvertimeData = dashboard?.topOvertimeData ?? [];
   const leaveTypeBreakdownData = dashboard?.leaveTypeBreakdownData ?? [];
+
+  const evidenceQualityBreakdownData =
+    dashboard?.evidenceQualityBreakdownData ?? [];
+  const reconciliationReasonsBreakdownData =
+    dashboard?.reconciliationReasonsBreakdownData ?? [];
+  const topNeedsReconciliationData =
+    dashboard?.topNeedsReconciliationData ?? [];
+  const topDataQualityData = dashboard?.topDataQualityData ?? [];
+
+  const topLeaveDaysByEmployeeData =
+    dashboard?.topLeaveDaysByEmployeeData ?? [];
+  const leaveDaysByDepartmentData = dashboard?.leaveDaysByDepartmentData ?? [];
 
   // The RPC switches to weekly buckets once the range exceeds 60 days.
   // Read the bucket it reports rather than assuming daily -- the
@@ -115,12 +159,21 @@ export default function TeamAttendanceOverview() {
       "Attendance Rate": d.roster_count
         ? Math.round((d.present_count / d.roster_count) * 100)
         : 0,
+      filter: d.filter,
     })) ?? [];
 
   const hoursWorkedTrendData =
     dashboard?.hoursWorkedTrendData?.map((d) => ({
       name: d.period,
       "Avg Hours": d.avg_hours ?? 0,
+      filter: d.filter,
+    })) ?? [];
+
+  const attendanceRateTrailing12MonthsData =
+    dashboard?.attendanceRateTrailing12MonthsData?.map((d) => ({
+      name: d.period,
+      "Attendance Rate": d.value ?? 0,
+      filter: d.filter,
     })) ?? [];
 
   return (
@@ -215,30 +268,45 @@ export default function TeamAttendanceOverview() {
                   </div>
                   <p className="textXS textLight">
                     Daily attendance rate and average hours worked over the
-                    selected period, for your team.
+                    selected period, plus a 12-month trend for seasonal
+                    context, for your team.
                   </p>
                 </div>
 
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Daily Attendance Rate"
-                    subtitle={`Present vs Team Roster, ${trendBucketLabel}`}
+                    subtitle={`Present vs Team Roster, ${trendBucketLabel} — ${periodLabel}`}
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
                       data={dailyAttendanceTrendData}
                       lines={[{ dataKey: "Attendance Rate", color: BLUE_COLOR }]}
+                      onPointClick={(payload) => goToDated(payload?.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Hours Worked"
-                    subtitle={`Average Hours Worked, ${trendBucketLabel}`}
+                    subtitle={`Average Hours Worked, ${trendBucketLabel} — ${periodLabel}`}
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
                       data={hoursWorkedTrendData}
                       lines={[{ dataKey: "Avg Hours", color: GREEN_COLOR }]}
+                      onPointClick={(payload) => goToDated(payload?.filter)}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Attendance Rate — Trailing 12 Months"
+                    subtitle="Not Affected by the Date Filter"
+                    style="cardGapSmall"
+                  >
+                    <LineChartRenderer
+                      data={attendanceRateTrailing12MonthsData}
+                      lines={[{ dataKey: "Attendance Rate", color: BLUE_COLOR }]}
+                      onPointClick={(payload) => goToDated(payload?.filter)}
                     />
                   </ChartCard>
                 </CardLayout>
@@ -257,7 +325,7 @@ export default function TeamAttendanceOverview() {
                     </h2>
                   </div>
                   <p className="textXS textLight">
-                    Your team's attendance rate by department, anomaly
+                    Your team's attendance rate by department, day-state
                     composition, and hardware-scan vs app/remote channel mix,
                     this period.
                   </p>
@@ -266,29 +334,30 @@ export default function TeamAttendanceOverview() {
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Departments"
-                    subtitle="Attendance Rate (%), This Period"
+                    subtitle={`Attendance Rate (%), ${periodLabel}`}
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      dayType: "working",
+                      calendarType: "ordinary",
                       ...chartPeriodFilter,
                     }}
                   >
                     <HorizontalBarChartRenderer
                       data={departmentAttendanceData}
                       colorMap={BLUE_COLOR}
+                      onBarClick={(entry) => goToRegular(entry.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Status Breakdown"
-                    subtitle="By Record, This Period (Excludes Weekends)"
+                    subtitle={`By Record, ${periodLabel} (Excludes Weekends)`}
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      dayType: "working",
+                      calendarType: "ordinary",
                       ...chartPeriodFilter,
                     }}
                   >
@@ -296,17 +365,18 @@ export default function TeamAttendanceOverview() {
                       data={dayStateBreakdownData}
                       mode="semantic"
                       colorMap={ATTENDANCE_DAY_STATE_COLORS}
+                      onSliceClick={(entry) => goToRegular(entry.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Work Channel Mix"
-                    subtitle="Office (Hardware Scan) vs Remote (App), This Period"
+                    subtitle={`Office (Hardware Scan) vs Remote (App), ${periodLabel}`}
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{
                       ...chartBaseFilter,
-                      dayType: "working",
+                      calendarType: "ordinary",
                       ...chartPeriodFilter,
                     }}
                   >
@@ -314,6 +384,75 @@ export default function TeamAttendanceOverview() {
                       data={workChannelMixData}
                       mode="semantic"
                       colorMap={WORK_CHANNEL_COLORS}
+                      onSliceClick={(entry) => goToRegular(entry.filter)}
+                    />
+                  </ChartCard>
+                </CardLayout>
+              </div>
+            </div>
+
+            <div className="pdfOverviewSection">
+              <div style={{ justifyContent: "start", textAlign: "start" }}>
+                <div style={{ margin: "1rem 0" }}>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}
+                  >
+                    <WarningOctagonIcon size={24} />
+                    <h2 className="textL textBold">
+                      Data Quality & Reconciliation
+                    </h2>
+                  </div>
+                  <p className="textXS textLight">
+                    What's driving your team's Needs Reconciliation and Data
+                    Quality backlog right now, and who to follow up with.
+                  </p>
+                </div>
+
+                <CardLayout style="cardLayout2">
+                  <ChartCard
+                    title="Data Quality Breakdown"
+                    subtitle={`Outstanding Records, ${actionableLabel}`}
+                    style="cardGapSmall"
+                  >
+                    <PieChartRenderer
+                      data={evidenceQualityBreakdownData}
+                      onSliceClick={(entry) => goToActionable(entry.filter)}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Reconciliation Reasons"
+                    subtitle={`Outstanding Records, ${actionableLabel}`}
+                    style="cardGapSmall"
+                  >
+                    <HorizontalBarChartRenderer
+                      data={reconciliationReasonsBreakdownData}
+                      colorMap={RED_COLOR}
+                      onBarClick={(entry) => goToActionable(entry.filter)}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Top Needs Reconciliation"
+                    subtitle={`By Outstanding Records, ${actionableLabel}`}
+                    style="cardGapSmall"
+                  >
+                    <HorizontalBarChartRenderer
+                      data={topNeedsReconciliationData}
+                      colorMap={RED_COLOR}
+                      onBarClick={(entry) => goToActionable(entry.filter)}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Top Data Quality Issues"
+                    subtitle={`By Outstanding Records, ${actionableLabel}`}
+                    style="cardGapSmall"
+                  >
+                    <HorizontalBarChartRenderer
+                      data={topDataQualityData}
+                      colorMap={YELLOW_COLOR}
+                      onBarClick={(entry) => goToActionable(entry.filter)}
                     />
                   </ChartCard>
                 </CardLayout>
@@ -338,11 +477,11 @@ export default function TeamAttendanceOverview() {
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Top Absenteeism"
-                    subtitle="By Absent Days, This Period"
+                    subtitle={`By Absent Days, ${periodLabel}`}
                     style="cardGapSmall"
                     viewAllTo="../list"
-                    // dayType: "working" mirrors topAbsenteeismData's own
-                    // `and not is_weekend` guard in
+                    // calendarType: "ordinary" mirrors topAbsenteeismData's
+                    // own `and not is_weekend` guard in
                     // get_attendance_dashboard_rpc.sql -- see the identical
                     // fix on HR's AttendanceOverview.jsx. Without it a manager
                     // clicking through landed on roughly twice the days the
@@ -356,12 +495,13 @@ export default function TeamAttendanceOverview() {
                     <HorizontalBarChartRenderer
                       data={topAbsenteeismData}
                       colorMap={RED_COLOR}
+                      onBarClick={(entry) => goToRegular(entry.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Top Overtime"
-                    subtitle="By Overtime Hours, This Period"
+                    subtitle={`By Overtime Hours, ${periodLabel}`}
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{
@@ -373,6 +513,7 @@ export default function TeamAttendanceOverview() {
                     <HorizontalBarChartRenderer
                       data={topOvertimeData}
                       colorMap={YELLOW_COLOR}
+                      onBarClick={(entry) => goToRegular(entry.filter)}
                     />
                   </ChartCard>
                 </CardLayout>
@@ -389,14 +530,15 @@ export default function TeamAttendanceOverview() {
                     <h2 className="textL textBold">Leave</h2>
                   </div>
                   <p className="textXS textLight">
-                    Your team's leave days by type, this period.
+                    Your team's leave days by type, and who's taking the
+                    most, this period.
                   </p>
                 </div>
 
-                <CardLayout>
+                <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Leave by Type"
-                    subtitle="Total Days, This Period"
+                    subtitle={`Total Days, ${periodLabel}`}
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{
@@ -408,6 +550,34 @@ export default function TeamAttendanceOverview() {
                     <HorizontalBarChartRenderer
                       data={leaveTypeBreakdownData}
                       colorMap={PURPLE_COLOR}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Top Leave Days by Employee"
+                    subtitle={`Total Days, ${periodLabel}`}
+                    style="cardGapSmall"
+                  >
+                    <HorizontalBarChartRenderer
+                      data={topLeaveDaysByEmployeeData}
+                      colorMap={PURPLE_COLOR}
+                      onBarClick={(entry) =>
+                        goToRegular({ onLeave: "true", ...entry.filter })
+                      }
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Leave Days by Department"
+                    subtitle={`Total Days, ${periodLabel}`}
+                    style="cardGapSmall"
+                  >
+                    <HorizontalBarChartRenderer
+                      data={leaveDaysByDepartmentData}
+                      colorMap={PURPLE_COLOR}
+                      onBarClick={(entry) =>
+                        goToRegular({ onLeave: "true", ...entry.filter })
+                      }
                     />
                   </ChartCard>
                 </CardLayout>

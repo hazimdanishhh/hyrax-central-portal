@@ -36,6 +36,15 @@ function getPieColor(entry, mode, colorMap, colors) {
   return colors[Math.abs(hash % colors.length)];
 }
 
+// Opens a chart click-through in a new tab (2026-09-25) -- see the identical
+// helper in HorizontalBarChartRenderer.jsx for the full rationale (one
+// change here/there/LineChartRenderer.jsx updates every chart using these
+// renderers, instead of duplicating the decision per dashboard page).
+function openChartClickThrough(url) {
+  if (!url) return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 export default function PieChartRenderer({
   data,
   mode = "exploratory", // 👈 IMPORTANT
@@ -46,6 +55,13 @@ export default function PieChartRenderer({
   centerLabel,
   centerSubLabel,
   showLegend = true,
+  // Per-slice click-through (added 2026-09-25, Attendance Overview chart
+  // restructuring pass -- extends the onBarClick convention
+  // HorizontalBarChartRenderer/VerticalMultiBarRenderer already established)
+  // -- optional, a no-op for every other chart using this renderer that
+  // doesn't pass it. Recharts' own onClick natively receives the full
+  // data-point object each slice was drawn from.
+  onSliceClick,
 }) {
   const total = data?.reduce((sum, d) => sum + d.value, 0) || 0;
   const { darkMode } = useTheme();
@@ -61,6 +77,11 @@ export default function PieChartRenderer({
             innerRadius={innerRadius}
             outerRadius={outerRadius}
             label
+            onClick={
+              onSliceClick
+                ? (entry) => openChartClickThrough(onSliceClick(entry))
+                : undefined
+            }
           >
             {data?.map((entry) => {
               let fill;
@@ -71,7 +92,13 @@ export default function PieChartRenderer({
                 fill = getColorByKey(entry.name, colors);
               }
 
-              return <Cell key={entry.name} fill={fill} />;
+              return (
+                <Cell
+                  key={entry.name}
+                  fill={fill}
+                  cursor={onSliceClick ? "pointer" : undefined}
+                />
+              );
             })}
           </Pie>
 
