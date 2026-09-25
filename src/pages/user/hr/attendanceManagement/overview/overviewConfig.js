@@ -1,53 +1,98 @@
 import {
-  AlarmIcon,
-  CalendarDotsIcon,
   CalendarStarIcon,
   CalendarXIcon,
-  ClockUserIcon,
   GaugeIcon,
   HourglassHighIcon,
   SignInIcon,
   SignOutIcon,
   TrendDownIcon,
   TrendUpIcon,
-  UserMinusIcon,
   WarningCircleIcon,
+  WarningOctagonIcon,
 } from "@phosphor-icons/react";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
 import { formatHours } from "../../../../../functions/formatDate";
 
-// Mirrors getEmployeesOverviewConfig's tile shape and previous-period delta
-// pattern exactly (calcDelta -> "up/down X% vs last period" sub-metric), and
-// its 8-tile count. Tiles are grouped by what they actually measure, not
-// just "whatever fit" -- Today's Snapshot (point-in-time), Punctuality
-// (period-bound, split cleanly into check-in-side vs check-out-side so each
-// anomaly lives on the tile whose own metric it's derived from), Workload
-// (period-bound), and Absenteeism Rate (period-bound).
+// Restructured 2026-09-25, revised twice same day after review: each tile
+// answers exactly one question, using OverviewCards' `metrics` sub-row
+// capability the same way Employee Overview's "HR Actions Needed"/"Data
+// Gaps" tiles do -- a tile's headline is the sum of its sub-metrics (except
+// where noted), and each sub-metric still drills through independently.
+// Current 8 tiles:
 //
-// isPeriodFiltered: Attendance Rate/Pending Approvals/Attendance Anomalies
-// fall back to today (or, for the two anomaly tiles' backlog counts, the
-// true current backlog -- see get_attendance_dashboard_rpc.sql's header
-// comment) when no period is selected, and switch to reflect the selected
-// period once one is chosen. The RPC does the actual branching -- this flag
-// only picks which labels/sublabels/metric-row pairing to render, since
-// kpis.* already carries whichever value applies.
+//   1. Attendance Rate       -- present vs. working-day records, colored by
+//      ITS OWN rate (high-good) -- Absenteeism Rate folded in as of the
+//      second revision: they're two readings of the same present/roster
+//      data from opposite ends, so one color signal covers both instead of
+//      two tiles telling nearly the same story. Absent Days + its delta are
+//      now this tile's own sub-metrics.
+//   2. Needs Reconciliation  -- records that need an HR decision: pending
+//      approvals, leave conflicts, insufficient half-day hours, leave
+//      fraction errors. Deliberately NOT Absent (Attendance Rate already
+//      owns that) and NOT Missing Check-Outs/Incomplete Scans (those are
+//      DATA QUALITY gaps -- incomplete punch data -- not records needing a
+//      decision; see Data Quality below). Headline is needs_reconciliation's
+//      own real 5-condition flag from the view, which is a SUPERSET of the 4
+//      rows shown (it also counts unacknowledged absences and an unapproved
+//      app-hours delta, neither broken out here for the reasons above) --
+//      deliberate, not a bug.
+//   3. Average Check-In      -- what time, plus Late Arrivals. Colored by
+//      its own late-arrival RATE, not a raw count.
+//   4. Average Check-Out     -- what time, plus Early Leave. Colored by its
+//      own early-leave RATE. Split from Check-In (was one merged
+//      "Punctuality" tile) -- arriving late and leaving early are different
+//      behaviors with different likely causes, and a merged count hid which
+//      side was driving it.
+//   5. Data Quality          -- Missing Check-Outs + Incomplete Card Scans:
+//      punch data that's incomplete, as opposed to Needs Reconciliation's
+//      "complete but needs a decision". Both rows now behave identically
+//      (backlog when unfiltered, exact period once filtered) -- Incomplete
+//      Card Scans used to default to TODAY specifically; that special case
+//      is gone, since a stale incomplete scan needs the same follow-up
+//      regardless of which date range is on screen.
+//   6. Hours Worked          -- how MUCH ordinary-working-day time was
+//      logged (Average Hours Worked + Overtime).
+//   7. Non-Working-Day Hours -- Holiday + Weekend Work merged (same
+//      calculation shape, mutually exclusive with Overtime by construction,
+//      both answer "did anyone work when nobody was expected to").
+//   8. Leave Days            -- total leave taken, paid/unpaid split.
+//
+// Filter matching + "This Month" default (see get_attendance_dashboard_rpc.sql's
+// own header for the full 3-question rationale). Two families, both driven
+// by the RPC's own kpis.* values (this file never re-derives them, just
+// formats/labels what's already computed) -- department/employee always
+// apply to both:
+//
+//   * REGULAR metrics (Attendance Rate/Absent, Check-In/Check-Out, Hours
+//     Worked, Non-Working-Day Hours, Leave) default to THIS MONTH when no
+//     date range is picked, and match the selected range exactly once one
+//     is. `periodLabel`/`periodFilter` below.
+//   * ACTIONABLE metrics (Needs Reconciliation and its 4 rows, Data
+//     Quality's 2 rows) default to the TRUE CURRENT BACKLOG (unbounded by
+//     date) when no range is picked, and switch to "originated in the
+//     selected period" once one is chosen -- HR needs to see everything
+//     still outstanding the moment they land on the page, not just what
+//     happened to originate this month. `actionableLabel`/`actionableFilter`
+//     below.
+//
+// Drill-through filters use `calendarType: "ordinary"` for "a normal working
+// day" (DAY_CALENDAR_TYPE_OPTIONS' real value), not the legacy `dayType`
+// param this file used until 2026-09-25 -- `dayType` still resolves (a
+// backward-compat case in attendanceOverviewService.js) but isn't a
+// selectable option in filterConfig.js anymore, so a link built from it
+// pointed at a filter the UI itself doesn't expose.
 //
 // Drill-through pass: `filters` is the Overview's OWN active department/
 // employee/period filters -- threaded into every link below so a tile click
 // doesn't silently drop whatever the user had already narrowed down to.
-// Unlike Employee Overview (all-time default), Attendance's period-bound
-// KPIs default to MONTH-TO-DATE server-side when no period is selected
-// (get_attendance_dashboard_rpc.sql), so periodFilter below reproduces that
-// MTD default explicitly rather than leaving dates unbounded, which would
-// show a different, larger all-time set than the KPI actually represents.
-// Two tiles are the exception and use a true unbounded backlog instead of
-// MTD when unfiltered -- Pending Approvals and Missing Check-Outs -- handled
-// individually below, mirroring the RPC's own v_has_period branching.
 export function getAttendanceOverviewConfig(
   kpis = {},
   isPeriodFiltered = false,
   filters = {},
 ) {
+  const periodLabel = isPeriodFiltered ? "This Period" : "This Month";
+  const actionableLabel = isPeriodFiltered ? "This Period" : "Current Backlog";
+
   const calcDelta = (current, previous) => {
     if (previous === null || previous === undefined) return null;
     if (previous === 0 && current === 0) return 0;
@@ -57,11 +102,7 @@ export function getAttendanceOverviewConfig(
   };
 
   const deltaText = (delta) =>
-    delta === null
-      ? "No prior data"
-      : delta > 0
-        ? `↑ ${delta}% vs last period`
-        : `↓ ${Math.abs(delta)}% vs last period`;
+    delta === null ? "" : delta > 0 ? `↑ ${delta}%` : `↓ ${Math.abs(delta)}%`;
 
   const deltaIcon = (delta) =>
     delta === null ? null : delta >= 0 ? TrendUpIcon : TrendDownIcon;
@@ -74,13 +115,6 @@ export function getAttendanceOverviewConfig(
       timeStyle: "short",
     });
   };
-
-  // Hours as a decimal (e.g. 4.2) -- switches to days once it crosses 24h,
-  // since "Oldest Pending Approval" can genuinely span multiple days.
-  // const formatHours = (hours) => {
-  //   if (hours === null || hours === undefined) return "N/A";
-  //   return hours >= 24 ? `${(hours / 24).toFixed(1)}d` : `${hours.toFixed(1)}h`;
-  // };
 
   const avgHoursDelta = calcDelta(kpis.avgHoursWorked, kpis.prevAvgHoursWorked);
   const absentDaysDelta = calcDelta(
@@ -120,331 +154,210 @@ export function getAttendanceOverviewConfig(
     new Date().getMonth() + 1,
   ).padStart(2, "0")}-01`;
 
-  // Every period-bound tile's default when unfiltered is MTD, not all-time
-  // (see header comment) -- this always has a value, unlike Employee
-  // Overview's equivalent helper.
+  // REGULAR metrics -- always a concrete range: the selection, or This Month.
   const periodFilter = {
     startDate: filters.startDate || monthStart,
     endDate: filters.endDate || today,
   };
 
-  // "Today" tiles (Attendance Rate's Present/Working-Day sub-metrics,
-  // Incomplete Card Scans when unfiltered) use today specifically, not MTD,
-  // matching presentTodayCount/activeHeadcountToday/incompleteScansCount's
-  // own true-today scope in the RPC.
-  const todaySnapshotDates = isPeriodFiltered
+  // ACTIONABLE metrics -- omitted entirely when unfiltered (true backlog,
+  // matching the RPC's own unbounded query), the exact selection otherwise.
+  const actionableFilter = isPeriodFiltered
     ? { startDate: filters.startDate, endDate: filters.endDate }
-    : { startDate: today, endDate: today };
+    : {};
 
   // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
   // Color & Fill Convention"). Thresholds below are documented estimates,
   // not audited HR policy -- tune freely without touching statusVariant.js.
-  const pendingApprovalsCount = kpis.pendingApprovalsCount || 0;
-  // A backlog to clear, not a crisis -- worst tier is "warning", not
-  // "critical", so it fills yellow, never red.
-  const pendingApprovalsStatus = getStatusVariant(pendingApprovalsCount, {
-    direction: "low-good",
-    tiers: 2,
-    badLevel: "warning",
-    thresholds: { criticalAt: 1 },
-  });
-  const attendanceAnomaliesCount =
-    (kpis.missingCheckoutsCount || 0) + (kpis.incompleteScansCount || 0);
-  const attendanceAnomaliesStatus = getStatusVariant(attendanceAnomaliesCount, {
+  const needsReconciliationCount = kpis.needsReconciliationCount || 0;
+  const needsReconciliationStatus = getStatusVariant(needsReconciliationCount, {
     direction: "low-good",
     tiers: 2,
     badLevel: "critical",
     thresholds: { criticalAt: 1 },
   });
-  const avgHoursWorkedStatus = getStatusVariant(kpis.avgHoursWorked, {
-    direction: "target-band",
-    thresholds: { target: 8, warningTolerance: 0.5, criticalTolerance: 1 },
+  const lateArrivalsCount = kpis.lateArrivalsCount || 0;
+  const earlyLeaveCount = kpis.earlyLeaveCount || 0;
+  // Split back into Average Check-In/Average Check-Out (2026-09-25 -- was one
+  // merged "Punctuality" tile). Each tile's own color now comes from its OWN
+  // rate, not a combined count -- a coaching matter rather than a crisis, so
+  // worst tier stays "warning". Rate, not raw count: a flat count threshold
+  // doesn't mean the same thing at 20 vs. 2,000 employees, and
+  // lateArrivalRatePct/earlyLeaveRatePct are already computed against the
+  // right denominator (working-day records). 10% is a documented estimate,
+  // not audited policy -- tune freely.
+  const lateArrivalStatus = getStatusVariant(kpis.lateArrivalRatePct || 0, {
+    direction: "low-good",
+    tiers: 2,
+    badLevel: "warning",
+    thresholds: { criticalAt: 10 },
   });
-  // 0.01 approximates "any nonzero total" for a continuous hours value,
-  // same as the count-based tiles above do for integers with criticalAt: 1.
-  const overtimeStatus = getStatusVariant(kpis.overtimeHoursTotal || 0, {
+  const earlyLeaveStatus = getStatusVariant(kpis.earlyLeaveRatePct || 0, {
+    direction: "low-good",
+    tiers: 2,
+    badLevel: "warning",
+    thresholds: { criticalAt: 10 },
+  });
+  const missingCheckoutsCount = kpis.missingCheckoutsCount || 0;
+  const incompleteScansCount = kpis.incompleteScansCount || 0;
+  // Data Quality (2026-09-25, new -- see the discussion this replaces:
+  // Missing Check-Outs/Incomplete Card Scans used to sit inside Needs
+  // Reconciliation, but neither is one of needs_reconciliation's own 5 real
+  // conditions -- both are "we don't have complete punch data" gaps, not "a
+  // record exists and needs a decision"). Sum-of-sub-metrics headline, same
+  // convention as Needs Reconciliation -- worst tier is "critical": missing
+  // punch data blocks payroll the same way an unapproved activity does.
+  const dataQualityCount = missingCheckoutsCount + incompleteScansCount;
+  const dataQualityStatus = getStatusVariant(dataQualityCount, {
+    direction: "low-good",
+    tiers: 2,
+    badLevel: "critical",
+    thresholds: { criticalAt: 1 },
+  });
+  // hours_worked is the raw on-site span (clock-in to clock-out) and is
+  // never reduced for the 1-hour unpaid lunch (see Overtime's own title
+  // below: "8 paid hours means a 9-hour span, since the 1-hour unpaid lunch
+  // sits inside it") -- so a normal, complete day reads as ~9 hours, not 8.
+  // high-good (not target-band): only falling SHORT of a full day is a
+  // concern here -- working longer than 9 hours is never penalized by this
+  // tile, since that's exactly what the Overtime sub-metric already tracks
+  // in its own right.
+  const avgHoursWorkedStatus = getStatusVariant(kpis.avgHoursWorked, {
+    direction: "high-good",
+    thresholds: { warningAt: 8, goodAt: 9 },
+  });
+  const nonWorkingDayHoursTotal =
+    (kpis.holidayHoursWorkedTotal || 0) + (kpis.weekendHoursWorkedTotal || 0);
+  // Public holidays integration -- "any nonzero total" convention: a
+  // payroll-relevant fact worth HR's attention, not necessarily a problem,
+  // hence "warning" not "critical". 0.01 approximates "any nonzero" for a
+  // continuous hours value.
+  const nonWorkingDayHoursStatus = getStatusVariant(nonWorkingDayHoursTotal, {
     direction: "low-good",
     tiers: 2,
     badLevel: "warning",
     thresholds: { criticalAt: 0.01 },
   });
-  // Public holidays integration -- same "any nonzero total" convention as
-  // Overtime above (0.01 approximates "any nonzero" for a continuous hours
-  // value) -- a payroll-relevant fact worth HR's attention, not necessarily
-  // a problem, hence "warning" not "critical".
-  const holidayWorkedStatus = getStatusVariant(
-    kpis.holidayHoursWorkedTotal || 0,
-    {
-      direction: "low-good",
-      tiers: 2,
-      badLevel: "warning",
-      thresholds: { criticalAt: 0.01 },
-    },
-  );
-  // Same "any nonzero total" convention as Holiday Work above -- a
-  // payroll-relevant fact worth HR's attention, not necessarily a problem.
-  const weekendWorkedStatus = getStatusVariant(
-    kpis.weekendHoursWorkedTotal || 0,
-    {
-      direction: "low-good",
-      tiers: 2,
-      badLevel: "warning",
-      thresholds: { criticalAt: 0.01 },
-    },
-  );
-  const absenteeismStatus = getStatusVariant(kpis.absenteeismRatePct || 0, {
-    direction: "low-good",
-    thresholds: { warningAt: 3, criticalAt: 6 },
+  // Attendance Rate's own color (2026-09-25 -- was static blue, with
+  // Absenteeism Rate carrying the only dynamic color between the two).
+  // high-good, not low-good-on-absenteeism: same underlying present/roster
+  // data either way, this just reads it from the "bigger is better" side.
+  // 90/95% are documented estimates, not audited HR policy.
+  const attendanceRateStatus = getStatusVariant(kpis.attendanceRatePct || 0, {
+    direction: "high-good",
+    thresholds: { warningAt: 90, goodAt: 95 },
   });
 
   return [
-    // ==========================================
-    // TODAY'S SNAPSHOT (point-in-time, ignores the period filter)
-    // ==========================================
-
     {
       icon: GaugeIcon,
       label: "Attendance Rate",
-      sublabel: isPeriodFiltered
-        ? "This Period, vs Working-Day Records"
-        : "Today, vs Active Headcount",
+      sublabel: periodLabel,
       value: `${kpis.attendanceRatePct || 0}%`,
-      variant: "blueCardFill",
-      // A rate has no matching row-set -- was already correctly unlinked.
-      to: null,
-      metrics: isPeriodFiltered
-        ? [
-            {
-              label: "Present This Period",
-              value: kpis.presentPeriodCount || 0,
-              to: "../list",
-              filter: {
-                ...baseFilter,
-                presentOnly: "true",
-                ...todaySnapshotDates,
-              },
-            },
-            {
-              label: "Working-Day Records",
-              value: kpis.workingDayRecordsCount || 0,
-              to: "../list",
-              filter: {
-                ...baseFilter,
-                dayType: "working",
-                ...todaySnapshotDates,
-              },
-            },
-          ]
-        : [
-            {
-              label: "Present Today",
-              value: kpis.presentTodayCount || 0,
-              to: "../list",
-              filter: {
-                ...baseFilter,
-                presentOnly: "true",
-                ...todaySnapshotDates,
-              },
-            },
-            {
-              label: "Active Headcount",
-              value: kpis.activeHeadcountToday || 0,
-              // Sourced from employees/employment_status directly, not
-              // attendance data (unified_daily_attendance only has rows for
-              // days something already happened) -- the only accurate
-              // target is the Employee List's own active-bucket filter, a
-              // cross-page link.
-              to: "/app/hr/employees/list",
-              filter: { statusBucket: "active" },
-            },
-          ],
-      title: isPeriodFiltered
-        ? "Employees with any real check-in data, divided by working-day records (Weekend/Rest-Day excluded), pooled across the selected period. Falls back to today's real-time snapshot whenever no period is selected."
-        : "Employees with any real check-in data today (hardware scan or app clock-in), divided by active headcount (Active/Probation/On Leave/Sabbatical). Real-time by default -- switches to a period-wide rate once a period is selected below.",
-    },
-    {
-      icon: ClockUserIcon,
-      label: "Pending Approvals",
-      sublabel: isPeriodFiltered ? "Originated This Period" : "Current Backlog",
-      value: pendingApprovalsCount,
-      variant: pendingApprovalsStatus.variant,
+      variant: attendanceRateStatus.variant,
       status: {
-        icon: pendingApprovalsStatus.statusIcon,
-        label: pendingApprovalsStatus.statusLabel,
+        icon: attendanceRateStatus.statusIcon,
+        label: attendanceRateStatus.statusLabel,
       },
+      // The rate's own denominator population (all working-day records) --
+      // matches Working-Day Records' own sub-metric below.
       to: "../list",
-      // Backlog (no date bound) when unfiltered, mirroring
-      // pending_backlog_count exactly -- only date-bound once a period is
-      // actually selected, mirroring pending_period_count.
-      filter: {
-        ...baseFilter,
-        approvalState: "pending",
-        ...(isPeriodFiltered && {
-          startDate: filters.startDate,
-          endDate: filters.endDate,
-        }),
-      },
+      filter: { ...baseFilter, calendarType: "ordinary", ...periodFilter },
       metrics: [
         {
-          label: "Avg Approval Turnaround",
-          value: formatHours(kpis.avgApprovalTurnaroundHours),
+          label: "Present",
+          value: kpis.presentPeriodCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, presentOnly: "true", ...periodFilter },
         },
         {
-          label: "Oldest Pending Approval",
-          value: formatHours(kpis.oldestPendingApprovalHours),
+          label: "Working-Day Records",
+          value: kpis.workingDayRecordsCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, calendarType: "ordinary", ...periodFilter },
+        },
+        {
+          label: "Absent Days",
+          value: kpis.absentDaysCount || 0,
+          to: "../list",
+          filter: { ...baseFilter, dayState: "absent", ...periodFilter },
+        },
+        {
+          label: "Absent, Prev. Period",
+          value: deltaText(absentDaysDelta),
+          icon: deltaIcon(absentDaysDelta),
         },
       ],
-      title: isPeriodFiltered
-        ? "Self-service app clock-ins awaiting HR/manager approval that were clocked in during the selected period and are still Pending, plus two turnaround signals: Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (the longest-waiting Pending activity originated this period, how long it's been sitting, right now). Click through to the List, pre-filtered to Pending App Approval."
-        : "The true current backlog of self-service app clock-ins awaiting HR/manager approval, regardless of which day they were originally clocked in on (fixed from an earlier version of this tile that only counted items clocked in today) -- switches to only what originated in the selected period once one is chosen. Avg Approval Turnaround (time between clock-in and the HR/manager decision, for activities Approved/Rejected this period) and Oldest Pending Approval (how long the longest-waiting Pending activity has been sitting, right now). Click through to the List, pre-filtered to Pending App Approval.",
+      title:
+        "How many employees checked in, compared to how many were expected to work -- and how many were absent.",
     },
-    {
-      icon: WarningCircleIcon,
-      label: "Attendance Anomalies",
-      sublabel: isPeriodFiltered
-        ? "This Period, Data-Quality Exceptions"
-        : "Current Exceptions",
-      // Sum-of-sub-metrics headline, same pattern Employee Overview's own
-      // "HR Actions Needed" tile uses -- these are a different anomaly
-      // class from Pending Approvals above (data-quality exceptions in the
-      // raw punch data, not an approval-workflow state), so they get their
-      // own tile rather than being folded into it.
-      value: attendanceAnomaliesCount,
-      variant: attendanceAnomaliesStatus.variant,
-      status: {
-        icon: attendanceAnomaliesStatus.statusIcon,
-        label: attendanceAnomaliesStatus.statusLabel,
-      },
-      // The headline sums two independent hr_flag buckets -- no single
-      // filter reproduces it (the previous hardcoded link only ever showed
-      // half of what was summed). Each reason is its own sub-metric
-      // instead, same treatment as Employee Overview's Data Gaps tile.
-      to: null,
-      metrics: [
-        {
-          label: isPeriodFiltered
-            ? "Missing Check-Outs"
-            : "Missing Check-Outs (Backlog)",
-          value: kpis.missingCheckoutsCount || 0,
-          to: "../list",
-          filter: {
-            ...baseFilter,
-            evidenceQuality: "open_session",
-            ...(isPeriodFiltered && {
-              startDate: filters.startDate,
-              endDate: filters.endDate,
-            }),
-          },
-        },
-        {
-          label: isPeriodFiltered
-            ? "Incomplete Card Scans"
-            : "Incomplete Card Scans (Today)",
-          value: kpis.incompleteScansCount || 0,
-          to: "../list",
-          filter: {
-            ...baseFilter,
-            evidenceQuality: "single_scan",
-            ...todaySnapshotDates,
-          },
-        },
-      ],
-      title: isPeriodFiltered
-        ? "This period's raw punch-data exceptions: app clock-in sessions clocked in during the period that are still left open with no clock-out, and hardware badge scans with only one tap recorded that day (no matching in/out pair)."
-        : "Current raw punch-data exceptions: Missing Check-Outs is the true backlog of app clock-in sessions still left open with no clock-out, regardless of which day they started (fixed from an earlier version that only counted sessions opened today). Incomplete Card Scans is today's count of hardware badge scans with only one tap recorded (no matching in/out pair) -- a per-day fact, not a lingering backlog.",
-    },
-
-    // ==========================================
-    // PUNCTUALITY (period-bound) -- split by check-in vs check-out side, so
-    // each anomaly (Late Arrivals, Early Leave) lives on the tile whose own
-    // average time it's derived from.
-    // ==========================================
 
     {
       icon: SignInIcon,
       label: "Average Check-In",
-      sublabel: "This Period",
+      sublabel: periodLabel,
       value: formatTimeDisplay(kpis.avgCheckInTime),
-      variant: "blueCard",
-      // An average has no exact matching row-set -- links to the working-day
-      // population it's averaged over, the best available "see who" target.
+      variant: lateArrivalStatus.variant,
+      status: {
+        icon: lateArrivalStatus.statusIcon,
+        label: lateArrivalStatus.statusLabel,
+      },
       to: "../list",
-      filter: { ...baseFilter, dayType: "working", ...periodFilter },
+      filter: { ...baseFilter, calendarType: "ordinary", ...periodFilter },
       metrics: [
         {
           label: "Late Arrivals",
-          value: `${kpis.lateArrivalsCount || 0} (${kpis.lateArrivalRatePct || 0}%)`,
+          value: `${lateArrivalsCount} (${kpis.lateArrivalRatePct || 0}%)`,
           to: "../list",
           filter: { ...baseFilter, lateArrival: "true", ...periodFilter },
         },
       ],
-      title:
-        "Average first check-in time across ordinary working days in the selected period -- weekends, public holidays, leave days and absences are all excluded. Late Arrivals counts days where someone arrived after 09:00 AND came up short of a full 8 paid hours: arriving late and staying late is not flagged, matching how overtime is already measured by duration rather than clock time. The 09:00 threshold is a fixed company-wide assumption, not a real per-employee/department shift -- no shift/schedule table exists in this system yet; revisit once one does.",
+      title: "Average first check-in time, and how often people arrived late.",
     },
+
     {
       icon: SignOutIcon,
       label: "Average Check-Out",
-      sublabel: "This Period",
+      sublabel: periodLabel,
       value: formatTimeDisplay(kpis.avgCheckOutTime),
-      variant: "blueCard",
+      variant: earlyLeaveStatus.variant,
+      status: {
+        icon: earlyLeaveStatus.statusIcon,
+        label: earlyLeaveStatus.statusLabel,
+      },
       to: "../list",
-      filter: { ...baseFilter, dayType: "working", ...periodFilter },
+      filter: { ...baseFilter, calendarType: "ordinary", ...periodFilter },
       metrics: [
         {
           label: "Early Leave",
-          value: `${kpis.earlyLeaveCount || 0} (${kpis.earlyLeaveRatePct || 0}%)`,
+          value: `${earlyLeaveCount} (${kpis.earlyLeaveRatePct || 0}%)`,
           to: "../list",
           filter: { ...baseFilter, earlyLeave: "true", ...periodFilter },
         },
       ],
-      title:
-        "Average last check-out time across ordinary working days in the selected period -- weekends, public holidays, leave days and absences are all excluded, as are days with a single badge scan and no check-out (that scan is an arrival, not a departure). Early Leave counts days where someone left before their work location's cutoff -- KL 5:00 PM, Meru 5:30 PM -- AND came up short of a full 8 paid hours, so arriving early and leaving early is not flagged.",
+      title: "Average last check-out time, and how often people left early.",
     },
-
-    // ==========================================
-    // WORKLOAD (period-bound)
-    // ==========================================
 
     {
       icon: HourglassHighIcon,
-      label: "Average Hours Worked",
-      sublabel: "This Period",
+      label: "Hours Worked",
+      sublabel: periodLabel,
       value: formatHours(kpis.avgHoursWorked) || 0,
+      subvalue: deltaText(avgHoursDelta),
       variant: avgHoursWorkedStatus.variant,
       status: {
         icon: avgHoursWorkedStatus.statusIcon,
         label: avgHoursWorkedStatus.statusLabel,
       },
       to: "../list",
-      filter: { ...baseFilter, dayType: "working", ...periodFilter },
+      filter: { ...baseFilter, calendarType: "ordinary", ...periodFilter },
       metrics: [
         {
-          label: "Prev. Period",
-          value: deltaText(avgHoursDelta),
-          icon: deltaIcon(avgHoursDelta),
-          // A delta has no matching row-set -- not linked.
-        },
-      ],
-      title:
-        "Average hours_worked across working-day records in the selected period (Weekend/Rest-Day and Absent records excluded).",
-    },
-    {
-      icon: AlarmIcon,
-      label: "Overtime Hours",
-      sublabel: "Total, This Period",
-      value: formatHours(kpis.overtimeHoursTotal),
-      variant: overtimeStatus.variant,
-      status: {
-        icon: overtimeStatus.statusIcon,
-        label: overtimeStatus.statusLabel,
-      },
-      to: "../list",
-      filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
-      metrics: [
-        {
-          label: "Prev. Period",
-          value: deltaText(overtimeDelta),
+          label: "Overtime Hours",
+          value: formatHours(kpis.overtimeHoursTotal),
           icon: deltaIcon(overtimeDelta),
+          to: "../list",
+          filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
         },
         {
           label: "Employees With Overtime",
@@ -453,145 +366,67 @@ export function getAttendanceOverviewConfig(
           filter: { ...baseFilter, overtimeOnly: "true", ...periodFilter },
         },
       ],
-      title:
-        "Sum of hours worked beyond the normal 8 paid hours in a day, per Employment Act s.60A, across working-day records in the selected period. Based purely on how long the employee was on site -- not on what time they left. A 10-hour day is 1 hour of overtime whether it ran 07:30-17:30 or 09:00-19:00. (8 paid hours means a 9-hour span, since the 1-hour unpaid lunch sits inside it.) A flat company-wide threshold, not per work location. Weekend and public-holiday work is excluded here: it is paid under its own rest-day/holiday rate tiers instead. Employees With Overtime is a distinct-employee count, while its link shows one row per qualifying day -- an employee with overtime on 3 different days appears 3 times in the list but counts once here.",
+      title: "Average hours worked per day, plus total overtime.",
     },
 
-    // Public holidays integration -- reconciliation metric for employees
-    // who actually attended on a day nobody was expected to work.
-    // MUTUALLY EXCLUSIVE with Overtime above, by construction: holiday and
-    // weekend work is paid under its own rest-day/holiday rate tiers
-    // (Employment Act s.60(3)/s.60D(3)), never as normal-day overtime, so
-    // unified_daily_attendance forces overtime_hours to 0 on those days.
-    // The same day can never contribute to both tiles. (An older version of
-    // this comment claimed the opposite, and framed the distinction as
-    // "time-of-day vs day-type" -- both were wrong: overtime has been
-    // zeroed on holidays since 2026-09-15, and as of 2026-09-22 overtime is
-    // an hours-beyond-8 measure with no time-of-day component at all.)
+    // Public holidays integration -- reconciliation metric for employees who
+    // actually attended on a day nobody was expected to work. MUTUALLY
+    // EXCLUSIVE with Overtime above, by construction: holiday and weekend
+    // work is paid under its own rest-day/holiday rate tiers (Employment Act
+    // s.60(3)/s.60D(3)), never as normal-day overtime, so
+    // unified_daily_attendance forces overtime_hours to 0 on those days. The
+    // same day can never contribute to both tiles.
     {
       icon: CalendarStarIcon,
-      label: "Holiday Work",
-      sublabel: "Total Hours, This Period",
-      value: formatHours(kpis.holidayHoursWorkedTotal),
-      variant: holidayWorkedStatus.variant,
+      label: "Non-Working-Day Hours",
+      sublabel: `${periodLabel}`,
+      value: formatHours(nonWorkingDayHoursTotal),
+      variant: nonWorkingDayHoursStatus.variant,
       status: {
-        icon: holidayWorkedStatus.statusIcon,
-        label: holidayWorkedStatus.statusLabel,
+        icon: nonWorkingDayHoursStatus.statusIcon,
+        label: nonWorkingDayHoursStatus.statusLabel,
       },
-      to: "../list",
-      filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
+      to: null,
       metrics: [
         {
-          label: "Prev. Period",
-          value: deltaText(holidayHoursWorkedDelta),
+          label: "Holiday Hours",
+          value: formatHours(kpis.holidayHoursWorkedTotal),
           icon: deltaIcon(holidayHoursWorkedDelta),
+          to: "../list",
+          filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
         },
         {
-          label: "Employees Worked on Holiday",
+          label: "Employees Worked (Holiday)",
           value: kpis.employeesWorkedOnHolidayCount || 0,
           to: "../list",
           filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
         },
         {
-          label: "Days Worked on Holiday",
-          value: kpis.holidayDaysWorkedCount || 0,
-          to: "../list",
-          filter: { ...baseFilter, workedOnHoliday: "true", ...periodFilter },
-        },
-      ],
-      title:
-        "Sum of hours_worked on days flagged is_public_holiday, this period -- HR2000's public holiday calendar cross-checked against real attendance. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Holiday is a distinct-employee count; Days Worked on Holiday counts every qualifying day, so one employee working 3 holidays counts as 3.",
-    },
-
-    // Weekend work -- mirrors Holiday Work above exactly. Not mutually
-    // exclusive with it -- a Saturday that's also a public holiday can
-    // contribute hours to both tiles.
-    {
-      icon: CalendarDotsIcon,
-      label: "Weekend Work",
-      sublabel: "Total Hours, This Period",
-      value: formatHours(kpis.weekendHoursWorkedTotal),
-      variant: weekendWorkedStatus.variant,
-      status: {
-        icon: weekendWorkedStatus.statusIcon,
-        label: weekendWorkedStatus.statusLabel,
-      },
-      to: "../list",
-      filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
-      metrics: [
-        {
-          label: "Prev. Period",
-          value: deltaText(weekendHoursWorkedDelta),
+          label: "Weekend Hours",
+          value: formatHours(kpis.weekendHoursWorkedTotal),
           icon: deltaIcon(weekendHoursWorkedDelta),
+          to: "../list",
+          filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
         },
         {
-          label: "Employees Worked on Weekend",
+          label: "Employees Worked (Weekend)",
           value: kpis.employeesWorkedOnWeekendCount || 0,
           to: "../list",
           filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
         },
-        {
-          label: "Days Worked on Weekend",
-          value: kpis.weekendDaysWorkedCount || 0,
-          to: "../list",
-          filter: { ...baseFilter, workedOnWeekend: "true", ...periodFilter },
-        },
       ],
-      title:
-        "Sum of hours_worked on days flagged is_weekend, this period -- a real reconciliation fact, since weekend work no longer disappears from the day's status the moment someone actually comes in. Not a pay calculation (no rate/multiplier data exists in this app) -- a factual hours figure to reconcile against payroll manually. Employees Worked on Weekend is a distinct-employee count; Days Worked on Weekend counts every qualifying day, so one employee working 3 weekends counts as 3.",
+      title: "Hours worked on public holidays or weekends.",
     },
 
     // ==========================================
-    // ABSENTEEISM (period-bound)
-    // ==========================================
-
-    {
-      icon: UserMinusIcon,
-      label: "Absenteeism Rate",
-      sublabel: "This Period",
-      value: `${kpis.absenteeismRatePct || 0}%`,
-      variant: absenteeismStatus.variant,
-      status: {
-        icon: absenteeismStatus.statusIcon,
-        label: absenteeismStatus.statusLabel,
-      },
-      // The rate's own denominator population (all working-day records),
-      // not just the absent slice -- Absent Days below is the sub-metric
-      // for that.
-      to: "../list",
-      filter: { ...baseFilter, dayType: "working", ...periodFilter },
-      metrics: [
-        {
-          label: "Absent Days",
-          value: kpis.absentDaysCount || 0,
-          to: "../list",
-          filter: {
-            ...baseFilter,
-            dayState: "absent",
-            ...periodFilter,
-          },
-        },
-        {
-          label: "Prev. Period",
-          value: deltaText(absentDaysDelta),
-          icon: deltaIcon(absentDaysDelta),
-        },
-      ],
-      title:
-        "Absent-flagged records divided by all working-day records (Weekend/Rest-Day excluded) in the selected period.",
-    },
-
-    // ==========================================
-    // LEAVE (period-bound) -- HR2000 leave ledger integration. Grouped next
-    // to Absenteeism Rate since both measure workforce availability; unlike
-    // absenteeism this is never a "problem" figure, so it never gets a
-    // status-variant color -- a plain neutral tile, matching how Pending
-    // Approvals' own turnaround sub-metrics are unstatused too.
+    // LEAVE (period-bound) -- HR2000 leave ledger integration. Never a
+    // "problem" figure, so it never gets a status-variant color -- a plain
+    // neutral tile.
     // ==========================================
     {
       icon: CalendarXIcon,
       label: "Leave Days",
-      sublabel: "Total, This Period",
+      sublabel: `${periodLabel}`,
       value: kpis.leaveDaysCount || 0,
       variant: "blueCard",
       to: "../list",
@@ -625,8 +460,130 @@ export function getAttendanceOverviewConfig(
           icon: deltaIcon(unpaidLeaveDaysDelta),
         },
       ],
+      title: "Total leave days taken, including how many were unpaid.",
+    },
+
+    // Data Quality (2026-09-25, new) -- "we don't have complete punch data",
+    // distinct from Needs Reconciliation's "a record exists and needs a
+    // decision". See dataQualityCount's own comment above.
+    {
+      icon: WarningOctagonIcon,
+      label: "Data Quality",
+      sublabel: actionableLabel,
+      value: dataQualityCount,
+      variant: dataQualityStatus.variant,
+      status: {
+        icon: dataQualityStatus.statusIcon,
+        label: dataQualityStatus.statusLabel,
+      },
+      to: null,
+      metrics: [
+        {
+          label: "Missing Check-Outs",
+          value: missingCheckoutsCount,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            evidenceQuality: "open_session",
+            ...actionableFilter,
+          },
+        },
+        {
+          label: "Incomplete Card Scans",
+          value: incompleteScansCount,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            evidenceQuality: "single_scan",
+            ...actionableFilter,
+          },
+        },
+      ],
       title:
-        "Sum of day_fraction across all HR2000 leave-ledger entries falling in the selected period (0.5/1.0 per entry), regardless of whether the employee also had real check-in data that same day. Employees on Leave is a distinct-employee count for the same period. Unpaid Leave Days sums only entries whose leave type is marked unpaid (e.g. No-Pay Leave) -- this classification is not yet confirmed with HR/payroll for every leave type.",
+        "Punch data that's incomplete: open app sessions with no check-out, and single hardware scans with no matching pair.",
+    },
+
+    {
+      icon: WarningCircleIcon,
+      label: "Needs Reconciliation",
+      sublabel: actionableLabel,
+      value: needsReconciliationCount,
+      variant: needsReconciliationStatus.variant,
+      status: {
+        icon: needsReconciliationStatus.statusIcon,
+        label: needsReconciliationStatus.statusLabel,
+      },
+      to: "../list",
+      filter: {
+        ...baseFilter,
+        needsReconciliation: "true",
+        ...actionableFilter,
+      },
+      // Deliberately NOT Missing Check-Outs/Incomplete Card Scans/
+      // Unacknowledged Absences/Unapproved Hours Delta -- see the 2026-09-25
+      // discussion: Absenteeism Rate already owns absence (Unacknowledged
+      // Absences would just be the same fact twice), and Missing Check-Outs/
+      // Incomplete Card Scans are DATA-QUALITY gaps (we don't have complete
+      // punch data), not RECONCILIATION items (a record exists and needs a
+      // decision) -- open question whether those two get their own tile
+      // elsewhere, not resolved here. Unapproved Hours Delta dropped because
+      // Pending Approvals is its practical cause/proxy (an activity sits as
+      // app_hours but not approved_app_hours specifically because it's
+      // Pending) -- showing both would be the same underlying fact twice.
+      //
+      // NOTE: the headline above (needsReconciliationCount) is the view's
+      // real 5-condition needs_reconciliation flag, which is a SUPERSET of
+      // these 4 rows (it also counts unacknowledged absences and the
+      // unapproved-hours delta, neither broken out here for the reasons
+      // above) -- so the headline will not exactly equal the sum of the 4
+      // rows below. Deliberate, not a bug: this still keeps the headline as
+      // the one true "does this need review at all" figure (matching the
+      // List page's own identically-named tile), while the visible
+      // breakdown stays to the kinds that are genuinely distinct questions.
+      metrics: [
+        {
+          label: "Pending Approvals",
+          value: kpis.pendingApprovalsCount || 0,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            approvalState: "pending",
+            ...actionableFilter,
+          },
+        },
+        {
+          label: "Leave Conflicts",
+          value: kpis.leaveConflictCount || 0,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            leaveAttendanceConflict: "true",
+            ...actionableFilter,
+          },
+        },
+        {
+          label: "Insufficient Half-Day Hours",
+          value: kpis.insufficientHalfDayCount || 0,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            insufficientHalfDayHours: "unresolved",
+            ...actionableFilter,
+          },
+        },
+        {
+          label: "Leave Fraction Errors",
+          value: kpis.leaveFractionErrorCount || 0,
+          to: "../list",
+          filter: {
+            ...baseFilter,
+            leaveFractionError: "true",
+            ...actionableFilter,
+          },
+        },
+      ],
+      title:
+        "Records that need HR's attention: pending approvals, leave conflicts, insufficient half-day hours, and leave data errors.",
     },
   ];
 }

@@ -27,6 +27,7 @@ import DataTable from "@/components/dataTable/DataTable";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
 import StatusTab from "@/components/crud/statusTab/StatusTab";
 import ActionModal from "@/components/modals/actionModal/ActionModal";
+import OverviewCards from "@/components/crud/overviewCards/OverviewCards";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
 import { useMessage } from "@/context/MessageContext";
 import { useEmployee } from "@/context/EmployeeContext";
@@ -37,8 +38,10 @@ import { useAttendanceActivityById } from "@/features/hr/attendance/private/hook
 import { attendanceDailySummaryTableConfig } from "@/pages/user/hr/attendanceManagement/list/tableConfig";
 import { getAttendanceActivitiesSortConfig } from "@/pages/user/hr/attendanceManagement/list/sortConfig";
 import { getAttendanceActivitiesLayoutConfig } from "@/pages/user/hr/attendanceManagement/list/layoutConfig";
+import { getAttendanceListOverviewConfig } from "@/pages/user/hr/attendanceManagement/list/overviewConfig";
 import useTeamAttendanceDailyList from "@/features/employee/attendance/private/hooks/useTeamAttendanceDailyList";
 import useTeamAttendanceSearch from "@/features/employee/attendance/private/hooks/useTeamAttendanceSearch";
+import useTeamAttendanceListOverview from "@/features/employee/attendance/private/hooks/useTeamAttendanceListOverview";
 import { getTeamAttendanceFilterConfig } from "./filterConfig";
 import { buildStatusTabs } from "@/functions/statusTabs";
 import { getAttendanceStatusTabsConfig } from "@/functions/attendanceStatusTabsConfig";
@@ -157,6 +160,24 @@ export default function TeamAttendance() {
   const { date, setDate, goToPreviousDay, goToNextDay, goToToday } =
     dayModeResult;
   const { page, totalPages, setPage } = searchModeResult;
+
+  // ==============
+  // KPI STRIP (see HR's list/overviewConfig.js, shared) -- see
+  // AttendanceManagement.jsx's matching comment for why Day mode folds
+  // `date` into this scope. No manager filter needed here: p_manager_id is
+  // already pinned inside useTeamAttendanceListOverview.
+  // ==============
+  const overviewFilterScope = isSearchMode
+    ? filters
+    : { ...filters, startDate: date, endDate: date };
+  const { data: listOverview } = useTeamAttendanceListOverview(
+    employee?.id,
+    overviewFilterScope,
+  );
+  const overviewItems = getAttendanceListOverviewConfig(
+    listOverview?.kpis,
+    overviewFilterScope,
+  );
 
   // ==============
   // METADATA -- direct reports only, never the company-wide roster
@@ -281,6 +302,8 @@ export default function TeamAttendance() {
 
   return (
     <>
+      <OverviewCards items={overviewItems} style="overviewCard2" />
+
       <SearchFilterBar
         search={search}
         onSearchChange={setSearch}

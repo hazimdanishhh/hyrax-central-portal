@@ -163,7 +163,7 @@ export default function MyAttendanceOverview() {
                   <p className="textXS textLight">
                     {isPeriodFiltered
                       ? "Your attendance for the selected period."
-                      : "Your attendance today and how it's trending this period."}
+                      : "Your attendance this month, and what still needs action."}
                   </p>
                 </div>
 

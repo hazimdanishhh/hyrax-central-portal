@@ -15,20 +15,44 @@
 -- folded into Employee Management -- this filter is what gives it the
 -- per-employee angle that would otherwise be the reason to fold it in.
 --
--- Point-in-time vs period-bound (DASHBOARD-CONVENTIONS.md): presentTodayCount/
--- activeHeadcountToday/pending_backlog_count/missing_checkout_backlog_count/
--- incomplete_scans_today_count/oldest_pending_backlog_hours are always
--- computed (today or true unbounded backlog, matching Finance's AR aging
--- convention), but which of those vs. their period-scoped siblings actually
--- surfaces in the final `attendanceRatePct`/`pendingApprovalsCount`/
--- `missingCheckoutsCount`/`incompleteScansCount`/`oldestPendingApprovalHours`
--- keys depends on v_has_period -- see "Pass 4" below. activeHeadcountToday
--- is read from employees/employment_status directly, NOT from
--- unified_daily_attendance -- that view only produces a row for a given
--- date once at least one scan/activity happens somewhere that day (its own
--- active_company_dates spine), so reading headcount from it would show 0
--- before the first scan of the morning ("nobody's employed" instead of
--- "nobody's scanned yet").
+-- Filter matching + "This Month" default (2026-09-25, per the user's
+-- decision -- think of it as three questions: what does HR need to see the
+-- moment they open this page with no filters at all; what happens once they
+-- narrow to a department/employee/work location; what happens once they also
+-- pick a date range):
+--
+--   1. NO FILTERS AT ALL: every REGULAR metric (Attendance Rate -- which
+--      Absenteeism/Absent Days folded into, 2026-09-25 -- Check-In/Check-Out,
+--      Workload, Leave) defaults to THIS MONTH -- a sensible, bounded
+--      snapshot, not an unbounded multi-year scan. Every ACTIONABLE metric
+--      (Pending Approvals, Missing Check-Outs, Incomplete Card Scans, Needs
+--      Reconciliation, Leave Conflict) instead shows the TRUE CURRENT
+--      BACKLOG, unbounded by date -- HR needs to see everything still
+--      outstanding the moment they land on the page, not just what happened
+--      to originate this month. (Incomplete Card Scans used to be its own
+--      case, defaulting to TODAY specifically -- moved into this same family
+--      2026-09-25 so data-quality gaps behave identically to reconciliation
+--      items, not a special case.)
+--   2. DEPARTMENT/EMPLOYEE/MANAGER/WORK LOCATION FILTER: every metric above,
+--      regular or actionable, narrows to that department/employee/manager/
+--      work location -- these filters always apply, with no exception.
+--   3. DATE RANGE ALSO PICKED: every metric, including the actionable ones,
+--      now switches to reflect exactly that period -- once HR is looking at
+--      a specific range, "what originated in that range" (not "what's
+--      outstanding right now") is the useful question, e.g. for a
+--      historical audit of a past payroll cycle.
+--
+-- v_has_period (declared below) drives every regular/actionable metric's own
+-- backlog-vs-period switch; period_rows itself defaults to This Month
+-- (unrelated to v_has_period -- it's simply what "the selected period,
+-- defaulting to This Month" means for the regular metrics that always read
+-- from it).
+--
+-- Avg Approval Turnaround / Oldest Pending Approval (and the
+-- is_unacknowledged_absent / unapproved-app-hours-delta components of
+-- needs_reconciliation) were computed here at one point but never displayed
+-- anywhere in the frontend -- removed 2026-09-25 rather than kept as dead
+-- calculations. Re-add if a real UI need for them comes back.
 --
 -- KPI/metric selection ("Pass 2", metrics-expansion pass): cross-referenced
 -- against hyrax-data-platform/docs/sap-data-architecture-plans/
@@ -57,26 +81,20 @@
 -- same "sum of sub-metrics as headline" pattern Employee Overview's own HR
 -- Actions Needed tile already uses.
 --
--- Today-vs-period toggle + backlog fix ("Pass 4"): Attendance Rate/Pending
--- Approvals/Attendance Anomalies previously always computed from literal
--- work_date = current_date, regardless of the period filter selected
--- elsewhere on the page. Per the user's decision: fall back to today when
--- no period is selected, switch to reflect the selected period once one is
--- chosen (v_has_period drives this, same test already used for
--- prev_period_rows/v_trend_bucket). While designing that, a real bug
--- surfaced: hr_flag values like 'Pending App Approval'/'Missing App
--- Check-Out' are anchored to the day the *original activity* was clocked
--- in, not to today -- an activity clocked in 3 days ago that's still
--- pending/still has no checkout never appears in today_rows (work_date =
--- current_date), so the old "Pending Approvals" count silently excluded
--- any backlog older than today. Fixed by sourcing the no-period fallback
--- from the true, unbounded-by-date backlog (pending_activity_rows/
--- open_session_rows) instead of today_rows -- this is a correctness fix
--- independent of the period-toggle feature, not just a side effect of it.
--- Incomplete Card Scans is NOT given this backlog treatment -- it's a
--- per-day hardware fact (one scan that day, no in/out pair), not a
--- lingering state that later resolves, so "today" is the right no-period
--- default the same way it always was.
+-- History ("Pass 4", refined 2026-09-25 into the rule above): this RPC used
+-- to compute Attendance Rate/Pending Approvals/Attendance Anomalies from
+-- literal work_date = current_date, regardless of any period filter. A real
+-- bug surfaced while fixing that: hr_flag values like 'Pending App Approval'/
+-- 'Missing App Check-Out' are anchored to the day the *original activity*
+-- was clocked in, not to today -- an activity clocked in 3 days ago that's
+-- still pending/still has no checkout never appeared in a
+-- `work_date = current_date` query, so the old "Pending Approvals" count
+-- silently excluded any backlog older than today. That's the origin of
+-- pending_activity_rows/open_session_rows' unbounded-by-date backlog design,
+-- which the 2026-09-25 pass above generalized to Needs Reconciliation/Leave
+-- Conflict too, and made ATTENDANCE RATE STOP using "today" altogether
+-- (it's a regular metric now -- This Month by default, exactly the selected
+-- period once one is chosen, never a live snapshot).
 --
 -- OVERLOAD WARNING: `create or replace function` only replaces a function
 -- whose parameter signature is identical. Adding/removing a parameter here
@@ -116,11 +134,39 @@ declare
     v_prev_start_date date;
     v_prev_end_date date;
     v_trend_bucket text;
-    -- Drives the "today fallback, period once selected" behavior for the
-    -- Attendance Rate / Pending Approvals / Attendance Anomalies tiles
-    -- ("Pass 4" -- see header comment). Same test already used for
-    -- prev_period_rows/v_trend_bucket, reused here as the single switch.
+    -- Drives every regular/actionable metric's own backlog-vs-period switch
+    -- (see header comment). Same test already used for prev_period_rows.
     v_has_period boolean;
+    -- Needs Reconciliation / Leave Conflict's own backlog-vs-period figures
+    -- (see the pre-computation block below, right after v_has_period is
+    -- set) -- computed once here via a plpgsql variable rather than a CTE
+    -- referenced from a `case when v_has_period` branch, specifically to
+    -- avoid ALWAYS paying for both an unbounded scan (the backlog case) AND
+    -- a period_rows scan (the filtered case) on every single call regardless
+    -- of which one the caller actually needs -- a CTE referenced anywhere in
+    -- the final query gets materialized unconditionally, a plpgsql
+    -- if/else does not.
+    v_needs_reconciliation_count bigint;
+    v_leave_conflict_count bigint;
+    -- 2 of needs_reconciliation's own 5 real components
+    -- (hr_unified_daily_attendance_view.sql) that the Needs Reconciliation
+    -- tile's sub-metrics are actually built from. (The other 3 --
+    -- is_unacknowledged_absent, the unapproved-app-hours delta -- were
+    -- computed here too at one point but never surfaced anywhere in the
+    -- frontend; removed 2026-09-25 rather than left as dead calculations.)
+    -- Same pre-computation, same reasoning as v_needs_reconciliation_count
+    -- above.
+    v_insufficient_half_day_count bigint;
+    v_leave_fraction_error_count bigint;
+    -- Incomplete Card Scans -- 2026-09-25: moved into this same backlog-vs-
+    -- period family as Missing Check-Outs/Needs Reconciliation (was
+    -- previously its own special case, defaulting to TODAY specifically --
+    -- see the removed today_rows CTE). Data quality gaps should behave
+    -- identically to reconciliation items: the true current backlog when
+    -- unfiltered, exactly the selected period once one is chosen -- an
+    -- incomplete scan from 3 days ago still needs the same follow-up
+    -- regardless of which date range HR happens to be looking at.
+    v_incomplete_scans_count bigint;
     -- Authorization guard state -- see "0. Authorization guard" below.
     v_is_hr_or_superadmin boolean;
     v_caller_employee_id uuid;
@@ -178,6 +224,66 @@ end if;
 
 v_has_period := (p_start_date is not null and p_end_date is not null);
 
+-- 1a. Needs Reconciliation and its real components -- computed here, once,
+-- via a plain if/else rather than a `case when v_has_period` branch inside
+-- the main query below (see v_needs_reconciliation_count's own declaration
+-- comment for why: this avoids ever running BOTH the unbounded backlog scan
+-- and a period_rows-equivalent scan on the same call). The filtered branch
+-- necessarily re-reads unified_daily_attendance with the same bound
+-- period_rows itself will also apply below -- a small, deliberate
+-- redundancy (bounded by the selected range, typically cheap) traded for
+-- guaranteeing the unbounded branch below only ever runs when it's actually
+-- the one being used.
+--
+-- needs_reconciliation itself is the OR of 5 conditions
+-- (hr_unified_daily_attendance_view.sql) -- 2 of them (leave conflict,
+-- insufficient half-day) counted here since the Needs Reconciliation tile's
+-- sub-metrics are built from them. evidence_quality (Incomplete Card Scans)
+-- isn't one of the 5, but joins this same pre-computation because it now
+-- needs the identical backlog-vs-period behavior.
+if v_has_period then
+    select
+        count(*) filter (where needs_reconciliation),
+        count(*) filter (where is_leave_attendance_conflict),
+        count(*) filter (where is_unacknowledged_insufficient_half_day),
+        count(*) filter (where has_leave_fraction_error),
+        count(*) filter (where evidence_quality in ('single_scan', 'single_scan_and_open_session'))
+    into
+        v_needs_reconciliation_count, v_leave_conflict_count,
+        v_insufficient_half_day_count, v_leave_fraction_error_count,
+        v_incomplete_scans_count
+    from unified_daily_attendance uda
+    where (p_department_id is null or uda.department_id = p_department_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
+    and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_manager_id is null or uda.manager_id = p_manager_id)
+    and uda.work_date >= p_start_date
+    and uda.work_date <= p_end_date;
+else
+    -- The true current backlog -- unbounded by date on purpose (see header
+    -- comment). Still capped in practice by unified_daily_attendance's own
+    -- expected_shifts floor/ceiling (2 years back per employee's join date,
+    -- 1 year forward), so this is a bounded-but-wide scan, not a literal
+    -- full-table one -- comparable in cost to a full "This Year" query
+    -- (~1s, per this repo's own diagnostics), paid once, only on an
+    -- unfiltered call.
+    select
+        count(*) filter (where needs_reconciliation),
+        count(*) filter (where is_leave_attendance_conflict),
+        count(*) filter (where is_unacknowledged_insufficient_half_day),
+        count(*) filter (where has_leave_fraction_error),
+        count(*) filter (where evidence_quality in ('single_scan', 'single_scan_and_open_session'))
+    into
+        v_needs_reconciliation_count, v_leave_conflict_count,
+        v_insufficient_half_day_count, v_leave_fraction_error_count,
+        v_incomplete_scans_count
+    from unified_daily_attendance uda
+    where (p_department_id is null or uda.department_id = p_department_id)
+    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
+    and (p_employee_id is null or uda.employee_uuid = p_employee_id)
+    and (p_manager_id is null or uda.manager_id = p_manager_id);
+end if;
+
 -- 2. Trend-chart bucket size: day by default, week once the selected range
 -- exceeds 60 days (e.g. "This Year") -- keeps the two trend charts readable
 -- instead of rendering an unreadable ~250-point daily line. Both trend
@@ -188,25 +294,19 @@ v_trend_bucket := case
     else 'day'
 end;
 
-with active_employees as (
-    select e.id, e.department_id
-    from employees e
-    join employment_status es on es.id = e.employment_status_id and es.category = 'active'
-    where (p_department_id is null or e.department_id = p_department_id)
-    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
-    and (p_employee_id is null or e.id = p_employee_id)
-    and (p_manager_id is null or e.manager_id = p_manager_id)
-),
-
-active_headcount_today as (
-    select count(*) as headcount from active_employees
-),
-
+with
 -- Period-bound rows, scoped by the same department/employee filters.
--- Defaults to "This Month" when the caller sends no range at all (an
--- all-time trend chart would otherwise span years of noise) -- note
--- SearchFilterBar's own date-range presets always send an explicit range,
--- so this default only matters on a completely unfiltered first load.
+-- Defaults to THIS MONTH when the caller sends no range at all (see header
+-- comment's 3-question framing) -- every REGULAR metric (Attendance Rate,
+-- Avg Approval Turnaround, Punctuality, Workload, Absenteeism, Leave) reads
+-- from this CTE and inherits that default; the ACTIONABLE metrics (Pending
+-- Approvals, Missing Check-Outs, Oldest Pending Approval, Needs
+-- Reconciliation, Leave Conflict) deliberately do NOT read from this CTE
+-- when unfiltered -- they use their own true-backlog sources instead (see
+-- pending_activity_rows/open_session_rows below and the
+-- v_needs_reconciliation_count pre-computation above). Note
+-- SearchFilterBar's own date-range presets always send an explicit range, so
+-- this default only matters on a completely unfiltered first load.
 -- MATERIALIZED: unified_daily_attendance is expensive (its own
 -- active_company_dates CTE cross-joins every active employee against a
 -- multi-year date spine). period_rows/prev_period_rows are each read by
@@ -294,43 +394,16 @@ prev_employee_leave_rows as materialized (
     and le.leave_date <= v_prev_end_date
 ),
 
--- MATERIALIZED: referenced 2x below (kpi_totals' present_today_count and
--- incomplete_scans_today_count). Same rationale as period_rows above -- this
--- reads unified_daily_attendance too, just scoped to a single day, so the
--- multiply-referenced-CTE risk is the same in kind even though today's
--- absolute cost is smaller.
-today_rows as materialized (
-    select uda.*
-    from unified_daily_attendance uda
-    where uda.work_date = current_date
-    and (p_department_id is null or uda.department_id = p_department_id)
-    and (p_work_location_id is null or uda.work_location_id = p_work_location_id)
-    and (p_employee_id is null or uda.employee_uuid = p_employee_id)
-    and (p_manager_id is null or uda.manager_id = p_manager_id)
-),
-
--- Approval turnaround needs attendance_activities directly --
--- unified_daily_attendance doesn't preserve per-activity approved_at.
-approved_activity_rows as (
-    select aa.*
-    from attendance_activities aa
-    join employees e on e.id = aa.employee_id
-    where aa.approval_status in ('Approved', 'Rejected')
-    and aa.approved_at is not null
-    and (p_department_id is null or e.department_id = p_department_id)
-    and (p_work_location_id is null or e.work_location_id = p_work_location_id)
-    and (p_employee_id is null or aa.employee_id = p_employee_id)
-    and (p_manager_id is null or e.manager_id = p_manager_id)
-    and aa.clocked_in_at::date >= coalesce(p_start_date, date_trunc('month', current_date)::date)
-    and aa.clocked_in_at::date <= coalesce(p_end_date, current_date)
-),
-
--- The TRUE current Pending-Approval backlog -- unbounded by date (see
--- header comment's "Pass 4" note). kpi_totals below further splits this
--- into a backlog-scoped and a period-scoped scalar; which one actually
--- surfaces in the final kpis object depends on v_has_period.
+-- Every Pending-Approval row, unbounded by date -- kpi_totals below reads
+-- this twice: once as the TRUE current backlog (no date filter applied to
+-- the CTE itself), and once bound to p_start_date/p_end_date for the
+-- period-scoped "originated in this range" figure. Which one surfaces in the
+-- final kpis object depends on v_has_period (see header comment's 3-question
+-- framing). Cheap to keep unbounded regardless: this reads
+-- attendance_activities directly, not the comparatively expensive
+-- unified_daily_attendance view.
 --
--- MATERIALIZED: referenced 4x below (kpi_totals). Same rationale as above.
+-- MATERIALIZED: referenced 2x below (kpi_totals). Same rationale as above.
 pending_activity_rows as materialized (
     select aa.*
     from attendance_activities aa
@@ -342,12 +415,10 @@ pending_activity_rows as materialized (
     and (p_manager_id is null or e.manager_id = p_manager_id)
 ),
 
--- The TRUE current Missing-Check-Out backlog -- same shape/filters as
--- pending_activity_rows, unbounded by date. Condition mirrors
--- unified_daily_attendance's own has_missing_app_checkout definition
--- exactly (clocked_out_at is null, not Rejected).
---
--- MATERIALIZED: referenced 2x below (kpi_totals). Same rationale as above.
+-- The TRUE current Missing-Check-Out backlog / period-scoped sibling -- same
+-- shape/split as pending_activity_rows above. Condition mirrors
+-- unified_daily_attendance's own has_missing_app_checkout definition exactly
+-- (clocked_out_at is null, not Rejected).
 open_session_rows as materialized (
     select aa.*
     from attendance_activities aa
@@ -362,55 +433,36 @@ open_session_rows as materialized (
 
 kpi_totals as (
     select
-        (select headcount from active_headcount_today) as active_headcount_today,
-
         -- "Present" = has any real check-in data -- every hr_flag other
-        -- than Absent/Weekend implies at least a first_in exists. Today and
-        -- period variants both computed; the kpis object below picks
-        -- whichever v_has_period calls for. `and not is_on_leave` added
-        -- (HR2000 leave ledger integration) -- an on-leave day with no scan
-        -- falls into neither Absent nor Weekend once 'On Leave (...)' exists
-        -- as its own hr_flag value, and must not silently count as present.
-        -- `and not is_public_holiday` added for the same reason -- a
-        -- company holiday with no scan is now its own hr_flag value too
-        -- ('Public Holiday (...)'), not Absent/Weekend, and must not
-        -- silently count as present either.
-        (select count(*) from today_rows where day_state = 'worked') as present_today_count,
+        -- than Absent/Weekend implies at least a first_in exists.
+        -- `and not is_on_leave` added (HR2000 leave ledger integration) -- an
+        -- on-leave day with no scan falls into neither Absent nor Weekend
+        -- once 'On Leave (...)' exists as its own hr_flag value, and must not
+        -- silently count as present. `and not is_public_holiday` added for
+        -- the same reason -- a company holiday with no scan is now its own
+        -- hr_flag value too ('Public Holiday (...)'), not Absent/Weekend, and
+        -- must not silently count as present either.
         (select count(*) from period_rows where day_state = 'worked') as present_period_count,
 
-        -- Pending Approvals -- backlog (unbounded by date, the TRUE current
-        -- state) vs period-scoped (originated within the selected period).
-        -- See header comment's "Pass 4" note for why the backlog variant
-        -- replaced a today_rows-based count that silently missed anything
-        -- older than today.
+        -- Pending Approvals / Missing Check-Outs -- backlog (unbounded by
+        -- date, the TRUE current state) vs. period-scoped (originated within
+        -- the selected period). Which one surfaces in the final kpis object
+        -- depends on v_has_period (see header comment's 3-question framing).
+        -- Cheap to compute both unconditionally: these read
+        -- attendance_activities directly, not the (comparatively expensive)
+        -- unified_daily_attendance view.
         (select count(*) from pending_activity_rows) as pending_backlog_count,
         (select count(*) from pending_activity_rows
          where clocked_in_at::date >= p_start_date and clocked_in_at::date <= p_end_date) as pending_period_count,
-
-        -- Missing Check-Outs -- same backlog/period split as Pending
-        -- Approvals, same reasoning (an open app session from days ago
-        -- shouldn't disappear from view just because it isn't "today").
         (select count(*) from open_session_rows) as missing_checkout_backlog_count,
         (select count(*) from open_session_rows
          where clocked_in_at::date >= p_start_date and clocked_in_at::date <= p_end_date) as missing_checkout_period_count,
 
-        -- Incomplete Card Scans -- NOT given the backlog treatment: this is
-        -- a per-day hardware fact (one scan that day, no in/out pair), not
-        -- a lingering state that later resolves. Today vs period-total only.
-        (select count(*) from today_rows where evidence_quality in ('single_scan', 'single_scan_and_open_session')) as incomplete_scans_today_count,
-        (select count(*) from period_rows where evidence_quality in ('single_scan', 'single_scan_and_open_session')) as incomplete_scans_period_count,
-
-        -- Approval turnaround (Pending Approvals tile's "so what/now what").
-        -- Already period-shaped (silently defaults to "This Month" via
-        -- coalesce, same as Average Hours Worked/Overtime) -- a rate/average,
-        -- not a backlog count, so it isn't part of the v_has_period toggle.
-        (select round(avg(extract(epoch from (approved_at - clocked_in_at)) / 3600)::numeric, 1)
-         from approved_activity_rows) as avg_approval_turnaround_hours,
-        (select round(max(extract(epoch from (now() - clocked_in_at)) / 3600)::numeric, 1)
-         from pending_activity_rows) as oldest_pending_backlog_hours,
-        (select round(max(extract(epoch from (now() - clocked_in_at)) / 3600)::numeric, 1)
-         from pending_activity_rows
-         where clocked_in_at::date >= p_start_date and clocked_in_at::date <= p_end_date) as oldest_pending_period_hours,
+        -- Incomplete Card Scans' own backlog/period figures are NOT computed
+        -- here -- see v_incomplete_scans_count, pre-computed above alongside
+        -- Needs Reconciliation for the same reason (avoiding an
+        -- unconditional extra unified_daily_attendance scan). Referenced
+        -- directly as a plain value in the final json_build_object below.
 
         -- Average check-in/check-out time-of-day, formatted "HH24:MI" here
         -- (same "format server-side" convention hr_flag/hours_worked
@@ -531,13 +583,6 @@ kpi_totals as (
         (select round(sum(holiday_hours_worked)::numeric, 2) from period_rows where is_worked_on_holiday) as holiday_hours_worked_total,
         (select round(sum(holiday_hours_worked)::numeric, 2) from prev_period_rows where is_worked_on_holiday) as prev_holiday_hours_worked_total,
         (select count(distinct employee_uuid) from period_rows where is_worked_on_holiday) as employees_worked_on_holiday_count,
-        -- Day-count companion to the hours total above -- "how many
-        -- holiday days were worked", not "how many distinct employees
-        -- worked one". Deliberately count(*), not count(distinct ...):
-        -- one employee working 3 holidays in the period should count as
-        -- 3 here, same as the hours total already does.
-        (select count(*) from period_rows where is_worked_on_holiday) as holiday_days_worked_count,
-        (select count(*) from prev_period_rows where is_worked_on_holiday) as prev_holiday_days_worked_count,
 
         -- Weekend work -- mirrors the holiday reconciliation metric above
         -- exactly. is_worked_on_weekend already carries the "real
@@ -547,11 +592,32 @@ kpi_totals as (
         (select round(sum(weekend_hours_worked)::numeric, 2) from period_rows where is_worked_on_weekend) as weekend_hours_worked_total,
         (select round(sum(weekend_hours_worked)::numeric, 2) from prev_period_rows where is_worked_on_weekend) as prev_weekend_hours_worked_total,
         (select count(distinct employee_uuid) from period_rows where is_worked_on_weekend) as employees_worked_on_weekend_count,
-        (select count(*) from period_rows where is_worked_on_weekend) as weekend_days_worked_count,
-        (select count(*) from prev_period_rows where is_worked_on_weekend) as prev_weekend_days_worked_count,
 
         (select count(*) from period_rows where day_state = 'absent') as absent_days_count,
-        (select count(*) from prev_period_rows where day_state = 'absent') as prev_absent_days_count,
+        -- NULL (not 0) when unfiltered -- 2026-09-25 fix. prev_period_rows is
+        -- intentionally EMPTY whenever no date range was picked (its own
+        -- WHERE clause requires p_start_date/p_end_date is not null), so a
+        -- bare count(*) over it returned 0 regardless of whether that meant
+        -- "a real previous period with zero absences" or "there's no
+        -- previous-period concept to compare against at all". calcDelta
+        -- (overviewConfig.js) then read that 0 as "previous was zero,
+        -- current is N" and rendered a false "up 100%" on every unfiltered
+        -- load. NULL correctly tells the frontend "no comparison available"
+        -- (calcDelta already treats null specially), while a REAL filtered
+        -- previous period that happens to be genuinely zero still reports
+        -- as 0, not null -- only the "no period selected at all" case
+        -- changes.
+        case when v_has_period
+            then (select count(*) from prev_period_rows where day_state = 'absent')
+            else null end as prev_absent_days_count,
+
+        -- needs_reconciliation/leave_conflict themselves are NOT computed
+        -- here -- see v_needs_reconciliation_count/v_leave_conflict_count,
+        -- pre-computed above (before this query even runs) via their own
+        -- backlog-vs-period plpgsql if/else, precisely to avoid this CTE
+        -- forcing an unconditional extra read of unified_daily_attendance on
+        -- every call. They're referenced directly as plain values in the
+        -- final json_build_object below, not through this CTE.
 
         -- Denominator for absenteeism/late-arrival rates -- working-day
         -- records only, excluding the Weekend/Rest-Day placeholder rows,
@@ -567,7 +633,13 @@ kpi_totals as (
         -- overtime_hours_total above), and a distinct-employee count for the
         -- KPI tile's sub-metric.
         (select coalesce(sum(day_fraction), 0) from employee_leave_rows) as leave_days_count,
-        (select coalesce(sum(day_fraction), 0) from prev_employee_leave_rows) as prev_leave_days_count,
+        -- NULL (not 0) when unfiltered -- same 2026-09-25 fix as
+        -- prev_absent_days_count above; this one was doubly wrong before,
+        -- since it explicitly coalesced an already-empty-by-design
+        -- prev_employee_leave_rows down to 0.
+        case when v_has_period
+            then (select coalesce(sum(day_fraction), 0) from prev_employee_leave_rows)
+            else null end as prev_leave_days_count,
         (select count(distinct leave_emp_uuid) from employee_leave_rows) as employees_on_leave_count,
 
         -- Paid vs. unpaid split of leave_days_count -- see
@@ -575,34 +647,36 @@ kpi_totals as (
         -- caveat.
         (select coalesce(sum(day_fraction) filter (where is_paid), 0) from employee_leave_rows) as paid_leave_days_count,
         (select coalesce(sum(day_fraction) filter (where not is_paid), 0) from employee_leave_rows) as unpaid_leave_days_count,
-        (select coalesce(sum(day_fraction) filter (where not is_paid), 0) from prev_employee_leave_rows) as prev_unpaid_leave_days_count
+        -- NULL (not 0) when unfiltered -- same fix as prev_leave_days_count.
+        case when v_has_period
+            then (select coalesce(sum(day_fraction) filter (where not is_paid), 0) from prev_employee_leave_rows)
+            else null end as prev_unpaid_leave_days_count
 )
 
 select json_build_object(
 
     'kpis', (
         select json_build_object(
-            'activeHeadcountToday', active_headcount_today,
-            'presentTodayCount', present_today_count,
             'presentPeriodCount', present_period_count,
             'workingDayRecordsCount', working_day_records_count,
-            -- Today fallback, period once selected (v_has_period) -- see
-            -- header comment's "Pass 4" note. Pooled rate across the period
-            -- (present/roster summed, not an average-of-daily-rates).
-            'attendanceRatePct', case
-                when v_has_period then case when working_day_records_count > 0
-                    then round((present_period_count::numeric / working_day_records_count) * 100, 1)
-                    else 0 end
-                else case when active_headcount_today > 0
-                    then round((present_today_count::numeric / active_headcount_today) * 100, 1)
-                    else 0 end
-                end,
-            -- Backlog (unbounded) fallback, period-originated once selected.
+            -- Always the selected period (2026-09-25 -- was "today" whenever
+            -- unfiltered). period_rows itself defaults to This Month when no
+            -- range is picked, so this already shows the This-Month rate
+            -- unfiltered, or the selected-period rate once a range is
+            -- chosen -- one formula, no more today/period branch. Pooled
+            -- rate across the period (present/roster summed, not an
+            -- average-of-daily-rates).
+            'attendanceRatePct', case when working_day_records_count > 0
+                then round((present_period_count::numeric / working_day_records_count) * 100, 1)
+                else 0 end,
+            -- Backlog (unbounded) fallback, period-originated once a date
+            -- range is selected -- see header comment's 3-question framing.
             'pendingApprovalsCount', case when v_has_period then pending_period_count else pending_backlog_count end,
             'missingCheckoutsCount', case when v_has_period then missing_checkout_period_count else missing_checkout_backlog_count end,
-            'incompleteScansCount', case when v_has_period then incomplete_scans_period_count else incomplete_scans_today_count end,
-            'avgApprovalTurnaroundHours', avg_approval_turnaround_hours,
-            'oldestPendingApprovalHours', case when v_has_period then oldest_pending_period_hours else oldest_pending_backlog_hours end,
+            -- Pre-computed above via the same backlog-vs-period if/else as
+            -- needsReconciliationCount -- see v_incomplete_scans_count's own
+            -- declaration comment.
+            'incompleteScansCount', v_incomplete_scans_count,
             'avgCheckInTime', avg_check_in_time,
             'avgCheckOutTime', avg_check_out_time,
             'lateArrivalsCount', late_arrivals_count,
@@ -621,18 +695,18 @@ select json_build_object(
             'holidayHoursWorkedTotal', coalesce(holiday_hours_worked_total, 0),
             'prevHolidayHoursWorkedTotal', prev_holiday_hours_worked_total,
             'employeesWorkedOnHolidayCount', employees_worked_on_holiday_count,
-            'holidayDaysWorkedCount', holiday_days_worked_count,
-            'prevHolidayDaysWorkedCount', prev_holiday_days_worked_count,
             'weekendHoursWorkedTotal', coalesce(weekend_hours_worked_total, 0),
             'prevWeekendHoursWorkedTotal', prev_weekend_hours_worked_total,
             'employeesWorkedOnWeekendCount', employees_worked_on_weekend_count,
-            'weekendDaysWorkedCount', weekend_days_worked_count,
-            'prevWeekendDaysWorkedCount', prev_weekend_days_worked_count,
             'absentDaysCount', absent_days_count,
             'prevAbsentDaysCount', prev_absent_days_count,
-            'absenteeismRatePct', case when working_day_records_count > 0
-                then round((absent_days_count::numeric / working_day_records_count) * 100, 1)
-                else 0 end,
+            -- Pre-computed above (before this query even runs) via their own
+            -- backlog-vs-period plpgsql if/else -- see
+            -- v_needs_reconciliation_count's own declaration comment.
+            'needsReconciliationCount', v_needs_reconciliation_count,
+            'leaveConflictCount', v_leave_conflict_count,
+            'insufficientHalfDayCount', v_insufficient_half_day_count,
+            'leaveFractionErrorCount', v_leave_fraction_error_count,
             'leaveDaysCount', leave_days_count,
             'prevLeaveDaysCount', prev_leave_days_count,
             'employeesOnLeaveCount', employees_on_leave_count,

@@ -154,6 +154,20 @@ Static-hero/informational tiles never call `getStatusVariant` — they keep hard
 
 **Numeric thresholds are documented estimates, not audited business targets.** Where a dynamic tile needed a real cutoff with no existing target/budget on the page (margin floors, DSO targets, attrition/absenteeism benchmarks, etc.), the threshold is commented inline in that tile's config as a starting point, tunable by Finance/HR/Sales without needing to touch the shared utility.
 
+## 4a. Group related KPI tiles into fewer, denser cards (added 2026-09)
+
+**The problem this fixes:** a dashboard that grew tile-by-tile over time ends up with many flat, same-weight tiles (Attendance Overview had 11) that read as a wall of numbers rather than a story someone can walk through in a department meeting.
+
+**The rule:** before adding a new tile, ask whether it's really answering a _new_ question, or just a different angle on a question a neighboring tile already asks. If it's the latter, fold it in as a `metrics` sub-row instead of giving it its own card — `OverviewCards`' existing "headline = sum of its sub-metrics" pattern (already used by Attendance Anomalies and Employee Overview's "HR Actions Needed"/"Data Gaps" tiles before this convention was written down) is the mechanism, not a new one.
+
+**How to decide what groups with what** — group by _the question being asked_, not by which RPC field happens to feed it:
+
+- Two tiles that are really "different kinds of the same underlying concern" (e.g. Attendance's Pending Approvals + Missing Check-Outs + Incomplete Card Scans — all "things needing reconciliation") belong in one tile, one kind per sub-metric row.
+- Two tiles that answer genuinely different questions (e.g. "how much time was logged" vs. "what time of day did it happen") stay separate, even if both are period-bound and both are about attendance — merging unrelated questions into one tile just relocates the clutter instead of removing it.
+- A count-based sum-of-sub-metrics headline (`value = a + b + c`) works well when every sub-metric is a comparable "count of thing needing attention"; an averages-based tile (e.g. Hours Worked) keeps its own primary average as the headline and folds a _related_ total (Overtime) in as a sub-metric instead of trying to sum incompatible units.
+
+Applied first to Attendance Overview (2026-09-25, `src/pages/user/hr/attendanceManagement/overview/overviewConfig.js`): 11 tiles → 7 (Attendance Rate; Needs Reconciliation; Punctuality; Hours Worked; Non-Working-Day Hours; Absenteeism Rate; Leave Days). Treat this as the reference example — not yet re-applied to Finance/Sales/other dashboards, but the pattern to reach for the next time one of them gets a tile-by-tile restructuring pass.
+
 ## 5. Department module boundaries — no inter-departmental linking (added 2026-09)
 
 **The rule:** a department's own pages must never navigate into another department's module. Most users are department-scoped (only MGM/superadmin cross department lines), so a cross-department link is either dead on arrival for the viewer, or — even when it happens to resolve — drops them into a UI shaped for someone else's job, not theirs.

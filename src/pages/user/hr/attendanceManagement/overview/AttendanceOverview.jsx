@@ -76,10 +76,10 @@ export default function AttendanceOverview() {
   const isError = dashboardError || metadataError;
 
   const kpis = dashboard?.kpis ?? {};
-  // Mirrors get_attendance_dashboard_rpc.sql's own v_has_period test exactly
-  // -- the RPC already branches every affected kpis.* value between its
-  // today/backlog and period-scoped variants; this only picks which
-  // labels/sublabels to render for whichever value came back.
+  // Whether a date range is actually selected -- only used here to pick
+  // which subtitle/sublabel text to render (getAttendanceOverviewConfig
+  // below); the RPC itself already returns whichever figures apply
+  // (all-time when this is false, the selected period when true).
   const isPeriodFiltered =
     Boolean(filters.startDate) && Boolean(filters.endDate);
   const overviewItems = getAttendanceOverviewConfig(
@@ -96,6 +96,10 @@ export default function AttendanceOverview() {
     ...(filters.department && { department: filters.department }),
     ...(filters.employee && { employee: filters.employee }),
   };
+  // The charts read from period_rows, which defaults to This Month
+  // (get_attendance_dashboard_rpc.sql) -- matches overviewConfig.js's own
+  // periodFilter default exactly, so a "View All" link always shows the same
+  // range the chart itself represents.
   const chartToday = new Date().toISOString().slice(0, 10);
   const chartMonthStart = `${new Date().getFullYear()}-${String(
     new Date().getMonth() + 1,
@@ -235,8 +239,8 @@ export default function AttendanceOverview() {
                   </div>
                   <p className="textXS textLight">
                     {isPeriodFiltered
-                      ? "Attendance for the selected period, what needs HR action, and how it's trending."
-                      : "Who's here today, what needs HR action, and how attendance is trending this period."}
+                      ? "Attendance for the selected period, and what needs HR's attention."
+                      : "This month's attendance, and what needs HR's attention right now."}
                   </p>
                 </div>
 

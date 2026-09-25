@@ -15,6 +15,7 @@ export function buildAttendanceDashboardParams(filters) {
     p_end_date: null,
     p_department_id: null,
     p_employee_id: null,
+    p_manager_id: null,
     p_work_location_id: null,
   };
 
@@ -36,6 +37,19 @@ export function buildAttendanceDashboardParams(filters) {
 
       case "employee":
         rpcParams.p_employee_id = value;
+        break;
+
+      // Was missing until 2026-09-25: the HR Attendance list/overview
+      // pages' own "Manager" filter dropdown sends this key, but it silently
+      // fell through to `default` and never reached the RPC -- so filtering
+      // the list by manager narrowed the table correctly (applyAttendanceFilter's
+      // own "manager" case) while the KPI strip/tile numbers above it kept
+      // showing the unfiltered, company-wide figures. My/Team Attendance's
+      // own manager scoping is unaffected either way -- those pin
+      // p_manager_id directly (fetchTeamAttendanceDashboard), overriding
+      // whatever this function returns.
+      case "manager":
+        rpcParams.p_manager_id = value;
         break;
 
       case "workLocation":

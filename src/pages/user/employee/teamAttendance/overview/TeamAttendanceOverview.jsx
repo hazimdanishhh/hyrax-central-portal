@@ -78,6 +78,9 @@ export default function TeamAttendanceOverview() {
   const chartBaseFilter = {
     ...(filters.employee && { employee: filters.employee }),
   };
+  // The charts read from period_rows, which defaults to This Month (see HR's
+  // overviewConfig.js/get_attendance_dashboard_rpc.sql) -- a "View All" link
+  // must match that default exactly.
   const chartToday = new Date().toISOString().slice(0, 10);
   const chartMonthStart = `${new Date().getFullYear()}-${String(
     new Date().getMonth() + 1,
@@ -192,8 +195,8 @@ export default function TeamAttendanceOverview() {
                   </div>
                   <p className="textXS textLight">
                     {isPeriodFiltered
-                      ? "Your team's attendance for the selected period, what needs your action, and how it's trending."
-                      : "Who's here today, what needs your action, and how your team's attendance is trending this period."}
+                      ? "Your team's attendance for the selected period, and what needs your attention."
+                      : "Your team's attendance this month, and what needs your attention right now."}
                   </p>
                 </div>
 

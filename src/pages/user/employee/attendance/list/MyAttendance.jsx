@@ -27,15 +27,18 @@ import DataSidebar from "@/components/dataSidebar/DataSidebar";
 import DataTable from "@/components/dataTable/DataTable";
 import LoadingIcon from "@/components/loadingIcon/LoadingIcon";
 import StatusTab from "@/components/crud/statusTab/StatusTab";
+import OverviewCards from "@/components/crud/overviewCards/OverviewCards";
 import { useEmployee } from "@/context/EmployeeContext";
 import useAttendanceActivityMutations from "@/features/hr/attendance/private/hooks/useAttendanceActivityMutations";
 import { attendanceDailySummaryTableConfig } from "@/pages/user/hr/attendanceManagement/list/tableConfig";
 import { getAttendanceActivitiesSortConfig } from "@/pages/user/hr/attendanceManagement/list/sortConfig";
 import { getAttendanceActivitiesLayoutConfig } from "@/pages/user/hr/attendanceManagement/list/layoutConfig";
+import { getAttendanceListOverviewConfig } from "@/pages/user/hr/attendanceManagement/list/overviewConfig";
 import useMyAttendanceDailyList from "@/features/employee/attendance/private/hooks/useMyAttendanceDailyList";
 import { useAttendanceActivityById } from "@/features/hr/attendance/private/hooks/useAttendanceActivityById";
 import { useAttendanceActivitiesMetadata } from "@/features/hr/attendance/private/hooks/useAttendanceActivitiesMetadata";
 import useMyAttendanceSearch from "@/features/employee/attendance/private/hooks/useMyAttendanceSearch";
+import useMyAttendanceListOverview from "@/features/employee/attendance/private/hooks/useMyAttendanceListOverview";
 import { getMyAttendanceFilterConfig } from "./filterConfig";
 import SearchFilterBar from "@/components/searchFilterBar/SearchFilterBar";
 import { buildStatusTabs } from "@/functions/statusTabs";
@@ -151,6 +154,24 @@ export default function MyAttendance() {
   const { page, totalPages, setPage } = searchModeResult;
 
   // ==============
+  // KPI STRIP (see HR's list/overviewConfig.js, shared) -- see
+  // AttendanceManagement.jsx's matching comment for why Day mode folds
+  // `date` into this scope. No employee filter needed here: p_employee_id is
+  // already pinned inside useMyAttendanceListOverview.
+  // ==============
+  const overviewFilterScope = isSearchMode
+    ? filters
+    : { ...filters, startDate: date, endDate: date };
+  const { data: listOverview } = useMyAttendanceListOverview(
+    employee?.id,
+    overviewFilterScope,
+  );
+  const overviewItems = getAttendanceListOverviewConfig(
+    listOverview?.kpis,
+    overviewFilterScope,
+  );
+
+  // ==============
   // MUTATIONS -- only clock-out is needed here
   // ==============
   const { clockOutAttendanceActivity } = useAttendanceActivityMutations();
@@ -223,6 +244,8 @@ export default function MyAttendance() {
 
   return (
     <>
+      <OverviewCards items={overviewItems} style="overviewCard2" />
+
       <SearchFilterBar
         search={search}
         onSearchChange={setSearch}

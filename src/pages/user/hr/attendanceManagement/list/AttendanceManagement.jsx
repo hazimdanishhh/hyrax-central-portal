@@ -28,6 +28,7 @@ import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
 import DataTable from "../../../../../components/dataTable/DataTable";
 import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
+import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import { useMessage } from "../../../../../context/MessageContext";
 import { useEmployee } from "../../../../../context/EmployeeContext";
@@ -36,6 +37,7 @@ import useAttendanceActivityMutations from "../../../../../features/hr/attendanc
 import useAttendanceDailyList from "../../../../../features/hr/attendance/private/hooks/useAttendanceDailyList";
 import { useAttendanceActivityById } from "../../../../../features/hr/attendance/private/hooks/useAttendanceActivityById";
 import useAttendanceAdjustmentReasons from "../../../../../features/hr/attendance/private/hooks/useAttendanceAdjustmentReasons";
+import useAttendanceListOverview from "../../../../../features/hr/attendance/private/hooks/useAttendanceListOverview";
 import usePaginatedQuery from "../../../../../hooks/usePaginatedQuery";
 import useCrudActionState from "../../../../../hooks/useCrudActionState";
 import { supabase } from "../../../../../lib/supabaseClient";
@@ -49,6 +51,7 @@ import { getAttendanceActivitiesFilterConfig } from "./filterConfig";
 import { getAttendanceActivitiesLayoutConfig } from "./layoutConfig";
 import { getAttendanceActivitiesSortConfig } from "./sortConfig";
 import { attendanceDailySummaryTableConfig } from "./tableConfig";
+import { getAttendanceListOverviewConfig } from "./overviewConfig";
 import {
   fetchUnifiedAttendance,
   fetchUnifiedAttendanceSearch,
@@ -214,6 +217,25 @@ export default function AttendanceManagement() {
   const { date, setDate, goToPreviousDay, goToNextDay, goToToday } =
     dayModeResult;
   const { page, totalPages, setPage } = searchModeResult;
+
+  // ==============
+  // KPI STRIP (see overviewConfig.js) -- Day mode has no startDate/endDate
+  // in `filters` (the single `date` above is separate state), so it's folded
+  // in here; Search mode's `filters` already carries whatever date range (if
+  // any) the user picked. This same object also becomes each tile's
+  // drill-through `baseFilter`, so a tile click narrows from here rather
+  // than resetting the page.
+  // ==============
+  const overviewFilterScope = isSearchMode
+    ? filters
+    : { ...filters, startDate: date, endDate: date };
+  const { data: listOverview } = useAttendanceListOverview(
+    overviewFilterScope,
+  );
+  const overviewItems = getAttendanceListOverviewConfig(
+    listOverview?.kpis,
+    overviewFilterScope,
+  );
 
   // ==============
   // METADATA
@@ -485,6 +507,11 @@ export default function AttendanceManagement() {
 
   return (
     <>
+      {/* KPI STRIP -- scoped to whatever the page's own filters/day currently
+          are (overviewFilterScope above), same pattern Invoices/Leads use
+          for their own list-page strip. */}
+      <OverviewCards items={overviewItems} style="overviewCard2" />
+
       {/* SEARCH AND FILTER BAR -- setting the date range here (or Employee/
           Department/Manager/Status) is itself what promotes the page into
           Search mode; leaving everything unset keeps today's day-navigator
