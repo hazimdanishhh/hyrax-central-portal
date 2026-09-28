@@ -6,10 +6,7 @@ import {
   UserMinusIcon,
   HourglassHighIcon,
   CakeIcon,
-  GaugeIcon,
   CalendarIcon,
-  TrendUpIcon,
-  TrendDownIcon,
   WarningCircleIcon,
   ListChecksIcon,
 } from "@phosphor-icons/react";
@@ -52,6 +49,13 @@ export function getEmployeesOverviewConfig(
   const age55Plus =
     ageDistributionData.find((d) => d.name === "55+")?.value || 0;
 
+  // Whether a date range is actually selected -- same test Attendance
+  // Overview's page component computes, just derived here directly from
+  // `filters` rather than threaded through as its own parameter (this
+  // config function's existing signature already takes `filters`).
+  const isPeriodFiltered =
+    Boolean(filters?.startDate) && Boolean(filters?.endDate);
+
   const calcDelta = (current, previous) => {
     if (previous === null || previous === undefined) return null;
     if (previous === 0 && current === 0) return 0;
@@ -60,41 +64,52 @@ export function getEmployeesOverviewConfig(
     return Math.round(((current - previous) / previous) * 100);
   };
 
+  // Folded into the tile's own `subvalue` slot now (2026-09-28), never a
+  // separate "Prev. Period" sub-metric row -- matches
+  // DASHBOARD-CONVENTIONS.md §4b exactly (see Attendance Overview's
+  // overviewConfig.js for the reference implementation this one now mirrors).
   const deltaText = (delta) =>
-    delta === null
-      ? "No prior data"
-      : delta > 0
-        ? `↑ ${delta}% vs last period`
-        : `↓ ${Math.abs(delta)}% vs last period`;
+    delta === null ? "" : delta > 0 ? `↑ ${delta}%` : `↓ ${Math.abs(delta)}%`;
 
-  const deltaIcon = (delta) =>
-    delta === null ? null : delta >= 0 ? TrendUpIcon : TrendDownIcon;
+  // Same REGULAR/SNAPSHOT subtitle vocabulary as Attendance Overview's own
+  // periodLabel -- "Current" is this page's SNAPSHOT-family word (added
+  // 2026-09-28): a chart/tile describing the roster's composition right
+  // now, with no "this month vs backlog" distinction to disclose at all
+  // (unlike REGULAR, which resets to a period total).
+  const periodLabel = isPeriodFiltered ? "This Period" : "This Month";
 
   const hiresDelta = calcDelta(kpis.hiresInPeriod, kpis.prevHiresInPeriod);
-  const departuresDelta = calcDelta(
-    kpis.departuresInPeriod,
-    kpis.prevDeparturesInPeriod,
+  const activeHeadcountDelta = calcDelta(
+    kpis.activeHeadcount,
+    kpis.prevActiveHeadcount,
   );
-
-  // The RPC's period-bound KPIs (hiresInPeriod/departuresInPeriod/etc.)
-  // default to ALL-TIME when the Overview has no period filter set (its own
-  // tile tooltips say so) -- these link objects mirror that exactly:
-  // omitted keys mean "no date constraint", not "today". join_date uses the
-  // same startDate/endDate keys enableDateRange already sends; departure
-  // date uses the dedicated departureDateFrom/To pair (both required
-  // together by fetchEmployees).
-  const hirePeriodFilter = {};
-  if (filters?.startDate) hirePeriodFilter.startDate = filters.startDate;
-  if (filters?.endDate) hirePeriodFilter.endDate = filters.endDate;
-
-  const departurePeriodFilter = {};
-  if (filters?.startDate && filters?.endDate) {
-    departurePeriodFilter.departureDateFrom = filters.startDate;
-    departurePeriodFilter.departureDateTo = filters.endDate;
-  }
+  const attritionDelta = calcDelta(
+    kpis.attritionRatePct,
+    kpis.prevAttritionRatePct,
+  );
 
   const currentYearStart = `${new Date().getFullYear()}-01-01`;
   const today = new Date().toISOString().slice(0, 10);
+  const monthStart = `${new Date().getFullYear()}-${String(
+    new Date().getMonth() + 1,
+  ).padStart(2, "0")}-01`;
+
+  // The RPC's period-bound KPIs (hiresInPeriod/departuresInPeriod/etc.) now
+  // default to the FULL CURRENT MONTH, not all-time (2026-09-28, matches
+  // Attendance Overview's own REGULAR-family convention) -- these link
+  // objects mirror that exactly, always a concrete range rather than
+  // conditionally omitted. join_date uses the same startDate/endDate keys
+  // enableDateRange already sends; departure date uses the dedicated
+  // departureDateFrom/To pair (both required together by fetchEmployees).
+  const hirePeriodFilter = {
+    startDate: filters?.startDate || monthStart,
+    endDate: filters?.endDate || today,
+  };
+
+  const departurePeriodFilter = {
+    departureDateFrom: filters?.startDate || monthStart,
+    departureDateTo: filters?.endDate || today,
+  };
 
   // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
   // Color & Fill Convention"). Thresholds below are documented estimates,
@@ -105,12 +120,11 @@ export function getEmployeesOverviewConfig(
     badLevel: "critical",
     thresholds: { criticalAt: 1 },
   });
-  // Delta-as-value: departuresDelta is % change vs the prior period, not the
-  // raw count -- color follows the trend, not a fixed "departures = bad".
-  const departuresStatus = getStatusVariant(departuresDelta, {
-    direction: "low-good",
-    thresholds: { warningAt: 1, criticalAt: 21 },
-  });
+  // Departures' own tile color now comes from Attrition Rate (2026-09-28,
+  // since Attrition Rate folded into this tile as a sub-metric) -- a rate
+  // crossing a real policy-style threshold is a more meaningful severity
+  // signal than a raw count's arbitrary swing, and keeps the headline
+  // value/subvalue/color all telling the same story.
   const attritionStatus = getStatusVariant(kpis.attritionRatePct || 0, {
     direction: "low-good",
     thresholds: { warningAt: 2, criticalAt: 4 },
@@ -156,8 +170,9 @@ export function getEmployeesOverviewConfig(
     {
       icon: UsersFourIcon,
       label: "Active Headcount",
-      sublabel: "Active Employees (Today)",
+      sublabel: "Active Employees, Current",
       value: kpis.activeHeadcount || 0,
+      subvalue: deltaText(activeHeadcountDelta),
       variant: "blueCardFill",
       to: "../list",
       filter: { statusBucket: "active" },
@@ -180,7 +195,7 @@ export function getEmployeesOverviewConfig(
     {
       icon: HourglassHighIcon,
       label: "Average Tenure",
-      sublabel: "Active Employees (Today)",
+      sublabel: "Active Employees, Current",
       value: `${kpis.avgTenureYears || 0}y`,
       // Informational -- no documented retention-risk floor to evaluate
       // against. Blue, not green: this tile isn't making a good/bad claim.
@@ -209,7 +224,7 @@ export function getEmployeesOverviewConfig(
     {
       icon: CakeIcon,
       label: "Average Age",
-      sublabel: "Active Employees (Today)",
+      sublabel: "Active Employees, Current",
       value: `${kpis.avgAgeYears || 0}y`,
       // Informational, defaulting to neutral pending confirmation: it's
       // genuinely unclear whether an aging workforce is a real concern here
@@ -323,20 +338,15 @@ export function getEmployeesOverviewConfig(
     {
       icon: UserCirclePlusIcon,
       label: "New Hires",
-      sublabel: "Joined This Period",
+      sublabel: periodLabel,
       value: kpis.hiresInPeriod || 0,
+      subvalue: deltaText(hiresDelta),
       // Informational -- "more hires" isn't inherently good/bad without a
       // hiring plan to evaluate against.
       variant: "blueCard",
       to: "../list",
       filter: hirePeriodFilter,
       metrics: [
-        {
-          label: "Prev. Period",
-          value: deltaText(hiresDelta),
-          icon: deltaIcon(hiresDelta),
-          // A delta has no matching row-set -- not linked.
-        },
         {
           label: "YTD",
           value: kpis.ytdHiresCount || 0,
@@ -345,25 +355,43 @@ export function getEmployeesOverviewConfig(
         },
       ],
       title:
-        "Employees whose join_date falls within the selected period (all-time if no range selected).",
+        "Employees whose join_date falls within the selected period -- defaults to This Month.",
     },
+    // Attrition Rate folded in as of 2026-09-28 (was its own tile) -- same
+    // "Attendance Rate absorbs Absenteeism Rate" precedent from Attendance
+    // Overview: two readings of the same departures/headcount data, one
+    // tile instead of two. The tile's `subvalue`/color are DELIBERATELY
+    // Attrition Rate's own delta/threshold, not Departures' -- a raw
+    // departure count's %-change is noisy at small counts (2->3 reads as
+    // "+50%"); Attrition Rate is the normalized, policy-threshold-backed
+    // number HR/leadership actually track period-over-period. This is the
+    // one tile on this page where `subvalue` describes a different metric
+    // than the headline `value` -- a deliberate exception, not the general
+    // rule (every other tile's subvalue is its own headline's own delta).
     {
       icon: UserMinusIcon,
       label: "Departures",
-      sublabel: "Left This Period",
+      sublabel: periodLabel,
       value: kpis.departuresInPeriod || 0,
-      variant: departuresStatus.variant,
+      subvalue: deltaText(attritionDelta),
+      variant: attritionStatus.variant,
       status: {
-        icon: departuresStatus.statusIcon,
-        label: departuresStatus.statusLabel,
+        icon: attritionStatus.statusIcon,
+        label: attritionStatus.statusLabel,
       },
       to: "../list",
       filter: { statusBucket: "terminated", ...departurePeriodFilter },
       metrics: [
         {
-          label: "Prev. Period",
-          value: deltaText(departuresDelta),
-          icon: deltaIcon(departuresDelta),
+          // Plain value, no bracketed delta -- its own delta already IS the
+          // tile's subvalue above; repeating it here would show the same
+          // number twice.
+          label: "Attrition Rate",
+          value: `${kpis.attritionRatePct || 0}%`,
+        },
+        {
+          label: "Avg Headcount",
+          value: kpis.avgHeadcount || 0,
         },
         {
           label: "YTD",
@@ -377,33 +405,7 @@ export function getEmployeesOverviewConfig(
         },
       ],
       title:
-        "Employees now classified Terminated/Resigned/Retired/Terminated Notice whose end_date (falling back to resignation_date) falls within the selected period.",
-    },
-    {
-      icon: GaugeIcon,
-      label: "Attrition Rate",
-      sublabel: "Departures vs Average Headcount, This Period",
-      value: `${kpis.attritionRatePct || 0}%`,
-      variant: attritionStatus.variant,
-      status: {
-        icon: attritionStatus.statusIcon,
-        label: attritionStatus.statusLabel,
-      },
-      // A ratio has no matching row-set -- was already correctly unlinked,
-      // not a bug.
-      to: null,
-      metrics: [
-        {
-          label: "Departures",
-          value: kpis.departuresInPeriod || 0,
-        },
-        {
-          label: "Avg Headcount",
-          value: kpis.avgHeadcount || 0,
-        },
-      ],
-      title:
-        "Departures this period divided by average headcount (beginning + ending headcount, reconstructed exactly from join_date/end_date or resignation_date, divided by 2) -- assumes end_date or resignation_date is reliably populated whenever an employee separates.",
+        "Employees now classified Terminated/Resigned/Retired/Terminated Notice whose end_date (falling back to resignation_date) falls within the selected period -- defaults to This Month. Attrition Rate is this count divided by average headcount (beginning + ending headcount, reconstructed exactly from join_date/end_date or resignation_date, divided by 2) -- assumes end_date or resignation_date is reliably populated whenever an employee separates.",
     },
     {
       icon: CalendarIcon,

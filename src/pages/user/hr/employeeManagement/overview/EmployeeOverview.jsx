@@ -3,17 +3,15 @@ import {
   ChartBarHorizontalIcon,
   ChartPieSliceIcon,
   GaugeIcon,
-  UsersThreeIcon,
 } from "@phosphor-icons/react";
+import { useResolvedPath } from "react-router";
 
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
-import CardWrapper from "../../../../../components/cardWrapper/CardWrapper";
 import ChartCard from "../../../../../components/chartCard/ChartCard";
 import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
 import LineChartRenderer from "../../../../../components/chartCard/LineChartRenderer";
 import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
-import StackedBarRenderer from "../../../../../components/chartCard/StackedBarRenderer";
 import {
   BLUE_COLOR,
   GREEN_COLOR,
@@ -22,7 +20,6 @@ import {
   PURPLE_COLOR,
   EMPLOYMENT_TYPE_COLORS,
   GENDER_COLORS,
-  UTILIZATION_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
@@ -37,9 +34,14 @@ import { getFilterConfig } from "./config/filterConfig";
 import { getEmployeesOverviewConfig } from "./overviewConfig";
 import FiscalYearFilterBar from "../../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
 import { useLifecycleCasesOverview } from "../../../../../features/employeeLifecycle/private/hooks/useLifecycleCasesOverview";
+import buildFilterUrl from "@/functions/convertFilter";
 
 export default function EmployeeOverview() {
   const dashboardRef = useRef(null);
+  // Chart clicks open in a new tab via window.open, which needs an
+  // already-resolved absolute path -- see Attendance Overview's own comment
+  // for the full "../list resolved to the wrong parent" bug this avoids.
+  const listPath = useResolvedPath("../list").pathname;
 
   const {
     data: dashboard,
@@ -90,13 +92,42 @@ export default function EmployeeOverview() {
     stuckLifecycleCasesCount: onboardingKpis.stuckCount + offboardingKpis.stuckCount,
   };
 
+  // Whether a date range is actually selected -- same REGULAR/SNAPSHOT
+  // subtitle vocabulary overviewConfig.js's own tiles use (see that file's
+  // periodLabel comment for the SNAPSHOT-family rationale).
+  const isPeriodFiltered =
+    Boolean(filters.startDate) && Boolean(filters.endDate);
+  const periodLabel = isPeriodFiltered ? "This Period" : "This Month";
+
+  // Same baseFilter shape Attendance Overview's own chart links build --
+  // duplicated here (rather than exported) since these are plain JSX props,
+  // not part of the tile config array itself.
+  const chartBaseFilter = {
+    ...(filters.department && { department: filters.department }),
+    ...(filters.workLocation && { workLocation: filters.workLocation }),
+  };
+
+  // Chart-element drill-through (2026-09-28, mirrors
+  // get_attendance_dashboard_rpc.sql's convention exactly). Every clickable
+  // chart datum already carries its own RPC-computed `filter` object
+  // (statusBucket + the specific dimension, for SNAPSHOT charts; statusBucket
+  // + the departure-date window + reason, for Termination Reasons) -- this
+  // just merges in the page's own department/work-location selection and
+  // returns a URL. `filter` is null for a bucket with no sensible single
+  // filter (e.g. "Unassigned") -- those clicks are a no-op.
+  const goTo = (filter) =>
+    filter ? `${listPath}${buildFilterUrl({ ...chartBaseFilter, ...filter })}` : null;
+
   const departmentData = dashboard?.departmentData ?? [];
   const employmentTypeData = dashboard?.employmentTypeData ?? [];
   const genderData = dashboard?.genderData ?? [];
   const nationalityData = dashboard?.nationalityData ?? [];
   const ageDistributionData = dashboard?.ageDistributionData ?? [];
-  const managementCoverageData = dashboard?.managementCoverageData ?? [];
 
+  // No per-point `filter` -- deliberately, see the RPC's own comment on
+  // headcountTrendData: there's no verified filter that reconstructs
+  // point-in-time roster membership, so this chart stays un-clickable
+  // rather than ship a guessed one.
   const headcountTrendData =
     dashboard?.headcountTrendData?.map((d) => ({
       name: d.period,
@@ -208,7 +239,10 @@ export default function EmployeeOverview() {
             </div>
 
             <div className="pdfOverviewSection">
-              {/* WORKFORCE COMPOSITION */}
+              {/* WORKFORCE COMPOSITION -- SNAPSHOT family throughout: the
+                  roster's shape right now, ignores the date filter entirely.
+                  Top Managers moved here (2026-09-28) -- span-of-control is
+                  an org-structure fact, not a movement metric. */}
               <div
                 style={{
                   justifyContent: "start",
@@ -228,14 +262,15 @@ export default function EmployeeOverview() {
                   </div>
                   <p className="textXS textLight">
                     How the active workforce breaks down by department,
-                    employment type, gender, and nationality.
+                    employment type, gender, nationality, age, tenure, and
+                    span of control -- right now.
                   </p>
                 </div>
 
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Departments"
-                    subtitle="Active Headcount by Department"
+                    subtitle="Active Headcount, Current"
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{ statusBucket: "active" }}
@@ -243,12 +278,13 @@ export default function EmployeeOverview() {
                     <HorizontalBarChartRenderer
                       data={departmentData}
                       colorMap={GREEN_COLOR}
+                      onBarClick={(entry) => goTo(entry.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Employment Type"
-                    subtitle="Active Headcount (Share)"
+                    subtitle="Active Headcount (Share), Current"
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{ statusBucket: "active" }}
@@ -257,12 +293,13 @@ export default function EmployeeOverview() {
                       data={employmentTypeData}
                       mode="semantic"
                       colorMap={EMPLOYMENT_TYPE_COLORS}
+                      onSliceClick={(entry) => goTo(entry.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Gender Distribution"
-                    subtitle="Active Headcount (Share)"
+                    subtitle="Active Headcount (Share), Current"
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{ statusBucket: "active" }}
@@ -271,12 +308,13 @@ export default function EmployeeOverview() {
                       data={genderData}
                       mode="semantic"
                       colorMap={GENDER_COLORS}
+                      onSliceClick={(entry) => goTo(entry.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Nationality"
-                    subtitle="Active Headcount"
+                    subtitle="Active Headcount, Current"
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{ statusBucket: "active" }}
@@ -284,12 +322,13 @@ export default function EmployeeOverview() {
                     <HorizontalBarChartRenderer
                       data={nationalityData}
                       colorMap={BLUE_COLOR}
+                      onBarClick={(entry) => goTo(entry.filter)}
                     />
                   </ChartCard>
 
                   <ChartCard
                     title="Age Distribution"
-                    subtitle="Active Employees, by Age Band"
+                    subtitle="Active Employees, by Age Band, Current"
                     style="cardGapSmall"
                     viewAllTo="../list"
                     viewAllFilter={{ statusBucket: "active" }}
@@ -297,6 +336,33 @@ export default function EmployeeOverview() {
                     <BarChartRenderer
                       data={ageDistributionData}
                       colorMap={PURPLE_COLOR}
+                      onBarClick={(entry) => goTo(entry.filter)}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Tenure Distribution"
+                    subtitle="Active Employees, by Years of Service, Current"
+                    style="cardGapSmall"
+                    viewAllTo="../list"
+                    viewAllFilter={{ statusBucket: "active" }}
+                  >
+                    <BarChartRenderer
+                      data={tenureDistributionData}
+                      colorMap={YELLOW_COLOR}
+                      onBarClick={(entry) => goTo(entry.filter)}
+                    />
+                  </ChartCard>
+
+                  <ChartCard
+                    title="Top Managers"
+                    subtitle="By Direct Report Count, Current"
+                    style="cardGapSmall"
+                  >
+                    <BarChartRenderer
+                      data={topManagersData}
+                      colorMap={BLUE_COLOR}
+                      onBarClick={(entry) => goTo(entry.filter)}
                     />
                   </ChartCard>
                 </CardLayout>
@@ -323,15 +389,15 @@ export default function EmployeeOverview() {
                     <h2 className="textL textBold">Movement &amp; Retention</h2>
                   </div>
                   <p className="textXS textLight">
-                    Headcount trend, tenure profile, span of control, and why
-                    people have left.
+                    Headcount trend over time, and why people have left this
+                    period.
                   </p>
                 </div>
 
                 <CardLayout style="cardLayout2">
                   <ChartCard
                     title="Headcount Trend"
-                    subtitle="Monthly Active Headcount (All-Time if No Period Selected)"
+                    subtitle="Monthly Active Headcount, All-Time — Not Affected by the Date Filter"
                     style="cardGapSmall"
                   >
                     <LineChartRenderer
@@ -341,37 +407,19 @@ export default function EmployeeOverview() {
                   </ChartCard>
 
                   <ChartCard
-                    title="Tenure Distribution"
-                    subtitle="Active Employees, by Years of Service"
+                    title="Termination Reasons"
+                    subtitle={`Departures, ${periodLabel}`}
                     style="cardGapSmall"
                     viewAllTo="../list"
-                    viewAllFilter={{ statusBucket: "active" }}
-                  >
-                    <BarChartRenderer
-                      data={tenureDistributionData}
-                      colorMap={YELLOW_COLOR}
-                    />
-                  </ChartCard>
-
-                  <ChartCard
-                    title="Top Managers"
-                    subtitle="By Direct Report Count (Active)"
-                    style="cardGapSmall"
-                  >
-                    <BarChartRenderer
-                      data={topManagersData}
-                      colorMap={BLUE_COLOR}
-                    />
-                  </ChartCard>
-
-                  <ChartCard
-                    title="Termination Reasons"
-                    subtitle="This Period"
-                    style="cardGapSmall"
+                    viewAllFilter={{
+                      ...chartBaseFilter,
+                      statusBucket: "terminated",
+                    }}
                   >
                     <HorizontalBarChartRenderer
                       data={terminationReasonsData}
                       colorMap={RED_COLOR}
+                      onBarClick={(entry) => goTo(entry.filter)}
                     />
                   </ChartCard>
                 </CardLayout>
