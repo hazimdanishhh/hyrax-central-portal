@@ -58,6 +58,11 @@ export function getAttendanceActivitiesFilterConfig({
     {
       key: "dayState",
       label: "Day Type",
+      // multi: true (2026-09-28) -- a real "OR" question ("show me every
+      // Needs-Reconciliation state at once", or "Weekend OR Public Holiday")
+      // that a single-select couldn't express. Backend: applyAttendanceFilter
+      // reads a comma-joined value via .in() once there's more than one.
+      multi: true,
       options: DAY_STATE_OPTIONS,
     },
     {
@@ -67,11 +72,16 @@ export function getAttendanceActivitiesFilterConfig({
       // where it came from" -- impossible under hr_flag, whose
       // 'Missing App Check-Out' and 'Incomplete Card Scans' branches both sat
       // below the approval branches and so almost never fired.
+      // multi: true -- the same OR-condition the Data Quality KPI/chart
+      // drill-through already relies on (Missing Check-Outs + Incomplete
+      // Card Scans together) is now also directly pickable by a user.
+      multi: true,
       options: EVIDENCE_QUALITY_OPTIONS.map(({ value, label }) => ({ value, label })),
     },
     {
       key: "approvalState",
       label: "Approval",
+      multi: true,
       options: APPROVAL_STATE_OPTIONS.map(({ value, label }) => ({ value, label })),
     },
     {
@@ -82,6 +92,7 @@ export function getAttendanceActivitiesFilterConfig({
       // real, currently-selectable filter rather than a hidden backdoor.
       key: "evidenceSource",
       label: "Work Channel",
+      multi: true,
       options: EVIDENCE_SOURCE_OPTIONS.map(({ value, label }) => ({ value, label })),
     },
     {
@@ -91,6 +102,9 @@ export function getAttendanceActivitiesFilterConfig({
       // toggle over is_weekend and could not express "public holiday" at all
       // -- nor the weekend-that-is-also-a-holiday case, which contributes to
       // both statutory wage tiers.
+      // multi: true -- e.g. "Weekend OR Public Holiday" (any non-working
+      // day) at once.
+      multi: true,
       options: DAY_CALENDAR_TYPE_OPTIONS,
     },
     {

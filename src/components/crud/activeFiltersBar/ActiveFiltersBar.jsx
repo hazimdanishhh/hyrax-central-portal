@@ -54,9 +54,20 @@ export default function ActiveFiltersBar({
 
         const label = filter?.label || key;
 
-        const optionLabel = filter?.options?.find(
-          (opt) => String(opt.value) === String(value),
-        )?.label;
+        // Multi-select filters (2026-09-28) store a comma-joined value --
+        // no single option's value equals the whole string, so the label
+        // lookup below has to happen per-value instead of once.
+        const optionLabel = filter?.multi
+          ? String(value)
+              .split(",")
+              .map(
+                (v) =>
+                  filter?.options?.find((opt) => String(opt.value) === v)
+                    ?.label || v,
+              )
+              .join(", ")
+          : filter?.options?.find((opt) => String(opt.value) === String(value))
+              ?.label;
 
         const displayValue = optionLabel || asyncLabels[key] || value;
 

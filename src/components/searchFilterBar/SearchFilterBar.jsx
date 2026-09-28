@@ -18,6 +18,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Select from "react-select";
 import CardLayout from "../cardLayout/CardLayout";
 import AsyncSelectEditor from "../dataTable/editors/AsyncSelectEditor";
+import MultiSelectEditor from "../dataTable/editors/MultiSelectEditor";
 import CsvExportButton from "../exportActions/CsvExportButton";
 import ExportFullReport from "../exportActions/ExportFullReport";
 import { DATE_RANGE_PRESETS } from "../../functions/dateRangePresets";
@@ -344,6 +345,39 @@ export default function SearchFilterBar({
                         [filter.key]: selectedOption
                           ? selectedOption.value
                           : "",
+                      })
+                    }
+                  />
+                ) : filter.multi ? (
+                  // Multi-select (added 2026-09-28) -- for a filter whose
+                  // underlying condition is a real OR (e.g. Attendance's
+                  // Data Quality: "Missing Check-Out" + "Incomplete Scans"
+                  // at once). Reuses MultiSelectEditor unchanged (same
+                  // component DataForm/editable-table-cell fields already
+                  // use for project members/task assignees) -- its own
+                  // array-in/array-out contract already does exactly what's
+                  // needed here, just wrapped to/from the comma-joined
+                  // string every filter value is otherwise stored/URL-
+                  // serialized as (buildFilterUrl's existing array-join
+                  // convention, and how a multi-value filter arrives back
+                  // from a chart drill-through link).
+                  <MultiSelectEditor
+                    placeholder={`Select ${filter.label}`}
+                    isSearchable
+                    options={
+                      typeof filter.options === "function"
+                        ? filter.options(filters)
+                        : filter.options
+                    }
+                    value={
+                      filters[filter.key]
+                        ? String(filters[filter.key]).split(",")
+                        : []
+                    }
+                    onChange={(values) =>
+                      onFilterChange({
+                        ...filters,
+                        [filter.key]: values.join(","),
                       })
                     }
                   />

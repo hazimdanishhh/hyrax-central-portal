@@ -117,6 +117,22 @@ function applyAttendanceSort(query, primaryColumn, primaryAscending) {
 // overtime_hours/is_early_leave columns -- beyond 8 paid hours per day and
 // before the work location's cutoff, respectively), so a drill-through
 // link's row count always matches the KPI it came from.
+// Shared by every multi-select-eligible axis filter below (2026-09-28,
+// generalized from evidenceQuality's own original fix) -- SearchFilterBar's
+// MultiSelectEditor branch (filterConfig.js's `multi: true`) and a chart
+// drill-through link both store/pass a comma-joined value the same way
+// buildFilterUrl already joins any array filter; splitting it back apart and
+// matching via .in() once there's more than one value is the one thing every
+// one of these columns needs, so it's centralized here rather than repeated
+// per case. A single value still goes through plain .eq(), unchanged from
+// before this existed.
+function eqOrIn(query, column, value) {
+  const values = String(value).split(",");
+  return values.length > 1
+    ? query.in(column, values)
+    : query.eq(column, value);
+}
+
 function applyAttendanceFilter(query, key, value) {
   switch (key) {
     case "employee":
@@ -145,30 +161,27 @@ function applyAttendanceFilter(query, key, value) {
     // against the view's own CASE expressions. A value that is not a real
     // column value returns zero rows with no error, so do not hand-write them.
     // ---------------------------------------------------------------------
+    // dayState/evidenceQuality/approvalState/evidenceSource/calendarType are
+    // all marked `multi: true` in filterConfig.js (2026-09-28) -- each one
+    // goes through eqOrIn so a comma-joined multi-select value is matched
+    // via .in(), same single-value .eq() otherwise.
     case "dayState":
-      return query.eq("day_state", value);
+      return eqOrIn(query, "day_state", value);
 
-    case "evidenceQuality": {
-      // Top Data Quality Issues (Attendance Overview, 2026-09-25) links with
-      // multiple evidence_quality values at once -- Missing Check-Outs
-      // (open_session) and Incomplete Card Scans (single_scan/
-      // single_scan_and_open_session) together, the same 2 conditions the
-      // Data Quality KPI tile itself sums -- which a single .eq() can't
-      // express. buildFilterUrl already joins an array filter value into a
-      // comma-separated string; split it back apart here and match via
-      // .in() once there's more than one value, same single-value .eq()
-      // otherwise so every other evidenceQuality link is unaffected.
-      const values = String(value).split(",");
-      return values.length > 1
-        ? query.in("evidence_quality", values)
-        : query.eq("evidence_quality", value);
-    }
+    // Top Data Quality Issues (Attendance Overview, 2026-09-25) links with
+    // multiple evidence_quality values at once -- Missing Check-Outs
+    // (open_session) and Incomplete Card Scans (single_scan/
+    // single_scan_and_open_session) together, the same 2 conditions the
+    // Data Quality KPI tile itself sums -- which a single .eq() can't
+    // express.
+    case "evidenceQuality":
+      return eqOrIn(query, "evidence_quality", value);
 
     case "approvalState":
-      return query.eq("approval_state", value);
+      return eqOrIn(query, "approval_state", value);
 
     case "evidenceSource":
-      return query.eq("evidence_source", value);
+      return eqOrIn(query, "evidence_source", value);
 
     case "leaveState":
       return query.eq("leave_state", value);
@@ -178,7 +191,7 @@ function applyAttendanceFilter(query, key, value) {
     // nor the weekend-that-is-also-a-holiday overlap (a real case that
     // contributes to BOTH statutory wage tiers).
     case "calendarType":
-      return query.eq("day_calendar_type", value);
+      return eqOrIn(query, "day_calendar_type", value);
 
     // ---------------------------------------------------------------------
     // LEGACY URL PARAMS. The hr_flag COLUMN no longer exists -- these two
