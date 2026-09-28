@@ -148,8 +148,21 @@ function applyAttendanceFilter(query, key, value) {
     case "dayState":
       return query.eq("day_state", value);
 
-    case "evidenceQuality":
-      return query.eq("evidence_quality", value);
+    case "evidenceQuality": {
+      // Top Data Quality Issues (Attendance Overview, 2026-09-25) links with
+      // multiple evidence_quality values at once -- Missing Check-Outs
+      // (open_session) and Incomplete Card Scans (single_scan/
+      // single_scan_and_open_session) together, the same 2 conditions the
+      // Data Quality KPI tile itself sums -- which a single .eq() can't
+      // express. buildFilterUrl already joins an array filter value into a
+      // comma-separated string; split it back apart here and match via
+      // .in() once there's more than one value, same single-value .eq()
+      // otherwise so every other evidenceQuality link is unaffected.
+      const values = String(value).split(",");
+      return values.length > 1
+        ? query.in("evidence_quality", values)
+        : query.eq("evidence_quality", value);
+    }
 
     case "approvalState":
       return query.eq("approval_state", value);

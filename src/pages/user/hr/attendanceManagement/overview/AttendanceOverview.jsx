@@ -705,7 +705,7 @@ export default function AttendanceOverview() {
                       data={topLeaveDaysByEmployeeData}
                       colorMap={PURPLE_COLOR}
                       onBarClick={(entry) =>
-                        goToRegular({ onLeave: "true", ...entry.filter })
+                        goToRegular(entry.filter)
                       }
                     />
                   </ChartCard>
@@ -719,7 +719,7 @@ export default function AttendanceOverview() {
                       data={leaveDaysByDepartmentData}
                       colorMap={PURPLE_COLOR}
                       onBarClick={(entry) =>
-                        goToRegular({ onLeave: "true", ...entry.filter })
+                        goToRegular(entry.filter)
                       }
                     />
                   </ChartCard>

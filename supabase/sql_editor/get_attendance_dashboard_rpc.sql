@@ -385,7 +385,10 @@ if v_has_period then
         (select coalesce(json_agg(x order by x.value desc), '[]'::json)
          from (
              select full_name as name, reconciliation_count as value,
-                    json_build_object('employee', employee_uuid) as filter
+                    -- `needsReconciliation: 'true'` added (2026-09-25, fixed
+                    -- same day) alongside `employee` -- matches this tile's
+                    -- own headline drill-through filter.
+                    json_build_object('employee', employee_uuid, 'needsReconciliation', 'true') as filter
              from employee_backlog
              where reconciliation_count > 0
              order by reconciliation_count desc
@@ -394,7 +397,18 @@ if v_has_period then
         (select coalesce(json_agg(x order by x.value desc), '[]'::json)
          from (
              select full_name as name, data_quality_count as value,
-                    json_build_object('employee', employee_uuid) as filter
+                    -- `evidenceQuality` added as an ARRAY of all 3 conditions
+                    -- this count actually sums (2026-09-25, fixed same day)
+                    -- -- a single .eq() can't express "any of these", so the
+                    -- frontend joins this into a comma-separated value
+                    -- (buildFilterUrl's existing array convention) and
+                    -- applyAttendanceFilter's evidenceQuality case matches it
+                    -- via .in() instead of .eq() once it detects more than
+                    -- one value.
+                    json_build_object(
+                        'employee', employee_uuid,
+                        'evidenceQuality', array['single_scan', 'open_session', 'single_scan_and_open_session']
+                    ) as filter
              from employee_backlog
              where data_quality_count > 0
              order by data_quality_count desc
@@ -417,7 +431,7 @@ else
         (select coalesce(json_agg(x order by x.value desc), '[]'::json)
          from (
              select full_name as name, reconciliation_count as value,
-                    json_build_object('employee', employee_uuid) as filter
+                    json_build_object('employee', employee_uuid, 'needsReconciliation', 'true') as filter
              from employee_backlog
              where reconciliation_count > 0
              order by reconciliation_count desc
@@ -426,7 +440,10 @@ else
         (select coalesce(json_agg(x order by x.value desc), '[]'::json)
          from (
              select full_name as name, data_quality_count as value,
-                    json_build_object('employee', employee_uuid) as filter
+                    json_build_object(
+                        'employee', employee_uuid,
+                        'evidenceQuality', array['single_scan', 'open_session', 'single_scan_and_open_session']
+                    ) as filter
              from employee_backlog
              where data_quality_count > 0
              order by data_quality_count desc
@@ -1146,12 +1163,18 @@ select json_build_object(
                     (count(*) filter (where day_state = 'worked')::numeric
                     / nullif(count(*) filter (where is_expected_working_day and leave_state = 'none'), 0)) * 100
                 , 1) as value,
-                -- Chart drill-through (2026-09-25): null for the
-                -- "Unassigned" bucket (department_id itself is null there)
-                -- -- left unclickable rather than risk an ambiguous
+                -- Chart drill-through (2026-09-25, fixed same day): null for
+                -- the "Unassigned" bucket (department_id itself is null
+                -- there) -- left unclickable rather than risk an ambiguous
                 -- "department is null" filter the list page doesn't support.
+                -- `calendarType: 'ordinary'` added alongside `department` --
+                -- this bar's own VALUE is a working-days-only rate (see the
+                -- roster_count denominator above), matching this chart's own
+                -- "View All" viewAllFilter exactly; without it, clicking a
+                -- bar landed on every record for that department (including
+                -- weekends/holidays never counted in the rate shown).
                 case when department_id is not null
-                    then json_build_object('department', department_id)
+                    then json_build_object('department', department_id, 'calendarType', 'ordinary')
                     else null end as filter
             from period_rows
             group by coalesce(department_name, 'Unassigned'), department_id
@@ -1204,7 +1227,12 @@ select json_build_object(
         select coalesce(json_agg(x), '[]'::json)
         from (
             select full_name as name, count(*) as value,
-                   json_build_object('employee', employee_uuid) as filter
+                   -- `dayState: 'absent'` added (2026-09-25, fixed same
+                   -- day) alongside `employee` -- without it, clicking a
+                   -- bar showed that employee's ENTIRE record set for the
+                   -- period, not just the absent days the bar counts.
+                   -- Matches this chart's own "View All" viewAllFilter.
+                   json_build_object('employee', employee_uuid, 'dayState', 'absent') as filter
             from period_rows
             where day_state = 'absent'
             group by full_name, employee_uuid
@@ -1219,7 +1247,11 @@ select json_build_object(
         select coalesce(json_agg(x), '[]'::json)
         from (
             select full_name as name, round(sum(overtime_hours)::numeric, 2) as value,
-                   json_build_object('employee', employee_uuid) as filter
+                   -- `overtimeOnly: 'true'` added (2026-09-25, fixed same
+                   -- day) alongside `employee` -- matches this chart's own
+                   -- "View All" viewAllFilter, same reasoning as
+                   -- topAbsenteeismData above.
+                   json_build_object('employee', employee_uuid, 'overtimeOnly', 'true') as filter
             from period_rows
             where day_state = 'worked'
              and evidence_quality not in ('single_scan', 'single_scan_and_open_session')
@@ -1252,7 +1284,12 @@ select json_build_object(
         select coalesce(json_agg(x order by x.value desc), '[]'::json)
         from (
             select leave_employee_name as name, sum(day_fraction) as value,
-                   json_build_object('employee', leave_emp_uuid) as filter
+                   -- `onLeave: 'true'` added (2026-09-25, fixed same day)
+                   -- alongside `employee` -- matches Leave by Type's own
+                   -- "View All" viewAllFilter. Previously built client-side
+                   -- in the page's own click handler; moved into the RPC so
+                   -- every clickable dataset's filter comes from one place.
+                   json_build_object('employee', leave_emp_uuid, 'onLeave', 'true') as filter
             from employee_leave_rows
             group by leave_employee_name, leave_emp_uuid
             order by sum(day_fraction) desc
@@ -1268,7 +1305,7 @@ select json_build_object(
         from (
             select leave_department_name as name, sum(day_fraction) as value,
                    case when leave_department_id is not null
-                       then json_build_object('department', leave_department_id)
+                       then json_build_object('department', leave_department_id, 'onLeave', 'true')
                        else null end as filter
             from employee_leave_rows
             group by leave_department_name, leave_department_id
