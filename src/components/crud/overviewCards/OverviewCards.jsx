@@ -88,6 +88,7 @@ export default function OverviewCards({ items = [], style }) {
                           ? "metricsCard metricsCardLink"
                           : "metricsCard"
                       }
+                      title={sub.title}
                     >
                       <span className="textXXS textLight metricsContent">
                         {sub.label}

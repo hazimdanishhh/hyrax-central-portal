@@ -2,226 +2,304 @@ import {
   GaugeIcon,
   ReceiptIcon,
   FileTextIcon,
-  TrophyIcon,
-  StackIcon,
-  LightningIcon,
   UsersThreeIcon,
-  PercentIcon,
-  TimerIcon,
+  PackageIcon,
+  StackIcon,
   WalletIcon,
+  WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { compactCurrency } from "../../../../../functions/formatNumber";
+import {
+  compactCurrency,
+  preciseCurrencyWithCents,
+} from "../../../../../functions/formatNumber";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
 
 /**
- * O2C funnel restructure (added 2026-08, see
- * docs/SALES-REPORTS-RESTRUCTURE-PLAN.md) -- reordered from the prior
- * "SAP block then CRM block" arrangement (2026-07 rebalance) into the
- * actual Order-to-Cash business process this page reports on: Pipeline ->
- * Sales Order -> Invoice -> Payment. Row 1 is one tile per O2C stage, in
- * stage order; Row 2 is each stage's own diagnostic. This is a pure reorder
- * of the same 8 tiles -- no tile's own value/variant/status/metrics
- * computation changed. Deliberately revisits the 2026-07 decision to lead
- * with SAP-side tiles ("that's what the business runs on") in favor of a
- * funnel-first narrative -- severity/urgency signaling stays independent of
- * grid position (getStatusVariant's fill rule already means a
- * critical-severity tile visually dominates regardless of slot), so this
- * changes narrative sequence, not risk-visibility. See
- * SALES-REPORTS-RESTRUCTURE-PLAN.md Part 4 for the full rationale.
+ * KPI-cards restructuring (2026-09-30, see docs/portal/DASHBOARD-CONVENTIONS.md
+ * §4b/§4c and get_attendance_dashboard_rpc.sql for the reference convention
+ * this migrates onto, plus get_sales_reports_dashboard_rpc.sql's own header
+ * comment for the full rationale) -- rethought from first principles around
+ * what salespeople/sales managers/executives actually need, not a mechanical
+ * consolidation. 8 cards, replacing the prior 8 -- the 4 old Leads/Pipeline
+ * tiles (Leads VS Target, Leads Pipeline Health, Leads Win Rate, Sales Leads
+ * Cycle) fold into ONE "Leads vs Target" card; Customer Concentration gains
+ * two siblings (Product/Product Group Concentration); a new ACTIONABLE
+ * "Sales Order Health" card closes a real gap (nothing on this page
+ * previously surfaced overdue deliveries/payment mismatches/unbilled
+ * orders). Charts are a deliberately separate, later pass -- untouched here
+ * except where a chart-feeding RPC field's own default period shifted
+ * (documented per-field in the RPC).
  *
- * The two forecasts (Pipeline Attainment / Invoice Budget Attainment) are
- * still surfaced side by side and never blended into one number -- see
- * docs/DASHBOARD-ROADMAP.md §1.2 and §5 (Duality A/B). `scorecard` is the
- * RPC's invoiceBudgetScorecardData array (still used here for the
- * department-level Revenue Budget rollup, since there's no dept-wide budget
- * total in `kpis` -- budget_math is per-rep only). `topInvoicedCustomers` is
- * the RPC's topInvoicedCustomersData array (LIMIT 10, sorted by revenue_myr
- * desc), feeding the Customer Concentration tile.
+ * Every REGULAR card below defaults to "This Month" (the FULL calendar
+ * month, never month-to-date) when no date range is picked, and reads "This
+ * Period" once one is -- computed once as `periodLabel` and reused
+ * everywhere, same convention as Attendance/Employee Overview. Card 8 is
+ * ACTIONABLE: defaults to the true current backlog (unbounded), and narrows
+ * to "originated this period" once a range is picked -- see
+ * `actionableLabel` below.
  *
- * Source-labeling convention (added 2026-07, see DASHBOARD-CONVENTIONS.md):
- * labels/sublabels name the literal source table instead of a generic word
- * -- "Pipeline Target" (sales_targets, a manually-set quota) vs "Revenue
- * Budget" (sales_budgets, a manually-set per-rep budget) vs "Sales Order"
- * (sap_sales_orders) vs "Invoice" (sap_invoices) -- so no two
- * differently-sourced figures can read as the same thing. "Customer"
- * (this page's Customer Concentration tile, sourced from SAP's own
- * customer_code on sap_invoices, converted from CRM 2026-07) is kept
- * distinct from "Client" (this page's own "Top Clients" chart, sourced from
- * the CRM-native `clients` table, unchanged) -- this page now legitimately
- * uses both words, one per source table. See DASHBOARD-CONVENTIONS.md.
+ * Subvalue convention (per explicit product correction during planning):
+ * a tile that already shows an attainment/rate percentage KEEPS it -- the
+ * previous-period delta is appended into that SAME string via `pctWithDelta`
+ * below (e.g. "87% (↑5% vs last month)"), never a separate slot. Sales
+ * Orders has no natural percentage to attach to, so its subvalue is just the
+ * plain delta.
  *
- * Drill-through pass (Phase 4): `filters` is this page's own active Owner/
- * Product Type/period filters, `canAccessInvoices`/`canAccessPayments` mirror
- * `canAccessOrders` (computed in Reports.jsx via canAccess({departments:
- * ["FIN", "MGM"]})) -- Invoices/Payments are FIN;MGM company-wide, same as
- * this page, but every link into them must still degrade to `to: null` for
- * a viewer who can't actually open the target (e.g. a department other than
- * SAL/FIN/MGM), same pattern Finance's own dashboard already uses for its
- * cross-page links. Owner/Product Type only ever thread into
- * the CRM-side tiles (Pipeline Attainment/Pipeline Health/Win Rate/Sales
- * Cycle) -- confirmed via the RPC that they scope base_leads only, with zero
- * effect on any SAP-sourced KPI (Order Book, Invoiced, Collected, Customer
- * Concentration), so threading them into a SAP tile's link would
- * misrepresent what actually scoped that number.
+ * Rep Funnel Scorecard (`invoiceBudgetScorecardData`/`ScorecardList`) is
+ * confirmed good and untouched by this pass -- only its own underlying CTEs'
+ * default time window shifted to This Month (see the RPC).
+ *
+ * `topInvoicedCustomers`/`topInvoicedProducts`/`productGroups` are the RPC's
+ * topInvoicedCustomersData/topProductsData/revenueByProductGroupData arrays
+ * (raw, unmapped for charts) -- reused here ONLY to build each concentration
+ * card's own drill-through filter (the specific customer/product codes to
+ * link to); the tile's own headline/percentage values come from the RPC's
+ * `kpis.*ConcentrationPct` fields directly, computed from the exact same
+ * window server-side, so the display number can never drift from what these
+ * arrays would independently compute.
+ *
+ * Source-labeling convention (see DASHBOARD-CONVENTIONS.md): "Customer" (SAP
+ * customer_code) is kept distinct from "Client" (the CRM-native `clients`
+ * table, used only by the still-deferred "Top Clients" chart) -- this page
+ * legitimately uses both words, one per source table.
+ *
+ * Drill-through: `filters` is this page's own active Owner/Product
+ * Type/period filters. `canAccessInvoices`/`canAccessPayments` mirror
+ * `canAccessOrders` (computed in Reports.jsx) -- every cross-page link
+ * degrades to `to: null` for a viewer who can't actually open the target.
+ * Owner/Product Type only ever thread into the CRM-side card (Leads vs
+ * Target) -- confirmed via the RPC that they scope base_leads only, with
+ * zero effect on any SAP-sourced KPI.
  */
 export function getSalesReportsOverviewConfig(
   kpis,
-  scorecard = [],
   topInvoicedCustomers = [],
+  topInvoicedProducts = [],
+  productGroups = [],
   canAccessOrders = false,
   canAccessInvoices = false,
   canAccessPayments = false,
   filters = {},
 ) {
-  const totalBudget = scorecard.reduce(
-    (sum, r) => sum + (r.budget_revenue || 0),
-    0,
-  );
-  // Invoiced total now reads kpis.totalInvoiced (added 2026-07) instead of
-  // summing the scorecard client-side -- same number in the common case,
-  // slightly more correct in an edge case the scorecard's own WHERE drops
-  // (a net-negative-invoiced rep with no orders/collections/budget).
-  const budgetAttainmentPct =
-    totalBudget > 0
-      ? Math.round(((kpis.totalInvoiced || 0) / totalBudget) * 100)
-      : 0;
+  const calcDelta = (current, previous) => {
+    if (previous === null || previous === undefined) return null;
+    if (previous === 0 && current === 0) return 0;
+    if (previous === 0 && current > 0) return 100;
 
-  // Ratios are unitless multiples, not currency -- "2.40x" reads as coverage
-  // the way "RM 2.4M" reads as an amount. null (a divide-by-zero guard)
-  // renders "—", never "0.00x" -- mirrors Finance's formatRatio.
-  const formatRatio = (value) =>
-    value === null || value === undefined
-      ? "—"
-      : `${Number(value).toFixed(2)}x`;
+    return Math.round(((current - previous) / previous) * 100);
+  };
 
-  // PIPELINE HEALTH -- coverage ratio: open pipeline against this period's
-  // quota. activePipelineValue is a point-in-time "right now" snapshot (see
-  // the RPC's lead_kpis comment) while pipelineTargetRevenue is prorated to
-  // the selected period -- that pairing is the point of a coverage ratio,
-  // but it's why the tile's tooltip calls it out explicitly.
-  const coverageRatio =
-    kpis.pipelineTargetRevenue > 0
-      ? kpis.activePipelineValue / kpis.pipelineTargetRevenue
-      : null;
+  const deltaText = (delta) =>
+    delta === null ? "" : delta > 0 ? `↑ ${delta}%` : `↓ ${Math.abs(delta)}%`;
 
-  // PIPELINE HEALTH -- velocity: RM of won revenue the pipeline throws off
-  // per day. null (renders "—") when avgDaysToClose is 0/null, which is the
-  // no-WON-deals-in-this-period case, not a real zero-day sales cycle.
-  const pipelineVelocity =
-    kpis.avgDaysToClose > 0
-      ? ((kpis.totalOpportunities || 0) *
-          (kpis.avgDealSize || 0) *
-          ((kpis.winRatePct || 0) / 100)) /
-        kpis.avgDaysToClose
-      : null;
+  // Appends a period-over-period delta into an existing attainment/rate
+  // subvalue, rather than replacing it -- see this file's own header comment.
+  const pctWithDelta = (pct, delta) => {
+    const base = `${pct ?? 0}%`;
+    return delta === null
+      ? base
+      : `${base} (${deltaText(delta)} vs last period)`;
+  };
 
-  // CUSTOMER CONCENTRATION -- converted 2026-07 from CRM (clients/WON
-  // revenue) to SAP-invoiced revenue, per explicit product decision:
-  // concentration risk is a revenue-dependency question that belongs on
-  // audited billing data, not self-reported pipeline. topInvoicedCustomers
-  // is LIMITed to 10 in SQL, so slice(0, 5) really is the top 5; the
-  // re-sort is defensive only (json_agg doesn't formally guarantee it
-  // preserves the subquery's own ORDER BY).
-  //
-  // Denominator is kpis.totalInvoiced -- the SAME base_invoices CTE, same
-  // window, as topInvoicedCustomersData itself -- so this share is now
-  // exact, not an approximation. (The prior CRM version was "slightly
-  // conservative" because topClientsData inner-joined clients and excluded
-  // cancelled leads while its denominator, pipelineWonRevenue, didn't --
-  // that caveat no longer applies.)
-  const top5Invoiced = [...topInvoicedCustomers]
-    .sort((a, b) => (b.revenue_myr || 0) - (a.revenue_myr || 0))
-    .slice(0, 5);
-  const top5InvoicedRevenue = top5Invoiced.reduce(
-    (sum, r) => sum + (r.revenue_myr || 0),
-    0,
-  );
-  const concentrationPct =
-    kpis.totalInvoiced > 0
-      ? Math.round((top5InvoicedRevenue / kpis.totalInvoiced) * 100)
-      : null;
+  const isPeriodFiltered =
+    Boolean(filters?.startDate) && Boolean(filters?.endDate);
+  // REGULAR family's subtitle vocabulary -- same as Attendance/Employee
+  // Overview's own periodLabel.
+  const periodLabel = isPeriodFiltered ? "This Period" : "This Month";
+  // ACTIONABLE family's subtitle vocabulary (Card 8) -- "current backlog"
+  // when unfiltered, narrows to "this period" once a range is picked.
+  const actionableLabel = isPeriodFiltered ? "This Period" : "Current Backlog";
 
-  // BACKLOG GAP -- booked but not yet invoiced. Uses kpis.totalInvoiced
-  // (same field Invoice Budget Attainment now reads) so this figure and that
-  // tile always agree on what "invoiced" means. Negative = invoiced more
-  // than was booked this period, i.e. billing against orders booked earlier
-  // -- same sign convention as the scorecard's own po_vs_invoice_variance_myr.
-  const backlogGap = (kpis.orderBookValue || 0) - (kpis.totalInvoiced || 0);
+  // FIXED 2026-09-30: every REGULAR card's drill-through link must reproduce
+  // the EXACT window the tile itself is showing -- when no date range is
+  // picked, that window is "This Month" (the RPC's own v_effective_start_
+  // date/v_effective_end_date default, full calendar month, never month-to-
+  // date), not "no date filter at all." Previously periodFilter/
+  // closedPeriodFilter fell back to {} when unfiltered, so clicking through
+  // an unfiltered tile silently showed ALL-TIME data on the list page --
+  // a real mismatch against what the tile displayed. Computed once here so
+  // every REGULAR card/metric below stays in sync with the RPC's default.
+  const now = new Date();
+  const defaultMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const defaultMonthEnd = `${lastDayOfMonth.getFullYear()}-${String(lastDayOfMonth.getMonth() + 1).padStart(2, "0")}-${String(lastDayOfMonth.getDate()).padStart(2, "0")}`;
 
-  // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
-  // Color & Fill Convention"). Thresholds below are documented estimates,
-  // not audited Sales targets -- tune freely without touching
-  // statusVariant.js. This page ends with zero permanently-filled tiles by
-  // design: its two forecasts are "deliberately never blended" (see header
-  // comment), so no single tile is crowned a fixed hero.
-  const invoiceBudgetStatus = getStatusVariant(budgetAttainmentPct, {
-    direction: "high-good",
-    thresholds: { warningAt: 80, goodAt: 100 },
-  });
-  // Borrowed signal: same 70/90 collection-rate band as Finance Reports'
-  // Cash Collected -- same RCT2 chain, must read the same on both dashboards.
-  const paymentsCollectedStatus = getStatusVariant(kpis.collectionRatePct, {
-    direction: "high-good",
-    thresholds: { warningAt: 70, goodAt: 90 },
-  });
-  // concentrationPct is null when there's no invoiced revenue to divide by --
-  // getStatusVariant renders that as neutral/informational, not a guessed
-  // "good" (the old static-ternary version silently read a null as green).
-  const concentrationStatus = getStatusVariant(concentrationPct, {
-    direction: "low-good",
-    thresholds: { warningAt: 30, criticalAt: 60 },
-  });
-  const pipelineAttainmentStatus = getStatusVariant(
-    kpis.pipelineAttainmentPct || 0,
-    { direction: "high-good", thresholds: { warningAt: 80, goodAt: 100 } },
-  );
-  // coverageRatio is null when there's no pipeline target set this period --
-  // renders neutral, not a guessed critical.
-  const pipelineHealthStatus = getStatusVariant(coverageRatio, {
-    direction: "high-good",
-    thresholds: { warningAt: 1.5, goodAt: 3 },
-  });
-  const winRateStatus = getStatusVariant(kpis.winRatePct || 0, {
-    direction: "high-good",
-    thresholds: { warningAt: 25, goodAt: 40 },
-  });
-  const salesCycleStatus = getStatusVariant(kpis.avgDaysToClose || 0, {
-    direction: "low-good",
-    thresholds: { warningAt: 31, criticalAt: 46 },
-  });
-
+  // created_at/invoice_date/order_date/payment_date window -- universal
+  // across every SAP-sourced REGULAR card below.
+  const periodFilter = isPeriodFiltered
+    ? { startDate: filters.startDate, endDate: filters.endDate }
+    : { startDate: defaultMonthStart, endDate: defaultMonthEnd };
+  // closed_date window (Sales Leads' view-only column) -- backs the
+  // CRM-side Leads vs Target card, windowed by when a deal closed.
+  const closedPeriodFilter = isPeriodFiltered
+    ? { closedDateFrom: filters.startDate, closedDateTo: filters.endDate }
+    : { closedDateFrom: defaultMonthStart, closedDateTo: defaultMonthEnd };
+  // ACTIONABLE family (Card 8 only) -- deliberately NOT defaulted to This
+  // Month: an unfiltered actionable tile means "the true current backlog,"
+  // so its own drill-through must stay unbounded too, not silently narrow to
+  // this month the way the REGULAR periodFilter above now does.
+  const actionablePeriodFilter = isPeriodFiltered
+    ? { startDate: filters.startDate, endDate: filters.endDate }
+    : {};
   // CRM-side filters only -- Owner/Product Type never thread into SAP tiles
   // (see header comment).
   const baseFilterCRM = {
     ...(filters.owner && { owner: filters.owner }),
     ...(filters.productType && { productType: filters.productType }),
   };
+  // FIXED 2026-09-30: the RPC's own v_sales_rep_code resolution (see its
+  // access-guard comment) DOES scope every SAP-sourced KPI on this page
+  // (Sales Orders, Invoiced Revenue, Customer Concentration, Sales Order
+  // Health) by the selected Salesperson -- this file's own header comment
+  // above ("Owner/Product Type only ever thread into the CRM-side card...
+  // zero effect on any SAP-sourced KPI") predates that RPC fix and is now
+  // wrong. kpis.resolvedSalesRepCode is the RPC's already-resolved mapping
+  // (never re-derived here), so every SAP-side link below carries the SAME
+  // active Salesperson scope the number itself was computed under. Omitted
+  // entirely when no owner is selected -- never sent as a literal "null"
+  // filter value. Sales Orders/Invoices both key on "salesRepCode"
+  // (fulfillmentOrdersService.js / invoicesService.js, confirmed); Payments
+  // (paymentsService.js) has NO sales-rep filter at all today, so Payments
+  // Collected's own link below is a real, currently-unfixable gap -- flagged
+  // there rather than silently left inconsistent.
+  const baseFilterSAP = {
+    ...(kpis.resolvedSalesRepCode !== null &&
+      kpis.resolvedSalesRepCode !== undefined && {
+        salesRepCode: kpis.resolvedSalesRepCode,
+      }),
+  };
 
-  const isPeriodFiltered =
-    Boolean(filters.startDate) && Boolean(filters.endDate);
-  // created_at window -- universal across SAP and CRM tiles.
-  const periodFilter = isPeriodFiltered
-    ? { startDate: filters.startDate, endDate: filters.endDate }
-    : {};
-  // closed_date window (Sales Leads' view-only column) -- backs Won/Lost/
-  // cycle-time CRM tiles, which are windowed by when a deal closed.
-  const closedPeriodFilter = isPeriodFiltered
-    ? { closedDateFrom: filters.startDate, closedDateTo: filters.endDate }
-    : {};
+  // ─── Card 1: Leads vs Target ───────────────────────────────────────────
+  const pipelineAttainmentDelta = calcDelta(
+    kpis.pipelineAttainmentPct,
+    kpis.prevPipelineAttainmentPct,
+  );
+  const pipelineAttainmentStatus = getStatusVariant(
+    kpis.pipelineAttainmentPct || 0,
+    { direction: "high-good", thresholds: { warningAt: 80, goodAt: 100 } },
+  );
+
+  // ─── Card 2: Sales Orders ───────────────────────────────────────────────
+  const orderBookDelta = calcDelta(
+    kpis.orderBookValue,
+    kpis.prevOrderBookValue,
+  );
+
+  // ─── Card 3: Invoiced Revenue ───────────────────────────────────────────
+  const budgetAttainmentDelta = calcDelta(
+    kpis.budgetAttainmentPct,
+    kpis.prevBudgetAttainmentPct,
+  );
+  const invoiceBudgetStatus = getStatusVariant(kpis.budgetAttainmentPct || 0, {
+    direction: "high-good",
+    thresholds: { warningAt: 80, goodAt: 100 },
+  });
+
+  // ─── Card 4: Payments Collected ─────────────────────────────────────────
+  // FIXED 2026-09-30 (see the RPC's own header comment, finding #1):
+  // kpis.totalCollected now excludes cash not resolved against a real sales
+  // invoice -- no separate "Unattributed Cash" metric is shown anywhere on
+  // this page, that's Finance's own reconciliation concern.
+  const collectionRateDelta = calcDelta(
+    kpis.collectionRatePct,
+    kpis.prevCollectionRatePct,
+  );
+  // Same 70/90 collection-rate band as Finance Reports' Cash Collected --
+  // same RCT2 chain, must read the same on both dashboards.
+  const paymentsCollectedStatus = getStatusVariant(
+    kpis.collectionRatePct || 0,
+    { direction: "high-good", thresholds: { warningAt: 70, goodAt: 90 } },
+  );
+
+  // ─── Cards 5-7: Concentration ───────────────────────────────────────────
+  // Values come from kpis.*ConcentrationPct (RPC-computed, exact) -- these
+  // arrays are only used to build each tile's own drill-through filter.
+  // null (not 0) renders "—" -- getStatusVariant treats null as neutral, not
+  // a guessed "good."
+  const top5Invoiced = [...topInvoicedCustomers]
+    .sort((a, b) => (b.revenue_myr || 0) - (a.revenue_myr || 0))
+    .slice(0, 5);
+  const top5Products = [...topInvoicedProducts]
+    .sort((a, b) => (b.revenue_myr || 0) - (a.revenue_myr || 0))
+    .slice(0, 5);
+  const top3Groups = [...productGroups]
+    .sort((a, b) => (b.revenue_myr || 0) - (a.revenue_myr || 0))
+    .slice(0, 3);
+
+  const customerConcentrationStatus = getStatusVariant(
+    kpis.customerConcentrationPct,
+    { direction: "low-good", thresholds: { warningAt: 30, criticalAt: 60 } },
+  );
+  const productConcentrationStatus = getStatusVariant(
+    kpis.productConcentrationPct,
+    { direction: "low-good", thresholds: { warningAt: 30, criticalAt: 60 } },
+  );
+  // Only ~13 product groups exist company-wide, so top-3 naturally runs
+  // higher than a top-5-of-many share -- looser thresholds than
+  // Customer/Product Concentration, not the same band copy-pasted.
+  const productGroupConcentrationStatus = getStatusVariant(
+    kpis.productGroupConcentrationPct,
+    { direction: "low-good", thresholds: { warningAt: 40, criticalAt: 70 } },
+  );
+
+  // ─── Card 8: Sales Order Health (new, ACTIONABLE) ──────────────────────
+  // isCancelled/deliveryOverdueOnly/deliveryDueSoonOnly/hasMismatchOnly/
+  // invoicedOnly are the Sales Orders list page's own real, already-verified
+  // filter keys (fulfillmentOrdersService.js) -- see
+  // src/pages/user/sales/orders/filterConfig.js and overviewConfig.js for
+  // the reference usage this mirrors.
+  const overdueDeliveryFilter = {
+    ...baseFilterSAP,
+    isCancelled: "N",
+    deliveryOverdueOnly: "true",
+    ...actionablePeriodFilter,
+  };
+  const deliveryDueSoonFilter = {
+    ...baseFilterSAP,
+    isCancelled: "N",
+    deliveryDueSoonOnly: "true",
+    ...actionablePeriodFilter,
+  };
+  const paymentMismatchFilter = {
+    ...baseFilterSAP,
+    isCancelled: "N",
+    hasMismatchOnly: "true",
+    ...actionablePeriodFilter,
+  };
+  const notYetInvoicedFilter = {
+    ...baseFilterSAP,
+    isCancelled: "N",
+    invoicedOnly: "none",
+    ...actionablePeriodFilter,
+  };
+  const salesOrderHealthSeverity =
+    (kpis.overdueDeliveriesCount || 0) > 0
+      ? 2
+      : (kpis.deliveryDueSoonCount || 0) +
+            (kpis.paymentMismatchesCount || 0) +
+            (kpis.notYetInvoicedCount || 0) >
+          0
+        ? 1
+        : 0;
+  const salesOrderHealthStatus = getStatusVariant(salesOrderHealthSeverity, {
+    direction: "low-good",
+    thresholds: { warningAt: 1, criticalAt: 2 },
+  });
 
   return [
-    // ==========================================
-    // ROW 1 -- O2C FUNNEL STAGES, IN ORDER
-    // Pipeline (CRM, self-reported) -> Sales Order (SAP, booked) ->
-    // Invoice (SAP, billed) -> Payment (SAP, collected)
-    // ==========================================
-
-    // TILE 1 (Pipeline stage): Pipeline Attainment (Forecast 1 -- CRM, self-reported)
+    // TILE 1: Leads vs Target -- consolidates the previous Leads VS Target,
+    // Leads Pipeline Health, Leads Win Rate, and Sales Leads Cycle tiles into
+    // one card. Active Pipeline Value is a live, point-in-time SNAPSHOT --
+    // it deliberately ignores the date filter, same as before.
     {
       icon: GaugeIcon,
-      label: "Leads Pipeline Attainment",
-      sublabel: "CRM, self-reported at deal-close, vs quota",
-      value: `${kpis.pipelineAttainmentPct || 0}%`,
+      label: "Leads vs Target",
+      sublabel: periodLabel,
+      value: preciseCurrencyWithCents(kpis.pipelineWonRevenue),
+      subvalue: pctWithDelta(
+        kpis.pipelineAttainmentPct,
+        pipelineAttainmentDelta,
+      ),
       variant: pipelineAttainmentStatus.variant,
       status: {
         icon: pipelineAttainmentStatus.statusIcon,
@@ -231,105 +309,116 @@ export function getSalesReportsOverviewConfig(
       filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
       metrics: [
         {
-          label: "Pipeline Won Revenue",
-          value: compactCurrency(kpis.pipelineWonRevenue),
+          label: "Pipeline Target",
+          value: preciseCurrencyWithCents(kpis.pipelineTargetRevenue),
+          to: "/app/sales/leads/targets",
+          // Targets Management's own filterConfig.js supports "owner" (Sales
+          // Rep) -- previously this link carried no filter at all, so
+          // selecting a Salesperson on this page didn't carry through.
+          filter: { ...baseFilterCRM },
+        },
+        {
+          label: "Win Rate",
+          value: `${kpis.winRatePct || 0}%`,
+          to: "../leads/list",
+          filter: {
+            ...baseFilterCRM,
+            closedOnly: "true",
+            ...closedPeriodFilter,
+          },
+        },
+        {
+          label: "Active Pipeline Value",
+          value: compactCurrency(kpis.activePipelineValue),
+          to: "../leads/list",
+          filter: { ...baseFilterCRM, activePipelineOnly: "true" },
+        },
+        {
+          label: "Pipeline Cycle",
+          value: `${kpis.avgDaysToClose || 0}d`,
           to: "../leads/list",
           filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
         },
-        {
-          label: "Pipeline Target",
-          value: compactCurrency(kpis.pipelineTargetRevenue),
-          // Manually-set quota (sales_targets) -- no list page, unlinked.
-        },
       ],
       title:
-        "Forward-looking pipeline/coaching signal -- reps' own declared revenue at deal-close (sales_leads), vs a manually-set monthly quota (sales_targets).",
+        "Reps' own declared won revenue (sales_leads) this period vs a manually-set monthly quota (sales_targets). Win Rate is WON deals as a share of WON + LOST closed this period. Active Pipeline Value is a live snapshot of open, uncancelled pipeline right now -- ignores the date filter. Pipeline Cycle is the average days from lead creation to a WON deal this period.",
     },
 
-    // TILE 2 (Sales Order stage): Sales Order Book
+    // TILE 2: Sales Orders. "Open Backlog"/"Open Units" removed (2026-09-30,
+    // per explicit product decision -- both were flagged as unreliable: Open
+    // Units needs order-line data this RPC doesn't query, and Open Backlog
+    // was a crude cross-table RM subtraction, not a real cumulative figure).
+    // What's actually unbilled is now answered properly by Card 8's Not Yet
+    // Invoiced cohort instead.
     {
       icon: FileTextIcon,
-      label: "Sales Order Book",
-      sublabel: "Sales Orders Booked (This Period)",
-      value: compactCurrency(kpis.orderBookValue),
-      // Informational -- no computable comparator (Backlog Gap sub-metric's
-      // own polarity is ambiguous: could mean healthy backlog or billing lag).
+      label: "Sales Orders",
+      sublabel: periodLabel,
+      value: preciseCurrencyWithCents(kpis.orderBookValue),
+      // Nothing to combine this delta with -- no order-level target exists.
+      subvalue: deltaText(orderBookDelta),
+      // Informational -- no natural target to evaluate order value against.
       variant: "blueCard",
-      // Only a real link for viewers who can actually open sales/orders (SAL
-      // managers, MGM excluded per R3) -- otherwise falls back to
-      // OverviewCards' plain non-clickable card, same as every `to: null`
-      // tile, so a viewer without access never sees a dead link.
-      to: canAccessOrders ? "../orders" : null,
-      filter: { ...periodFilter },
+      to: canAccessOrders ? "../orders/all" : null,
+      filter: { ...baseFilterSAP, ...periodFilter },
       metrics: [
         {
-          label: "Sales Orders",
+          label: "Order Count",
           value: kpis.orderBookCount || 0,
-          to: canAccessOrders ? "../orders" : null,
-          filter: { ...periodFilter },
+          to: canAccessOrders ? "../orders/all" : null,
+          filter: { ...baseFilterSAP, ...periodFilter },
         },
         {
-          label: "Backlog Gap",
-          value: compactCurrency(backlogGap),
-          // Spans two tables/date-windows (Orders minus Invoices) -- no
-          // single row-set, stays unlinked.
+          label: "Avg Order Value",
+          value: compactCurrency(kpis.avgOrderValue),
+        },
+        {
+          label: "Distinct Customers Ordering",
+          value: kpis.distinctCustomersOrdering || 0,
         },
       ],
       title:
-        "Value of Sales Orders booked this period. Backlog Gap is Sales Order value minus Invoiced Revenue: positive means orders booked this period haven't all been billed yet; negative means invoicing outpaced new bookings, e.g. billing against orders booked earlier.",
+        "Value of Sales Orders booked this period. What's still owed on those orders (overdue delivery, payment mismatches, not-yet-invoiced) is covered by the Sales Order Health card below.",
     },
 
-    // TILE 3 (Invoice stage): Invoice Budget Attainment (Forecast 2 -- SAP, system-of-record)
+    // TILE 3: Invoiced Revenue (renamed from "Invoice VS Budget", Avg
+    // Invoice Value relocated here from Payments Collected -- 2026-09-30).
+    //
+    // Verification #1 (unresolved, flagged directly by the user): does this
+    // include invoices not related to any sales order? Confirmed structurally
+    // -- no sales-order<->invoice document join exists anywhere in this RPC
+    // (see the RPC's own header comment). Rep-filtering itself IS correct
+    // (confirmed -- selecting a Salesperson only ever shows their own
+    // invoices). Whether an unfiltered, company-wide read should exclude an
+    // invoice with a null sales_rep_code is still open -- needs a live check
+    // against hyrax-data-platform on whether SAP ever legitimately leaves a
+    // real sale's sales_rep_code null, so it's deliberately left as-is
+    // rather than silently guessed either way.
     {
       icon: ReceiptIcon,
-      label: "Invoice Budget Attainment",
-      sublabel: "Invoiced Revenue vs Invoice Budget (This Period)",
-      value: `${budgetAttainmentPct}%`,
+      label: "Invoiced Revenue",
+      sublabel: periodLabel,
+      value: preciseCurrencyWithCents(kpis.totalInvoiced),
+      subvalue: pctWithDelta(kpis.budgetAttainmentPct, budgetAttainmentDelta),
       variant: invoiceBudgetStatus.variant,
       status: {
         icon: invoiceBudgetStatus.statusIcon,
         label: invoiceBudgetStatus.statusLabel,
       },
-      // Only a real link for viewers who can actually open finance/invoices
-      // (FIN department) -- otherwise falls back to OverviewCards' plain
-      // non-clickable card.
       to: canAccessInvoices ? "/app/finance/invoices/list" : null,
-      filter: { ...periodFilter },
+      filter: { ...baseFilterSAP, ...periodFilter },
       metrics: [
-        {
-          label: "Invoiced Revenue",
-          value: compactCurrency(kpis.totalInvoiced),
-          to: canAccessInvoices ? "/app/finance/invoices/list" : null,
-          filter: { ...periodFilter },
-        },
         {
           label: "Revenue Budget",
-          value: compactCurrency(totalBudget),
-          // Manually-set per-rep quota (sales_budgets) -- no list page
-          // exists for it, stays unlinked.
+          value: preciseCurrencyWithCents(kpis.revenueBudgetTotal),
+          to: "/app/sales/orders/budgets",
+          // Budgets' own filterConfig.js keys on salesRepCode too -- see
+          // baseFilterSAP's own comment above.
+          filter: { ...baseFilterSAP },
         },
-      ],
-      title: "Backward-looking, Invoiced Revenue VS Invoice Budget.",
-    },
-
-    // TILE 4 (Payment stage): Payments Collected
-    {
-      icon: WalletIcon,
-      label: "Payments Collected",
-      sublabel: "Total Collected (This Period)",
-      value: compactCurrency(kpis.totalCollected),
-      variant: paymentsCollectedStatus.variant,
-      status: {
-        icon: paymentsCollectedStatus.statusIcon,
-        label: paymentsCollectedStatus.statusLabel,
-      },
-      to: canAccessPayments ? "/app/finance/invoices/payments" : null,
-      filter: { ...periodFilter },
-      metrics: [
         {
-          label: "Collection Rate",
-          value: `${kpis.collectionRatePct || 0}%`,
-          icon: PercentIcon,
+          label: "Invoice Count",
+          value: kpis.invoiceCount || 0,
         },
         {
           label: "Avg Invoice Value",
@@ -337,154 +426,229 @@ export function getSalesReportsOverviewConfig(
         },
       ],
       title:
-        "Cash actually applied against invoices via SAP payment applications this period. Collection Rate is the share of invoiced revenue that was collected this period. Avg Invoice Value is the mean of all invoices issued this period, regardless of whether they were paid.",
+        "Backward-looking, Invoiced Revenue VS Invoice Budget. Avg Invoice Value is the mean of all invoices issued this period, regardless of whether they were paid.",
     },
 
-    // ==========================================
-    // ROW 2 -- STAGE DIAGNOSTICS
-    // Each tile below diagnoses the row-1 tile directly above it.
-    // ==========================================
-
-    // TILE 5 (diagnoses Pipeline): Pipeline Health -- merged 2026-07 from the
-    // previous separate Pipeline Coverage + Pipeline Velocity tiles.
+    // TILE 4: Payments Collected. FIXED 2026-09-30 (verification #2, flagged
+    // directly by the user): this figure previously included cash not
+    // related to any sales invoice at all (on-account cash, other SAP
+    // document types) -- confirmed as a real bug. Now rescoped server-side
+    // to only cash applied against a real sales invoice; that excluded cash
+    // is Finance's own reconciliation concern and is deliberately NOT shown
+    // here as a companion metric.
     {
-      icon: StackIcon,
-      label: "Leads Pipeline Health",
-      sublabel: "Open Pipeline (Today) vs This Period's Quota",
-      value: formatRatio(coverageRatio),
-      variant: pipelineHealthStatus.variant,
+      icon: WalletIcon,
+      label: "Payments Collected",
+      sublabel: periodLabel,
+      value: preciseCurrencyWithCents(kpis.totalCollected),
+      subvalue: pctWithDelta(kpis.collectionRatePct, collectionRateDelta),
+      variant: paymentsCollectedStatus.variant,
       status: {
-        icon: pipelineHealthStatus.statusIcon,
-        label: pipelineHealthStatus.statusLabel,
+        icon: paymentsCollectedStatus.statusIcon,
+        label: paymentsCollectedStatus.statusLabel,
       },
-      // Live snapshot, ignores the date filter (see title) -- no period
-      // filter threaded through, only Owner/Product Type.
-      to: "../leads/list",
-      filter: { ...baseFilterCRM, activePipelineOnly: "true" },
+      // NOTE: no salesRepCode here, unlike every other SAP-sourced link on
+      // this page (see baseFilterSAP's own comment) -- paymentsService.js has
+      // no sales-rep filter at all today, so when an Owner is selected this
+      // link can't be scoped to match kpis.totalCollected the way Sales
+      // Orders/Invoiced Revenue/Customer Concentration now are. A real,
+      // currently-unfixable gap on the Payments list page itself, not an
+      // oversight here.
+      to: canAccessPayments ? "/app/finance/invoices/payments" : null,
+      filter: { ...periodFilter },
       metrics: [
         {
-          label: "Pipeline Value",
-          value: compactCurrency(kpis.activePipelineValue),
-          to: "../leads/list",
-          filter: { ...baseFilterCRM, activePipelineOnly: "true" },
+          label: "Payment Count",
+          value: kpis.paymentCount || 0,
         },
         {
-          label: "Velocity",
-          value:
-            pipelineVelocity === null
-              ? "—"
-              : `${compactCurrency(pipelineVelocity)}/day`,
-          icon: LightningIcon,
-          // Derived rate (RM/day) -- no matching row-set, unlinked.
+          label: "Distinct Customers Paid",
+          value: kpis.distinctCustomersPaid || 0,
         },
       ],
       title:
-        "Coverage: Current Active Pipeline divided by Leads Target (Quota) -- Roughly 3x is a healthy coverage floor. Live snapshot, ignores the date filter. Velocity: Lead Opportunities Created X Average Deal Size X Win Rate divided by Average Days to Close -- Roughly the RM of won revenue this pipeline generates per day. Opportunity Count = leads created this period. Deal size/win rate/cycle time are measured over deals WON this period. Weighted pipeline (applying each lead's own close probability): " +
-        `${compactCurrency(kpis.weightedPipelineValue)}.`,
+        "Cash applied against a real sales invoice via SAP payment applications this period -- on-account cash and other non-invoice payment applications are excluded. Collection Rate is the share of this period's invoiced revenue that was collected in it.",
     },
 
-    // TILE 6 (diagnoses Pipeline): Win Rate -- linkable via the
-    // closedOnly/hasQuotation filters (leadsService.js).
-    {
-      icon: TrophyIcon,
-      label: "Leads Win Rate",
-      sublabel: "WON vs WON + LOST (This Period)",
-      value: `${kpis.winRatePct || 0}%`,
-      variant: winRateStatus.variant,
-      status: { icon: winRateStatus.statusIcon, label: winRateStatus.statusLabel },
-      to: "../leads/list",
-      filter: { ...baseFilterCRM, closedOnly: "true", ...closedPeriodFilter },
-      metrics: [
-        {
-          label: "Avg Deal Size",
-          value: compactCurrency(kpis.avgDealSize),
-          to: "../leads/list",
-          filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
-        },
-        {
-          label: "Quote → Win",
-          value: `${kpis.quoteToWinConversionPct || 0}%`,
-          icon: PercentIcon,
-          to: "../leads/list",
-          filter: {
-            ...baseFilterCRM,
-            hasQuotation: "true",
-            ...closedPeriodFilter,
-          },
-        },
-      ],
-      title:
-        "WON deals as a share of WON + LOST closed in this period (cancelled leads excluded). Quote → Win is the narrower funnel: of leads that had a quotation sent, how many closed WON.",
-    },
-
-    // TILE 7 (diagnoses Pipeline): Sales Cycle -- CRM/sales_leads-sourced
-    // deal cycle time.
-    {
-      icon: TimerIcon,
-      label: "Sales Leads Cycle",
-      sublabel: "Avg Days to Close (This Period)",
-      value: `${kpis.avgDaysToClose || 0}d`,
-      variant: salesCycleStatus.variant,
-      status: { icon: salesCycleStatus.statusIcon, label: salesCycleStatus.statusLabel },
-      to: "../leads/list",
-      filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
-      metrics: [
-        {
-          label: "Median Days to Win",
-          value: `${kpis.medianDaysToWin || 0}d`,
-          to: "../leads/list",
-          filter: { ...baseFilterCRM, stage: "WON", ...closedPeriodFilter },
-        },
-      ],
-      title:
-        "Average days from lead creation to a WON deal this period, and the median version of the same measure (less sensitive to a handful of unusually slow or fast deals).",
-    },
-
-    // TILE 8 (diagnoses Invoice): Customer Concentration -- converted
-    // 2026-07 from CRM ("Client Concentration") to SAP-invoiced revenue.
-    // 100% RPC-fed, no extra query beyond topInvoicedCustomersData/
-    // totalInvoiced already needed elsewhere on this page.
+    // TILE 5: Customer Concentration -- unchanged in kind, now reads its
+    // value from the RPC's own kpis.customerConcentrationPct (exact, same
+    // window as topInvoicedCustomers) rather than a client-side recompute.
     {
       icon: UsersThreeIcon,
       label: "Customer Concentration",
-      sublabel: "Top 5 Customers' Share of Invoiced Revenue",
-      value: concentrationPct === null ? "—" : `${concentrationPct}%`,
-      variant: concentrationStatus.variant,
+      sublabel: `Top 5, ${periodLabel}`,
+      value:
+        kpis.customerConcentrationPct === null ||
+        kpis.customerConcentrationPct === undefined
+          ? "—"
+          : `${kpis.customerConcentrationPct}%`,
+      variant: customerConcentrationStatus.variant,
       status: {
-        icon: concentrationStatus.statusIcon,
-        label: concentrationStatus.statusLabel,
+        icon: customerConcentrationStatus.statusIcon,
+        label: customerConcentrationStatus.statusLabel,
       },
-      // customerCodes (plural) links all 5 at once -- see invoicesService.js.
       to: canAccessInvoices ? "/app/finance/invoices/list" : null,
       filter: {
+        ...baseFilterSAP,
         customerCodes: top5Invoiced.map((c) => c.customer_code).join(","),
         ...periodFilter,
       },
       metrics: [
         {
           label: "Top 5 Revenue",
-          value: compactCurrency(top5InvoicedRevenue),
+          value: compactCurrency(kpis.top5CustomerRevenue),
           to: canAccessInvoices ? "/app/finance/invoices/list" : null,
           filter: {
+            ...baseFilterSAP,
             customerCodes: top5Invoiced.map((c) => c.customer_code).join(","),
             ...periodFilter,
           },
         },
         {
           label: "Top Customer",
-          value: topInvoicedCustomers[0]?.customer_name ?? "—",
+          value:
+            kpis.topCustomerName && kpis.topCustomerPct !== null
+              ? `${kpis.topCustomerName} (${kpis.topCustomerPct}%)`
+              : (kpis.topCustomerName ?? "—"),
           to:
-            canAccessInvoices && topInvoicedCustomers[0]?.customer_code
+            canAccessInvoices && top5Invoiced[0]?.customer_code
               ? "/app/finance/invoices/list"
               : null,
           filter: {
-            customerCode: topInvoicedCustomers[0]?.customer_code,
+            ...baseFilterSAP,
+            customerCode: top5Invoiced[0]?.customer_code,
             ...periodFilter,
           },
         },
       ],
       title:
-        "Share of this period's invoiced revenue held by the 5 largest accounts. Above 60% means the department's number depends on a handful of relationships.",
+        "Share of this period's invoiced revenue held by the 5 largest customers. Above 60% means the department's number depends on a handful of relationships.",
+    },
+
+    // TILE 6: Product Concentration (new, 2026-09-30) -- same numerator/
+    // denominator principle as Customer Concentration, both from
+    // base_invoice_lines/sap_invoice_lines (billed, not booked). No new
+    // tables -- topProductsData already queries this join chain.
+    {
+      icon: PackageIcon,
+      label: "Product Concentration",
+      sublabel: `Top 5, ${periodLabel}`,
+      value:
+        kpis.productConcentrationPct === null ||
+        kpis.productConcentrationPct === undefined
+          ? "—"
+          : `${kpis.productConcentrationPct}%`,
+      variant: productConcentrationStatus.variant,
+      status: {
+        icon: productConcentrationStatus.statusIcon,
+        label: productConcentrationStatus.statusLabel,
+      },
+      // No item-code drill-through filter exists on any list page today --
+      // informational only, same as a ratio/snapshot tile with no matching
+      // row-set.
+      to: null,
+      metrics: [
+        {
+          label: "Top 5 Revenue",
+          value: compactCurrency(kpis.top5ProductRevenue),
+        },
+        {
+          label: "Top Product",
+          value:
+            kpis.topProductName && kpis.topProductPct !== null
+              ? `${kpis.topProductName} (${kpis.topProductPct}%)`
+              : (kpis.topProductName ?? top5Products[0]?.item_name ?? "—"),
+        },
+      ],
+      title:
+        "Share of this period's invoiced (billed) revenue held by the 5 best-selling products. A high share means revenue depends heavily on a handful of SKUs.",
+    },
+
+    // TILE 7: Product Group Concentration (new, 2026-09-30) -- top-3, not
+    // top-5: only ~13 SAP item groups (OITB) exist company-wide, so top-3 is
+    // the more meaningful cut. Same base_invoice_lines source as Product
+    // Concentration above, aggregated by group instead of by item.
+    {
+      icon: StackIcon,
+      label: "Product Group Concentration",
+      sublabel: `Top 3, ${periodLabel}`,
+      value:
+        kpis.productGroupConcentrationPct === null ||
+        kpis.productGroupConcentrationPct === undefined
+          ? "—"
+          : `${kpis.productGroupConcentrationPct}%`,
+      variant: productGroupConcentrationStatus.variant,
+      status: {
+        icon: productGroupConcentrationStatus.statusIcon,
+        label: productGroupConcentrationStatus.statusLabel,
+      },
+      to: null,
+      metrics: [
+        {
+          label: "Top 3 Revenue",
+          value: compactCurrency(kpis.top3GroupRevenue),
+        },
+        {
+          label: "Top Group",
+          value:
+            kpis.topGroupName && kpis.topGroupPct !== null
+              ? `${kpis.topGroupName} (${kpis.topGroupPct}%)`
+              : (kpis.topGroupName ?? top3Groups[0]?.item_group_name ?? "—"),
+        },
+      ],
+      title:
+        "Share of this period's invoiced (billed) revenue held by the 3 largest SAP item groups. A high share means revenue depends heavily on a narrow category of products.",
+    },
+
+    // TILE 8: Sales Order Health (new, ACTIONABLE) -- answers the question
+    // this page never had an answer to: which booked orders actually need
+    // attention right now. Defaults to the true current backlog (unbounded),
+    // narrows to "originated this period" once a range is picked -- see
+    // actionableLabel above. All 4 filter keys are the Sales Orders list
+    // page's own real, already-verified filters.
+    {
+      icon: WarningCircleIcon,
+      label: "Sales Order Fulfillment",
+      sublabel: actionableLabel,
+      value: kpis.salesOrderNeedsAttentionCount || 0,
+      variant: salesOrderHealthStatus.variant,
+      status: {
+        icon: salesOrderHealthStatus.statusIcon,
+        label: salesOrderHealthStatus.statusLabel,
+      },
+      // The headline is an OR of 4 independent, possibly-overlapping
+      // cohorts -- no single filter reproduces it faithfully. Each cohort is
+      // independently correct as its own sub-metric instead, same pattern as
+      // Employee Overview's Data Gaps/HR Actions Needed.
+      to: null,
+      metrics: [
+        {
+          label: "Overdue Deliveries",
+          value: kpis.overdueDeliveriesCount || 0,
+          to: canAccessOrders ? "../orders/all" : null,
+          filter: overdueDeliveryFilter,
+        },
+        {
+          label: "Delivery Due Soon",
+          value: kpis.deliveryDueSoonCount || 0,
+          to: canAccessOrders ? "../orders/all" : null,
+          filter: deliveryDueSoonFilter,
+        },
+        {
+          label: "Payment Mismatches",
+          value: kpis.paymentMismatchesCount || 0,
+          to: canAccessOrders ? "../orders/all" : null,
+          filter: paymentMismatchFilter,
+        },
+        {
+          label: "Not Yet Invoiced",
+          value: kpis.notYetInvoicedCount || 0,
+          to: canAccessOrders ? "../orders/all" : null,
+          filter: notYetInvoicedFilter,
+        },
+      ],
+      title:
+        "Open, uncancelled Sales Orders needing attention: delivery overdue, delivery due within 7 days, a paid-vs-applied payment mismatch, or zero matched invoices. The sub-counts can overlap (one order can match more than one reason), so they don't need to sum to the headline count. Defaults to the full current backlog; narrows to orders placed in the selected period once a date range is picked.",
     },
   ];
 }

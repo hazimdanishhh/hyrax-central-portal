@@ -52,3 +52,31 @@ export function preciseNumber(value) {
     ? Math.round(value).toLocaleString()
     : value;
 }
+
+/**
+ * Full-precision currency formatter for tooltips, drill-through views,
+ * or anywhere exact monetary figures are needed (e.g., "RM 21,332,649").
+ * The currency-aware counterpart to preciseNumber.
+ */
+export function preciseCurrency(value) {
+  const v = value || 0;
+  const sign = v < 0 ? "-" : "";
+  const abs = Math.abs(v);
+
+  return `RM ${sign}${Math.round(abs).toLocaleString()}`;
+}
+
+/**
+ * Exact-precision currency formatter (including cents) for tooltips
+ * or strict financial tables (e.g., "RM 21,332,649.50").
+ */
+export function preciseCurrencyWithCents(value) {
+  const v = value || 0;
+  const sign = v < 0 ? "-" : "";
+  const abs = Math.abs(v);
+
+  return `RM ${sign}${abs.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}

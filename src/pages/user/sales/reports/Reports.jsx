@@ -121,10 +121,19 @@ function Reports() {
   // Customers by Invoiced Revenue" chart, so both read the same snapshot
   // rather than two separate maps over dashboard?.topInvoicedCustomersData.
   const topInvoicedCustomersRaw = dashboard?.topInvoicedCustomersData ?? [];
+  // Raw (unmapped) topProductsData/revenueByProductGroupData (2026-09-30) --
+  // fed to the overview config for the new Product/Product Group
+  // Concentration tiles' own drill-through filters, same "raw array shared
+  // between the tile config and the chart reshape below" pattern as
+  // topInvoicedCustomersRaw above. Chart-shape versions (topProductsData/
+  // revenueByProductGroupData) are still derived further down, unchanged.
+  const topInvoicedProductsRaw = dashboard?.topProductsData ?? [];
+  const productGroupsRaw = dashboard?.revenueByProductGroupData ?? [];
   const overviewItems = getSalesReportsOverviewConfig(
     kpis,
-    invoiceBudgetScorecardData,
     topInvoicedCustomersRaw,
+    topInvoicedProductsRaw,
+    productGroupsRaw,
     canAccessOrders,
     canAccessInvoices,
     canAccessPayments,
@@ -442,8 +451,8 @@ function Reports() {
                           <h2 className="textL textBold">Sales KPIs</h2>
                         </div>
                         <p className="textXS textLight">
-                          Pipeline, orders, invoices, and collections — the same
-                          Order-to-Cash flow, top to bottom.
+                          Order-to-Cash: Pipeline, orders, invoices, and
+                          collections
                         </p>
                       </div>
 
