@@ -45,6 +45,21 @@ import { getStatusVariant } from "../../../../../functions/statusVariant";
  * Orders has no natural percentage to attach to, so its subvalue is just the
  * plain delta.
  *
+ * FIXED 2026-09-30 (real bug, found by the user manually recomputing these):
+ * the delta appended into that percentage string is the underlying ACTUAL
+ * TOTAL's own change (this period's pipelineWonRevenue/totalInvoiced/
+ * totalCollected vs last period's), never the attainment/rate percentage's
+ * own change against itself. The percentage (attainment %, budget-attainment
+ * %, collection rate %) is a derived, live ratio -- it is never the thing
+ * being trended period-over-period; the dollar total underneath it is. E.g.
+ * revenue RM 10M this period vs RM 15M last period must show "↓ 33% vs last
+ * period" regardless of what attainment % happens to read, because a
+ * relative change of an already-a-percentage ratio (e.g. attainment 60% ->
+ * 84%) is a different, meaningless-here number, not "how much did revenue
+ * actually move." Sales Orders' own delta was never affected by this bug --
+ * it already diffs orderBookValue/prevOrderBookValue directly, with no
+ * attainment percentage riding alongside it at all.
+ *
  * Rep Funnel Scorecard (`invoiceBudgetScorecardData`/`ScorecardList`) is
  * confirmed good and untouched by this pass -- only its own underlying CTEs'
  * default time window shifted to This Month (see the RPC).
@@ -170,9 +185,11 @@ export function getSalesReportsOverviewConfig(
   };
 
   // ─── Card 1: Leads vs Target ───────────────────────────────────────────
+  // FIXED 2026-09-30: diffs the actual won-revenue TOTAL, not the attainment
+  // ratio itself -- see this file's own header comment.
   const pipelineAttainmentDelta = calcDelta(
-    kpis.pipelineAttainmentPct,
-    kpis.prevPipelineAttainmentPct,
+    kpis.pipelineWonRevenue,
+    kpis.prevPipelineWonRevenue,
   );
   const pipelineAttainmentStatus = getStatusVariant(
     kpis.pipelineAttainmentPct || 0,
@@ -186,9 +203,11 @@ export function getSalesReportsOverviewConfig(
   );
 
   // ─── Card 3: Invoiced Revenue ───────────────────────────────────────────
+  // FIXED 2026-09-30: diffs the actual invoiced TOTAL, not the budget-
+  // attainment ratio itself -- see this file's own header comment.
   const budgetAttainmentDelta = calcDelta(
-    kpis.budgetAttainmentPct,
-    kpis.prevBudgetAttainmentPct,
+    kpis.totalInvoiced,
+    kpis.prevTotalInvoiced,
   );
   const invoiceBudgetStatus = getStatusVariant(kpis.budgetAttainmentPct || 0, {
     direction: "high-good",
@@ -200,9 +219,11 @@ export function getSalesReportsOverviewConfig(
   // kpis.totalCollected now excludes cash not resolved against a real sales
   // invoice -- no separate "Unattributed Cash" metric is shown anywhere on
   // this page, that's Finance's own reconciliation concern.
+  // FIXED 2026-09-30: diffs the actual collected TOTAL, not the collection-
+  // rate ratio itself -- see this file's own header comment.
   const collectionRateDelta = calcDelta(
-    kpis.collectionRatePct,
-    kpis.prevCollectionRatePct,
+    kpis.totalCollected,
+    kpis.prevTotalCollected,
   );
   // Same 70/90 collection-rate band as Finance Reports' Cash Collected --
   // same RCT2 chain, must read the same on both dashboards.
