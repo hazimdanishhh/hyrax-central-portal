@@ -17,6 +17,8 @@ $$
 declare
     result json;
     v_interval integer;
+    v_effective_start_date date;
+    v_effective_end_date date;
     v_prev_start_date date;
     v_prev_end_date date;
     v_caller_role text;
@@ -41,12 +43,16 @@ if v_caller_role <> 'superadmin' and v_caller_department not in ('SAL', 'MGM') t
     raise exception 'Access denied';
 end if;
 
--- 1. Calculate the Previous Period for Deltas
-if p_start_date is not null and p_end_date is not null then
-    v_interval := p_end_date - p_start_date;
-    v_prev_end_date := p_start_date - 1;
-    v_prev_start_date := v_prev_end_date - v_interval;
-end if;
+-- 1. Effective period (This Month by default, mirrors
+-- get_sales_reports_dashboard_rpc.sql's v_effective_* mechanism, 2026-09-30)
+-- + the Previous Period for Deltas, now always resolvable since
+-- v_effective_start_date/v_effective_end_date are never null.
+v_effective_start_date := coalesce(p_start_date, date_trunc('month', current_date)::date);
+v_effective_end_date := coalesce(p_end_date, (date_trunc('month', current_date) + interval '1 month' - interval '1 day')::date);
+
+v_interval := v_effective_end_date - v_effective_start_date;
+v_prev_end_date := v_effective_start_date - 1;
+v_prev_start_date := v_prev_end_date - v_interval;
 
 -- 1. Find the exact date deals were closed
 with closing_dates as (
@@ -91,39 +97,39 @@ select json_build_object(
     'kpis', (
         select json_build_object(
             'totalLeadsCreated', count(*) filter (
-                where (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
+                where created_at >= v_effective_start_date
+                and created_at <= v_effective_end_date + interval '1 day'
             ),
             'pipelineGenerated', coalesce(sum(expected_revenue) filter (
-                where (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
+                where created_at >= v_effective_start_date
+                and created_at <= v_effective_end_date + interval '1 day'
             ), 0),
 
             'wonLeads', count(*) filter (
-                where stage = 'WON' 
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                where stage = 'WON'
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             ),
             'wonRevenue', coalesce(sum(actual_revenue) filter (
-                where stage = 'WON' 
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                where stage = 'WON'
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             ), 0),
-            
+
             'avgDealSize', coalesce(round(avg(actual_revenue) filter (
                 where stage = 'WON'
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             )), 0),
 
-            -- Current backlog, deliberately NOT date-scoped (no p_start_date/
-            -- p_end_date predicate) -- this counts WON leads still sitting
-            -- unactioned in SAP right now, not "became pending in period".
-            -- Same reasoning as Finance's overdueValue KPI. Still respects
-            -- base_leads' own non-date filters (owner/client/stage/etc), same
-            -- as every other KPI here. Mirrors
+            -- Current backlog -- WON leads still sitting unactioned in SAP.
+            -- Same reasoning as Finance's overdueValue KPI; mirrors
             -- sales_leads_with_closed_date.sql's pending_sap_order column --
-            -- keep both in sync if this predicate ever changes.
+            -- keep both in sync if this predicate ever changes. ACTIONABLE
+            -- scoping (2026-10, same as activeLeads below): unbounded by
+            -- default, narrows to closed_date-in-period (WON leads closed in
+            -- that window, still unmatched) once the caller explicitly picks
+            -- a range.
             'wonLeadsPendingSapOrderCount', count(*) filter (
                 where stage = 'WON'
                 and po_number is not null
@@ -131,130 +137,180 @@ select json_build_object(
                     select 1 from public.sap_sales_orders sso
                     where sso.customer_ref = base_leads.po_number
                 )
+                and (p_start_date is null or closed_date >= p_start_date)
+                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
             ),
 
             'lostLeads', count(*) filter (
                 where (stage = 'LOST' or is_cancelled)
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             ),
             'lostRevenue', coalesce(sum(expected_revenue) filter (
                 where (stage = 'LOST' or is_cancelled)
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             ), 0),
-            
+
             'winRate', coalesce(
                 round(
                     (count(*) filter (
                         where stage = 'WON'
-                        and (p_start_date is null or closed_date >= p_start_date)
-                        and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
-                    )::numeric / 
+                        and closed_date >= v_effective_start_date
+                        and closed_date <= v_effective_end_date + interval '1 day'
+                    )::numeric /
                     nullif(count(*) filter (
                         where stage in ('WON', 'LOST')
-                        and (p_start_date is null or closed_date >= p_start_date)
-                        and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
-                    ), 0)) * 100, 
-                1), 
+                        and closed_date >= v_effective_start_date
+                        and closed_date <= v_effective_end_date + interval '1 day'
+                    ), 0)) * 100,
+                1),
             0),
 
-            'activeLeads', count(*) filter (where stage not in ('WON', 'LOST') and not is_cancelled),
-            'activePipelineValue', coalesce(sum(expected_revenue) filter (where stage not in ('WON', 'LOST') and not is_cancelled), 0),
-            'weightedPipelineValue', coalesce(sum(expected_revenue * (close_probability / 100.0)) filter (where stage not in ('WON', 'LOST') and not is_cancelled), 0),
-            
+            -- ACTIONABLE family (2026-10): unbounded "current backlog" by
+            -- default (no date predicate at all when both p_start_date/
+            -- p_end_date are null), narrows to created_at-in-period once the
+            -- caller explicitly picks a range -- same pattern every other
+            -- true backlog KPI in this app follows. Deliberately keyed off
+            -- the raw nullable p_start_date/p_end_date here, NOT
+            -- v_effective_start_date/v_effective_end_date (which always
+            -- resolve to This Month) -- that would wrongly force a period
+            -- bound onto this tile even when the caller asked for none.
+            'activeLeads', count(*) filter (
+                where stage not in ('WON', 'LOST') and not is_cancelled
+                and (p_start_date is null or created_at >= p_start_date)
+                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
+            ),
+            'activePipelineValue', coalesce(sum(expected_revenue) filter (
+                where stage not in ('WON', 'LOST') and not is_cancelled
+                and (p_start_date is null or created_at >= p_start_date)
+                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
+            ), 0),
+            'weightedPipelineValue', coalesce(sum(expected_revenue * (close_probability / 100.0)) filter (
+                where stage not in ('WON', 'LOST') and not is_cancelled
+                and (p_start_date is null or created_at >= p_start_date)
+                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
+            ), 0),
+            -- Only meaningful once the caller has picked an explicit period
+            -- (comparing "active leads created in period X" against the
+            -- equivalent-length window before it) -- null otherwise, same
+            -- "no meaningful previous backlog" rule as every other true
+            -- backlog KPI.
+            'prevActivePipelineValue', case
+                when p_start_date is null or p_end_date is null then null
+                else coalesce(sum(expected_revenue) filter (
+                    where stage not in ('WON', 'LOST') and not is_cancelled
+                    and created_at >= v_prev_start_date
+                    and created_at <= v_prev_end_date + interval '1 day'
+                ), 0)
+            end,
+
             'avgDaysToClose', coalesce(
                 round(
                     (avg(extract(epoch from (closed_date - created_at))/86400) filter (
                         where stage = 'WON'
-                        and (p_start_date is null or closed_date >= p_start_date)
-                        and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
-                    ))::numeric, 
+                        and closed_date >= v_effective_start_date
+                        and closed_date <= v_effective_end_date + interval '1 day'
+                    ))::numeric,
                     1
-                ), 
+                ),
             0),
 
             'forecastVariance', coalesce(
                 sum(actual_revenue) filter (
                     where stage = 'WON'
-                    and (p_start_date is null or closed_date >= p_start_date)
-                    and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
-                ) - 
+                    and closed_date >= v_effective_start_date
+                    and closed_date <= v_effective_end_date + interval '1 day'
+                ) -
                 sum(expected_revenue) filter (
                     where stage = 'WON'
-                    and (p_start_date is null or closed_date >= p_start_date)
-                    and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                    and closed_date >= v_effective_start_date
+                    and closed_date <= v_effective_end_date + interval '1 day'
                 ), 0
             ),
 
             'expectedRevenueOfWonDeals', coalesce(sum(expected_revenue) filter (
-                where stage = 'WON' 
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                where stage = 'WON'
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             ), 0),
 
             'avgGeneratedDealSize', coalesce(round(avg(expected_revenue) filter (
-                where (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
+                where created_at >= v_effective_start_date
+                and created_at <= v_effective_end_date + interval '1 day'
             )), 0),
-            
+
             'avgGeneratedProbability', coalesce(round(avg(close_probability) filter (
-                where (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
+                where created_at >= v_effective_start_date
+                and created_at <= v_effective_end_date + interval '1 day'
             )), 0),
 
             'fastTrackDeals', count(*) filter (
                 where stage = 'WON'
-                and (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                and created_at >= v_effective_start_date
+                and created_at <= v_effective_end_date + interval '1 day'
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             ),
 
+            -- Same ACTIONABLE scoping as activeLeads/activePipelineValue
+            -- above (both are Active Pipeline's own sub-metrics) -- kept
+            -- consistent so they stay a true breakdown of the headline
+            -- figure once a period is picked.
             'negotiationPipeline', coalesce(sum(expected_revenue) filter (
                 where stage = 'NEGOTIATION' and not is_cancelled and not is_on_hold
+                and (p_start_date is null or created_at >= p_start_date)
+                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
             ), 0),
 
             'onHoldPipeline', coalesce(sum(expected_revenue) filter (
                 where is_on_hold and stage not in ('WON', 'LOST') and not is_cancelled
+                and (p_start_date is null or created_at >= p_start_date)
+                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
             ), 0),
 
             'avgLostDealSize', coalesce(round(avg(expected_revenue) filter (
                 where stage = 'LOST'
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             )), 0),
 
             'avgLostCycle', coalesce(round(
                 (avg(extract(epoch from (closed_date - created_at))/86400) filter (
                     where stage = 'LOST'
-                    and (p_start_date is null or closed_date >= p_start_date)
-                    and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                    and closed_date >= v_effective_start_date
+                    and closed_date <= v_effective_end_date + interval '1 day'
                 ))::numeric, 1
             ), 0),
 
             'cancelledLeads', count(*) filter (
                 where is_cancelled
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+                and closed_date >= v_effective_start_date
+                and closed_date <= v_effective_end_date + interval '1 day'
             ),
 
-            'prevPipelineGenerated', case 
-                when p_start_date is null then null 
-                else coalesce(sum(expected_revenue) filter (
-                    where created_at >= v_prev_start_date
-                    and created_at <= v_prev_end_date + interval '1 day'
-                ), 0) 
-            end,
-            
-            'prevWonRevenue', case 
-                when p_start_date is null then null 
-                else coalesce(sum(actual_revenue) filter (
-                    where stage = 'WON' 
-                    and closed_date >= v_prev_start_date
-                    and closed_date <= v_prev_end_date + interval '1 day'
-                ), 0) 
-            end
+            -- Always resolvable now (not conditional on p_start_date) --
+            -- v_prev_start_date/v_prev_end_date are derived from
+            -- v_effective_start_date/v_effective_end_date above, which are
+            -- never null (defaults to This Month). Mirrors
+            -- get_sales_reports_dashboard_rpc.sql's 2026-09-30 switch to
+            -- always-on deltas.
+            'prevPipelineGenerated', coalesce(sum(expected_revenue) filter (
+                where created_at >= v_prev_start_date
+                and created_at <= v_prev_end_date + interval '1 day'
+            ), 0),
+
+            'prevWonRevenue', coalesce(sum(actual_revenue) filter (
+                where stage = 'WON'
+                and closed_date >= v_prev_start_date
+                and closed_date <= v_prev_end_date + interval '1 day'
+            ), 0),
+
+            'prevLostRevenue', coalesce(sum(expected_revenue) filter (
+                where (stage = 'LOST' or is_cancelled)
+                and closed_date >= v_prev_start_date
+                and closed_date <= v_prev_end_date + interval '1 day'
+            ), 0)
         )
         from base_leads
     ),

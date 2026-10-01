@@ -292,7 +292,7 @@ export default function LeadsOverview() {
                     }}
                   >
                     <GaugeIcon size={24} />
-                    <h2 className="textL textBold">Sales KPIs</h2>
+                    <h2 className="textL textBold">Leads Pipeline KPIs</h2>
                   </div>
                   <p className="textXS textLight">
                     Live pipeline health and performance.
@@ -323,14 +323,12 @@ export default function LeadsOverview() {
                       >
                         <RankingIcon size={24} />
                         <h2 className="textL textBold">
-                          Sales Performance Scorecard (CRM)
+                          Rep Pipeline Performance Scorecard
                         </h2>
                       </div>
                       <p className="textXS textLight">
                         Live quota attainment and period-over-period rep
-                        performance -- self-reported pipeline (sales_leads),
-                        distinct from Sales Reports'/Finance's SAP-recognized
-                        invoiced-revenue figures for the same reps.
+                        performance.
                       </p>
                     </div>
 

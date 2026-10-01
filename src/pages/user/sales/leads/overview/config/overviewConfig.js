@@ -15,7 +15,10 @@ import {
   HourglassHighIcon,
 } from "@phosphor-icons/react";
 import { getStatusVariant } from "../../../../../../functions/statusVariant";
-import { compactCurrency } from "../../../../../../functions/formatNumber";
+import {
+  compactCurrency,
+  preciseCurrencyWithCents,
+} from "../../../../../../functions/formatNumber";
 
 // Drill-through pass: `filters` is the Overview's own active owner/client/
 // leadSourceType/period (and any of stage/onHold/cancelled/productType that
@@ -60,6 +63,13 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
     return Math.round(((current - previous) / previous) * 100);
   };
 
+  // Mirrors Sales Reports' deltaText(delta) exactly.
+  const deltaText = (delta) => {
+    if (delta === null) return "";
+    const arrow = delta >= 0 ? "↑" : "↓";
+    return `${arrow} ${Math.abs(delta)}% vs last period`;
+  };
+
   const wonDelta = calcDelta(kpis.wonRevenue, kpis.prevWonRevenue);
   const wonDeltaText =
     wonDelta !== null
@@ -67,6 +77,20 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         ? `↑ ${wonDelta}% vs last period`
         : `↓ ${Math.abs(wonDelta)}% vs last period`
       : "No prior data";
+
+  const lostRevenueDelta = calcDelta(kpis.lostRevenue, kpis.prevLostRevenue);
+  const pipelineGeneratedDelta = calcDelta(
+    kpis.pipelineGenerated,
+    kpis.prevPipelineGenerated,
+  );
+
+  // Sales Reports' convention: the delta is always computed off the
+  // underlying dollar total, never off the percentage/ratio itself.
+  const pctWithDelta = (pct, delta) => {
+    if (delta === null) return `${pct}%`;
+    const arrow = delta >= 0 ? "↑" : "↓";
+    return `${pct}% (${arrow}${Math.abs(delta)}% vs last period)`;
+  };
 
   // Dynamic tile severity (see docs/DASHBOARD-CONVENTIONS.md's "KPI Card
   // Color & Fill Convention"). Thresholds below are documented estimates,
@@ -124,6 +148,13 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
     ? { closedDateFrom: filters.startDate, closedDateTo: filters.endDate }
     : {};
 
+  // REGULAR/ACTIONABLE period vocabulary, mirrors Sales Reports'
+  // overviewConfig.js exactly (src/pages/user/sales/reports/config) -- This
+  // Month by default now that the RPC's v_effective_start_date/
+  // v_effective_end_date always resolve to a concrete range.
+  const periodLabel = isPeriodFiltered ? "This Period" : "This Month";
+  const actionableLabel = isPeriodFiltered ? "This Period" : "Current Backlog";
+
   return [
     // ==========================================
     // PILLAR 1: Current Health (What are we working on?)
@@ -131,21 +162,30 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
     {
       icon: CurrencyDollarIcon,
       label: "Active Pipeline",
-      sublabel: "Total Active Expected Revenue",
-      value: compactCurrency(kpis.activePipelineValue || 0).toLocaleString(),
+      sublabel: actionableLabel,
+      value: preciseCurrencyWithCents(
+        kpis.activePipelineValue || 0,
+      ).toLocaleString(),
+      subvalue: deltaText(
+        calcDelta(kpis.activePipelineValue, kpis.prevActivePipelineValue),
+      ),
       variant: "blueCardFill",
       to: "../list",
-      filter: { ...baseFilter, activePipelineOnly: "true" },
+      filter: { ...baseFilter, activePipelineOnly: "true", ...periodFilter },
       metrics: [
         {
           label: "Active Leads",
           value: kpis.activeLeads || 0,
           to: "../list",
-          filter: { ...baseFilter, activePipelineOnly: "true" },
+          filter: {
+            ...baseFilter,
+            activePipelineOnly: "true",
+            ...periodFilter,
+          },
         },
         {
-          label: "Weighted Pipeline",
-          value: compactCurrency(
+          label: "Weighted",
+          value: preciseCurrencyWithCents(
             kpis.weightedPipelineValue || 0,
           ).toLocaleString(),
           icon: ScalesIcon,
@@ -154,7 +194,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         },
         {
           label: "In Negotiation",
-          value: compactCurrency(
+          value: preciseCurrencyWithCents(
             kpis.negotiationPipeline || 0,
           ).toLocaleString(),
           icon: TargetIcon,
@@ -164,18 +204,26 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
             stage: "NEGOTIATION",
             cancelled: "false",
             onHold: "false",
+            ...periodFilter,
           },
         },
         {
           label: "On-Hold Cash",
-          value: compactCurrency(kpis.onHoldPipeline || 0).toLocaleString(),
+          value: preciseCurrencyWithCents(
+            kpis.onHoldPipeline || 0,
+          ).toLocaleString(),
           icon: PauseCircleIcon,
           to: "../list",
-          filter: { ...baseFilter, activePipelineOnly: "true", onHold: "true" },
+          filter: {
+            ...baseFilter,
+            activePipelineOnly: "true",
+            onHold: "true",
+            ...periodFilter,
+          },
         },
       ],
       title:
-        "Current pipeline health -- not date-bound (unlike every other tile here), since this is a snapshot of what's open right now, not what happened in a period.",
+        "Open pipeline (stage not WON/LOST, not cancelled). Unbounded current backlog by default -- narrows to leads created in that window, with a comparable prior-period delta, once a date range is picked.",
     },
 
     // ==========================================
@@ -184,11 +232,16 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
     {
       icon: FunnelIcon,
       label: "Pipeline Generated",
-      sublabel: "Total Generated Expected Revenue",
-      value: compactCurrency(kpis.pipelineGenerated || 0).toLocaleString(),
+      sublabel: periodLabel,
+      value: preciseCurrencyWithCents(
+        kpis.pipelineGenerated || 0,
+      ).toLocaleString(),
+      subvalue: deltaText(pipelineGeneratedDelta),
       variant: "blueCard",
       to: "../list",
       filter: { ...baseFilter, ...periodFilter },
+      title:
+        "Total Generated Expected Revenue -- sum of expected_revenue on leads created in this period.",
       metrics: [
         {
           label: "Leads Created",
@@ -198,7 +251,7 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         },
         {
           label: "Avg. Deal Size",
-          value: compactCurrency(
+          value: preciseCurrencyWithCents(
             kpis.avgGeneratedDealSize || 0,
           ).toLocaleString(),
         },
@@ -236,12 +289,10 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       // revenue -- Sales Reports'/Finance's per-rep figures are sourced from
       // sap_invoices instead and won't generally match this one. Not a bug
       // to reconcile; both are legitimate, deliberately unblended.
-      label: "Pipeline Attainment (CRM)",
-      sublabel:
-        targetRevenue > 0
-          ? `Self-Reported vs. Target Quota: ${compactCurrency(targetRevenue).toLocaleString()}`
-          : "No Target Set for Period",
-      value: compactCurrency(wonRevenue).toLocaleString(), // Keep the massive number as the actual cash
+      label: "Pipeline Revenue (Won)",
+      sublabel: periodLabel,
+      value: preciseCurrencyWithCents(wonRevenue).toLocaleString(), // Keep the massive number as the actual cash
+      subvalue: pctWithDelta(pacingPercentage, wonDelta),
       variant: revenueAttainmentStatus.variant,
       status: {
         icon: revenueAttainmentStatus.statusIcon,
@@ -253,26 +304,20 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         "CRM pipeline attainment -- self-reported (sales_leads.actual_revenue, manually typed by the rep) vs. quota (sales_targets). Distinct from Sales Reports'/Finance's SAP-recognized invoiced-revenue per-rep figures, which are audited and backward-looking; this figure is forward-looking and not independently verified. Both are legitimate, deliberately not blended into one number.",
       metrics: [
         {
-          label: "Prev. Period (Delta)", // Updated label to reflect the new data
+          // Mirrors Sales Reports' attainment-style tiles (e.g. "Revenue
+          // Budget" on Invoiced Revenue vs Budget) -- the target itself is
+          // its own submetric; attainment %/delta already live in subvalue.
+          label: "Target Quota",
           value:
-            wonDelta !== null
-              ? `${compactCurrency(kpis.prevWonRevenue || 0).toLocaleString()} (${wonDelta > 0 ? "+" : ""}${wonDelta}%)`
-              : "N/A",
-          icon:
-            wonDelta === null
-              ? null
-              : wonDelta >= 0
-                ? TrendUpIcon
-                : TrendDownIcon,
+            targetRevenue > 0
+              ? preciseCurrencyWithCents(targetRevenue).toLocaleString()
+              : "Not Set",
         },
         {
-          label: "Quota Attainment", // NEW: Pushed to the very top of the list
-          value: `${pacingPercentage}%`,
-          icon: pacingPercentage >= 100 ? TrendUpIcon : TrendDownIcon,
-        },
-        {
-          label: "Forecast Variance", // Accuracy metric stays high up
-          value: compactCurrency(kpis.forecastVariance || 0).toLocaleString(),
+          label: "Forecast Variance",
+          value: preciseCurrencyWithCents(
+            kpis.forecastVariance || 0,
+          ).toLocaleString(),
           icon: isVariancePositive ? TrendUpIcon : TrendDownIcon,
         },
         {
@@ -283,30 +328,15 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       ],
     },
 
-    {
-      icon: WarningCircleIcon,
-      label: "Pending SAP Order Entry",
-      sublabel: "WON Leads Without a Matching SAP Order (Not Based on Period)",
-      value: kpis.wonLeadsPendingSapOrderCount || 0,
-      variant: pendingSapOrderStatus.variant,
-      status: {
-        icon: pendingSapOrderStatus.statusIcon,
-        label: pendingSapOrderStatus.statusLabel,
-      },
-      to: "../list",
-      filter: { ...baseFilter, stage: "WON", pendingSapOrder: "true" },
-      title:
-        "WON leads with a PO number typed in, but no SAP sales order has been created for that PO yet -- the sales admin still needs to enter it into SAP.",
-    },
-
     // ==========================================
     // PILLAR 4: Friction & Misses (What did we lose?)
     // ==========================================
     {
       icon: WarningCircleIcon,
       label: "Lost Revenue",
-      sublabel: "Expected Revenue (Lost/Cancelled)",
-      value: compactCurrency(lostRevenue).toLocaleString(),
+      sublabel: periodLabel,
+      value: preciseCurrencyWithCents(lostRevenue).toLocaleString(),
+      subvalue: deltaText(lostRevenueDelta),
       variant: lostRevenueStatus.variant,
       status: {
         icon: lostRevenueStatus.statusIcon,
@@ -332,7 +362,9 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
         },
         {
           label: "Avg. Lost Deal Size",
-          value: compactCurrency(kpis.avgLostDealSize || 0).toLocaleString(),
+          value: preciseCurrencyWithCents(
+            kpis.avgLostDealSize || 0,
+          ).toLocaleString(),
           // Computed off stage='LOST' only (NOT the cancelled union above --
           // a pre-existing inconsistency between sibling metrics on this
           // tile, in the RPC itself, not something introduced here) -- links
@@ -357,6 +389,27 @@ export function getLeadsOverviewConfig(kpis, targetData, filters = {}) {
       ],
       title:
         "Lost Revenue and Total Lost Deals count both LOST-stage leads and cancelled leads (from any stage) together. Avg. Lost Deal Size and Avg. Lost Cycle are narrower -- LOST-stage leads only, excluding cancelled-but-not-LOST leads -- matching how the dashboard itself computes them.",
+    },
+
+    {
+      icon: WarningCircleIcon,
+      label: "Pending SAP Order Entry",
+      sublabel: actionableLabel,
+      value: kpis.wonLeadsPendingSapOrderCount || 0,
+      variant: pendingSapOrderStatus.variant,
+      status: {
+        icon: pendingSapOrderStatus.statusIcon,
+        label: pendingSapOrderStatus.statusLabel,
+      },
+      to: "../list",
+      filter: {
+        ...baseFilter,
+        stage: "WON",
+        pendingSapOrder: "true",
+        ...closedPeriodFilter,
+      },
+      title:
+        "WON leads with a PO number typed in, but no SAP sales order has been created for that PO yet -- the sales admin still needs to enter it into SAP.",
     },
   ];
 }
