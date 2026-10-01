@@ -41,6 +41,9 @@ export default function HorizontalMultiBarRenderer({ data, bars = [] }) {
           )}
           tickLine={false}
           width={100}
+          // See HorizontalBarChartRenderer's identical fix (2026-10-01) --
+          // forces every category to get its own tick, no auto-skipping.
+          interval={0}
         />
         <Tooltip
           cursor={{ fill: "rgba(27, 27, 27, 0.3)" }}

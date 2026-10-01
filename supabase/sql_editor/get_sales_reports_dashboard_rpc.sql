@@ -802,17 +802,31 @@ top_invoiced_customers as materialized (
 -- Top Products -- pulled out into its own CTE (2026-09-30, same reasoning as
 -- top_invoiced_customers above), backing both topProductsData and the new
 -- Product Concentration KPI card. MATERIALIZED: referenced twice below.
+--
+-- UOM disambiguation (2026-10-01, fallback order swapped same day): the same
+-- item_code can carry more than one UOM (e.g. "Base Oil" sold both by the
+-- DRUM and the IBC) -- without a UOM suffix those rows read as duplicate
+-- bars for "the same product." Prefer inventory_uom; fall back to sales_uom
+-- when inventory_uom is blank; fall back further to the bare item name when
+-- NEITHER UOM is populated, never a dangling "- ()" suffix. This is the one
+-- CTE that backs both the Top Products chart AND (via pc.top_name below) the
+-- Product Concentration KPI card's "Top Product" sub-metric, so this single
+-- label fix propagates to both automatically.
 top_invoiced_products as materialized (
     select
         bil.item_code,
-        coalesce(it.item_name, bil.item_code) as item_name,
+        case
+            when coalesce(nullif(it.inventory_uom, ''), nullif(it.sales_uom, '')) is not null
+            then coalesce(it.item_name, bil.item_code) || ' - (' || coalesce(nullif(it.inventory_uom, ''), it.sales_uom) || ')'
+            else coalesce(it.item_name, bil.item_code)
+        end as item_name,
         ig.group_name as item_group_name,
         sum(bil.quantity) as quantity_sold,
         sum(bil.line_total * bil.doc_myr_ratio) as revenue_myr
     from base_invoice_lines bil
     left join sap_items it on it.item_code = bil.item_code
     left join sap_item_groups ig on ig.group_code = it.item_group_code
-    group by bil.item_code, coalesce(it.item_name, bil.item_code), ig.group_name
+    group by bil.item_code, it.item_name, it.sales_uom, it.inventory_uom, ig.group_name
     order by revenue_myr desc
     limit 10
 ),
@@ -830,6 +844,98 @@ invoiced_by_product_group as materialized (
     left join sap_items it on it.item_code = bil.item_code
     left join sap_item_groups ig on ig.group_code = it.item_group_code
     group by coalesce(ig.group_name, 'Ungrouped')
+),
+
+-- Order-to-Cash -- Year over Year (2026-10-01, updated same day: now FISCAL
+-- year, not calendar year -- April 1 to March 31, matching this app's own
+-- fiscal-year convention (src/functions/fiscalYearPresets.js,
+-- FiscalYearFilterBar.jsx, already used elsewhere on this very page).
+-- Trailing 10 fiscal years (was 5 calendar years), current/possibly-partial
+-- FY included. FIXED-WINDOW: NEVER bound by p_start_date/p_end_date --
+-- still scoped by v_sales_rep_code/v_owner_id/p_product_type, same as every
+-- other FIXED-WINDOW chart on this page (see bookingsVsInvoicedTrendData's
+-- own comment -- "a FIXED-WINDOW chart still respects every non-date
+-- filter"). yoy_collected uses the SAME real-invoice-only scoping as the
+-- Payments Collected KPI (collected_kpis) -- invoice_sales_rep_code is not
+-- null -- so this chart's Collected series can never disagree with that
+-- tile's own total.
+--
+-- fy_window computes the current FY's start year ONCE (a date on/after
+-- April belongs to the FY starting that calendar year; Jan-Mar belongs to
+-- the FY that started the PREVIOUS calendar year -- identical logic to
+-- fiscalYearPresets.js's own getCurrentFiscalYearStartYear), so every yoy_*
+-- CTE below shares the identical window instead of repeating the same
+-- month>=4 case expression five times.
+fy_window as (
+    select
+        (extract(year from current_date) - case when extract(month from current_date) >= 4 then 0 else 1 end)::int as current_fy_start_year
+),
+yoy_pipeline as (
+    select
+        (extract(year from bl.closed_date) - case when extract(month from bl.closed_date) >= 4 then 0 else 1 end)::int as fy_start_year,
+        sum(bl.actual_revenue) as pipeline_revenue
+    from base_leads bl
+    cross join fy_window fw
+    where bl.stage = 'WON'
+      and bl.closed_date >= make_date(fw.current_fy_start_year - 9, 4, 1)
+    group by 1
+),
+yoy_orders as (
+    select
+        (extract(year from bo."order_date"::date) - case when extract(month from bo."order_date"::date) >= 4 then 0 else 1 end)::int as fy_start_year,
+        sum(bo.total_amount_myr) as order_value
+    from base_orders bo
+    cross join fy_window fw
+    where bo."order_date"::date >= make_date(fw.current_fy_start_year - 9, 4, 1)
+    group by 1
+),
+yoy_invoiced as (
+    select
+        (extract(year from bi."invoice_date"::date) - case when extract(month from bi."invoice_date"::date) >= 4 then 0 else 1 end)::int as fy_start_year,
+        sum(bi.total_amount_myr) as invoiced_revenue
+    from base_invoices bi
+    cross join fy_window fw
+    where bi."invoice_date"::date >= make_date(fw.current_fy_start_year - 9, 4, 1)
+    group by 1
+),
+yoy_collected as (
+    select
+        (extract(year from bpa.payment_date::date) - case when extract(month from bpa.payment_date::date) >= 4 then 0 else 1 end)::int as fy_start_year,
+        sum(bpa.amount_applied_myr) as collected_revenue
+    from base_payment_apps bpa
+    cross join fy_window fw
+    where bpa.invoice_sales_rep_code is not null
+      and bpa.payment_date::date >= make_date(fw.current_fy_start_year - 9, 4, 1)
+    group by 1
+),
+-- Zero-fills a fiscal year with no data in one or more series -- without
+-- this, an FY that e.g. had orders but no won pipeline would silently
+-- vanish from the chart's x-axis instead of showing a real zero bar.
+yoy_years as (
+    select generate_series(fw.current_fy_start_year - 9, fw.current_fy_start_year) as fy_start_year
+    from fy_window fw
+),
+
+-- Top Customers by Payments Collected (2026-10-01, new chart, Payment-Stage
+-- Detail) -- same shape as top_invoiced_customers above, but summing cash
+-- actually collected rather than invoiced. Same real-invoice-only scoping as
+-- collected_kpis (invoice_sales_rep_code is not null) -- excludes
+-- unattributed cash, consistent with the Payments Collected KPI's own
+-- 2026-09-30 fix. v_effective_*-bound, same REGULAR default as every other
+-- KPI-feeding CTE on this page.
+top_payment_customers as materialized (
+    select
+        bpa.invoice_customer_code as customer_code,
+        sc.customer_name,
+        sum(bpa.amount_applied_myr) as collected_myr
+    from base_payment_apps bpa
+    left join sap_customers sc on sc.customer_code = bpa.invoice_customer_code
+    where bpa.invoice_sales_rep_code is not null
+      and bpa.payment_date::date >= v_effective_start_date
+      and bpa.payment_date::date <= v_effective_end_date
+    group by bpa.invoice_customer_code, sc.customer_name
+    order by collected_myr desc
+    limit 10
 )
 
 select json_build_object(
@@ -1113,7 +1219,19 @@ select json_build_object(
     -- -- deliberately LEFT ON raw p_start_date/p_end_date (all-time when
     -- unset): a monthly trend forced to This Month would collapse to one
     -- point. Unchanged this pass.
-    'realizedVsPipelineData', (
+    -- Pipeline vs Target -- Order-to-Cash Overview (2026-10-01, replaces the
+    -- old realizedVsPipelineData/"Invoice (SAP) vs Pipeline (CRM) Revenue"
+    -- chart, which compared two different O2C STAGES that were never
+    -- expected to equal each other -- a source of real confusion, per direct
+    -- user feedback). This is CRM Forecast 1's own trend: won revenue vs the
+    -- monthly quota it's actually meant to be judged against (sales_targets
+    -- IS already monthly-grained, so no day-overlap proration is needed here
+    -- the way pipeline_target_math needs it for a partial-period total --
+    -- each bucket below is a full calendar month by construction). Monthly,
+    -- respects the page's date filter when one is set, defaults to all
+    -- available months when it isn't (same "needs width" shape as
+    -- invoicedVsBudgetTrendData below).
+    'pipelineVsTargetData', (
         with pipeline_by_month as (
             select
                 to_char(date_trunc('month', closed_date), 'YYYY-MM') as month,
@@ -1124,22 +1242,23 @@ select json_build_object(
               and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
             group by 1
         ),
-        realized_by_month as (
+        target_by_month as (
             select
-                to_char(date_trunc('month', "invoice_date"::date), 'YYYY-MM') as month,
-                sum(total_amount_myr) as realized_revenue
-            from base_invoices
-            where (p_start_date is null or "invoice_date"::date >= p_start_date)
-              and (p_end_date is null or "invoice_date"::date <= p_end_date)
+                to_char(date_trunc('month', t.target_month), 'YYYY-MM') as month,
+                sum(t.target_revenue) as target_revenue
+            from sales_targets t
+            where (v_owner_id is null or t.lead_owner_id = v_owner_id)
+              and (p_start_date is null or date_trunc('month', t.target_month) >= date_trunc('month', p_start_date))
+              and (p_end_date is null or date_trunc('month', t.target_month) <= date_trunc('month', p_end_date))
             group by 1
         )
         select coalesce(json_agg(json_build_object(
-            'period', coalesce(pm.month, rm.month),
+            'period', coalesce(pm.month, tm.month),
             'pipeline_revenue_myr', coalesce(pm.pipeline_revenue, 0),
-            'realized_revenue_myr', coalesce(rm.realized_revenue, 0)
-        ) order by coalesce(pm.month, rm.month)), '[]'::json)
+            'target_revenue_myr', coalesce(tm.target_revenue, 0)
+        ) order by coalesce(pm.month, tm.month)), '[]'::json)
         from pipeline_by_month pm
-        full outer join realized_by_month rm on rm.month = pm.month
+        full outer join target_by_month tm on tm.month = pm.month
     ),
 
     -- Bookings vs Invoiced (added 2026-07, Sales Reports redesign) -- SAP-only
@@ -1363,6 +1482,68 @@ select json_build_object(
     'revenueByProductGroupData', (
         select coalesce(json_agg(x order by x.revenue_myr desc), '[]'::json)
         from invoiced_by_product_group x
+    ),
+
+    -- Order-to-Cash -- Year over Year (new, Order-to-Cash Overview section) --
+    -- see the yoy_* CTEs' own comment above. FIXED-WINDOW: always the last 5
+    -- calendar years, never affected by p_start_date/p_end_date.
+    'orderToCashYoYData', (
+        select coalesce(json_agg(json_build_object(
+            -- "2024-2025"-style label -- same format as fiscalYearPresets.js's
+            -- own FISCAL_YEAR_PRESETS labels, so this chart's x-axis reads
+            -- identically to the page's own FiscalYearFilterBar options.
+            'name', y.fy_start_year::text || '-' || (y.fy_start_year + 1)::text,
+            'pipeline_revenue_myr', coalesce(yp.pipeline_revenue, 0),
+            'order_value_myr', coalesce(yo.order_value, 0),
+            'invoiced_revenue_myr', coalesce(yi.invoiced_revenue, 0),
+            'collected_revenue_myr', coalesce(yc.collected_revenue, 0)
+        ) order by y.fy_start_year), '[]'::json)
+        from yoy_years y
+        left join yoy_pipeline yp on yp.fy_start_year = y.fy_start_year
+        left join yoy_orders yo on yo.fy_start_year = y.fy_start_year
+        left join yoy_invoiced yi on yi.fy_start_year = y.fy_start_year
+        left join yoy_collected yc on yc.fy_start_year = y.fy_start_year
+    ),
+
+    -- Top Customers by Payments Collected (new, Payment-Stage Detail section)
+    -- -- see top_payment_customers' own comment above.
+    'topPaymentCustomersData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from top_payment_customers x
+    ),
+
+    -- Collection Rate by Rep (new, Payment-Stage Detail section) -- reuses
+    -- rep_invoice_actuals/rep_collected_actuals (both already exist, already
+    -- joined together for invoiceBudgetScorecardData above) -- no new CTE
+    -- needed, just a new reshaped output. Same full outer join shape as the
+    -- Scorecard, since a rep can have invoiced revenue with zero collections
+    -- (or vice versa, for an on-account-cash edge case) and both ends still
+    -- need to show up.
+    -- FIXED 2026-10-01: capped to the top 15 reps by invoiced revenue, same
+    -- convention as its by-rep siblings (orderBookData/grossProfitByRepData
+    -- both already `limit 15`). Previously unlimited -- with every rep that
+    -- had any invoiced/collected activity, the bar chart's fixed 300px height
+    -- had too many rows for Recharts to label each one without auto-skipping
+    -- every other category tick, which read as "half the bars have no name."
+    'collectionRateByRepData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from (
+            select
+                coalesce(sp.sales_rep_name, 'Unknown') as name,
+                coalesce(c.collected_myr, 0) as collected_myr,
+                coalesce(a.invoiced_revenue, 0) as invoiced_myr,
+                case
+                    when coalesce(a.invoiced_revenue, 0) > 0
+                    then round((coalesce(c.collected_myr, 0) / a.invoiced_revenue) * 100, 1)
+                    else 0
+                end as collection_rate_pct
+            from rep_invoice_actuals a
+            full outer join rep_collected_actuals c on c.sales_rep_code = a.sales_rep_code
+            left join sap_sales_persons sp on sp.sales_rep_code = coalesce(a.sales_rep_code, c.sales_rep_code)
+            where coalesce(a.invoiced_revenue, 0) > 0 or coalesce(c.collected_myr, 0) > 0
+            order by coalesce(a.invoiced_revenue, 0) desc
+            limit 15
+        ) x
     )
 
 )

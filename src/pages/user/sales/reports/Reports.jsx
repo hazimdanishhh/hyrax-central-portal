@@ -9,12 +9,14 @@ import {
   WarningIcon,
   WarningCircleIcon,
   FunnelIcon,
+  WalletIcon,
 } from "@phosphor-icons/react";
 
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import ChartCard from "../../../../components/chartCard/ChartCard";
 import HorizontalBarChartRenderer from "../../../../components/chartCard/HorizontalBarChartRenderer";
 import HorizontalMultiBarRenderer from "../../../../components/chartCard/HorizontalMultiBarRenderer";
+import VerticalMultiBarRenderer from "../../../../components/chartCard/VerticalMultiBarRenderer";
 import LineChartRenderer from "../../../../components/chartCard/LineChartRenderer";
 import {
   BLUE_COLOR,
@@ -146,7 +148,6 @@ function Reports() {
   // config array itself.
   const chartBaseFilterCRM = {
     ...(filters.owner && { owner: filters.owner }),
-    ...(filters.productType && { productType: filters.productType }),
   };
   const chartIsPeriodFiltered =
     Boolean(filters.startDate) && Boolean(filters.endDate);
@@ -156,6 +157,23 @@ function Reports() {
   const chartClosedPeriodFilter = chartIsPeriodFiltered
     ? { closedDateFrom: filters.startDate, closedDateTo: filters.endDate }
     : {};
+  // Chart-subtitle clarity pass (2026-10-01, see
+  // docs/portal/DASHBOARD-CONVENTIONS.md §4c) -- every REGULAR chart's
+  // subtitle now discloses its time window in the SAME words the KPI tiles
+  // above already use, so a subtitle reads for free once a tile's sublabel
+  // has been learned. Mirrors overviewConfig.js's own periodLabel exactly.
+  const periodLabel = chartIsPeriodFiltered ? "This Period" : "This Month";
+  // For the two trend charts (Realized vs Pipeline, Invoiced/Collected/
+  // Budget) that respect the date filter when one is set but default to
+  // showing ALL historical months when it isn't -- same "needs width" shape
+  // as Employee Overview's own Headcount Trend. Deliberately NOT worded
+  // "This Month" when unfiltered (that would be false -- the chart shows many
+  // months' worth of data by default, not one), and deliberately NOT claiming
+  // "Not Affected by the Date Filter" either (unlike a true FIXED-WINDOW
+  // chart, this one DOES narrow once a range is picked).
+  const trendSubtitle = chartIsPeriodFiltered
+    ? "Monthly, This Period"
+    : "Monthly, All-Time";
 
   // Reshape to the field names ScorecardList/LeadsScoreCard already expects
   // (it's a generic quota-progress card, not Leads-specific -- see
@@ -203,16 +221,16 @@ function Reports() {
     return belowBudget || highUnbilledBacklog || lowCollectionRate;
   });
 
-  // Series renamed 2026-07 (source-labeling clarity pass, see
-  // DASHBOARD-CONVENTIONS.md): the chart title's own "(SAP)"/"(CRM)" tags
-  // already disambiguate, so the legend inside just names each source table
-  // plainly -- "Pipeline" (sales_leads) vs "Invoice" (sap_invoices), not the
-  // more generic "Realized."
-  const realizedVsPipelineData =
-    dashboard?.realizedVsPipelineData?.map((d) => ({
+  // Pipeline vs Target (2026-10-01, replaces realizedVsPipelineData/"Invoice
+  // vs Pipeline" -- see the RPC's own comment on pipelineVsTargetData for
+  // why: that chart compared two different O2C stages that were never
+  // expected to match, a real source of confusion). CRM Forecast 1's own
+  // trend -- won revenue vs its monthly quota.
+  const pipelineVsTargetData =
+    dashboard?.pipelineVsTargetData?.map((d) => ({
       name: d.period,
-      Pipeline: d.pipeline_revenue_myr,
-      Invoice: d.realized_revenue_myr,
+      "Pipeline (Won)": d.pipeline_revenue_myr,
+      Target: d.target_revenue_myr,
     })) ?? [];
 
   const orderBookData =
@@ -270,6 +288,30 @@ function Reports() {
     dashboard?.revenueByProductGroupData?.map((d) => ({
       name: d.item_group_name,
       value: d.revenue_myr,
+    })) ?? [];
+
+  // Order-to-Cash -- Year over Year (new, 2026-10-01) -- FIXED-WINDOW, always
+  // the last 5 calendar years, never affected by the page's date filter. The
+  // RPC's own field names already match HorizontalMultiBarRenderer's `bars`
+  // dataKey shape 1:1, so no reshape beyond the usual `?? []` default.
+  const orderToCashYoYData = dashboard?.orderToCashYoYData ?? [];
+
+  // Top Customers by Payments Collected (new, 2026-10-01, Payment-Stage
+  // Detail) -- same shape as topInvoicedCustomersData above, cash actually
+  // collected rather than invoiced.
+  const topPaymentCustomersData =
+    dashboard?.topPaymentCustomersData?.map((d) => ({
+      name: d.customer_name,
+      value: d.collected_myr,
+    })) ?? [];
+
+  // Collection Rate by Rep (new, 2026-10-01, Payment-Stage Detail) -- plots
+  // the ratio only; collected_myr/invoiced_myr are available on each row for
+  // a future tooltip if needed.
+  const collectionRateByRepData =
+    dashboard?.collectionRateByRepData?.map((d) => ({
+      name: d.name,
+      value: d.collection_rate_pct,
     })) ?? [];
 
   // Invoiced / Collected / Budget (added 2026-07, invoice/budget/collected
@@ -485,18 +527,18 @@ function Reports() {
                         >
                           <FunnelIcon size={24} />
                           <h2 className="textL textBold">
-                            The Order-to-Cash Funnel
+                            Order-to-Cash Overview
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          Where this period's revenue is right now — from
-                          pipeline won to cash collected.
+                          The full funnel, trends over time, and multi-year
+                          pace — from pipeline won to cash collected.
                         </p>
 
                         <CardLayout style="cardLayout2">
                           <ChartCard
                             title="Pipeline → Order → Invoice → Payment"
-                            subtitle="This period (RM) — each stage tagged by source"
+                            subtitle={`${periodLabel} (RM) — each stage tagged by source`}
                             style="cardGapSmall"
                           >
                             <HorizontalBarChartRenderer
@@ -505,15 +547,79 @@ function Reports() {
                             />
                           </ChartCard>
                           <ChartCard
-                            title="Invoice (SAP) vs Pipeline (CRM) Revenue"
-                            subtitle="Two systems of record, side by side — not blended"
+                            title="Order-to-Cash — Year over Year"
+                            subtitle="Pipeline, Orders, Invoiced & Collected by Fiscal Year, Trailing 10 Years — Not Affected by the Date Filter"
+                            style="cardGapSmall"
+                          >
+                            <VerticalMultiBarRenderer
+                              data={orderToCashYoYData}
+                              bars={[
+                                {
+                                  dataKey: "pipeline_revenue_myr",
+                                  name: "Pipeline (Won)",
+                                  color: BLUE_COLOR,
+                                },
+                                {
+                                  dataKey: "order_value_myr",
+                                  name: "Orders",
+                                  color: YELLOW_COLOR,
+                                },
+                                {
+                                  dataKey: "invoiced_revenue_myr",
+                                  name: "Invoiced",
+                                  color: GREEN_COLOR,
+                                },
+                                {
+                                  dataKey: "collected_revenue_myr",
+                                  name: "Collected",
+                                  color: PURPLE_COLOR,
+                                },
+                              ]}
+                            />
+                          </ChartCard>
+                          {/* Replaces "Invoice (SAP) vs Pipeline (CRM)
+                              Revenue" (2026-10-01) -- that chart compared two
+                              different O2C stages that were never expected to
+                              match (won pipeline vs invoiced revenue are
+                              different stages entirely), a real source of
+                              confusion per direct feedback. This is CRM
+                              Forecast 1's own trend instead: won revenue
+                              against the monthly quota it's actually judged
+                              against. */}
+                          <ChartCard
+                            title="Pipeline vs Target"
+                            subtitle={trendSubtitle}
                             style="cardGapSmall"
                           >
                             <LineChartRenderer
-                              data={realizedVsPipelineData}
+                              data={pipelineVsTargetData}
                               lines={[
-                                { dataKey: "Pipeline", color: BLUE_COLOR },
-                                { dataKey: "Invoice", color: GREEN_COLOR },
+                                {
+                                  dataKey: "Pipeline (Won)",
+                                  color: BLUE_COLOR,
+                                },
+                                { dataKey: "Target", color: YELLOW_COLOR },
+                              ]}
+                            />
+                          </ChartCard>
+                          {/* Renamed from "Invoiced / Collected / Budget"
+                              (2026-10-01) -- same data/3 lines (Collected
+                              still plotted as "Payment"), reframed as SAP
+                              Forecast 2's own attainment trend, the natural
+                              pair to Pipeline vs Target above (CRM forecast
+                              vs SAP forecast, side by side, never blended --
+                              see docs/DASHBOARD-ROADMAP.md §1.2). */}
+                          <ChartCard
+                            title="Revenue vs Budget"
+                            subtitle={trendSubtitle}
+                            style="cardGapSmall"
+                          >
+                            <LineChartRenderer
+                              data={invoicedVsBudgetTrendData}
+                              lines={[
+                                { dataKey: "Invoice", color: BLUE_COLOR },
+                                { dataKey: "Payment", color: GREEN_COLOR },
+                                { dataKey: "Budget", color: YELLOW_COLOR },
                               ]}
                             />
                           </ChartCard>
@@ -623,7 +729,7 @@ function Reports() {
                       <CardLayout style="cardLayout2">
                         <ChartCard
                           title="Pipeline Stage"
-                          subtitle="Leads by Stage (Count) — Discovery to Won/Lost"
+                          subtitle={`Leads by Stage (Count), ${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           // No date bounds -- this chart's own RPC condition
@@ -644,7 +750,7 @@ function Reports() {
 
                         <ChartCard
                           title="Product-Type Mix"
-                          subtitle="Won Revenue (RM)"
+                          subtitle={`Won Revenue (RM), ${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -661,7 +767,7 @@ function Reports() {
 
                         <ChartCard
                           title="Lead-Source ROI"
-                          subtitle="Won Revenue (RM)"
+                          subtitle={`Won Revenue (RM), ${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -678,7 +784,7 @@ function Reports() {
 
                         <ChartCard
                           title="Top Clients"
-                          subtitle="Won Revenue (RM)"
+                          subtitle={`Won Revenue (RM), ${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -727,7 +833,7 @@ function Reports() {
                         <CardLayout style="cardLayout2">
                           <ChartCard
                             title="Order Book by Rep"
-                            subtitle="SAP Sales Orders (RM)"
+                            subtitle={`SAP Sales Orders (RM), ${periodLabel}`}
                             style="cardGapSmall"
                             viewAllTo={
                               canAccessOrders ? "../orders" : undefined
@@ -739,9 +845,13 @@ function Reports() {
                               colorMap={BLUE_COLOR}
                             />
                           </ChartCard>
+                          {/* Moved back here from Order-to-Cash Overview
+                              (2026-10-01) -- this is an operational booking-
+                              to-billing lag metric for Order-Stage detail,
+                              not a big-picture overview chart. */}
                           <ChartCard
                             title="Bookings vs Invoiced Revenue"
-                            subtitle="SAP Sales Orders vs SAP Invoices, trailing 12 months (RM) — not affected by the date filter"
+                            subtitle="Trailing 12 Months — Not Affected by the Date Filter"
                             style="cardGapSmall"
                           >
                             <LineChartRenderer
@@ -786,7 +896,7 @@ function Reports() {
                       <CardLayout style="cardLayout2">
                         <ChartCard
                           title="Gross Profit by Rep"
-                          subtitle="Revenue & GP (RM)"
+                          subtitle={`Revenue & Gross Profit (RM), ${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo={
                             canAccessInvoices
@@ -814,7 +924,7 @@ function Reports() {
 
                         <ChartCard
                           title="Top Customers by Invoiced Revenue"
-                          subtitle="SAP Invoiced (RM)"
+                          subtitle={`Top 10, ${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo={
                             canAccessInvoices
@@ -831,7 +941,7 @@ function Reports() {
 
                         <ChartCard
                           title="Top Products"
-                          subtitle="SAP Invoiced (RM) — actual sales, not CRM pipeline"
+                          subtitle={`Top 10, ${periodLabel}`}
                           style="cardGapSmall"
                         >
                           <HorizontalBarChartRenderer
@@ -842,7 +952,7 @@ function Reports() {
 
                         <ChartCard
                           title="Revenue by Product Group"
-                          subtitle="SAP Invoiced (RM) — all products, not just the top 10"
+                          subtitle={`All Groups, ${periodLabel}`}
                           style="cardGapSmall"
                         >
                           <HorizontalBarChartRenderer
@@ -851,23 +961,69 @@ function Reports() {
                           />
                         </ChartCard>
                       </CardLayout>
+                    </div>
+                  </div>
 
-                      <div style={{ marginTop: "1.6rem" }}>
-                        <ChartCard
-                          title="Invoiced / Collected / Budget"
-                          subtitle="Monthly, this period's date filter applies (all time if unset)"
-                          style="cardGapSmall"
+                  <div className="pdfOverviewSection">
+                    {/* PAYMENT-STAGE DETAIL (new, 2026-10-01) -- completes the
+                        4-stage O2C narrative (Pipeline -> Order -> Invoice ->
+                        Payment); Payments Collected previously had no
+                        dedicated detail charts beyond the cross-stage
+                        Overview trend. */}
+                    <div
+                      style={{
+                        justifyContent: "start",
+                        textAlign: "start",
+                      }}
+                    >
+                      <div style={{ marginBottom: "1rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.8rem",
+                          }}
                         >
-                          <LineChartRenderer
-                            data={invoicedVsBudgetTrendData}
-                            lines={[
-                              { dataKey: "Invoice", color: BLUE_COLOR },
-                              { dataKey: "Payment", color: GREEN_COLOR },
-                              { dataKey: "Budget", color: YELLOW_COLOR },
-                            ]}
+                          <WalletIcon size={24} />
+                          <h2 className="textL textBold">
+                            Payment-Stage Detail
+                          </h2>
+                        </div>
+                        <p className="textXS textLight">
+                          Who's actually paying, and how collection is pacing
+                          against what's been invoiced, by rep.
+                        </p>
+                      </div>
+
+                      <CardLayout style="cardLayout2">
+                        <ChartCard
+                          title="Top Customers by Payments Collected"
+                          subtitle={`Top 10, ${periodLabel}`}
+                          style="cardGapSmall"
+                          viewAllTo={
+                            canAccessPayments
+                              ? "/app/finance/invoices/payments"
+                              : undefined
+                          }
+                          viewAllFilter={{ ...chartPeriodFilter }}
+                        >
+                          <HorizontalBarChartRenderer
+                            data={topPaymentCustomersData}
+                            colorMap={YELLOW_COLOR}
                           />
                         </ChartCard>
-                      </div>
+
+                        <ChartCard
+                          title="Collection Rate by Rep"
+                          subtitle={`Collected ÷ Invoiced (%), ${periodLabel}`}
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={collectionRateByRepData}
+                            colorMap={GREEN_COLOR}
+                          />
+                        </ChartCard>
+                      </CardLayout>
                     </div>
                   </div>
                 </>

@@ -37,10 +37,6 @@ export async function fetchSalesReportsDashboard({ filters }) {
         rpcParams.p_owner_id = value === FILTER_NULL ? null : value;
         break;
 
-      case "productType":
-        rpcParams.p_product_type = value === FILTER_NULL ? null : value;
-        break;
-
       default:
         break;
     }

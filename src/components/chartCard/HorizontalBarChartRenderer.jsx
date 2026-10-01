@@ -52,6 +52,12 @@ export default function HorizontalBarChartRenderer({ data, colorMap, onBarClick 
           )}
           tickLine={false}
           width={100}
+          // FIXED 2026-10-01: without this, Recharts auto-skips category
+          // ticks it decides won't fit (e.g. Collection Rate by Rep's bars
+          // were rendering with no name on every other row) -- interval={0}
+          // forces every category to get its own tick/label, regardless of
+          // row count.
+          interval={0}
         />
         <Tooltip
           cursor={{ fill: "rgba(27, 27, 27, 0.3)" }}

@@ -78,13 +78,11 @@ import { getStatusVariant } from "../../../../../functions/statusVariant";
  * table, used only by the still-deferred "Top Clients" chart) -- this page
  * legitimately uses both words, one per source table.
  *
- * Drill-through: `filters` is this page's own active Owner/Product
- * Type/period filters. `canAccessInvoices`/`canAccessPayments` mirror
- * `canAccessOrders` (computed in Reports.jsx) -- every cross-page link
- * degrades to `to: null` for a viewer who can't actually open the target.
- * Owner/Product Type only ever thread into the CRM-side card (Leads vs
- * Target) -- confirmed via the RPC that they scope base_leads only, with
- * zero effect on any SAP-sourced KPI.
+ * Drill-through: `filters` is this page's own active Salesperson/period
+ * filters (Product Type was removed 2026-10-01 -- see filterConfig.js's own
+ * comment). `canAccessInvoices`/`canAccessPayments` mirror `canAccessOrders`
+ * (computed in Reports.jsx) -- every cross-page link degrades to `to: null`
+ * for a viewer who can't actually open the target.
  */
 export function getSalesReportsOverviewConfig(
   kpis,
@@ -156,19 +154,20 @@ export function getSalesReportsOverviewConfig(
   const actionablePeriodFilter = isPeriodFiltered
     ? { startDate: filters.startDate, endDate: filters.endDate }
     : {};
-  // CRM-side filters only -- Owner/Product Type never thread into SAP tiles
-  // (see header comment).
+  // CRM-side filter only -- the page's own Product Type filter was removed
+  // 2026-10-01 (it only ever scoped base_leads, with zero effect on any
+  // SAP-sourced KPI -- see filterConfig.js's own comment); Salesperson is now
+  // this page's one person-level filter, per direct product decision.
   const baseFilterCRM = {
     ...(filters.owner && { owner: filters.owner }),
-    ...(filters.productType && { productType: filters.productType }),
   };
   // FIXED 2026-09-30: the RPC's own v_sales_rep_code resolution (see its
   // access-guard comment) DOES scope every SAP-sourced KPI on this page
   // (Sales Orders, Invoiced Revenue, Customer Concentration, Sales Order
-  // Health) by the selected Salesperson -- this file's own header comment
-  // above ("Owner/Product Type only ever thread into the CRM-side card...
-  // zero effect on any SAP-sourced KPI") predates that RPC fix and is now
-  // wrong. kpis.resolvedSalesRepCode is the RPC's already-resolved mapping
+  // Health) by the selected Salesperson -- an earlier version of this file's
+  // own header comment claimed Owner "only ever threads into the CRM-side
+  // card, zero effect on any SAP-sourced KPI," which predated that RPC fix
+  // and was wrong. kpis.resolvedSalesRepCode is the RPC's already-resolved mapping
   // (never re-derived here), so every SAP-side link below carries the SAME
   // active Salesperson scope the number itself was computed under. Omitted
   // entirely when no owner is selected -- never sent as a literal "null"
@@ -191,9 +190,19 @@ export function getSalesReportsOverviewConfig(
     kpis.pipelineWonRevenue,
     kpis.prevPipelineWonRevenue,
   );
+  // REVISED 2026-10-01 (was warningAt:80/goodAt:100 -- the generic default
+  // this page's own tiles originally shipped with): loosened for a small
+  // industrial sales team closing lumpy, large-ticket deals -- a single
+  // transformer-oil order landing a week late/early can swing a month's
+  // attainment 20-30 points with zero real change in sales health, so the
+  // original band produced false "critical" alarms on pure timing noise.
+  // Still a documented estimate, not calibrated against Hyrax's own
+  // trailing-12-24-month history -- the more defensible long-term fix is to
+  // set these from the real distribution (e.g. this page's own historical
+  // P75/P90) rather than anyone's a priori guess, including this one.
   const pipelineAttainmentStatus = getStatusVariant(
     kpis.pipelineAttainmentPct || 0,
-    { direction: "high-good", thresholds: { warningAt: 80, goodAt: 100 } },
+    { direction: "high-good", thresholds: { warningAt: 60, goodAt: 90 } },
   );
 
   // ─── Card 2: Sales Orders ───────────────────────────────────────────────
@@ -209,9 +218,14 @@ export function getSalesReportsOverviewConfig(
     kpis.totalInvoiced,
     kpis.prevTotalInvoiced,
   );
+  // REVISED 2026-10-01 (was warningAt:80/goodAt:100): same lumpy-revenue
+  // reasoning as pipelineAttainmentStatus above, but kept slightly tighter
+  // than the CRM pipeline band -- this is the audited SAP-side budget
+  // variance, the number the business actually holds itself to, so it
+  // deserves less slack than a self-reported forecast.
   const invoiceBudgetStatus = getStatusVariant(kpis.budgetAttainmentPct || 0, {
     direction: "high-good",
-    thresholds: { warningAt: 80, goodAt: 100 },
+    thresholds: { warningAt: 70, goodAt: 95 },
   });
 
   // ─── Card 4: Payments Collected ─────────────────────────────────────────
@@ -227,6 +241,18 @@ export function getSalesReportsOverviewConfig(
   );
   // Same 70/90 collection-rate band as Finance Reports' Cash Collected --
   // same RCT2 chain, must read the same on both dashboards.
+  //
+  // DELIBERATELY NOT revised alongside the other thresholds on this page
+  // (2026-10-01 pass) -- this compares cash collected THIS period against
+  // revenue invoiced in that SAME period, which is a mismatch against normal
+  // 30/60-day B2B credit terms: most of a given month's collections are
+  // against invoices raised in an EARLIER period, not that same month's new
+  // ones, so a perfectly healthy business could structurally sit well below
+  // 70% here. Retuning the threshold wouldn't fix that -- the open question
+  // is whether this metric should exist in its current same-period-vs-
+  // same-period shape at all, versus a DSO/aged-receivables view. Needs
+  // Hyrax's own real historical collectionRatePct distribution checked
+  // before touching this one, not a guessed number.
   const paymentsCollectedStatus = getStatusVariant(
     kpis.collectionRatePct || 0,
     { direction: "high-good", thresholds: { warningAt: 70, goodAt: 90 } },
@@ -247,20 +273,49 @@ export function getSalesReportsOverviewConfig(
     .sort((a, b) => (b.revenue_myr || 0) - (a.revenue_myr || 0))
     .slice(0, 3);
 
+  // REVISED 2026-10-01, retuned again same day against a sector-specific
+  // proposal (was warningAt:30/criticalAt:60, then 55/80 -- a generic
+  // diversification benchmark that doesn't fit this business): Hyrax is an
+  // industrial B2B manufacturer -- transformer oil in particular sells into
+  // a small pool of utilities/large plants, so a concentrated top-5 is
+  // structurally normal, not an emerging risk. "Moderate" starting at 50%
+  // (anchored by 2-3 major contract holders) and "high risk" at 75%
+  // (captive-supplier territory, losing one relationship is a crisis) match
+  // this metric's own definition exactly (top-5 customers' share) -- still a
+  // reasoned estimate, not calibrated against Hyrax's own trailing history.
   const customerConcentrationStatus = getStatusVariant(
     kpis.customerConcentrationPct,
-    { direction: "low-good", thresholds: { warningAt: 30, criticalAt: 60 } },
+    { direction: "low-good", thresholds: { warningAt: 50, criticalAt: 75 } },
   );
+  // REVISED 2026-10-01, retuned again same day (was warningAt:30/
+  // criticalAt:60, then 50/75): a sector-specific proposal put "moderate"/
+  // "high" formulation-vulnerability risk at 35%/60%, but that was explicitly
+  // calibrated for a TOP-3 SKU cut -- this metric is top-5 products, which
+  // mechanically always reads higher than top-3 for the same business (two
+  // more products only ever add to the numerator). Translating their band to
+  // a top-5 basis lands around 45%/75% -- critical stays at 75% (same
+  // "dangerous reliance on a few formulations" bar), warning moves down to
+  // 45% so the moderate zone starts a touch earlier, matching their more
+  // conservative underlying judgment without actually narrowing our metric
+  // to top-3.
   const productConcentrationStatus = getStatusVariant(
     kpis.productConcentrationPct,
-    { direction: "low-good", thresholds: { warningAt: 30, criticalAt: 60 } },
+    { direction: "low-good", thresholds: { warningAt: 45, criticalAt: 75 } },
   );
   // Only ~13 product groups exist company-wide, so top-3 naturally runs
   // higher than a top-5-of-many share -- looser thresholds than
   // Customer/Product Concentration, not the same band copy-pasted.
+  //
+  // REVISED 2026-10-01 (was warningAt:40/criticalAt:70): Hyrax's entire
+  // business is built around essentially two product categories (transformer
+  // oils, lubricants -- see this repo's own CLAUDE.md module description),
+  // so the top 2-3 SAP item groups covering 80%+ of invoiced revenue isn't
+  // dependency risk -- it's just what the company is. Only flags critical
+  // once concentration gets implausibly narrow (effectively one group with
+  // no real diversification left at all).
   const productGroupConcentrationStatus = getStatusVariant(
     kpis.productGroupConcentrationPct,
-    { direction: "low-good", thresholds: { warningAt: 40, criticalAt: 70 } },
+    { direction: "low-good", thresholds: { warningAt: 70, criticalAt: 90 } },
   );
 
   // ─── Card 8: Sales Order Health (new, ACTIONABLE) ──────────────────────
@@ -314,7 +369,7 @@ export function getSalesReportsOverviewConfig(
     // it deliberately ignores the date filter, same as before.
     {
       icon: GaugeIcon,
-      label: "Leads vs Target",
+      label: "Leads Won vs Target",
       sublabel: periodLabel,
       value: preciseCurrencyWithCents(kpis.pipelineWonRevenue),
       subvalue: pctWithDelta(
@@ -362,7 +417,7 @@ export function getSalesReportsOverviewConfig(
         },
       ],
       title:
-        "Reps' own declared won revenue (sales_leads) this period vs a manually-set monthly quota (sales_targets). Win Rate is WON deals as a share of WON + LOST closed this period. Active Pipeline Value is a live snapshot of open, uncancelled pipeline right now -- ignores the date filter. Pipeline Cycle is the average days from lead creation to a WON deal this period.",
+        "Reps' own declared won revenue (sales_leads) this period vs a manually-set monthly quota (sales_targets). Win Rate is WON deals as a share of WON + LOST closed this period. Active Pipeline Value is a live snapshot of open, uncancelled pipeline right now -- ignores the date filter. Pipeline Cycle is the average days from lead creation to a WON deal this period. Color: Critical below 60% of target, Warning 60-89%, Good at 90%+.",
     },
 
     // TILE 2: Sales Orders. "Open Backlog"/"Open Units" removed (2026-09-30,
@@ -417,7 +472,7 @@ export function getSalesReportsOverviewConfig(
     // rather than silently guessed either way.
     {
       icon: ReceiptIcon,
-      label: "Invoiced Revenue",
+      label: "Invoiced Revenue vs Budget",
       sublabel: periodLabel,
       value: preciseCurrencyWithCents(kpis.totalInvoiced),
       subvalue: pctWithDelta(kpis.budgetAttainmentPct, budgetAttainmentDelta),
@@ -447,7 +502,7 @@ export function getSalesReportsOverviewConfig(
         },
       ],
       title:
-        "Backward-looking, Invoiced Revenue VS Invoice Budget. Avg Invoice Value is the mean of all invoices issued this period, regardless of whether they were paid.",
+        "Backward-looking, Invoiced Revenue VS Invoice Budget. Avg Invoice Value is the mean of all invoices issued this period, regardless of whether they were paid. Color: Critical below 70% of budget, Warning 70-94%, Good at 95%+.",
     },
 
     // TILE 4: Payments Collected. FIXED 2026-09-30 (verification #2, flagged
@@ -488,7 +543,7 @@ export function getSalesReportsOverviewConfig(
         },
       ],
       title:
-        "Cash applied against a real sales invoice via SAP payment applications this period -- on-account cash and other non-invoice payment applications are excluded. Collection Rate is the share of this period's invoiced revenue that was collected in it.",
+        "Cash applied against a real sales invoice via SAP payment applications this period -- on-account cash and other non-invoice payment applications are excluded. Collection Rate is the share of this period's invoiced revenue that was collected in it. Color: Critical below 70% collection rate, Warning 70-89%, Good at 90%+.",
     },
 
     // TILE 5: Customer Concentration -- unchanged in kind, now reads its
@@ -543,7 +598,7 @@ export function getSalesReportsOverviewConfig(
         },
       ],
       title:
-        "Share of this period's invoiced revenue held by the 5 largest customers. Above 60% means the department's number depends on a handful of relationships.",
+        "Share of this period's invoiced revenue held by the 5 largest customers. Color: Good below 50%, Warning 50-74%, Critical at 75%+ -- the department's number depends on a handful of relationships.",
     },
 
     // TILE 6: Product Concentration (new, 2026-09-30) -- same numerator/
@@ -582,7 +637,7 @@ export function getSalesReportsOverviewConfig(
         },
       ],
       title:
-        "Share of this period's invoiced (billed) revenue held by the 5 best-selling products. A high share means revenue depends heavily on a handful of SKUs.",
+        "Share of this period's invoiced (billed) revenue held by the 5 best-selling products. Color: Good below 45%, Warning 45-74%, Critical at 75%+ -- revenue depends heavily on a handful of SKUs.",
     },
 
     // TILE 7: Product Group Concentration (new, 2026-09-30) -- top-3, not
@@ -618,7 +673,7 @@ export function getSalesReportsOverviewConfig(
         },
       ],
       title:
-        "Share of this period's invoiced (billed) revenue held by the 3 largest SAP item groups. A high share means revenue depends heavily on a narrow category of products.",
+        "Share of this period's invoiced (billed) revenue held by the 3 largest SAP item groups. Color: Good below 70%, Warning 70-89%, Critical at 90%+ -- revenue depends heavily on a narrow category of products.",
     },
 
     // TILE 8: Sales Order Health (new, ACTIONABLE) -- answers the question
@@ -669,7 +724,7 @@ export function getSalesReportsOverviewConfig(
         },
       ],
       title:
-        "Open, uncancelled Sales Orders needing attention: delivery overdue, delivery due within 7 days, a paid-vs-applied payment mismatch, or zero matched invoices. The sub-counts can overlap (one order can match more than one reason), so they don't need to sum to the headline count. Defaults to the full current backlog; narrows to orders placed in the selected period once a date range is picked.",
+        "Open, uncancelled Sales Orders needing attention: delivery overdue, delivery due within 7 days, a paid-vs-applied payment mismatch, or zero matched invoices. The sub-counts can overlap (one order can match more than one reason), so they don't need to sum to the headline count. Defaults to the full current backlog; narrows to orders placed in the selected period once a date range is picked. Color: Good when none of these apply, Warning when Delivery Due Soon, Payment Mismatches, or Not Yet Invoiced is nonzero, Critical when any order has an Overdue Delivery.",
     },
   ];
 }
