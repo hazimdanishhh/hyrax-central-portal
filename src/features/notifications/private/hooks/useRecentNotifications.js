@@ -10,8 +10,8 @@ export function useRecentNotifications(limit = 4) {
     queryKey: ["notifications", "recent", userId, limit],
     queryFn: () => fetchRecentNotifications(userId, limit),
     enabled: !!userId,
-    staleTime: 1000 * 20,
-    refetchInterval: 1000 * 30,
+    staleTime: 1000 * 60 * 2,
+    refetchOnWindowFocus: true,
   });
 
   return {
