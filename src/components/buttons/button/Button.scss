@@ -647,7 +647,7 @@
     }
   }
 
-  // BLUE
+  // GREEN FILL
   &.greenFill {
     background-color: $success600;
     border: 1px solid $success600;
@@ -665,6 +665,38 @@
       background-color: $success600;
       color: $neutral100;
       border: 1px solid $success600;
+      transition: 0.3s;
+    }
+
+    &:disabled {
+      color: $neutral600;
+      border: 1px solid $neutral600;
+
+      &:hover {
+        border: 1px solid $neutral600;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  // GREEN FILL
+  &.redFill {
+    background-color: $error600;
+    border: 1px solid $error600;
+    transition: 0.3s;
+    color: $neutral100;
+
+    &:hover {
+      background-color: rgba($error600, 0.1);
+      color: $error600;
+      border: 1px solid $error600;
+      transition: 0.3s;
+    }
+
+    &.active {
+      background-color: $error600;
+      color: $neutral100;
+      border: 1px solid $error600;
       transition: 0.3s;
     }
 

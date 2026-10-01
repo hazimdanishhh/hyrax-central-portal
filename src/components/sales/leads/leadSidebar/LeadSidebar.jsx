@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   CheckCircleIcon,
   ClockClockwiseIcon,
@@ -12,6 +13,7 @@ import {
   XCircleIcon,
 } from "@phosphor-icons/react";
 import { useAccessControl } from "../../../../context/AccessControlContext";
+import { leadsPoEditConfig } from "../../../../pages/user/sales/leads/list/constants/poEditConfig";
 import { useSalesOrderByPoNumber } from "../../../../features/sales/orders/private/hooks/useSalesOrderByPoNumber";
 import { useSalesOrdersByCustomerCode } from "../../../../features/sales/orders/private/hooks/useSalesOrdersByCustomerCode";
 import {
@@ -20,8 +22,10 @@ import {
 } from "../../../../pages/user/sales/leads/list/constants/leadStageTransitions";
 import { salesOrdersTableConfig } from "../../../../pages/user/sales/orders/tableConfig";
 import Button from "../../../buttons/button/Button";
+import LinkButton from "../../../buttons/linkButton/LinkButton";
 import CardLayout from "../../../cardLayout/CardLayout";
 import SAPCustomerCard from "../../../client/sapCustomerCard/SAPCustomerCard";
+import DataForm from "../../../crud/dataForm/DataForm";
 import NoResult from "../../../crud/noResult/NoResult";
 import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import IconCard from "../../../iconCard/IconCard";
@@ -36,11 +40,18 @@ import LeadsList from "../leadsList/LeadsList";
 export default function LeadSidebar({
   selectedRow,
   onRequestAction,
+  onSavePO,
   updating,
   isEditing,
   setIsEditing,
 }) {
   const { canAccess, isManager, isSuperAdmin } = useAccessControl();
+  const [isEditingPO, setIsEditingPO] = useState(false);
+
+  async function handleSavePO(values) {
+    await onSavePO(values);
+    setIsEditingPO(false);
+  }
 
   // Account identity (2026-08): a lead references exactly one of a real SAP
   // customer or a native Prospect client, never both -- see
@@ -118,6 +129,36 @@ export default function LeadSidebar({
       {/* PIPELINE */}
       <LeadStage selectedRow={selectedRow} vertical={true} />
 
+      {/* PO DETAILS -- actual_revenue/po_number/po_document_url are captured
+          together at WON time (see LeadsManagement.jsx's isWonAction branch)
+          but sometimes need correcting afterward to match what was actually
+          keyed into SAP -- manager-only, via the same inline-DataForm
+          pattern as AttendanceTimelineCard's Edit Clock In/Out. */}
+      {isWon &&
+        (isEditingPO ? (
+          <DataForm
+            inlineForm
+            hideDelete
+            columns={leadsPoEditConfig()}
+            rowData={selectedRow}
+            saving={updating}
+            onCancel={() => setIsEditingPO(false)}
+            onSave={handleSavePO}
+            title="Edit PO Details"
+          />
+        ) : (
+          isManager && (
+            <Button
+              name="Edit PO"
+              icon={PencilSimpleLineIcon}
+              style="button buttonType4 redFill textXXS"
+              size={14}
+              onClick={() => setIsEditingPO(true)}
+            />
+          )
+        ))}
+
+      {/* LEAD DETAILS */}
       <LeadsList lead={selectedRow} showStage={false} />
 
       {/* NOTES */}

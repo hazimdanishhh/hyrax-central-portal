@@ -22,6 +22,7 @@ export default function LinkButton({
         className={style}
         title={name}
         onClick={(e) => {
+          e.preventDefault();
           e.stopPropagation();
           onClick?.(e);
           window.open(href, "_blank", "noopener,noreferrer");

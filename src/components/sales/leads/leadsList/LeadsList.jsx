@@ -23,7 +23,10 @@ import { formatDate } from "../../../../functions/formatDate";
 import { useMessage } from "../../../../context/MessageContext";
 import LinkButton from "../../../buttons/linkButton/LinkButton";
 import SAPCustomerCard from "../../../client/sapCustomerCard/SAPCustomerCard";
-import { compactCurrency } from "../../../../functions/formatNumber";
+import {
+  compactCurrency,
+  preciseCurrencyWithCents,
+} from "../../../../functions/formatNumber";
 import { getAmountTone } from "../../../../functions/documentFigureTone";
 import { Link } from "react-router";
 
@@ -217,14 +220,14 @@ export default function LeadsList({
         </p>
         <p className="textLight textXXS">
           <strong className="textBold">Expected Revenue:</strong>{" "}
-          {compactCurrency(lead.expected_revenue)}
+          {preciseCurrencyWithCents(lead.expected_revenue)}
         </p>
         {lead.actual_revenue && (
           <p
             className={`textLight textXXS ${getAmountTone(lead.actual_revenue, lead.expected_revenue)}`}
           >
             <strong className="textBold">Actual Revenue:</strong>{" "}
-            {compactCurrency(lead.actual_revenue)}
+            {preciseCurrencyWithCents(lead.actual_revenue)}
           </p>
         )}
       </div>

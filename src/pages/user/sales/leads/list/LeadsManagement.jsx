@@ -544,6 +544,8 @@ export default function LeadsManagement() {
               <LeadSidebar
                 selectedRow={selectedRow}
                 onRequestAction={handleRequestAction}
+                updating={updating}
+                onSavePO={updateLead}
                 isEditing={isEditing}
                 setIsEditing={setIsEditing}
               />

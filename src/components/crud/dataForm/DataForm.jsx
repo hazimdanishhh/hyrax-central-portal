@@ -122,7 +122,8 @@ function DataForm({
     const firstErrorKey = Object.keys(errors)[0];
     const column = columns.find((c) => c.key === firstErrorKey);
     const message =
-      errors[firstErrorKey]?.message || `${column?.label || "A field"} is required`;
+      errors[firstErrorKey]?.message ||
+      `${column?.label || "A field"} is required`;
     showMessage(message, "warning");
   };
 
