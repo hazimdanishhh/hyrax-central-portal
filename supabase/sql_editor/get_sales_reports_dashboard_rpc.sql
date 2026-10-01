@@ -785,16 +785,34 @@ prev_lead_kpis as (
 -- "Customer" (SAP customer_code on sap_invoices), NOT "Client" (the
 -- CRM-native `clients` table used by topClientsData) -- see
 -- DASHBOARD-CONVENTIONS.md's "Client vs Customer" rule.
+--
+-- collected_myr added (2026-10-01) -- how much of THESE top invoiced
+-- customers' revenue has actually been paid, so the chart can show an
+-- Invoiced/Collected pair per customer instead of invoiced alone. Same
+-- real-invoice-only scoping as collected_kpis (invoice_sales_rep_code is not
+-- null) and the SAME v_effective_* window as the invoiced total itself, so
+-- the two bars are directly comparable for the same period. cc's own ranked
+-- subquery below only ever selects customer_name/revenue_myr from this CTE,
+-- so adding a column here doesn't touch the Customer Concentration KPI calc.
 top_invoiced_customers as materialized (
     select
-        customer_code,
-        customer_name,
-        count(distinct doc_entry) as invoice_count,
-        sum(total_amount_myr) as revenue_myr
-    from base_invoices
-    where "invoice_date"::date >= v_effective_start_date
-      and "invoice_date"::date <= v_effective_end_date
-    group by customer_code, customer_name
+        bi.customer_code,
+        bi.customer_name,
+        count(distinct bi.doc_entry) as invoice_count,
+        sum(bi.total_amount_myr) as revenue_myr,
+        coalesce(pc.collected_myr, 0) as collected_myr
+    from base_invoices bi
+    left join (
+        select invoice_customer_code, sum(amount_applied_myr) as collected_myr
+        from base_payment_apps
+        where invoice_sales_rep_code is not null
+          and payment_date::date >= v_effective_start_date
+          and payment_date::date <= v_effective_end_date
+        group by invoice_customer_code
+    ) pc on pc.invoice_customer_code = bi.customer_code
+    where bi."invoice_date"::date >= v_effective_start_date
+      and bi."invoice_date"::date <= v_effective_end_date
+    group by bi.customer_code, bi.customer_name, pc.collected_myr
     order by revenue_myr desc
     limit 10
 ),
@@ -935,6 +953,40 @@ top_payment_customers as materialized (
       and bpa.payment_date::date <= v_effective_end_date
     group by bpa.invoice_customer_code, sc.customer_name
     order by collected_myr desc
+    limit 10
+),
+
+-- Outstanding by Customer (2026-10-01, new chart, Payment-Stage Detail) --
+-- ACTIONABLE, not REGULAR: "who owes us money right now" needs to surface an
+-- invoice from 2 months ago that's still unpaid, not just this month's new
+-- invoices -- same true-current-backlog-by-default, narrows-once-filtered
+-- shape as Sales Order Health (v_has_period), not the This-Month default
+-- every REGULAR chart on this page uses.
+--
+-- Deliberately sourced from sap_invoices_with_balance's own outstanding_
+-- balance (= total_amount_myr - paid_to_date, SAP's own cumulative running
+-- total per invoice), NOT a same-period-invoiced-minus-same-period-collected
+-- subtraction -- that shape is exactly what makes collectionRatePct
+-- structurally unreliable under normal 30/60-day B2B credit terms (see
+-- paymentsCollectedStatus's own comment in overviewConfig.js): most unpaid
+-- balances are against invoices raised in an EARLIER period, which a
+-- same-period calculation would miss entirely. outstanding_balance already
+-- accounts for payments applied at ANY point since the invoice was raised,
+-- regardless of period.
+outstanding_by_customer as materialized (
+    select
+        customer_code,
+        customer_name,
+        sum(outstanding_balance) as outstanding_myr
+    from sap_invoices_with_balance
+    where is_cancelled = 'N'
+      and (v_sales_rep_code is null or sales_rep_code = v_sales_rep_code)
+      and outstanding_balance > 0.01
+      and (not v_has_period or (
+          "invoice_date"::date >= p_start_date and "invoice_date"::date <= p_end_date
+      ))
+    group by customer_code, customer_name
+    order by outstanding_myr desc
     limit 10
 )
 
@@ -1510,6 +1562,13 @@ select json_build_object(
     'topPaymentCustomersData', (
         select coalesce(json_agg(x), '[]'::json)
         from top_payment_customers x
+    ),
+
+    -- Outstanding by Customer (new, Payment-Stage Detail section) -- see
+    -- outstanding_by_customer's own comment above.
+    'outstandingByCustomerData', (
+        select coalesce(json_agg(x), '[]'::json)
+        from outstanding_by_customer x
     ),
 
     -- Collection Rate by Rep (new, Payment-Stage Detail section) -- reuses

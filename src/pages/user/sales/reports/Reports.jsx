@@ -174,6 +174,13 @@ function Reports() {
   const trendSubtitle = chartIsPeriodFiltered
     ? "Monthly, This Period"
     : "Monthly, All-Time";
+  // ACTIONABLE family's subtitle vocabulary (2026-10-01, Outstanding by
+  // Customer) -- mirrors overviewConfig.js's own actionableLabel exactly:
+  // "current backlog" when unfiltered, narrows to "this period" once a range
+  // is picked.
+  const actionableLabel = chartIsPeriodFiltered
+    ? "This Period"
+    : "Current Backlog";
 
   // Reshape to the field names ScorecardList/LeadsScoreCard already expects
   // (it's a generic quota-progress card, not Leads-specific -- see
@@ -263,9 +270,15 @@ function Reports() {
     value: d.won_revenue,
   }));
 
+  // FIXED/EXTENDED 2026-10-01: now a 2-series Invoiced/Collected pair per
+  // customer (was Invoiced only) -- so a sales/finance viewer can see, for
+  // the biggest invoiced accounts specifically, how much of that revenue has
+  // actually been paid. Feeds HorizontalMultiBarRenderer below, not
+  // HorizontalBarChartRenderer.
   const topInvoicedCustomersData = topInvoicedCustomersRaw.map((d) => ({
     name: d.customer_name,
-    value: d.revenue_myr,
+    Invoiced: d.revenue_myr,
+    Collected: d.collected_myr,
   }));
 
   // Top Products (added 2026-08) -- the first real "actual sales" product
@@ -290,19 +303,30 @@ function Reports() {
       value: d.revenue_myr,
     })) ?? [];
 
-  // Order-to-Cash -- Year over Year (new, 2026-10-01) -- FIXED-WINDOW, always
-  // the last 5 calendar years, never affected by the page's date filter. The
-  // RPC's own field names already match HorizontalMultiBarRenderer's `bars`
-  // dataKey shape 1:1, so no reshape beyond the usual `?? []` default.
+  // Order-to-Cash -- Year over Year (new, 2026-10-01, updated same day to
+  // fiscal year) -- FIXED-WINDOW, always the trailing 10 fiscal years
+  // (April-March), never affected by the page's date filter. The RPC's own
+  // field names already match VerticalMultiBarRenderer's `bars` dataKey shape
+  // 1:1, so no reshape beyond the usual `?? []` default.
   const orderToCashYoYData = dashboard?.orderToCashYoYData ?? [];
 
   // Top Customers by Payments Collected (new, 2026-10-01, Payment-Stage
-  // Detail) -- same shape as topInvoicedCustomersData above, cash actually
-  // collected rather than invoiced.
+  // Detail) -- same shape as topInvoicedCustomersData's own Invoiced series,
+  // cash actually collected rather than invoiced.
   const topPaymentCustomersData =
     dashboard?.topPaymentCustomersData?.map((d) => ({
       name: d.customer_name,
       value: d.collected_myr,
+    })) ?? [];
+
+  // Outstanding by Customer (new, 2026-10-01, Payment-Stage Detail) --
+  // ACTIONABLE, not REGULAR -- see the RPC's own outstanding_by_customer
+  // comment for why this deliberately uses sap_invoices_with_balance's
+  // cumulative outstanding_balance rather than a same-period subtraction.
+  const outstandingByCustomerData =
+    dashboard?.outstandingByCustomerData?.map((d) => ({
+      name: d.customer_name,
+      value: d.outstanding_myr,
     })) ?? [];
 
   // Collection Rate by Rep (new, 2026-10-01, Payment-Stage Detail) -- plots
@@ -331,10 +355,16 @@ function Reports() {
   // RPC's own stage_order, so no client-side sort needed. Charting count
   // (volume); total_value is available on each row if a value-weighted
   // funnel is wanted later.
+  // FIXED 2026-10-01: charts total_value (RM), not count -- the RPC's own
+  // total_value already uses actual_revenue for WON and expected_revenue for
+  // every other stage (Discovery/Sample Test/Proposal/Negotiation/Lost, none
+  // of which have a real closed amount yet), so this was a pure reshape fix,
+  // no RPC change needed. count is still available on each row if a volume
+  // view is wanted later.
   const stageData =
     dashboard?.stageData?.map((d) => ({
       name: d.name,
-      value: d.count,
+      value: d.total_value,
     })) ?? [];
 
   // Bookings vs Invoiced (added 2026-07) -- SAP-only booking-to-billing lag,
@@ -531,14 +561,14 @@ function Reports() {
                           </h2>
                         </div>
                         <p className="textXS textLight">
-                          The full funnel, trends over time, and multi-year
-                          pace — from pipeline won to cash collected.
+                          The full funnel, trends over time, and multi-year pace
+                          — from pipeline won to cash collected.
                         </p>
 
                         <CardLayout style="cardLayout2">
                           <ChartCard
-                            title="Pipeline → Order → Invoice → Payment"
-                            subtitle={`${periodLabel} (RM) — each stage tagged by source`}
+                            title="Pipeline → Order → Invoice → Payment (RM)"
+                            subtitle={`${periodLabel}`}
                             style="cardGapSmall"
                           >
                             <HorizontalBarChartRenderer
@@ -547,8 +577,8 @@ function Reports() {
                             />
                           </ChartCard>
                           <ChartCard
-                            title="Order-to-Cash — Year over Year"
-                            subtitle="Pipeline, Orders, Invoiced & Collected by Fiscal Year, Trailing 10 Years — Not Affected by the Date Filter"
+                            title="Order-to-Cash — Year over Year (RM)"
+                            subtitle="Trailing 10 Fiscal Years — Not Affected by the Date Filter"
                             style="cardGapSmall"
                           >
                             <VerticalMultiBarRenderer
@@ -587,7 +617,7 @@ function Reports() {
                               against the monthly quota it's actually judged
                               against. */}
                           <ChartCard
-                            title="Pipeline vs Target"
+                            title="Pipeline vs Target (RM)"
                             subtitle={trendSubtitle}
                             style="cardGapSmall"
                           >
@@ -610,7 +640,7 @@ function Reports() {
                               vs SAP forecast, side by side, never blended --
                               see docs/DASHBOARD-ROADMAP.md §1.2). */}
                           <ChartCard
-                            title="Revenue vs Budget"
+                            title="Revenue vs Budget (RM)"
                             subtitle={trendSubtitle}
                             style="cardGapSmall"
                           >
@@ -728,8 +758,8 @@ function Reports() {
 
                       <CardLayout style="cardLayout2">
                         <ChartCard
-                          title="Pipeline Stage"
-                          subtitle={`Leads by Stage (Count), ${periodLabel}`}
+                          title="Pipeline Stage (RM — Won Actual, Others Expected)"
+                          subtitle={`${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           // No date bounds -- this chart's own RPC condition
@@ -749,8 +779,8 @@ function Reports() {
                         </ChartCard>
 
                         <ChartCard
-                          title="Product-Type Mix"
-                          subtitle={`Won Revenue (RM), ${periodLabel}`}
+                          title="Product-Type Mix by Won Revenue (RM)"
+                          subtitle={`${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -766,8 +796,8 @@ function Reports() {
                         </ChartCard>
 
                         <ChartCard
-                          title="Lead-Source ROI"
-                          subtitle={`Won Revenue (RM), ${periodLabel}`}
+                          title="Lead-Source ROI by Won Revenue (RM)"
+                          subtitle={`${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -783,8 +813,8 @@ function Reports() {
                         </ChartCard>
 
                         <ChartCard
-                          title="Top Clients"
-                          subtitle={`Won Revenue (RM), ${periodLabel}`}
+                          title="Top Clients by Won Revenue (RM)"
+                          subtitle={`${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -832,8 +862,8 @@ function Reports() {
 
                         <CardLayout style="cardLayout2">
                           <ChartCard
-                            title="Order Book by Rep"
-                            subtitle={`SAP Sales Orders (RM), ${periodLabel}`}
+                            title="Sales Orders by Rep (RM)"
+                            subtitle={`${periodLabel}`}
                             style="cardGapSmall"
                             viewAllTo={
                               canAccessOrders ? "../orders" : undefined
@@ -850,7 +880,7 @@ function Reports() {
                               to-billing lag metric for Order-Stage detail,
                               not a big-picture overview chart. */}
                           <ChartCard
-                            title="Bookings vs Invoiced Revenue"
+                            title="Orders vs Invoiced Revenue (RM)"
                             subtitle="Trailing 12 Months — Not Affected by the Date Filter"
                             style="cardGapSmall"
                           >
@@ -895,8 +925,8 @@ function Reports() {
 
                       <CardLayout style="cardLayout2">
                         <ChartCard
-                          title="Gross Profit by Rep"
-                          subtitle={`Revenue & Gross Profit (RM), ${periodLabel}`}
+                          title="Revenue & Gross Profit by Rep (RM)"
+                          subtitle={`${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo={
                             canAccessInvoices
@@ -923,7 +953,7 @@ function Reports() {
                         </ChartCard>
 
                         <ChartCard
-                          title="Top Customers by Invoiced Revenue"
+                          title="Top Customers by Invoiced Revenue (RM)"
                           subtitle={`Top 10, ${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo={
@@ -933,14 +963,25 @@ function Reports() {
                           }
                           viewAllFilter={{ ...chartPeriodFilter }}
                         >
-                          <HorizontalBarChartRenderer
+                          <HorizontalMultiBarRenderer
                             data={topInvoicedCustomersData}
-                            colorMap={YELLOW_COLOR}
+                            bars={[
+                              {
+                                dataKey: "Invoiced",
+                                name: "Invoiced",
+                                color: YELLOW_COLOR,
+                              },
+                              {
+                                dataKey: "Collected",
+                                name: "Collected",
+                                color: GREEN_COLOR,
+                              },
+                            ]}
                           />
                         </ChartCard>
 
                         <ChartCard
-                          title="Top Products"
+                          title="Top Products by Invoiced Revenue (RM)"
                           subtitle={`Top 10, ${periodLabel}`}
                           style="cardGapSmall"
                         >
@@ -951,7 +992,7 @@ function Reports() {
                         </ChartCard>
 
                         <ChartCard
-                          title="Revenue by Product Group"
+                          title="Product Groups by Invoiced Revenue (RM)"
                           subtitle={`All Groups, ${periodLabel}`}
                           style="cardGapSmall"
                         >
@@ -997,7 +1038,7 @@ function Reports() {
 
                       <CardLayout style="cardLayout2">
                         <ChartCard
-                          title="Top Customers by Payments Collected"
+                          title="Top Customers by Payments Collected (RM)"
                           subtitle={`Top 10, ${periodLabel}`}
                           style="cardGapSmall"
                           viewAllTo={
@@ -1013,9 +1054,32 @@ function Reports() {
                           />
                         </ChartCard>
 
+                        {/* New (2026-10-01) -- the ACTIONABLE counterpart to
+                            the chart above: not "who paid the most" but "who
+                            still owes the most, right now" -- see the RPC's
+                            own outstanding_by_customer comment for why this
+                            uses sap_invoices_with_balance's cumulative
+                            balance rather than a same-period subtraction. */}
                         <ChartCard
-                          title="Collection Rate by Rep"
-                          subtitle={`Collected ÷ Invoiced (%), ${periodLabel}`}
+                          title="Top Outstanding Payments by Customer (RM)"
+                          subtitle={`Top 10, ${actionableLabel}`}
+                          style="cardGapSmall"
+                          viewAllTo={
+                            canAccessInvoices
+                              ? "/app/finance/invoices/list"
+                              : undefined
+                          }
+                          viewAllFilter={{ hasBalanceOnly: "true" }}
+                        >
+                          <HorizontalBarChartRenderer
+                            data={outstandingByCustomerData}
+                            colorMap="#ef4444"
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Collection Rate by Rep (%)"
+                          subtitle={`${periodLabel}`}
                           style="cardGapSmall"
                         >
                           <HorizontalBarChartRenderer
