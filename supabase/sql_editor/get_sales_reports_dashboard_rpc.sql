@@ -817,6 +817,22 @@ top_invoiced_customers as materialized (
     limit 10
 ),
 
+-- Revenue by Export/Local customer classification
+-- (sap_customers.local_export_flag), same v_effective_* window as every
+-- other Invoice-Stage chart. Customers missing the flag (null) fall back
+-- into their own "Unspecified" bucket, same vocabulary as the Leads
+-- dashboard's own productTypeData coalesce(..., 'Unspecified') pattern.
+revenue_by_export_local as (
+    select
+        coalesce(sc.local_export_flag, 'Unspecified') as classification,
+        coalesce(sum(bi.total_amount_myr), 0) as revenue_myr
+    from base_invoices bi
+    left join sap_customers sc on sc.customer_code = bi.customer_code
+    where bi."invoice_date"::date >= v_effective_start_date
+      and bi."invoice_date"::date <= v_effective_end_date
+    group by coalesce(sc.local_export_flag, 'Unspecified')
+),
+
 -- Top Products -- pulled out into its own CTE (2026-09-30, same reasoning as
 -- top_invoiced_customers above), backing both topProductsData and the new
 -- Product Concentration KPI card. MATERIALIZED: referenced twice below.
@@ -1517,6 +1533,14 @@ select json_build_object(
     'topInvoicedCustomersData', (
         select coalesce(json_agg(x), '[]'::json)
         from top_invoiced_customers x
+    ),
+
+    'revenueByExportLocalData', (
+        select coalesce(json_agg(
+            json_build_object('name', classification, 'value', revenue_myr)
+            order by revenue_myr desc
+        ), '[]'::json)
+        from revenue_by_export_local
     ),
 
     -- Top Products -- now sourced from top_invoiced_products above

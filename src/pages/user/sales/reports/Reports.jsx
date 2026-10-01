@@ -15,6 +15,7 @@ import {
 import CardLayout from "../../../../components/cardLayout/CardLayout";
 import ChartCard from "../../../../components/chartCard/ChartCard";
 import HorizontalBarChartRenderer from "../../../../components/chartCard/HorizontalBarChartRenderer";
+import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer";
 import HorizontalMultiBarRenderer from "../../../../components/chartCard/HorizontalMultiBarRenderer";
 import VerticalMultiBarRenderer from "../../../../components/chartCard/VerticalMultiBarRenderer";
 import LineChartRenderer from "../../../../components/chartCard/LineChartRenderer";
@@ -302,6 +303,8 @@ function Reports() {
       name: d.item_group_name,
       value: d.revenue_myr,
     })) ?? [];
+
+  const revenueByExportLocalData = dashboard?.revenueByExportLocalData ?? [];
 
   // Order-to-Cash -- Year over Year (new, 2026-10-01, updated same day to
   // fiscal year) -- FIXED-WINDOW, always the trailing 10 fiscal years
@@ -926,6 +929,23 @@ function Reports() {
                           <HorizontalBarChartRenderer
                             data={revenueByProductGroupData}
                             colorMap={PURPLE_COLOR}
+                          />
+                        </ChartCard>
+
+                        <ChartCard
+                          title="Revenue by Export / Local (RM)"
+                          subtitle={`By Customer Classification, ${periodLabel}`}
+                          style="cardGapSmall"
+                        >
+                          <PieChartRenderer
+                            data={revenueByExportLocalData}
+                            mode="semantic"
+                            colorMap={{
+                              Export: BLUE_COLOR,
+                              Local: GREEN_COLOR,
+                              Unspecified: "#9ca3af",
+                            }}
+                            centerLabel="total"
                           />
                         </ChartCard>
                       </CardLayout>
