@@ -108,3 +108,23 @@
   // padding-top: 1rem;
   max-height: calc(100vh - 50px);
 }
+
+// CHART SECTIONS
+
+.chartSection {
+  text-align: start;
+}
+
+.chartHeading {
+  display: flex;
+  margin-bottom: 1rem;
+  flex-direction: column;
+  text-align: start;
+  gap: 0.2rem;
+
+  .chartTitle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+}

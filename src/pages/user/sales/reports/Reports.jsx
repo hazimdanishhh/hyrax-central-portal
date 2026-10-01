@@ -505,20 +505,9 @@ function Reports() {
                     {/* SALES KPIs -- one tile per O2C stage (row 1), each
                         stage's own diagnostic (row 2). See
                         docs/SALES-REPORTS-RESTRUCTURE-PLAN.md Part 4. */}
-                    <div
-                      style={{
-                        justifyContent: "start",
-                        textAlign: "start",
-                      }}
-                    >
-                      <div style={{ marginBottom: "1rem" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.8rem",
-                          }}
-                        >
+                    <div className="chartSection">
+                      <div className="chartHeading">
+                        <div className="chartTitle">
                           <GaugeIcon size={24} />
                           <h2 className="textL textBold">Sales KPIs</h2>
                         </div>
@@ -534,27 +523,9 @@ function Reports() {
 
                   <div className="pdfOverviewSection">
                     {/* THE ORDER-TO-CASH FUNNEL (new, 2026-08) */}
-                    <div
-                      style={{
-                        justifyContent: "start",
-                        textAlign: "start",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          marginBottom: "1rem",
-                          gap: "0.4rem",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.8rem",
-                          }}
-                        >
+                    <div className="chartSection">
+                      <div className="chartHeading">
+                        <div className="chartTitle">
                           <FunnelIcon size={24} />
                           <h2 className="textL textBold">
                             Order-to-Cash Overview
@@ -564,50 +535,51 @@ function Reports() {
                           The full funnel, trends over time, and multi-year pace
                           — from pipeline won to cash collected.
                         </p>
+                      </div>
 
-                        <CardLayout style="cardLayout2">
-                          <ChartCard
-                            title="Pipeline → Order → Invoice → Payment (RM)"
-                            subtitle={`${periodLabel}`}
-                            style="cardGapSmall"
-                          >
-                            <HorizontalBarChartRenderer
-                              data={o2cFunnelData}
-                              colorMap={BLUE_COLOR}
-                            />
-                          </ChartCard>
-                          <ChartCard
-                            title="Order-to-Cash — Year over Year (RM)"
-                            subtitle="Trailing 10 Fiscal Years — Not Affected by the Date Filter"
-                            style="cardGapSmall"
-                          >
-                            <VerticalMultiBarRenderer
-                              data={orderToCashYoYData}
-                              bars={[
-                                {
-                                  dataKey: "pipeline_revenue_myr",
-                                  name: "Pipeline (Won)",
-                                  color: BLUE_COLOR,
-                                },
-                                {
-                                  dataKey: "order_value_myr",
-                                  name: "Orders",
-                                  color: YELLOW_COLOR,
-                                },
-                                {
-                                  dataKey: "invoiced_revenue_myr",
-                                  name: "Invoiced",
-                                  color: GREEN_COLOR,
-                                },
-                                {
-                                  dataKey: "collected_revenue_myr",
-                                  name: "Collected",
-                                  color: PURPLE_COLOR,
-                                },
-                              ]}
-                            />
-                          </ChartCard>
-                          {/* Replaces "Invoice (SAP) vs Pipeline (CRM)
+                      <CardLayout style="cardLayout2">
+                        <ChartCard
+                          title="Pipeline → Order → Invoice → Payment (RM)"
+                          subtitle={`${periodLabel}`}
+                          style="cardGapSmall"
+                        >
+                          <HorizontalBarChartRenderer
+                            data={o2cFunnelData}
+                            colorMap={BLUE_COLOR}
+                          />
+                        </ChartCard>
+                        <ChartCard
+                          title="Order-to-Cash — Year over Year (RM)"
+                          subtitle="Trailing 10 Fiscal Years — Not Affected by the Date Filter"
+                          style="cardGapSmall"
+                        >
+                          <VerticalMultiBarRenderer
+                            data={orderToCashYoYData}
+                            bars={[
+                              {
+                                dataKey: "pipeline_revenue_myr",
+                                name: "Pipeline (Won)",
+                                color: BLUE_COLOR,
+                              },
+                              {
+                                dataKey: "order_value_myr",
+                                name: "Orders",
+                                color: YELLOW_COLOR,
+                              },
+                              {
+                                dataKey: "invoiced_revenue_myr",
+                                name: "Invoiced",
+                                color: GREEN_COLOR,
+                              },
+                              {
+                                dataKey: "collected_revenue_myr",
+                                name: "Collected",
+                                color: PURPLE_COLOR,
+                              },
+                            ]}
+                          />
+                        </ChartCard>
+                        {/* Replaces "Invoice (SAP) vs Pipeline (CRM)
                               Revenue" (2026-10-01) -- that chart compared two
                               different O2C stages that were never expected to
                               match (won pipeline vs invoiced revenue are
@@ -616,45 +588,44 @@ function Reports() {
                               Forecast 1's own trend instead: won revenue
                               against the monthly quota it's actually judged
                               against. */}
-                          <ChartCard
-                            title="Pipeline vs Target (RM)"
-                            subtitle={trendSubtitle}
-                            style="cardGapSmall"
-                          >
-                            <LineChartRenderer
-                              data={pipelineVsTargetData}
-                              lines={[
-                                {
-                                  dataKey: "Pipeline (Won)",
-                                  color: BLUE_COLOR,
-                                },
-                                { dataKey: "Target", color: YELLOW_COLOR },
-                              ]}
-                            />
-                          </ChartCard>
-                          {/* Renamed from "Invoiced / Collected / Budget"
+                        <ChartCard
+                          title="Pipeline vs Target (RM)"
+                          subtitle={trendSubtitle}
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={pipelineVsTargetData}
+                            lines={[
+                              {
+                                dataKey: "Pipeline (Won)",
+                                color: BLUE_COLOR,
+                              },
+                              { dataKey: "Target", color: YELLOW_COLOR },
+                            ]}
+                          />
+                        </ChartCard>
+                        {/* Renamed from "Invoiced / Collected / Budget"
                               (2026-10-01) -- same data/3 lines (Collected
                               still plotted as "Payment"), reframed as SAP
                               Forecast 2's own attainment trend, the natural
                               pair to Pipeline vs Target above (CRM forecast
                               vs SAP forecast, side by side, never blended --
                               see docs/DASHBOARD-ROADMAP.md §1.2). */}
-                          <ChartCard
-                            title="Revenue vs Budget (RM)"
-                            subtitle={trendSubtitle}
-                            style="cardGapSmall"
-                          >
-                            <LineChartRenderer
-                              data={invoicedVsBudgetTrendData}
-                              lines={[
-                                { dataKey: "Invoice", color: BLUE_COLOR },
-                                { dataKey: "Payment", color: GREEN_COLOR },
-                                { dataKey: "Budget", color: YELLOW_COLOR },
-                              ]}
-                            />
-                          </ChartCard>
-                        </CardLayout>
-                      </div>
+                        <ChartCard
+                          title="Revenue vs Budget (RM)"
+                          subtitle={trendSubtitle}
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={invoicedVsBudgetTrendData}
+                            lines={[
+                              { dataKey: "Invoice", color: BLUE_COLOR },
+                              { dataKey: "Payment", color: GREEN_COLOR },
+                              { dataKey: "Budget", color: YELLOW_COLOR },
+                            ]}
+                          />
+                        </ChartCard>
+                      </CardLayout>
                     </div>
                   </div>
 
@@ -695,20 +666,9 @@ function Reports() {
                   <div className="pdfOverviewSection">
                     {/* REP FUNNEL SCORECARD (renamed from "Invoice Budget
                         Scorecard", extended 2026-08 with the Collected leg) */}
-                    <div
-                      style={{
-                        justifyContent: "start",
-                        textAlign: "start",
-                      }}
-                    >
-                      <div style={{ marginBottom: "1rem" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.8rem",
-                          }}
-                        >
+                    <div className="chartSection">
+                      <div className="chartHeading">
+                        <div className="chartTitle">
                           <UsersThreeIcon size={24} />
                           <h2 className="textL textBold">
                             Rep Funnel Scorecard
@@ -731,20 +691,9 @@ function Reports() {
 
                   <div className="pdfOverviewSection">
                     {/* PIPELINE-STAGE DETAIL */}
-                    <div
-                      style={{
-                        justifyContent: "start",
-                        textAlign: "start",
-                      }}
-                    >
-                      <div style={{ marginBottom: "1rem" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.8rem",
-                          }}
-                        >
+                    <div className="chartSection">
+                      <div className="chartHeading">
+                        <div className="chartTitle">
                           <ChartPieIcon size={24} />
                           <h2 className="textL textBold">
                             Pipeline-Stage Detail
@@ -830,88 +779,66 @@ function Reports() {
                         </ChartCard>
                       </CardLayout>
                     </div>
+                  </div>
 
-                    {/* ORDER-STAGE DETAIL */}
-                    <div
-                      style={{
-                        justifyContent: "start",
-                        textAlign: "start",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          marginBottom: "1rem",
-                          gap: "0.4rem",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.8rem",
-                          }}
-                        >
+                  {/* ORDER-STAGE DETAIL */}
+                  <div className="pdfOverviewSection">
+                    <div className="chartSection">
+                      <div className="chartHeading">
+                        <div className="chartTitle">
                           <RankingIcon size={24} />
                           <h2 className="textL textBold">Order-Stage Detail</h2>
                         </div>
                         <p className="textXS textLight">
                           SAP sales orders booked, by rep and over time.
                         </p>
+                      </div>
 
-                        <CardLayout style="cardLayout2">
-                          <ChartCard
-                            title="Sales Orders by Rep (RM)"
-                            subtitle={`${periodLabel}`}
-                            style="cardGapSmall"
-                            viewAllTo={
-                              canAccessOrders ? "../orders" : undefined
-                            }
-                            viewAllFilter={{ ...chartPeriodFilter }}
-                          >
-                            <HorizontalBarChartRenderer
-                              data={orderBookData}
-                              colorMap={BLUE_COLOR}
-                            />
-                          </ChartCard>
-                          {/* Moved back here from Order-to-Cash Overview
+                      <CardLayout style="cardLayout2">
+                        <ChartCard
+                          title="Sales Orders by Rep (RM)"
+                          subtitle={`${periodLabel}`}
+                          style="cardGapSmall"
+                          viewAllTo={canAccessOrders ? "../orders" : undefined}
+                          viewAllFilter={{ ...chartPeriodFilter }}
+                        >
+                          <HorizontalBarChartRenderer
+                            data={orderBookData}
+                            colorMap={BLUE_COLOR}
+                          />
+                        </ChartCard>
+                        {/* Moved back here from Order-to-Cash Overview
                               (2026-10-01) -- this is an operational booking-
                               to-billing lag metric for Order-Stage detail,
                               not a big-picture overview chart. */}
-                          <ChartCard
-                            title="Orders vs Invoiced Revenue (RM)"
-                            subtitle="Trailing 12 Months — Not Affected by the Date Filter"
-                            style="cardGapSmall"
-                          >
-                            <LineChartRenderer
-                              data={bookingsVsInvoicedTrendData}
-                              lines={[
-                                {
-                                  dataKey: "Sales Order (Booked)",
-                                  color: YELLOW_COLOR,
-                                },
-                                {
-                                  dataKey: "Invoice (Billed)",
-                                  color: GREEN_COLOR,
-                                },
-                              ]}
-                            />
-                          </ChartCard>
-                        </CardLayout>
-                      </div>
-                    </div>
-
-                    {/* INVOICE-STAGE DETAIL */}
-                    <div style={{ marginTop: "1.6rem" }}>
-                      <div style={{ marginBottom: "1rem" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.8rem",
-                          }}
+                        <ChartCard
+                          title="Orders vs Invoiced Revenue (RM)"
+                          subtitle="Trailing 12 Months — Not Affected by the Date Filter"
+                          style="cardGapSmall"
                         >
+                          <LineChartRenderer
+                            data={bookingsVsInvoicedTrendData}
+                            lines={[
+                              {
+                                dataKey: "Sales Order (Booked)",
+                                color: YELLOW_COLOR,
+                              },
+                              {
+                                dataKey: "Invoice (Billed)",
+                                color: GREEN_COLOR,
+                              },
+                            ]}
+                          />
+                        </ChartCard>
+                      </CardLayout>
+                    </div>
+                  </div>
+
+                  {/* INVOICE-STAGE DETAIL */}
+                  <div className="pdfOverviewSection">
+                    <div className="chartSection">
+                      <div className="chartHeading">
+                        <div className="chartTitle">
                           <ReceiptIcon size={24} />
                           <h2 className="textL textBold">
                             Invoice-Stage Detail
@@ -1005,26 +932,15 @@ function Reports() {
                     </div>
                   </div>
 
-                  <div className="pdfOverviewSection">
-                    {/* PAYMENT-STAGE DETAIL (new, 2026-10-01) -- completes the
+                  {/* PAYMENT-STAGE DETAIL (new, 2026-10-01) -- completes the
                         4-stage O2C narrative (Pipeline -> Order -> Invoice ->
                         Payment); Payments Collected previously had no
                         dedicated detail charts beyond the cross-stage
                         Overview trend. */}
-                    <div
-                      style={{
-                        justifyContent: "start",
-                        textAlign: "start",
-                      }}
-                    >
-                      <div style={{ marginBottom: "1rem" }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.8rem",
-                          }}
-                        >
+                  <div className="pdfOverviewSection">
+                    <div className="chartSection">
+                      <div className="chartHeading">
+                        <div className="chartTitle">
                           <WalletIcon size={24} />
                           <h2 className="textL textBold">
                             Payment-Stage Detail
