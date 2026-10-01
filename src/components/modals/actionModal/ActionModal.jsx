@@ -46,7 +46,11 @@ export default function ActionModal({
   const isConfirmDisabled = () => {
     if (loading) return true;
     for (const field of fields) {
-      if (field.required && !formValues[field.name]) {
+      const required =
+        typeof field.required === "function"
+          ? field.required(formValues)
+          : field.required;
+      if (required && !formValues[field.name]) {
         return true;
       }
     }
@@ -89,11 +93,28 @@ export default function ActionModal({
               <div key={field.name} className="modalInputSegment">
                 {field.label && (
                   <label className="textXXS textBold">
-                    {field.label} {field.required && "*"}
+                    {field.label}{" "}
+                    {(typeof field.required === "function"
+                      ? field.required(formValues)
+                      : field.required) && "*"}
                   </label>
                 )}
 
-                {field.type === "drive" ? (
+                {field.type === "checkbox" ? (
+                  <label className="textS textBold modalInputCheckboxLabel">
+                    <input
+                      type="checkbox"
+                      checked={!!formValues[field.name]}
+                      onChange={(e) =>
+                        setFormValues({
+                          ...formValues,
+                          [field.name]: e.target.checked,
+                        })
+                      }
+                    />
+                    {field.checkboxLabel}
+                  </label>
+                ) : field.type === "drive" ? (
                   <div className="modalInput">
                     <input
                       type="text"

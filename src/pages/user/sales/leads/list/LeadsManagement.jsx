@@ -270,13 +270,32 @@ export default function LeadsManagement() {
     });
   }
 
-  if (isNegotiationAction || isEditQuotationAction) {
+  if (isNegotiationAction) {
+    dynamicFields.push(
+      {
+        name: "no_quotation",
+        type: "checkbox",
+        label: "",
+        checkboxLabel: "No quotation available for this lead",
+        defaultValue: false,
+      },
+      {
+        name: "quotation_url",
+        type: "drive",
+        label: "Quotation Document",
+        required: (values) => !values.no_quotation,
+        defaultValue: pendingAction?.payload?.quotation_url || "",
+      },
+    );
+  }
+
+  if (isEditQuotationAction) {
     dynamicFields.push({
       name: "quotation_url",
       type: "drive",
       label: "Quotation Document",
       required: true,
-      // If editing, pre-fill with the existing URL
+      // Editing an existing quotation -- pre-fill with the current URL
       defaultValue: pendingAction?.payload?.quotation_url || "",
     });
   }
