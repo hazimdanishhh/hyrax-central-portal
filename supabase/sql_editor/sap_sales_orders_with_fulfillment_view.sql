@@ -1,3 +1,34 @@
+-- ############################################################################
+-- 🔴 KNOWN DEFECT, NOT YET FIXED -- found 2026-10-02
+--
+-- total_invoiced_myr (and total_paid_myr / total_applied_myr /
+-- total_outstanding_myr beside it) OVER-STATE how much of an order has been
+-- invoiced. Do not use them for any calculation until this is fixed.
+--
+-- The matched_invoice_ids CTE below correctly identifies every invoice that
+-- TOUCHES an order, then sums sap_invoices.total_amount_myr -- the WHOLE
+-- invoice document total -- instead of only the lines belonging to that order.
+-- So one invoice spanning two orders is counted in full against BOTH, and an
+-- invoice mixing order-linked lines with direct lines attributes the direct
+-- lines to the order too.
+--
+-- User-visible: FulfillmentOrderCard.jsx renders total_invoiced_myr and
+-- colours it via getAmountTone() against the order value, so an order can read
+-- as fully or over-invoiced while only part-invoiced. Sales users see this
+-- about their own orders today.
+--
+-- Fix: attribute at LINE level --
+--     sum(il.line_total) where il.base_entry = so.doc_entry and il.base_type = 17
+-- -- the pattern already proven in diagnostics/sales_projection_orderbook_signal.sql
+-- (Q1/Q3). total_delivered_qty / is_fully_delivered come from
+-- sap_sales_order_lines and are NOT affected.
+--
+-- Magnitude unmeasured; it scales with how often one invoice spans multiple
+-- orders. The direction of the error is always over-statement.
+--
+-- Tracked in docs/portal/DASHBOARD-ROADMAP.md §4 Group C.
+-- ############################################################################
+
 -- Run this once in the Supabase SQL editor.
 --
 -- Backs the Sales Orders page directly (/app/sales/orders/all) -- Lead ->
