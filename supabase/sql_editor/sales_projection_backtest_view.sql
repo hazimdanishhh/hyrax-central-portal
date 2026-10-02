@@ -46,6 +46,10 @@
 -- Run AFTER sales_projection_baseline_view.sql.
 -- ############################################################################
 
+-- NOTE: sales_projection_baseline_view.sql drops this view via CASCADE, so
+-- re-run this file immediately after that one, and then
+-- sales_model_baseline_view.sql which depends on this.
+
 create or replace view public.v_sales_projection_backtest
 with (security_invoker = on) as
 

@@ -165,7 +165,11 @@ book as (
 ),
 
 horizons as (
-    select generate_series(1, 6) as horizon
+    -- Extended from 6 to 12 in Phase B. Nothing had been scored past six
+    -- months while the design publishes a twelve-month figure. Affordable only
+    -- because the survival lateral was replaced with a prefix sum -- the
+    -- original form timed out at six.
+    select generate_series(1, 12) as horizon
 ),
 
 projected as (
