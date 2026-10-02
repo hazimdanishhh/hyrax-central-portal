@@ -1,0 +1,7 @@
+method,origins,mae_myr,mase,bias_pct,pct_months_over,mase_under_1,beats_naive,beats_naive_drift,is_publishable
+ma12,106,2551553,0.760,3.9,64,true,true,true,true
+ma3,106,2737826,0.815,1.7,61,true,true,true,true
+drift,94,2993019,0.891,0.3,49,true,true,true,true
+decomposition,94,3031729,0.903,2.8,59,true,true,true,true
+seasonal_naive,95,3359134,1.000,4.9,53,false,false,true,false
+seasonal_naive_drift,94,5319647,1.584,36.0,55,false,false,false,false

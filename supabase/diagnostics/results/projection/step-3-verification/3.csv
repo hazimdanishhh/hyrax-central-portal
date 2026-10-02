@@ -1,0 +1,4 @@
+measure,months,mean_index_must_be_1,min_index,max_index
+collected,12,1.0000,0.818,1.229
+invoiced,12,1.0000,0.621,1.605
+orders,12,1.0000,0.772,1.265

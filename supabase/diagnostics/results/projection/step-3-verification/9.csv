@@ -1,0 +1,4 @@
+measure,method,origins,mase,bias_pct,is_publishable
+collected,ma12,106,0.698,3.3,true
+invoiced,ma12,106,0.760,3.9,true
+orders,ma12,106,0.747,5.8,true

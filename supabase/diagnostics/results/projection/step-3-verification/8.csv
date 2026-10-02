@@ -1,0 +1,7 @@
+method,origins,mae_myr,mase,bias_pct,is_publishable
+ma12,104,2723410,0.811,4.9,true
+decomposition,94,3204790,0.954,3.7,true
+ma3,104,3271241,0.974,3.0,true
+seasonal_naive,95,3359134,1.000,4.9,false
+drift,92,3963530,1.180,3.1,false
+seasonal_naive_drift,92,5421372,1.614,34.6,false

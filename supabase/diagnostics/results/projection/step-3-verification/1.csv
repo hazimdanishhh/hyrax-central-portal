@@ -1,0 +1,4 @@
+measure,months,months_in_span,complete_months,first_month,last_month,zero_months,total_myr,total_docs
+collected,108,108,107,2017-11-01,2026-10-01,0,568084970,18187
+invoiced,108,108,107,2017-11-01,2026-10-01,0,726653508,19668
+orders,108,108,107,2017-11-01,2026-10-01,0,564528707,13174
