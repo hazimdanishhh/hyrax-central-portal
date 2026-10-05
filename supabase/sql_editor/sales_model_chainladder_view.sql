@@ -59,9 +59,24 @@
 -- Run AFTER sales_orderbook_open_view.sql and sales_order_development_view.sql.
 -- ############################################################################
 
-drop view if exists public.v_sales_model_chainladder cascade;
-
-create view public.v_sales_model_chainladder
+-- `create or replace` rather than `drop ... cascade`. Dropping deletes every
+-- dependant view, which on 2026-10-03 silently removed six of them and cost a
+-- full rebuild. Switch back to `drop view if exists ... cascade` ONLY when the
+-- COLUMN LIST changes -- renamed, removed, reordered or retyped. Postgres
+-- raises 42P16 when that happens, so it tells you; APPENDING a column at the
+-- end needs no drop. Full rule in sales_projection_baseline_view.sql.
+-- ── READS THE CACHE, NOT THE VIEW (2026-10-03) ─────────────────────────────
+-- Sources below point at private.mv_* rather than public.v_*. A single
+-- v_sales_projection_ensemble query was rebuilding the scoring harness four
+-- times and the chain-ladder backtest twice -- six backtest rebuilds for
+-- twelve rows, which timed out C22b and would have been run on every dashboard
+-- page load.
+--
+-- Both are backtests over CLOSED history and cannot change until a month
+-- closes or a model is edited. Run sales_projection_materialization.sql first,
+-- and re-run public.refresh_sales_projection_caches() after either event or
+-- these views will serve stale history without saying so.
+create or replace view public.v_sales_model_chainladder
 with (security_invoker = on) as
 
 with params as (
@@ -111,25 +126,65 @@ exposure as (
     join dev d_now    on d_now.age_months    = ob.age_months
     join dev d_target on d_target.age_months = ob.age_months + h.horizon - 1
     where ob.age_months between 0 and p.max_age_months
+),
+
+-- ── MEASURED error, replacing the theoretical one (2026-10-03) ─────────────
+--
+-- The Bernoulli expression below is a model of how this model SHOULD err. It
+-- is not how it DOES err, and the gap is large: at h=6 the forward view
+-- implied a standard deviation around RM5.9M while the backtest measured a
+-- mean absolute error of RM0.95M on the same quantity -- roughly six times too
+-- wide. Published as a prediction interval that produced bands like
+-- RM1.2M-11.5M, which tell a reader nothing.
+--
+-- Every other model here already uses its own measured error:
+-- v_sales_model_ses takes power(mae, 2) and v_sales_model_baseline takes
+-- rmse^2 from the scoring harness. The chain-ladder was the one exception.
+--
+-- MSE rather than variance about the mean, deliberately -- it includes bias,
+-- which is what a prediction interval should carry.
+--
+-- The Bernoulli figure is kept as a FALLBACK for any horizon the backtest
+-- cannot reach (fewer than six scored origins), so the view can never emit a
+-- null variance and silently drop out of the ensemble.
+measured_err as (
+    select horizon,
+           avg(power(error_vs_known, 2)) as mse
+    from private.mv_sales_chainladder_backtest
+    group by horizon
+    having count(*) >= 6
+),
+
+agg as (
+    select period_month,
+           horizon,
+           sum(remaining_myr * survival_to_target * rate_at_conversion)  as predicted,
+           -- FALLBACK ONLY -- superseded by measured_err above, and used only
+           -- at horizons the backtest cannot score. Each outstanding balance
+           -- either converts this month or does not, with p = survival x rate.
+           -- It understates nothing and overstates a great deal: it counts
+           -- noise in what the model CAN see, while this model's real error is
+           -- what it cannot.
+           sum( power(remaining_myr, 2)
+                * (survival_to_target * rate_at_conversion)
+                * (1 - least(survival_to_target * rate_at_conversion, 1)) )
+                                                                         as bernoulli_var,
+           count(*)                                                      as orders_contributing,
+           sum(remaining_myr)                                            as exposed_myr
+    from exposure
+    group by period_month, horizon
 )
 
-select period_month,
-       horizon,
-       'chainladder'::text                                              as model,
-       sum(remaining_myr * survival_to_target * rate_at_conversion)      as predicted,
-       -- Variance under a Bernoulli-per-order view: each outstanding balance
-       -- either converts in this month or does not, with probability
-       -- p = survival x rate. Deliberately simple -- this model's dominant
-       -- error is what it CANNOT see, not noise in what it can, and §7's
-       -- between-model term is where that honestly lives.
-       sum( power(remaining_myr, 2)
-            * (survival_to_target * rate_at_conversion)
-            * (1 - least(survival_to_target * rate_at_conversion, 1)) )   as variance,
-       count(*)                                                          as orders_contributing,
-       sum(remaining_myr)                                                as exposed_myr
-from exposure
-group by period_month, horizon
-order by horizon;
+select a.period_month,
+       a.horizon,
+       'chainladder'::text                        as model,
+       a.predicted,
+       coalesce(me.mse, a.bernoulli_var)          as variance,
+       a.orders_contributing,
+       a.exposed_myr
+from agg a
+left join measured_err me on me.horizon = a.horizon
+order by a.horizon;
 
 
 comment on view public.v_sales_model_chainladder is

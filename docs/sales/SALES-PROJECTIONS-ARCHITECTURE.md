@@ -394,6 +394,28 @@ Supabase buys nothing — the views would keep their names regardless — so it
 carries a status banner in its header instead. Mentioned here only so the
 inconsistency is known rather than mistaken for an oversight.
 
+### Phase C additions (2026-10-03)
+
+| New file | New object | Role |
+| --- | --- | --- |
+| `sql_editor/sales_model_ses_view.sql` | `v_sales_model_ses` | Exponential smoothing, forward. α **fitted**, not set — republished so the dashboard can state it |
+| `sql_editor/sales_projection_calibration_view.sql` | `v_sales_projection_calibration` | Measured bias per model and horizon, 12-month window. The actuarial "indicated vs selected" adjustment |
+| `sql_editor/sales_projection_ensemble_view.sql` | `v_sales_projection_ensemble` | The blend, with intervals. **The only object Phase D reads** |
+| `sql_editor/sales_projection_ensemble_backtest_view.sql` | `v_sales_projection_ensemble_backtest` | The Phase C gate. Point-in-time, sweeps window × order-book weight |
+| `sql_editor/sales_projection_materialization.sql` | `private.mv_sales_projection_baseline`<br>`private.mv_sales_chainladder_backtest`<br>`private.mv_sales_projection_ensemble_backtest`<br>`public.refresh_sales_projection_caches()` | Backtest caches. **A Phase D prerequisite, not an optimisation** — see §11g Finding 7 |
+
+**Retired:** `sales_projection_backtest_cache.sql` — folded into
+`sales_projection_materialization.sql` so all three caches are created and
+refreshed in one place.
+
+**Convention change, estate-wide for this feature.** All fourteen projection
+views moved from `drop view … cascade` to `create or replace view` on
+2026-10-03, after a cascade silently deleted six views and cost a full rebuild.
+`drop` is now reserved for an actual column-list change — which PostgreSQL
+reports as `42P16` rather than leaving it to guesswork. Appending a column at
+the end needs no drop. The dependency map and the rule live in the banner of
+`sales_projection_baseline_view.sql`.
+
 ## 9. On Sales Reports — not a separate page
 
 **Decision reversed 2026-10-02.** v1 put this on its own page, arguing different epistemic status. That was wrong twice over: the source-labeling rule exists precisely so differently-sourced numbers can sit together safely, and Sales Reports already carries Target and Budget. A separate page would split the forward view across two screens.
@@ -405,9 +427,18 @@ inconsistency is known rather than mistaken for an oversight.
 | #   | Tile                                           | Value                                          | Sub-metrics                                                  | Variant            |
 | --- | ---------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------ | ------------------ |
 | 1   | **Next Month — Projected Revenue**             | selected estimate                              | 80% range · vs Budget · vs same month last year · coverage % | Informational blue |
-| 2   | **Next 12 Months — Projected Revenue**         | sum over horizon                               | 80% range · growth vs trailing 12                            | Informational blue |
+| 2   | ~~Next 12 Months — Projected Revenue~~ **superseded** | — | — | — |
 | 3   | **Forecast Confidence**                        | model agreement (inverse between-model spread) | the widest-disagreeing model pair                            | `target-band`      |
 | 4   | **Projection Accuracy — last 3 closed months** | MASE                                           | MAE in MYR · bias direction · beats baseline Y/N             | `target-band`      |
+
+**Corrected 2026-10-03, after Phase C.** Two entries above are superseded and the table is left struck through rather than rewritten, so the change is visible:
+
+- **Tile 2 was "Next 12 Months".** C21 proved a twelve-month horizon cannot be validated from the data that exists — the maximum prior scored origins at h=12 is 5 against a guard of 6. It is replaced by a **Full-Year Outlook (fiscal April–March)**, which needs h=1..5 from October and is the better number anyway: C19 measured a multi-month total at ~10% error against 32–42% for any single month. From April to July the remaining fiscal year does exceed six months; those months are counted and disclosed in the tile rather than hidden.
+- **A third informational tile was added — "Order Book vs Statistical".** Not in the original spec because the finding did not exist yet: C11 measured orders up 43% year on year while invoicing fell 35%. The gap between the two implied figures is a conversion-and-delivery signal, and §3's own rule says to label both sides rather than silently blend them.
+- **Tile 4 (Projection Accuracy) and chart 4 (Actual vs Expected) are deferred to Phase E.** Both need frozen snapshots; a live-computed projection rewrites its own history, so accuracy measured against it compares to a moving target.
+- **Chart 1 shows 6 forward months, not 12**, for the same reason as tile 2. It also gained something §9 did not specify: **the model's own one-month-ahead prediction for every past month**, drawn beside the actual with its band. Chart 4 (*Actual vs Expected*) is still deferred — that one needs frozen snapshots to measure what was genuinely published at the time — but this gets the track record onto the headline chart now, from the point-in-time backtest, instead of asking anyone to take it on trust.
+
+So Phase D ships **four tiles and three charts**: Full-Year Outlook, Next Month, Order Book vs Statistical, Forecast Confidence; fan chart, method-selection exhibit, build-up bridge.
 
 Tiles 1–2 are **informational blue, never the green/amber/red ramp** — §4 of `DASHBOARD-CONVENTIONS.md` reserves that for verdicts, and a projection has no good direction. Tiles 3–4 _are_ verdicts and earn colour.
 
@@ -588,6 +619,180 @@ have ruled out first.
 - **Test whether multi-month totals are more accurate than single months.** If
   the timing-noise hypothesis holds, the 12-month KPI is the trustworthy one
   and should lead the dashboard.
+
+---
+
+## 11f. Phase B findings — the a-priori models (2026-10-02)
+
+Phase B built the statistical half of the ensemble and extended the scoring harness past three months for the first time.
+
+**Built:** `v_sales_model_freqsev` (collective risk model, `Var = E[N]·Var[X] + Var[N]·E[X]²`), `v_sales_model_baseline` (forward 12-month mean), and `v_sales_chainladder_backtest` extended to h=12.
+
+**Gate (B6):** at twelve months, does anything beat a flat run-rate? `freqsev` scored **MASE 0.748** — comfortably better than seasonal-naive. Gate passed, Phase C proceeded.
+
+**Frequency vs severity (B2):** severity dominates overwhelmingly, as designed. Invoice *count* is stable (82–131 a month over three years) while invoice *value* is volatile. That asymmetry is the entire reason the compound model exists rather than a simple mean.
+
+**What Phase B did not catch, and could not:** every model it elected was a trailing mean, and the backtest's 106 origins were dominated by the 2017–2025 growth era. Projecting the Phase B winner forward gave RM5.69M for November against a trailing three-month actual of RM3.11M — 83% high — while the same model reported only +4% to +8% bias overall. Resolving that was Phase C's first job, and it is why §11g exists.
+
+---
+
+## 11g. Phase C findings — the ensemble, measured (2026-10-03)
+
+### Verdict: PASSES. The blend ships, validated to six months.
+
+The ensemble beats or ties the best individual model at **9 of 11 scoreable horizons**. Two assumptions carried since the design stage were overturned by measurement, one of them mine. The twelve-month horizon turned out to be unvalidatable and is not published.
+
+### The headline numbers
+
+| | |
+|---|---|
+| **November 2026 projection** | **RM4,140,562** |
+| 80% interval | RM2,146,830 – RM6,593,225 |
+| Trailing 3-month actual | RM3,158,901 (+31%) |
+| Average order intake, last 3 months | RM3,970,000 |
+| Six-month total error (C19) | **~10%** against 32–42% for any single month |
+
+The +31% is defensible rather than alarming: if the company invoices roughly what it books, a steady-state month is about RM4.0M. This is the first forward number in the project to survive an independent sanity check.
+
+### Finding 1 — Bornhuetter-Ferguson is upside down for this business
+
+Textbook BF weights the order book by `coverage(h)` — the share of a month knowable from orders already placed. 63% at one month, 3% at twelve. The principle is that committed fact beats statistical expectation near term.
+
+**The gate measured the opposite.** With coverage as the weight, the ensemble ranked **4th of 6** at h=1, 19–29% worse than exponential smoothing alone. C13 showed why: the chain-ladder ranked **LAST** at h=1 while taking 63% of the blend, and **FIRST by a factor of two** at h=6 on 13%.
+
+C15 confirmed it at origin level. Forecasting the same target month, August 2026:
+
+| forecast made | predicted | actual | error |
+|---|---|---|---|
+| 1 month out | 5,508,454 | 2,773,848 | **+98.6%** |
+| 6 months out | 2,891,514 | 2,773,848 | **+4.2%** |
+
+So the weight was swept over 0.0–1.0 with `coverage(h)` left in the grid as a candidate, scored over identical origins. The chosen weights **rise** with horizon — 0.2 / 0.4 / 0.8 at h=1/3/6 — exactly as coverage falls.
+
+Those three points sit on a line, so rather than fit twelve parameters from twelve small samples:
+
+```
+w(h) = least(0.8, 0.2 + 0.12 × (h − 1))
+```
+
+C20: this costs **0–3.6%** against per-horizon fitting and beats `coverage(h)` by **13–106%**. Held flat past h=6 because nothing beyond that has been scored — extrapolating the slope would assert what the data has not shown.
+
+`coverage(h)` is still used, correctly, to scale the chain-ladder to a full-month figure. Only its job as the blend weight was wrong. BF is also not wrong everywhere: at h=3 it ranked 3rd, 2.7% off the best.
+
+### Finding 2 — the regime hypothesis that opened Phase C was wrong
+
+Phase C began from an argument: revenue fell 36% year on year, a trailing mean lags a decline by half its window, so the 24-month calibration window straddles two different businesses and a **shorter** window should win.
+
+Swept over 6, 12, 18 and 24 months on identical origins, **6 months was the worst at almost every horizon.** Noise costs more than staleness.
+
+12 months carries the lowest total error across h=1..8 and is best or within ~2% at eight of eleven horizons. It gives up roughly 7% at h=1 and h=2 where 24 edges it — accepted rather than fitting a different window per horizon.
+
+Recorded because the argument was persuasive, documented, and wrong. The sweep is what settled it.
+
+### Finding 3 — every model misses in the same direction
+
+C16: in **20 of 22 months**, at least 4 of the 5 members missed the same way. Thirteen were unanimous.
+
+Through H2 2025 every model under-predicted (actuals RM6.4–9.4M, forecasts RM2.4–6.1M). Through 2026 every model over-predicts. They are all trailing-level models — including the chain-ladder, which reads a trailing order book — so they all lag, and averaging correlated errors cancels nothing.
+
+This is why the ensemble's advantage is modest at h=1 and why its better *bias* comes from the calibration step rather than from averaging.
+
+### Finding 4 — the twelve-month forecast cannot be validated
+
+C21: at h=12 the maximum prior scored origins available at any point is **5**, against a guard of 6. Relaxing the guard would buy exactly one origin.
+
+Not a tuning problem. `v_sales_chainladder_backtest` begins at 2024-04 because the development view needs 36 months of cohorts first; a twelve-month horizon burns a year of that, and point-in-time calibration then needs its prior origins a year older still.
+
+| horizon | origins with ≥6 prior |
+|---|---|
+| 6 | 12 |
+| 9 | 6 |
+| 11 | 2 |
+| **12** | **0** |
+
+**The published horizon is capped at six months.** h=7–8 are thin (10 and 8 origins), h=9–11 untrustworthy, h=12 nothing.
+
+**This costs less than it appears.** The fiscal year runs April–March. From October 2026 the remaining year is the current month plus five projected — h=1 to h=5, entirely inside the validated range. The full-year outlook needs no unvalidated number.
+
+### Finding 5 — the business signal the model surfaced
+
+The order book is not full of stale junk. C10: **89% of the chain-ladder's forecast comes from orders placed in the last six months**, only 8% from anything over a year old.
+
+C11, comparing the same six months year on year:
+
+- **Orders in: up 43%** (RM3.00M → RM4.31M per month)
+- **Invoicing out: down 35%** (RM5.00M → RM3.26M per month)
+
+Through 2025 invoicing ran at RM6–9M a month against RM2–4M of orders — a backlog being worked down. Through 2026 that reversed.
+
+That single flip explains C8's otherwise baffling result: the chain-ladder's bias **changes sign** inside the calibration window (+37.6% over the last 6 origins, +4.9% over 12, +10.8% over 23 — correct for neither half).
+
+**The gap between `implied_from_order_book` and `implied_from_apriori` is a delivery-and-conversion signal, not a forecasting error, and the dashboard should show it as such.** Separately, C9 found **9,126 order lines over two years old holding RM14.9M** — the model correctly ignores them, but they are almost certainly abandoned orders never closed in SAP, and that belongs with whoever owns order closure.
+
+### Finding 6 — the intervals were far too wide, and nobody had ever checked
+
+Every point estimate in this project had been scored to death. The intervals had only ever been *constructed*.
+
+C22 measured the published 80% band against the band history actually produced, as ratios of the projection:
+
+| h | published width | empirical width | too wide by |
+|---|---|---|---|
+| 1 | 1.43 | 0.81 | +77% |
+| 3 | 1.44 | 0.92 | +57% |
+| 6 | 1.31 | 0.54 | +143% |
+
+The cause was structural. `within + between` is the correct way to **decompose** uncertainty and the wrong way to **size** an interval: `within` sums each member's variance, but the point of blending is that the ensemble errs less than its members. On top of that the chain-ladder's variance is divided by `coverage(h)²`, which explodes as coverage collapses, while measured error does not grow at all — C23 showed a published sd of RM6.6M at h=11 against a measured RMSE of RM0.85M.
+
+A scale factor would have been fitting a correction to an artefact, so the band is now taken from the ensemble's **own measured error** — the same thing every other model here already does (SES `mae²`, baseline `rmse²`, chain-ladder measured MSE).
+
+Result at h=1: sd RM2,769,309 → **RM1,902,949**; band RM1.58M–7.50M → **RM2.15M–6.59M**. The published lower ratio of 0.52 now matches the empirical 10th percentile of 0.52 almost exactly. The upper bound stays wider than the empirical 90th, which is correct — 22 observations under-represent a right tail that one large tender can produce.
+
+**Monotonicity is enforced deliberately.** Raw measured error *falls* from RM2.30M at h=3 to RM1.37M at h=6, which would publish a fan that narrows with distance. That is a small-sample effect plus the chain-ladder's pre-surge advantage, not improving certainty. A running maximum says only what the evidence supports.
+
+**Known discontinuity:** beyond h=9 the backtest has fewer than 6 origins and the band falls back to the composed figure, roughly 3× wider. Those horizons are not published. `band_origins` is null there, so it is auditable rather than invisible.
+
+### Finding 7 — the forward view could not have served a dashboard
+
+One query to `v_sales_projection_ensemble` rebuilt `v_sales_projection_baseline` **four times** and `v_sales_chainladder_backtest` **twice** — six full backtest rebuilds to produce twelve rows. C22b timed out outright.
+
+Both are backtests over closed history: their output cannot change until a month closes or a model is edited. Recomputing them per query is the wrong shape, and the RPC would have done it on every page load.
+
+Three caches now live in `private` (not PostgREST-exposed, mirroring `private.mv_gl_monthly_account_summary`), refreshed by `public.refresh_sales_projection_caches()`. **Refresh order is load-bearing** — the ensemble backtest reads the other two.
+
+### Bugs found and fixed during Phase C
+
+Recorded because the ones that nearly shipped are the most useful part of the record.
+
+| # | Bug | Symptom | Why it mattered |
+|---|---|---|---|
+| 1 | `like 'ses\\_%'` — doubled backslash | SES view returned zero rows | Matched "ses, a literal backslash, any character" |
+| 2 | `distinct on (horizon)` over scored set | SES emitted only 4 horizons | Ensemble silently dropped 8 of 12 |
+| 3 | Weights existed only at scored horizons | Ensemble emitted only h=1/3/6/12 | Inner join dropped the rest |
+| 4 | **`UNION ALL` matched by position** | Chain-ladder factor became 1+24=25 | An origin *count* landed in `bias_all`. Order book divided to RM292,159 against a RM4.45M prediction; h=1 blend read **46% BELOW** actuals |
+| 5 | Calibration joined on forward names (`baseline`, `ses`) vs scoring names (`ma12`, `ses_020`) | Only `freqsev` matched | Two of three models **never calibrated**. `apriori_implied` was the plain average of three raw forwards |
+| 6 | Cascade documented as 2 views | `42P01` on `v_sales_model_ses` | Actually **six** views read the scoring view. Cost a full rebuild |
+| 7 | C5 left on the old blend formula | Reported a mismatch at every horizon | The diagnostic, not the model |
+
+Bugs 4 and 5 are the instructive pair: both were silent, both produced plausible-looking numbers, and both were caught only by reading C5 and C7 *together* and asking why a part exceeded its whole. **`select *` across a `UNION ALL` is never safe.**
+
+### Final configuration
+
+| Parameter | Value | How chosen |
+|---|---|---|
+| Order-book weight | `w(h) = least(0.8, 0.2 + 0.12·(h−1))` | Swept 0.0–1.0 + `coverage(h)`, then smoothed (C17/C20) |
+| Calibration window | 12 months | Swept 6/12/18/24 on identical origins (C12/C20) |
+| SES α | 0.20 | Fitted over 288 origins by lowest mean MAE (C4) |
+| A-priori weights | Inverse recent MAE, clamped [0.05, 0.60] | Design; clamp prevents silent deletion of a member |
+| Interval variance | Ensemble's measured MSE, monotone | C22/C23 |
+| **Published horizon** | **1–6 months** | C21 — h=12 unvalidatable |
+
+### Carried into Phase D
+
+1. **Publish h=1..6 only.** The view emits 12; the RPC must cap.
+2. **Surface the order-book vs statistical gap** — it is the delivery signal, not noise to hide.
+3. **State the median skew.** `empirical_median_ratio` is 0.87–0.95: the total is unbiased but a typical single month lands slightly under. The fiscal-year figure is the trustworthy one.
+4. **Refresh the caches when a month closes** — Phase E schedules it; until then it is manual and silent if forgotten.
+5. **The h=6 chain-ladder advantage may erode.** It works partly because it reads a pre-surge book; its last three origins drift positive (−13.8%, +4.2%, +20.9%). Phase E's accuracy tracking must watch for it specifically.
 
 ---
 
@@ -876,3 +1081,5 @@ The required links are already extracted:
 | Date       | Change                                                                                                                                                                                               |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-10-01 | Written. Supersedes `hyrax-data-platform/docs/plans/10-forecasting-predictive-analytics-plan.md`, which was designed against an unbuilt star schema. Phase 0 diagnostic created; nothing else built. |
+| 2026-10-02 | Phases 0, A and B built and backtested. Chain-ladder passes as an ensemble member (§11e); `freqsev` scores MASE 0.748 at twelve months (§11f). |
+| 2026-10-03 | **Phase C complete — §11g.** Ensemble beats or ties the best single model at 9 of 11 horizons. Two design assumptions overturned by measurement: Bornhuetter-Ferguson's `coverage(h)` weighting is **upside down** for this business (order book is a 6-month signal, not a 1-month one), and the regime argument that opened Phase C was **wrong** — a 6-month calibration window was worst, not best. h=12 proved unvalidatable; **published horizon capped at 6 months**, which still covers the full fiscal year from October. Intervals were found 46–134% too wide and are now sized from measured error. Seven bugs recorded, including a `UNION ALL` positional mismatch that made the h=1 blend read 46% *below* actuals. |

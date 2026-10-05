@@ -50,6 +50,17 @@
 -- re-run this file immediately after that one, and then
 -- sales_model_baseline_view.sql which depends on this.
 
+-- ── READS THE CACHE, NOT THE VIEW (2026-10-03) ─────────────────────────────
+-- Sources below point at private.mv_* rather than public.v_*. A single
+-- v_sales_projection_ensemble query was rebuilding the scoring harness four
+-- times and the chain-ladder backtest twice -- six backtest rebuilds for
+-- twelve rows, which timed out C22b and would have been run on every dashboard
+-- page load.
+--
+-- Both are backtests over CLOSED history and cannot change until a month
+-- closes or a model is edited. Run sales_projection_materialization.sql first,
+-- and re-run public.refresh_sales_projection_caches() after either event or
+-- these views will serve stale history without saying so.
 create or replace view public.v_sales_projection_backtest
 with (security_invoker = on) as
 
@@ -62,7 +73,7 @@ with scored as (
            predicted,
            predicted - actual                       as error,
            abs(predicted - actual)                  as abs_error
-    from public.v_sales_projection_baseline
+    from private.mv_sales_projection_baseline
     where actual is not null
 ),
 

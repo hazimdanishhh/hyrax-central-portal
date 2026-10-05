@@ -49,9 +49,13 @@
 -- sales_projection_backtest_view.sql.
 -- ############################################################################
 
-drop view if exists public.v_sales_model_baseline cascade;
-
-create view public.v_sales_model_baseline
+-- `create or replace` rather than `drop ... cascade`. Dropping deletes every
+-- dependant view, which on 2026-10-03 silently removed six of them and cost a
+-- full rebuild. Switch back to `drop view if exists ... cascade` ONLY when the
+-- COLUMN LIST changes -- renamed, removed, reordered or retyped. Postgres
+-- raises 42P16 when that happens, so it tells you; APPENDING a column at the
+-- end needs no drop. Full rule in sales_projection_baseline_view.sql.
+create or replace view public.v_sales_model_baseline
 with (security_invoker = on) as
 
 with level as (

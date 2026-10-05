@@ -18,6 +18,7 @@
 --      scored past three months, yet the design publishes a twelve-month
 --      number -- so every horizon the dashboard shows now has measured
 --      accuracy behind it.
+--      ^ SUPERSEDED 2026-10-03: now every horizon 1..12. See `horizons` below.
 --   2. `freqsev` added as a seventh method (see the note below on why its
 --      point estimate is algebraically a 24-month mean).
 --
@@ -58,21 +59,52 @@
 -- ############################################################################
 
 -- ############################################################################
--- ⚠ THE CASCADE BELOW DROPS DOWNSTREAM VIEWS. RE-RUN THEM AFTER THIS FILE.
+-- ⚠ THIS VIEW USES `create or replace`. KEEP IT THAT WAY. ⚠
 --
---     v_sales_projection_baseline        (this file)
---       └─> v_sales_projection_backtest  sales_projection_backtest_view.sql
---             └─> v_sales_model_baseline sales_model_baseline_view.sql
+-- `create or replace view` leaves every dependant intact. `drop ... cascade`
+-- deletes them. On 2026-10-03 a cascade here silently removed SIX views and
+-- cost a full rebuild, surfacing only as
+-- `42P01: relation "public.v_sales_model_ses" does not exist` two steps later.
+-- The horizon set had changed, but the COLUMN LIST had not -- so the drop was
+-- never necessary in the first place.
 --
--- `drop ... cascade` is deliberate rather than `create or replace`: this
--- view's column list and horizon set have both changed, and `create or
--- replace view` cannot alter a column list -- it fails with 42P16. The cost is
--- that the two dependants must be re-run, in that order, immediately after.
+-- WHEN A DROP IS GENUINELY REQUIRED
+--
+-- Only when the column list changes: a column renamed, removed, reordered, or
+-- changed type. Postgres refuses those with 42P16 ("cannot change name of view
+-- column"), so it tells you rather than leaving you to guess. APPENDING a new
+-- column at the END is allowed and needs no drop.
+--
+-- Changing the rows, the filters, the joins, the horizon set or any
+-- calculation needs no drop. Those are the overwhelming majority of edits.
+--
+-- IF YOU DO HAVE TO DROP -- what goes with it, and in what order
+--
+--     v_sales_projection_baseline                     (this file)
+--       ├─> v_sales_projection_backtest               2. sales_projection_backtest_view.sql
+--       │     └─> v_sales_model_baseline              3. sales_model_baseline_view.sql
+--       ├─> v_sales_model_ses                         4. sales_model_ses_view.sql
+--       ├─> v_sales_projection_calibration            5. sales_projection_calibration_view.sql
+--       │     └─> v_sales_projection_ensemble         6. sales_projection_ensemble_view.sql
+--       ├─> v_sales_projection_ensemble  (also direct)      ^ needs 3, 4 and 5
+--       └─> v_sales_projection_ensemble_backtest      7. sales_projection_ensemble_backtest_view.sql
+--
+-- NOT affected -- they never read this view:
+-- v_sales_monthly_series, v_sales_order_development, v_sales_orderbook_open,
+-- v_sales_model_chainladder, v_sales_model_freqsev, v_sales_coverage_by_horizon,
+-- v_sales_chainladder_backtest.
+--
+-- Regenerate that list rather than trusting it:
+--     grep -l v_sales_projection_baseline supabase/sql_editor/*.sql
 -- ############################################################################
 
-drop view if exists public.v_sales_projection_baseline cascade;
-
-create view public.v_sales_projection_baseline
+-- `create or replace` rather than `drop ... cascade`. Dropping deletes every
+-- dependant view, which on 2026-10-03 silently removed six of them and cost a
+-- full rebuild. Switch back to `drop view if exists ... cascade` ONLY when the
+-- COLUMN LIST changes -- renamed, removed, reordered or retyped. Postgres
+-- raises 42P16 when that happens, so it tells you; APPENDING a column at the
+-- end needs no drop. Full rule in sales_projection_baseline_view.sql.
+create or replace view public.v_sales_projection_baseline
 with (security_invoker = on) as
 
 with base as (
@@ -147,8 +179,82 @@ target_idx as (
     from ratios
 ),
 
+-- ── Simple exponential smoothing ────────────────────────────────────────────
+--
+-- Added in Phase C. The bake-off had no level-tracking method at all, and that
+-- omission is what let a 24-month mean win: across 106 origins dominated by a
+-- growth era, more smoothing meant less noise and the lag cost little. In the
+-- current decline the lag dominates -- the 24-month anchor reads RM5.1M while
+-- the last three months averaged RM3.1M.
+--
+--     Level_t = alpha * y_t + (1 - alpha) * Level_(t-1)
+--
+-- alpha near 0 behaves like a long mean (stable, laggy); alpha near 1 like
+-- last-value (responsive, noisy). ALPHA IS FITTED, NOT CHOSEN: every value on
+-- the grid is scored as its own method and the harness picks the winner.
+--
+-- SES is recursive, which SQL windows cannot express directly, so the
+-- equivalent closed form is used:
+--
+--     Level_t = SUM (1-alpha)^i * y_(t-i)  /  SUM (1-alpha)^i
+--
+-- The denominator normalises away the truncation at 36 terms -- without it,
+-- weights sum to 1-(1-alpha)^37 rather than 1, and small alphas would be
+-- biased low. It also handles short early history correctly, averaging over
+-- whatever months exist.
+--
+-- The self-join is on an INTEGER month index rather than a date interval:
+-- an equi-join the planner can hash, instead of a computed-date comparison.
+base_idx as (
+    select measure,
+           period_month,
+           value,
+           (extract(year from period_month) * 12 + extract(month from period_month))::int as midx
+    from base
+),
+
+alphas as (
+    -- 0.1 to 0.5. Above 0.5, SES is within noise of last-value, which `drift`
+    -- already shows performs badly here (MASE 1.8 at h=12).
+    select unnest(array[0.1, 0.2, 0.3, 0.4, 0.5]::numeric[]) as alpha
+),
+
+ses_weights as (
+    select a.alpha, i.i, power(1 - a.alpha, i.i) as w
+    from alphas a
+    cross join generate_series(0, 35) as i(i)
+),
+
+ses as (
+    select b.measure,
+           b.period_month                      as origin_month,
+           w.alpha,
+           sum(w.w * p.value) / nullif(sum(w.w), 0) as level
+    from base_idx b
+    cross join ses_weights w
+    join base_idx p
+      on p.measure = b.measure
+     and p.midx    = b.midx - w.i
+    group by b.measure, b.period_month, w.alpha
+),
+
+-- EVERY horizon from 1 to 12, not a sample of four.
+--
+-- Scoring only {1, 3, 6, 12} forced three downstream views to approximate --
+-- the calibration view, the SES view and the ensemble each had to borrow "the
+-- nearest scored horizon" for the eight they could not see, and
+-- v_sales_model_baseline fell back to the horizon-1 error. Those were all
+-- workarounds for this one line.
+--
+-- It also made two questions unanswerable. Verification C14 could not build a
+-- three-month total because there was no h=2 to add, and C12/C13 could not
+-- score h=12 at all. Both are the point of a twelve-month projection.
+--
+-- The cost is three times the rows, which the per-origin feature structure
+-- above absorbs: features are computed once per month regardless, and a
+-- horizon is only a different join offset.
 horizons as (
-    select unnest(array[1, 3, 6, 12]) as horizon
+    select generate_series(1, 12) as horizon
 ),
 
 -- Each target month paired with the origin it would have been forecast from.
@@ -252,12 +358,26 @@ select measure, period_month, actual, horizon,
        lvl12 * expanding_index
 from joined
 where lvl12 is not null
-  and expanding_index is not null;
+  and expanding_index is not null
+
+union all
+
+-- Exponential smoothing, one method per alpha on the grid. Named ses_010 ..
+-- ses_050 so the scorecard reads as a sweep and the winning alpha is visible
+-- rather than buried in a parameter.
+select j.measure, j.period_month, j.actual, j.horizon,
+       'ses_' || lpad((s.alpha * 100)::int::text, 3, '0'),
+       s.level
+from joined j
+join ses s
+  on s.measure      = j.measure
+ and s.origin_month = j.origin_month
+where s.level is not null;
 
 
 comment on view public.v_sales_projection_baseline is
     'SCORING view: seven candidate methods predicting CLOSED months, with '
-    'actuals attached, at horizons 1/3/6/12. Features computed once per origin '
+    'actuals attached, at every horizon 1..12. Features computed once per origin '
     'and joined by target-minus-horizon, so the out-of-sample guarantee is '
     'structural. Forward twins live in the v_sales_model_* views.';
 
