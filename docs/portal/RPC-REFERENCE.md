@@ -282,6 +282,58 @@ The Pipeline Coverage ratio (`activePipelineValue / pipelineTargetRevenue`) and 
 
 ---
 
+## `get_sales_projections`
+
+Backs the **Projections** section of Sales Reports (`Reports.jsx`) — a *second* RPC on that page, not part of `get_sales_reports_dashboard`. Built 2026-10-03 (Phase D of `docs/sales/SALES-PROJECTIONS-ARCHITECTURE.md`; §11g carries the evidence behind every figure).
+
+Separate because the two have different cadences and different failure domains: the dashboard moves whenever a filter changes, the projection only when a month closes. The page gives this its own query key and a 30-minute `staleTime` against the dashboard's 30 seconds, and keeps it **out of the shared `isLoading`/`isError` chain** so a projection outage leaves the rest of the page standing.
+
+**Access guard:** stricter than `get_sales_reports_dashboard`'s department-only check — it mirrors `get_finance_dashboard`'s, requiring **`manager` in `SAL`/`MGM`, or `superadmin`**, and raising `errcode = '42501'`. Same reason Finance has it: the underlying views read `private.mv_*` materialized views, and an MV cannot carry RLS. `private` is not a PostgREST-exposed schema so the caches are not REST-routable, but this function is, so the gate has to live here. It **raises rather than returning empty** — an empty projection reads as "no data", which is a business statement.
+
+**Signature:**
+
+```
+get_sales_projections()
+```
+
+**No parameters, deliberately.** The projection is company-wide; per-rep projections are permanently out of scope (splitting an already-lumpy series makes every sub-series lumpier — §11 measured the top three invoices at 31.2% of a typical month). The page's salesperson and date filters therefore do **not** apply. The section's subtitle says so outright rather than accepting a filter and ignoring it.
+
+**Base CTEs:** `fy_window`/`fy_bounds` (fiscal April–March, the same `month >= 4 ? year : year - 1` expression as `get_sales_reports_dashboard`'s own `fy_window` and `src/functions/fiscalYearPresets.js`), `cal` (current month, days elapsed/remaining), `inv`/`ord` (`v_sales_monthly_series`, measures `invoiced` and `orders`), `proj` (`v_sales_projection_ensemble` — **the only projection object this RPC reads**), `nxt` (h=1), `span_origins`/`span_err` (`private.mv_sales_projection_ensemble_backtest`, for the measured multi-month band), `cache_state` (`private.mv_sales_projection_baseline` vs the live series, for staleness).
+
+**`kpis`:**
+
+| Field | Formula | Source |
+| --- | --- | --- |
+| `fullYearOutlook` | `fullYearActualToDate + fullYearCurrentMonthEstimate + fullYearProjectedRemainder` | composed below |
+| `fullYearActualToDate` | `sum(value)` over **closed** months within the fiscal year | `inv` |
+| `fullYearCurrentMonthEstimate` | month-to-date actual **+** h=1 projected × (days remaining ÷ days in month) | `inv` + `nxt` |
+| `fullYearProjectedRemainder` | `sum(projected)` for months after the current one, up to fiscal year end | `proj` |
+| `fullYearLo80` / `fullYearHi80` | lognormal around `fullYearOutlook`, variance = measured span error² + part-month variance | `span_err`, `nxt` |
+| `fullYearMonthsBeyondValidated` | count of projected months with `horizon > 6` | `proj` |
+| `nextMonthProjected` / `nextMonthLo80` / `nextMonthHi80` | published straight through | `proj` h=1 |
+| `nextMonthOrderBookWeightPct` | `order_book_weight × 100` — the measured weight `w(h)`, not `coverage(h)` | `proj` h=1 |
+| `orderBookImplied` / `aprioriImplied` / `orderBookGap` | the two independent views of the same month, and their difference | `proj` h=1 |
+| `ordersYoyPct` / `invoicedYoyPct` | last 6 months vs the same 6 a year earlier | `ord`, `inv` |
+| `modelSpreadPct` | `(highest model − lowest model) ÷ projected × 100` | `proj.model_detail` |
+| `betweenModelSharePct` | `between_var ÷ (within_var + between_var) × 100` | `proj` h=1 |
+| `cacheStale` | cached scoring harness's newest month `is distinct from` the series' newest closed month | `cache_state` |
+| `bandBasis` | `'measured span error'` or `'summed monthly variance'` — which one sized the fiscal band | `span_err` |
+
+**Chart datasets:**
+
+- **`fanChartData`** — 24 closed months plus 6 projected. **Every historical month also carries the model's own one-month-ahead prediction and its 80/95 band**, from `private.mv_sales_projection_ensemble_backtest` at `horizon = 1`, so the dashed line runs across history beside the actual and the model's track record is visible on the chart rather than asserted in a document. Those rows are point-in-time — the backtest calibrates and weights each origin using only months whose target fell strictly before it — but the *hyper-parameters* (12-month window, the order-book weight rule) were chosen over the whole backtest, so the historical fit is mildly optimistic against live performance. Phase E's frozen snapshots are the honest experience study. `band80`/`band95` are **two-element arrays** `[lo, hi]`; Recharts renders a tuple `dataKey` as a ranged `Area`. Historical rows carry `null` bands, **except the last**, which also carries `projected` equal to its own actual and a degenerate band — that is what makes the dashed forward line and the shaded band start flush against history instead of floating a month to the right. `FanChartRenderer` + `FanChartTooltip` (the shared `CustomTooltip` cannot format an array value and fails silently rather than loudly).
+- **`methodExhibitData`** — every model's own full-month estimate for h=1, plus the blend, flagged `isBlend`. `HorizontalBarChartRenderer`, unchanged. This is the actuarial exhibit: it makes the number challengeable rather than merely believable.
+- **`buildUpData`** — `w(h) × order book` and `(1 − w(h)) × statistical`, which sum exactly to the published figure. `HorizontalBarChartRenderer`, unchanged.
+
+**Known gaps:**
+
+- **Horizon capped at 6.** The ensemble emits h=1..12; C21 showed h=12 cannot be validated (max 5 prior scored origins against a guard of 6) and h=9..11 rest on 6, 4 and 2 origins. The cap **lifts on its own** as months close, so it is a constant to revisit, not a ceiling. The fiscal-year total is the one place horizons past it are used, and only from April to July — those months are counted in `fullYearMonthsBeyondValidated`.
+- **The caches go stale silently.** Nothing refreshes `private.mv_*` automatically yet; `select public.refresh_sales_projection_caches();` is manual until Phase E schedules it. `cacheStale` exists so the dashboard can say so rather than serve last month's world confidently.
+- **No accuracy measurement.** The *Projection Accuracy* tile and *Actual vs Expected* chart need Phase E's frozen snapshots — a live-computed projection rewrites its own history, so accuracy against it compares to a moving target.
+- **The median month runs low.** `empirical_median_ratio` is 0.87–0.95 (C22a): the total is unbiased but a typical single month lands slightly under. The fiscal-year figure is the trustworthy one and leads the section for that reason.
+
+---
+
 ## `get_sales_leads_dashboard`
 
 Backs Sales Leads Overview (`LeadsOverview.jsx`) — Tier 2, daily rep-coaching cadence, CRM-only (no SAP tables involved at all).

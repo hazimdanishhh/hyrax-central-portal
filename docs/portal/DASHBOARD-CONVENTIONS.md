@@ -107,6 +107,7 @@ Canonical tags in use today — extend this table rather than inventing new voca
 | Sales Reports | **Invoice** | `sap_invoices` | SAP — billed |
 | Sales Reports | **Payment** (added 2026-07) | `sap_payment_applications`/`sap_payments` | Cash actually applied — same RCT2 chain Finance uses, copied not re-derived |
 | Sales Reports | **Invoice** (Top Products, added 2026-08) | `sap_invoice_lines` | Billed/actual, line-level — distinct from the Sales Order (booked) line tables and from `productTypeData`'s CRM `product_type` enum |
+| Sales Reports | **Projection** (added 2026-10) | `v_sales_projection_ensemble` | Statistical, with an interval. The only forward figure on any dashboard that **nobody sets** — Target and Budget are both typed in by a human, this one is computed and carries measured accuracy. Company-wide only; does not respond to the salesperson filter |
 | Finance Reports | **General Ledger (GL)** | `OACT`/`OJDT`/`JDT1` via `base_gl_lines` | True accounting postings |
 | Finance Reports | **Invoice** | `sap_invoices` | AR subledger, invoice-line level |
 | Finance Reports | **Bill** | `sap_vendor_bills` | AP subledger, bill-line level |

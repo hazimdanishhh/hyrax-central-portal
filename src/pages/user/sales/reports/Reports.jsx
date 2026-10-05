@@ -10,6 +10,7 @@ import {
   WarningCircleIcon,
   FunnelIcon,
   WalletIcon,
+  TrendUpIcon,
 } from "@phosphor-icons/react";
 
 import CardLayout from "../../../../components/cardLayout/CardLayout";
@@ -19,6 +20,7 @@ import PieChartRenderer from "../../../../components/chartCard/PieChartRenderer"
 import HorizontalMultiBarRenderer from "../../../../components/chartCard/HorizontalMultiBarRenderer";
 import VerticalMultiBarRenderer from "../../../../components/chartCard/VerticalMultiBarRenderer";
 import LineChartRenderer from "../../../../components/chartCard/LineChartRenderer";
+import FanChartRenderer from "../../../../components/chartCard/FanChartRenderer";
 import {
   BLUE_COLOR,
   GREEN_COLOR,
@@ -39,6 +41,8 @@ import { fetchSalesReportsDashboard } from "../../../../features/sales/reports/p
 import { useSalesReportsMetadata } from "../../../../features/sales/reports/private/hooks/useSalesReportsMetadata";
 import { getFilterConfig } from "./config/filterConfig";
 import { getSalesReportsOverviewConfig } from "./config/overviewConfig";
+import { getSalesProjectionsConfig } from "./config/projectionConfig";
+import { useSalesProjections } from "../../../../features/sales/reports/private/hooks/useSalesProjections";
 import { useTheme } from "../../../../context/ThemeContext";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
@@ -132,6 +136,33 @@ function Reports() {
   // revenueByProductGroupData) are still derived further down, unchanged.
   const topInvoicedProductsRaw = dashboard?.topProductsData ?? [];
   const productGroupsRaw = dashboard?.revenueByProductGroupData ?? [];
+  // ─── Projections (Phase D) ────────────────────────────────────────────
+  // Deliberately NOT merged into isLoading/isFetching/isError above. This is a
+  // second RPC on a different cadence, and a projection outage must leave the
+  // rest of Sales Reports standing -- see
+  // features/sales/reports/private/api/fetchSalesProjections.js.
+  const {
+    kpis: projectionKpis,
+    fanChartData: projectionFan,
+    methodExhibitData: projectionMethods,
+    buildUpData: projectionBuildUp,
+    isLoading: projectionsLoading,
+    error: projectionsError,
+  } = useSalesProjections();
+
+  const projectionItems = getSalesProjectionsConfig(projectionKpis);
+
+  // The seam between fact and forecast: the LAST month that has an actual.
+  //
+  // This was "the first row carrying both an actual and a projection", which
+  // worked only while the projection series started at the seam. It no longer
+  // does -- every historical month now carries the model's own one-month-ahead
+  // prediction so its track record is visible -- so that test would have
+  // matched the oldest month on the chart and drawn the rule two years early.
+  const forecastStartLabel = [...projectionFan]
+    .reverse()
+    .find((d) => d.actual != null)?.name;
+
   const overviewItems = getSalesReportsOverviewConfig(
     kpis,
     topInvoicedCustomersRaw,
@@ -521,6 +552,105 @@ function Reports() {
                       </div>
 
                       <OverviewCards items={overviewItems} />
+                    </div>
+                  </div>
+
+                  <div className="pdfOverviewSection">
+                    {/* PROJECTIONS (Phase D, 2026-10-03) -- see
+                        docs/sales/SALES-PROJECTIONS-ARCHITECTURE.md §9 for the
+                        tile/chart spec and §11g for the evidence behind every
+                        number. Renders from its own RPC and its own query
+                        state, so a failure here is contained to this block. */}
+                    <div className="chartSection">
+                      <div className="chartHeading">
+                        <div className="chartTitle">
+                          <TrendUpIcon size={24} />
+                          <h2 className="textL textBold">
+                            Projected Invoiced Revenue
+                          </h2>
+                        </div>
+                        <p className="textXS textLight">
+                          Forecasts <strong>invoiced revenue</strong>{" "}
+                          (sap_invoices) &mdash; the same measure as the
+                          Invoiced Revenue tile above, not orders booked. The
+                          order book (sap_sales_orders) is an input to the
+                          forecast, not its subject. Computed from{" "}
+                          <code>v_sales_projection_ensemble</code>; unlike
+                          Target (sales_targets) and Budget (sales_budgets),
+                          nobody sets this figure. Company-wide &mdash; not
+                          affected by the salesperson or date filters.
+                        </p>
+                      </div>
+
+                      {projectionsLoading ? (
+                        <CardLayout style="cardLayoutFlexFull">
+                          <LoadingIcon />
+                        </CardLayout>
+                      ) : projectionsError ? (
+                        <CardLayout style="cardLayoutFlexFull">
+                          <NoResult title="Projections unavailable." />
+                        </CardLayout>
+                      ) : (
+                        <div
+                          className="chartSection"
+                          style={{
+                            gap: "1rem",
+                            display: "flex",
+                            flexDirection: "column",
+                          }}
+                        >
+                          <OverviewCards items={projectionItems} />
+
+                          {projectionKpis?.cacheStale && (
+                            <p className="textXS textLight">
+                              <WarningCircleIcon size={14} /> Projection caches
+                              were last rebuilt through{" "}
+                              {projectionKpis.cacheLatestMonth}, but invoicing
+                              is closed through{" "}
+                              {projectionKpis.seriesLatestCompleteMonth}. These
+                              figures do not yet include the most recent closed
+                              month.
+                            </p>
+                          )}
+
+                          <CardLayout style="cardLayout1">
+                            <ChartCard
+                              title="Invoiced Revenue — Actual vs Projected"
+                              subtitle={`sap_invoices: 24 months actual + ${projectionKpis?.publishedHorizonCap ?? 6} months projected, with 80% and 95% ranges. The dashed line runs across history too — what the model would have said one month ahead, rebuilt without hindsight — so its track record is visible, not asserted. Not affected by the date filter.`}
+                              style="cardGapSmall"
+                            >
+                              <FanChartRenderer
+                                data={projectionFan}
+                                forecastStartLabel={forecastStartLabel}
+                              />
+                            </ChartCard>
+                          </CardLayout>
+
+                          <CardLayout style="cardLayout2">
+                            <ChartCard
+                              title="What Each Model Says — Invoiced Revenue"
+                              subtitle={`${projectionKpis?.nextMonthLabel ?? "Next month"} — every method's own estimate of invoiced revenue, and the blend published from them`}
+                              style="cardGapSmall"
+                            >
+                              <HorizontalBarChartRenderer
+                                data={projectionMethods}
+                                colorMap={PURPLE_COLOR}
+                              />
+                            </ChartCard>
+
+                            <ChartCard
+                              title="How the Number Is Built"
+                              subtitle={`${projectionKpis?.nextMonthLabel ?? "Next month"} invoiced revenue — the share derived from the committed order book, and the share from invoicing history`}
+                              style="cardGapSmall"
+                            >
+                              <HorizontalBarChartRenderer
+                                data={projectionBuildUp}
+                                colorMap={BLUE_COLOR}
+                              />
+                            </ChartCard>
+                          </CardLayout>
+                        </div>
+                      )}
                     </div>
                   </div>
 
