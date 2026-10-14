@@ -40,15 +40,17 @@
 -- to see it. The gap between the three measures how much work §6's a-priori
 -- has to do.
 --
--- ONE DISCLOSED SIMPLIFICATION
+-- THE SIMPLIFICATION THAT USED TO BE HERE IS GONE (2026-10-14)
 --
--- Link ratios come from v_sales_order_development over the full trailing
--- 36-month cohort window, so at an origin 12 months back, ratios informed
--- partly by later data are applied. This tests the model's STRUCTURE, not its
--- parameter estimation. Acceptable here because the question is a bias of
--- order ~70%, which a slow-moving structural parameter cannot manufacture. It
--- would NOT be acceptable for a published accuracy figure -- Phase E uses
--- frozen snapshots precisely so no such caveat applies.
+-- This file used to carry a note admitting that link ratios came from a window
+-- ending TODAY, so an origin 12 months back was scored against ratios informed
+-- partly by later data -- testing the model's structure rather than its
+-- parameter estimation.
+--
+-- It was a real caveat, it lived only in this comment, and it quietly
+-- flattered every accuracy figure downstream. The rates are now point-in-time
+-- per origin (see `dev` below), so the caveat no longer applies and the note is
+-- removed rather than left to mislead.
 --
 -- ############################################################################
 -- PERFORMANCE -- rewritten 2026-10-02 after the first version timed out
@@ -81,25 +83,54 @@
 create or replace view public.v_sales_chainladder_backtest
 with (security_invoker = on) as
 
+-- ── THE WINDOW IS NOW DERIVED, NOT CHOSEN (2026-10-14) ─────────────────────
+--
+-- This read `current_date - interval '30 months'`: a bound set for performance
+-- when this view ran on every query, and never revisited after it was cached.
+-- It meant the order-book model was tested on 29 months while 106 months of
+-- data existed, and because the blend contains this model, the blend inherited
+-- the limit -- 22 observations behind every parameter choice in the system.
+--
+-- It also produced a claim that turned out to be false: that a twelve-month
+-- horizon "cannot be validated, there is not enough closed history". There is.
+--
+-- The first origin is now the first month whose conversion rates exist at all:
+-- the earliest order plus the 36-month cohort window those rates need. Derived
+-- from the data, so it moves on its own as history accumulates rather than
+-- waiting for someone to notice a literal.
 with bounds as (
-    select (date_trunc('month', current_date) - interval '30 months')::date as first_origin,
-           (date_trunc('month', current_date) - interval '1 month')::date   as last_closed_month
+    select (min(date_trunc('month', so.order_date::date))
+            + interval '36 months')::date                            as first_origin,
+           (date_trunc('month', current_date) - interval '1 month')::date as last_closed_month
+    from public.sap_sales_orders so
+    where so.is_cancelled = 'N'
+      and so.total_amount_myr > 0
 ),
 
 -- AS MATERIALIZED is load-bearing, not a style choice: without it this view is
 -- inlined into every reference below and recomputed each time.
+-- POINT-IN-TIME since 2026-10-14. This read v_sales_order_development, whose
+-- rates are computed as of TODAY -- so scoring an origin in March 2025 applied
+-- rates partly derived from 2026. It now reads the per-as-of-month cache and
+-- joins it by origin, so each origin sees only what it could have seen.
 dev as materialized (
-    select age_months,
+    select as_of_month,
+           age_months,
            link_rate,
            -- Cumulative log-survival STRICTLY BEFORE this age. Survival from
            -- age a across k months is exp(cum_log_before(a+k) - cum_log_before(a)).
+           --
+           -- PARTITION BY as_of_month is load-bearing: without it the running
+           -- sum would carry across month boundaries and every rate after the
+           -- first as-of month would be silently wrong.
            coalesce(
                sum(survival_log) over (
+                   partition by as_of_month
                    order by age_months
                    rows between unbounded preceding and 1 preceding
                ), 0
            ) as cum_log_before
-    from public.v_sales_order_development
+    from private.mv_sales_order_development_pit
 ),
 
 months as (
@@ -188,8 +219,13 @@ projected as (
            ) as predicted
     from book bk
     cross join horizons h
-    join dev d_now    on d_now.age_months    = bk.age_months
-    join dev d_target on d_target.age_months = bk.age_months + h.horizon - 1
+    -- as_of_month = the ORIGIN: this is what makes the test point-in-time.
+    join dev d_now
+      on d_now.as_of_month = bk.origin_month
+     and d_now.age_months  = bk.age_months
+    join dev d_target
+      on d_target.as_of_month = bk.origin_month
+     and d_target.age_months  = bk.age_months + h.horizon - 1
     group by 1, 2, 3
 ),
 

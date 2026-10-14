@@ -1408,3 +1408,510 @@ select p.horizon,
 from pub p
 join meas m on m.horizon = p.horizon
 order by p.horizon;
+
+
+-- ############################################################################
+-- ############################################################################
+-- C24 -- ★★ THE HONEST SCORECARD ★★   (stage 1-2, 2026-10-14)
+--
+-- Everything above this line chose parameters and reported accuracy from the
+-- SAME observations. That is the failure the M competitions were created to
+-- expose, and it means every accuracy figure published so far is optimistic by
+-- an unknown amount.
+--
+-- C24 splits the two jobs:
+--
+--     C24a  picks the configuration, using ONLY non-holdout origins
+--     C24b  scores that configuration, using ONLY holdout origins
+--
+-- The holdout is the last 12 origins. Nothing in C24a has seen them.
+--
+-- RE-RUN ORDER FIRST -- each file on its own:
+--
+--     1. sql_editor/sales_order_development_pit_view.sql
+--     2. sql_editor/sales_projection_materialization.sql   -- SECTION 0 ONLY,
+--          plus its one grant and section 5. Sections 1-3 will fail with
+--          2BP01, which is the guard working.
+--     3. select public.refresh_sales_projection_caches();
+--     4. sql_editor/sales_order_development_view.sql        -- now a filter
+--     5. sql_editor/sales_chainladder_backtest_view.sql
+--     6. sql_editor/sales_projection_ensemble_backtest_view.sql
+--     7. select public.refresh_sales_projection_caches();   -- again, for 5-6
+--
+-- Then C21 (origins should be ~70, not 29), then C24a, then C24b.
+-- ############################################################################
+
+
+-- ############################################################################
+-- C24a -- pick the configuration, blind to the holdout
+--
+-- Same comparison C17 made, with one clause added: `and not is_holdout`.
+--
+-- WATCH: compare the winning window and weight against what they were on 22
+-- observations -- 12 months, and 0.2 rising to 0.8. If they move, the old
+-- choice was fitted to a sample too small to decide it, which is exactly what
+-- this exercise set out to find.
+-- ############################################################################
+with ens as (
+    select window_months,
+           cl_weight_label,
+           horizon,
+           count(*)                                  as origins,
+           avg(abs(error))                           as mae,
+           sum(error) / nullif(sum(actual), 0) * 100 as bias_pct
+    from public.v_sales_projection_ensemble_backtest
+    where estimator = 'ensemble'
+      and not is_holdout
+    group by window_months, cl_weight_label, horizon
+),
+ranked as (
+    select e.*,
+           rank() over (partition by e.horizon order by e.mae) as rank_at_horizon
+    from ens e
+)
+select horizon,
+       rank_at_horizon,
+       cl_weight_label                                as order_book_weight,
+       window_months                                  as cal_window,
+       origins,
+       round(mae)                                     as mae,
+       round(bias_pct::numeric, 1)                    as bias_pct
+from ranked
+where horizon in (1, 3, 6, 12)
+  and (rank_at_horizon <= 3 or cl_weight_label in ('coverage(h)', 'smooth w(h)'))
+order by horizon, rank_at_horizon;
+
+
+-- ############################################################################
+-- C24b -- ★ THE NUMBER THAT CAN BE QUOTED ★   (CORRECTED 2026-10-14)
+--
+-- ⚠ THE FIRST VERSION OF THIS BLOCK WAS WRONG, and wrong in exactly the way it
+-- existed to prevent. It picked each estimator's best configuration BY
+-- HOLD-OUT MAE -- so every estimator got to choose its settings using the
+-- hold-out, which is the whole thing a hold-out is for. Its numbers were
+-- optimistic and the ensemble's wins at h=3 and h=6 were partly that artefact.
+--
+-- This version does it properly:
+--
+--     `chosen`  picks ONE configuration per horizon from the SELECTION rows
+--     `scored`  then scores every estimator on the HOLD-OUT at that fixed
+--               configuration, with no further choosing
+--
+-- Members carry cl_weight_label = 'n/a' and exist once per window, so they are
+-- pinned to the chosen WINDOW only; the ensemble is pinned to window and
+-- weight both.
+--
+-- EXPECT THIS TO BE WORSE than the first version. That is the correction
+-- working, not the model degrading.
+--
+-- THE DECISION:
+--
+--   ensemble 1st, or within a few percent of the best single model
+--       -> ship the blend. This MAE is the accuracy figure for the dashboard.
+--
+--   a single model beats it clearly
+--       -> ship that model. Simpler, and the number is honest.
+--
+--   nothing beats seasonal_naive at a horizon
+--       -> publish nothing at that horizon and say why.
+--
+-- The hold-out is thin -- 11 origins at h=1, 6 at h=6, none at h=12 (C24c).
+-- Read h=1 with the most confidence and h=6 with the least.
+-- ############################################################################
+with chosen as (
+    -- One configuration per horizon, decided WITHOUT the hold-out.
+    select distinct on (horizon) horizon, window_months, cl_weight_label
+    from (
+        select horizon, window_months, cl_weight_label,
+               avg(abs(error)) as mae
+        from public.v_sales_projection_ensemble_backtest
+        where estimator = 'ensemble'
+          and not is_holdout
+        group by horizon, window_months, cl_weight_label
+    ) q
+    order by horizon, mae
+),
+scored as (
+    select b.horizon,
+           b.estimator,
+           c.window_months,
+           c.cl_weight_label                          as ensemble_weight,
+           count(*)                                   as origins,
+           avg(abs(b.error))                          as mae,
+           avg(b.actual)                              as avg_actual,
+           sum(b.error) / nullif(sum(b.actual), 0) * 100 as bias_pct
+    from public.v_sales_projection_ensemble_backtest b
+    join chosen c
+      on c.horizon        = b.horizon
+     and b.window_months  = c.window_months
+     -- the ensemble is pinned to the chosen weight; members have none
+     and (b.estimator <> 'ensemble' or b.cl_weight_label = c.cl_weight_label)
+    where b.is_holdout
+    group by b.horizon, b.estimator, c.window_months, c.cl_weight_label
+)
+select horizon,
+       rank() over (partition by horizon order by mae)   as rnk,
+       estimator,
+       window_months                                     as cal_window,
+       ensemble_weight,
+       origins,
+       round(mae)                                        as mae,
+       -- the figure to quote: typical miss as a share of a typical month
+       round(100.0 * mae / nullif(avg_actual, 0))        as mae_pct_of_month,
+       round(bias_pct::numeric, 1)                       as bias_pct
+from scored
+where horizon in (1, 3, 6, 12)
+order by horizon, mae;
+
+
+-- ############################################################################
+-- C24d -- what the CURRENTLY SHIPPED settings cost
+--
+-- C24a says the live configuration -- smooth w(h) on a 12-month window -- is
+-- 14-23% worse than achievable at the published horizons, and 155% worse at
+-- twelve months. That was measured on the selection rows.
+--
+-- This scores the shipped settings against the chosen ones on the HOLD-OUT, so
+-- the cost of leaving the dashboard as it is can be stated in money rather
+-- than in percentages of an in-sample figure.
+--
+-- `pct_worse` is what the current dashboard is giving away.
+-- ############################################################################
+with chosen as (
+    select distinct on (horizon) horizon, window_months, cl_weight_label
+    from (
+        select horizon, window_months, cl_weight_label, avg(abs(error)) as mae
+        from public.v_sales_projection_ensemble_backtest
+        where estimator = 'ensemble' and not is_holdout
+        group by horizon, window_months, cl_weight_label
+    ) q
+    order by horizon, mae
+),
+holdout as (
+    select horizon, window_months, cl_weight_label,
+           count(*)         as origins,
+           avg(abs(error))  as mae,
+           avg(actual)      as avg_actual
+    from public.v_sales_projection_ensemble_backtest
+    where estimator = 'ensemble'
+      and is_holdout
+    group by horizon, window_months, cl_weight_label
+)
+select h_new.horizon,
+       c.cl_weight_label                                   as chosen_weight,
+       c.window_months                                     as chosen_window,
+       round(h_new.mae)                                    as chosen_mae,
+       round(100.0 * h_new.mae / nullif(h_new.avg_actual, 0))
+                                                           as chosen_pct_of_month,
+       round(h_old.mae)                                    as shipped_mae,
+       round(100.0 * h_old.mae / nullif(h_old.avg_actual, 0))
+                                                           as shipped_pct_of_month,
+       round(100.0 * (h_old.mae - h_new.mae)
+             / nullif(h_new.mae, 0))                       as pct_worse
+from chosen c
+join holdout h_new
+  on h_new.horizon = c.horizon
+ and h_new.window_months = c.window_months
+ and h_new.cl_weight_label = c.cl_weight_label
+join holdout h_old
+  on h_old.horizon = c.horizon
+ and h_old.window_months = 12
+ and h_old.cl_weight_label = 'smooth w(h)'
+where c.horizon in (1, 3, 6)
+order by c.horizon;
+
+
+-- ############################################################################
+-- C24c -- sanity: is the holdout actually holding anything out?
+--
+-- Run this before trusting C24b. Both counts must be non-zero, and the holdout
+-- side should be close to 12 origins per horizon at the short end.
+--
+-- A zero in either column means the split is not working and C24b is
+-- meaningless.
+-- ############################################################################
+select horizon,
+       count(*) filter (where not is_holdout) as selection_rows,
+       count(*) filter (where is_holdout)     as holdout_rows,
+       min(origin_month) filter (where not is_holdout) as selection_from,
+       max(origin_month) filter (where not is_holdout) as selection_to,
+       min(origin_month) filter (where is_holdout)     as holdout_from,
+       max(origin_month) filter (where is_holdout)     as holdout_to
+from public.v_sales_projection_ensemble_backtest
+where estimator = 'ensemble'
+  and window_months = 12
+  and cl_weight_label = 'smooth w(h)'
+group by horizon
+order by horizon;
+
+
+-- ############################################################################
+-- C25 -- did the point-in-time fix actually bind?
+--
+-- The conversion rates must now MOVE between as-of months. If the column below
+-- is flat, the dimension is not binding and the backtest is still scoring past
+-- months against rates derived from after them.
+--
+-- Also check `cohorts_used` rises over time -- early as-of months have less
+-- history behind them, which is the honest shape.
+-- ############################################################################
+select as_of_month,
+       round(link_rate::numeric, 4) as rate_at_age_0,
+       cohorts_used
+from private.mv_sales_order_development_pit
+where age_months = 0
+order by as_of_month;
+
+
+-- ############################################################################
+-- C26 -- ★ DOES THE 80% BAND ACTUALLY CONTAIN 80%? ★
+--
+-- ⚠ Now filters cl_weight_label = 'coverage(h)', matching the weight the
+-- ensemble view reverted to on 2026-10-14. Measuring the band of a
+-- configuration the dashboard does not use would answer nothing.   (2026-10-14)
+--
+-- The band's shape is now taken from measured quantiles rather than a
+-- lognormal, after C22 found the upper bound ~20% too generous and every one
+-- of the last 24 months sitting inside a band that should miss one in five.
+--
+-- This block checks it two ways, and the difference between them matters.
+--
+--   C26a  in-sample  -- quantiles fitted on all origins, scored on all origins
+--   C26b  honest     -- quantiles fitted on SELECTION only, scored on HOLD-OUT
+--
+-- C26a will come out near 80% almost by construction: the same rows set the
+-- quantile and are then tested against it. It verifies the ARITHMETIC, not the
+-- forecast. Treat a good result there as "the code works", nothing more.
+--
+-- C26b is the real test. The quantiles have never seen those months.
+-- ############################################################################
+
+
+-- ############################################################################
+-- C26a -- in-sample coverage (checks the arithmetic)
+--
+-- EXPECT ~80%. Materially above means the monotone guard is widening the band
+-- (which it legitimately can -- a running min/max only ever loosens it);
+-- materially below means something is wrong with the ratio join.
+-- ############################################################################
+with q as (
+    select horizon,
+           percentile_cont(0.100) within group (order by actual / predicted) as q10,
+           percentile_cont(0.900) within group (order by actual / predicted) as q90
+    from private.mv_sales_projection_ensemble_backtest
+    where estimator = 'ensemble'
+      and window_months = 12
+      and cl_weight_label = 'coverage(h)'
+      and predicted > 0
+    group by horizon
+    having count(*) >= 20
+),
+r as (
+    select horizon,
+           min(q10) over (order by horizon rows between unbounded preceding and current row) as lo,
+           max(q90) over (order by horizon rows between unbounded preceding and current row) as hi
+    from q
+)
+select b.horizon,
+       count(*)                                          as origins,
+       round(r.lo::numeric, 2)                           as lo_ratio,
+       round(r.hi::numeric, 2)                           as hi_ratio,
+       round(100.0 * count(*) filter (
+           where b.actual between b.predicted * r.lo and b.predicted * r.hi
+       ) / count(*))                                     as pct_inside_80
+from private.mv_sales_projection_ensemble_backtest b
+join r on r.horizon = b.horizon
+where b.estimator = 'ensemble'
+  and b.window_months = 12
+  and b.cl_weight_label = 'coverage(h)'
+  and b.predicted > 0
+group by b.horizon, r.lo, r.hi
+order by b.horizon;
+
+
+-- ############################################################################
+-- C26b -- ★ THE HONEST COVERAGE TEST ★
+--
+-- ⚠ READS THE VIEW, NOT THE CACHE. `is_holdout` was added to
+-- v_sales_projection_ensemble_backtest after the cache was created, and
+-- `create materialized view ... as select *` freezes its column list at
+-- creation -- a refresh re-runs the query but never widens the cache. So the
+-- cache carries current DATA with the old SHAPE, and this block reads the view
+-- directly. Slower, correct, and fine for a one-off diagnostic.
+--
+-- Quantiles fitted on the SELECTION rows. Scored on the HOLD-OUT rows, which
+-- they have never seen.
+--
+-- HOW TO READ IT:
+--
+--   near 80%
+--       -> the band is the right width. Publish it and say so: "four months in
+--          five land inside this range."
+--
+--   well above 80% (say 95-100%)
+--       -> still too wide. The band will never embarrass anyone and will never
+--          tell them anything. Tighten toward the measured quantiles.
+--
+--   well below 80%
+--       -> too narrow, which is the worse failure. A range that misses more
+--          often than it claims invites decisions it cannot support.
+--
+-- CAVEAT, and it is a big one: 11 hold-out months at h=1, 6 at h=6. At six
+-- months a single month moves this figure by 17 points. Read h=1, treat the
+-- rest as directional.
+--
+-- The hold-out is also the surge period -- orders up 43%, invoicing down 35%.
+-- If coverage is poor it may be the regime rather than the band, which is the
+-- same thing walk-forward exists to handle.
+-- ############################################################################
+with q as (
+    select horizon,
+           percentile_cont(0.100) within group (order by actual / predicted) as q10,
+           percentile_cont(0.900) within group (order by actual / predicted) as q90
+    from public.v_sales_projection_ensemble_backtest
+    where estimator = 'ensemble'
+      and window_months = 12
+      and cl_weight_label = 'coverage(h)'
+      and predicted > 0
+      and not is_holdout
+    group by horizon
+    having count(*) >= 20
+),
+r as (
+    select horizon,
+           min(q10) over (order by horizon rows between unbounded preceding and current row) as lo,
+           max(q90) over (order by horizon rows between unbounded preceding and current row) as hi
+    from q
+)
+select b.horizon,
+       count(*)                                          as holdout_origins,
+       round(r.lo::numeric, 2)                           as lo_ratio,
+       round(r.hi::numeric, 2)                           as hi_ratio,
+       count(*) filter (
+           where b.actual between b.predicted * r.lo and b.predicted * r.hi
+       )                                                 as inside,
+       round(100.0 * count(*) filter (
+           where b.actual between b.predicted * r.lo and b.predicted * r.hi
+       ) / count(*))                                     as pct_inside_80,
+       -- which side it escapes on. A band failing in one direction only is a
+       -- centring problem, not a width problem, and widening would not fix it.
+       count(*) filter (where b.actual < b.predicted * r.lo)  as below,
+       count(*) filter (where b.actual > b.predicted * r.hi)  as above
+from public.v_sales_projection_ensemble_backtest b
+join r on r.horizon = b.horizon
+where b.estimator = 'ensemble'
+  and b.window_months = 12
+  and b.cl_weight_label = 'coverage(h)'
+  and b.predicted > 0
+  and b.is_holdout
+group by b.horizon, r.lo, r.hi
+order by b.horizon;
+
+
+-- ############################################################################
+-- ############################################################################
+-- C27 -- ★★ THE GATE, RE-RUN AGAINST WHAT IS ACTUALLY LIVE ★★  (2026-10-14)
+--
+-- Every earlier verdict on "does the blend beat its members" tested a
+-- configuration that no longer exists:
+--
+--     C18   smooth w(h), before the point-in-time fix, 22 observations
+--     C24b  the C24a-chosen config, which the dashboard never used
+--
+-- The live configuration is now coverage(h) on a 12-month calibration window,
+-- scored against point-in-time conversion rates over ~70 origins. Nothing has
+-- yet been tested at that setting.
+--
+-- Both halves are shown because they answer different questions:
+--
+--     C27a  all origins   -- 63 down to 41. Statistical power, but the
+--                            settings were chosen partly on these months
+--     C27b  hold-out only -- 11 down to 1. Honest, and thin
+--
+-- Read them TOGETHER. Agreement is a real result; disagreement means the
+-- answer depends on regime and no fixed configuration settles it.
+-- ############################################################################
+
+
+-- ############################################################################
+-- C27a -- the gate on every origin, at the live configuration
+--
+-- HOW TO READ IT:
+--
+--   ensemble 1st, or within a few percent
+--       -> the blend earns its place at that horizon. Ship it.
+--
+--   one model beats it clearly and consistently
+--       -> ship that model AT THAT HORIZON. Different horizons choosing
+--          different models is a legitimate design, not a failure -- the
+--          order book genuinely knows more about month six than month one.
+--
+--   seasonal_naive beats everything
+--       -> publish nothing at that horizon.
+--
+-- WATCH `bias_pct` next to `mae`. A model can win on error size while running
+-- consistently high, which on a dashboard reads as a standing false alarm.
+-- ############################################################################
+with s as (
+    select b.estimator,
+           b.horizon,
+           count(*)                                       as origins,
+           avg(abs(b.error))                              as mae,
+           avg(b.actual)                                  as avg_actual,
+           sum(b.error) / nullif(sum(b.actual), 0) * 100  as bias_pct
+    from public.v_sales_projection_ensemble_backtest b
+    where b.window_months = 12
+      -- the ensemble only at the weight the dashboard uses; members carry
+      -- cl_weight_label = 'n/a' and exist once per window
+      and (b.estimator <> 'ensemble' or b.cl_weight_label = 'coverage(h)')
+    group by b.estimator, b.horizon
+)
+select horizon,
+       rank() over (partition by horizon order by mae)    as rnk,
+       estimator,
+       origins,
+       round(mae)                                         as mae,
+       round(100.0 * mae / nullif(avg_actual, 0))         as mae_pct_of_month,
+       round(bias_pct::numeric, 1)                        as bias_pct,
+       round(100.0 * (mae - min(mae) over (partition by horizon))
+             / nullif(min(mae) over (partition by horizon), 0))
+                                                          as pct_worse_than_best
+from s
+where horizon in (1, 3, 6, 12)
+order by horizon, mae;
+
+
+-- ############################################################################
+-- C27b -- the same gate, hold-out only
+--
+-- The settings have never seen these months. Fewer observations, more honest.
+--
+-- Thin: 11 origins at h=1, 6 at h=6, none at h=12. One unusual month moves
+-- h=6 by 17 points. Treat h=1 as the result and the rest as directional.
+-- ############################################################################
+with s as (
+    select b.estimator,
+           b.horizon,
+           count(*)                                       as origins,
+           avg(abs(b.error))                              as mae,
+           avg(b.actual)                                  as avg_actual,
+           sum(b.error) / nullif(sum(b.actual), 0) * 100  as bias_pct
+    from public.v_sales_projection_ensemble_backtest b
+    where b.window_months = 12
+      and b.is_holdout
+      and (b.estimator <> 'ensemble' or b.cl_weight_label = 'coverage(h)')
+    group by b.estimator, b.horizon
+)
+select horizon,
+       rank() over (partition by horizon order by mae)    as rnk,
+       estimator,
+       origins,
+       round(mae)                                         as mae,
+       round(100.0 * mae / nullif(avg_actual, 0))         as mae_pct_of_month,
+       round(bias_pct::numeric, 1)                        as bias_pct,
+       round(100.0 * (mae - min(mae) over (partition by horizon))
+             / nullif(min(mae) over (partition by horizon), 0))
+                                                          as pct_worse_than_best
+from s
+where horizon in (1, 3, 6)
+order by horizon, mae;

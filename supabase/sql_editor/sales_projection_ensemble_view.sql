@@ -242,20 +242,32 @@ cl as (
            c.predicted / coalesce(cal.factor, 1)            as cl_calibrated,
            c.variance  / power(coalesce(cal.factor, 1), 2)  as cl_var,
            cov.coverage,
-           -- ── THE ORDER-BOOK WEIGHT, MEASURED (C17/C20) ──────────────────
-           -- Was coverage(h). The Phase C gate measured that as wrong, and
-           -- wrong in a specific direction: the chain-ladder ranked LAST of
-           -- six at h=1 while coverage handed it 63% of the blend, and FIRST
-           -- at h=6 on 13%. The backtest's chosen weights rise with horizon
-           -- (0.2 / 0.4 / 0.8 at h=1/3/6) exactly as coverage falls.
+           -- ── THE ORDER-BOOK WEIGHT IS coverage(h). REVERTED 2026-10-14.
            --
-           -- Smoothed to two parameters rather than one fitted value per
-           -- horizon, because each horizon had only 12-22 origins behind it.
-           -- C20: this costs 0-3.6% against the per-horizon optima and beats
-           -- coverage(h) by 13-106%. Flat past h=6 -- nothing beyond that has
-           -- been scored, and extrapolating the slope would assert what the
-           -- data has not shown.
-           least(0.8, 0.2 + 0.12 * (c.horizon - 1))        as cl_weight
+           -- coverage(h) is the share of a future month that is already
+           -- visible in today's order book: 63% next month, 13% at six, 3% at
+           -- twelve. The chain-ladder can only predict THAT share -- it knows
+           -- nothing about orders not yet placed -- so its estimate is divided
+           -- by coverage to express a whole month. At twelve months that is a
+           -- multiplication by 33, and the estimate's error multiplies by 33
+           -- with it.
+           --
+           -- Weighting by coverage is therefore self-limiting: as the order
+           -- book stops seeing the month, its say shrinks to nothing. That is
+           -- why the textbook uses it, and it is structurally impossible for
+           -- the blend to explode.
+           --
+           -- WHAT WENT WRONG. Phase C replaced this with
+           -- least(0.8, 0.2 + 0.12*(h-1)) -- rising with horizon, the exact
+           -- inverse -- on the strength of 22 observations scored against
+           -- conversion rates that had seen the future. On 52 clean
+           -- observations coverage(h) ranks 1st at h=3, 1st at h=6 and 2nd at
+           -- h=12 (C24a).
+           --
+           -- The smooth rule's cost was not subtle. It gave 80% of the vote to
+           -- an estimate that is 97% extrapolation, and published RM27.9M for
+           -- a single month against a RM4.5M norm (C7).
+           cov.coverage                                    as cl_weight
     from public.v_sales_model_chainladder c
     left join public.v_sales_projection_calibration cal
            on cal.model = 'chainladder' and cal.horizon = c.horizon
@@ -327,9 +339,14 @@ measured_err as (
            count(*)             as origins,
            avg(power(error, 2)) as mse
     from private.mv_sales_projection_ensemble_backtest
+    -- MUST MATCH WHAT THIS VIEW ACTUALLY DOES. The weight reverted to
+    -- coverage(h) on 2026-10-14 and this filter was not moved with it, so the
+    -- band would have been sized from a configuration the view no longer uses.
+    -- Caught before deploy, but it is the same class of silent mismatch as the
+    -- calibration join that left two models uncorrected in Phase C.
     where estimator       = 'ensemble'
       and window_months   = 12
-      and cl_weight_label = 'smooth w(h)'
+      and cl_weight_label = 'coverage(h)'
     group by horizon
     having count(*) >= 6
 ),
@@ -381,6 +398,60 @@ model_detail as (
     group by ac.horizon, ac.period_month
 ),
 
+-- ── THE BAND SHAPE IS NOW MEASURED TOO (2026-10-14) ───────────────────────
+--
+-- C22 fixed the band's WIDTH by taking it from measured error. It left the
+-- SHAPE to a lognormal, and the shape is wrong:
+--
+--     published   0.52x to 1.59x      history   0.52x to 1.33x
+--
+-- The lower bound was exact. The upper was ~20% too generous, because a
+-- lognormal's right tail is heavier than this series actually produces. The
+-- visible symptom: all 24 historical months sit inside the 80% band, when an
+-- 80% band should miss one month in five. A band that is never wrong carries
+-- no information.
+--
+-- So the quantiles are taken straight from the backtest rather than from any
+-- distribution. No assumption about tail shape survives.
+--
+-- ⚠ FITTED ON ALL ORIGINS, INCLUDING THE HOLD-OUT. A dispersion estimate needs
+-- every observation it can get -- a 10th percentile from 40 points is already
+-- thin -- but it does mean the band's own accuracy is unverified, unlike the
+-- point estimate's. Stated here rather than discovered later.
+-- ::numeric on every quantile is load-bearing. percentile_cont accepts only
+-- double precision, so it returns double -- and blend * double is double,
+-- which changes lo_80's type from numeric and makes `create or replace` fail
+-- with 42P16. Same family as the round(double, int) trap in the diagnostics.
+measured_quantiles as (
+    select horizon,
+           count(*)                                                        as q_origins,
+           (percentile_cont(0.100) within group (order by actual / predicted))::numeric as q10,
+           (percentile_cont(0.900) within group (order by actual / predicted))::numeric as q90,
+           (percentile_cont(0.025) within group (order by actual / predicted))::numeric as q025,
+           (percentile_cont(0.975) within group (order by actual / predicted))::numeric as q975
+    from private.mv_sales_projection_ensemble_backtest
+    where estimator       = 'ensemble'
+      and window_months   = 12
+      and cl_weight_label = 'coverage(h)'   -- matches the weight above
+      and predicted > 0
+    group by horizon
+    having count(*) >= 20
+),
+
+-- MONOTONE, for the same reason the variance is: a band may not NARROW as the
+-- forecast reaches further out. Extreme quantiles from 40-odd points wobble,
+-- and an honest fan says "at least this wide", never "more certain further
+-- away". Running min on the floor, running max on the ceiling.
+band_ratios as (
+    select horizon,
+           q_origins,
+           min(q10)  over (order by horizon rows between unbounded preceding and current row) as lo80_ratio,
+           max(q90)  over (order by horizon rows between unbounded preceding and current row) as hi80_ratio,
+           min(q025) over (order by horizon rows between unbounded preceding and current row) as lo95_ratio,
+           max(q975) over (order by horizon rows between unbounded preceding and current row) as hi95_ratio
+    from measured_quantiles
+),
+
 final as (
     select b.horizon,
            b.period_month,
@@ -398,12 +469,14 @@ final as (
                     b.cl_weight * b.cl_implied_var
                       + (1 - b.cl_weight) * b.apriori_within + bt.between_var) as band_var,
            iv.origins                                                          as band_origins,
-           md.apriori_models
+           md.apriori_models,
+           br.lo80_ratio, br.hi80_ratio, br.lo95_ratio, br.hi95_ratio
     from blended b
     join between_term bt on bt.horizon = b.horizon
     left join interval_var iv on iv.horizon = b.horizon
     left join model_detail md
            on md.horizon = b.horizon and md.period_month = b.period_month
+    left join band_ratios br on br.horizon = b.horizon
 )
 
 select f.period_month,
@@ -421,14 +494,26 @@ select f.period_month,
        f.band_var                                                as total_var,
        sqrt(f.band_var)                                          as sd,
 
-       exp(ln(f.blend) - ln(1 + f.band_var / power(f.blend, 2)) / 2
-           - sqrt(ln(1 + f.band_var / power(f.blend, 2))) * p.z80) as lo_80,
-       exp(ln(f.blend) - ln(1 + f.band_var / power(f.blend, 2)) / 2
-           + sqrt(ln(1 + f.band_var / power(f.blend, 2))) * p.z80) as hi_80,
-       exp(ln(f.blend) - ln(1 + f.band_var / power(f.blend, 2)) / 2
-           - sqrt(ln(1 + f.band_var / power(f.blend, 2))) * p.z95) as lo_95,
-       exp(ln(f.blend) - ln(1 + f.band_var / power(f.blend, 2)) / 2
-           + sqrt(ln(1 + f.band_var / power(f.blend, 2))) * p.z95) as hi_95,
+       -- measured quantile; the lognormal survives only where the backtest
+       -- cannot reach, so the view can never emit a null bound
+       coalesce(f.blend * f.lo80_ratio,
+                exp(ln(f.blend) - ln(1 + f.band_var / power(f.blend, 2)) / 2
+                    - sqrt(ln(1 + f.band_var / power(f.blend, 2))) * p.z80)) as lo_80,
+       -- measured quantile; the lognormal survives only where the backtest
+       -- cannot reach, so the view can never emit a null bound
+       coalesce(f.blend * f.hi80_ratio,
+                exp(ln(f.blend) - ln(1 + f.band_var / power(f.blend, 2)) / 2
+                    + sqrt(ln(1 + f.band_var / power(f.blend, 2))) * p.z80)) as hi_80,
+       -- measured quantile; the lognormal survives only where the backtest
+       -- cannot reach, so the view can never emit a null bound
+       coalesce(f.blend * f.lo95_ratio,
+                exp(ln(f.blend) - ln(1 + f.band_var / power(f.blend, 2)) / 2
+                    - sqrt(ln(1 + f.band_var / power(f.blend, 2))) * p.z95)) as lo_95,
+       -- measured quantile; the lognormal survives only where the backtest
+       -- cannot reach, so the view can never emit a null bound
+       coalesce(f.blend * f.hi95_ratio,
+                exp(ln(f.blend) - ln(1 + f.band_var / power(f.blend, 2)) / 2
+                    + sqrt(ln(1 + f.band_var / power(f.blend, 2))) * p.z95)) as hi_95,
 
        -- Appended rather than inserted: `create or replace view` can add
        -- columns at the END but cannot reorder them.

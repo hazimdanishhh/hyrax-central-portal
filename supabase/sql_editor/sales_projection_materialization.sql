@@ -99,6 +99,10 @@
 -- is deliberate (see the note further down) and it is not an error to work
 -- around -- it is the file refusing to delete six views behind your back.
 --
+-- ⚠ 2026-10-14: section 0 is NEW and sections 1-3 are unchanged. On an estate
+-- that already has 1-3, run ONLY section 0, its grant, and section 5. Then
+-- re-run sales_order_development_view.sql, which now reads the new cache.
+--
 -- To add section 3 to an estate that already has 1 and 2, run ONLY:
 --
 --     * section 3 in full (drop + create + index)
@@ -114,6 +118,27 @@
 -- ############################################################################
 
 create schema if not exists private;
+
+
+-- ── 0. the point-in-time development rates ─────────────────────────────────
+--
+-- Added 2026-10-14. Carries the chain-ladder conversion rates for EVERY as-of
+-- month, so the backtest can score a past month using only what was knowable
+-- then. Before this, it scored March 2025 against rates partly derived from
+-- 2026 -- the model was being shown the answer.
+--
+-- FIRST in this file and FIRST in the refresh, because everything else reads
+-- it: v_sales_order_development is now a filter over it at the current month,
+-- and v_sales_chainladder_backtest joins it by origin.
+drop materialized view if exists private.mv_sales_order_development_pit;
+
+create materialized view private.mv_sales_order_development_pit as
+select * from public.v_sales_order_development_pit;
+
+-- v_sales_order_development filters to one as-of month; the backtest joins on
+-- (as_of_month, age_months) for every origin. Both are covered.
+create index if not exists mv_sales_order_dev_pit_lookup
+    on private.mv_sales_order_development_pit (as_of_month, age_months);
 
 
 -- ── 1. the scoring harness ──────────────────────────────────────────────────
@@ -181,6 +206,8 @@ create index if not exists mv_sales_ens_backtest_lookup
 -- security-invoker views WITHOUT making the objects reachable through the API.
 grant usage on schema private to anon, authenticated, service_role;
 
+grant select on private.mv_sales_order_development_pit
+    to anon, authenticated, service_role;
 grant select on private.mv_sales_projection_baseline
     to anon, authenticated, service_role;
 grant select on private.mv_sales_chainladder_backtest
@@ -195,11 +222,16 @@ grant select on private.mv_sales_projection_ensemble_backtest
 -- are not the owner. search_path is pinned -- a SECURITY DEFINER function with
 -- a mutable search_path is a privilege-escalation vector.
 --
--- ORDER IS NOW LOAD-BEARING. The ensemble backtest reads BOTH other caches
--- through v_sales_projection_ensemble_backtest, so it must be refreshed LAST
--- or it will be rebuilt from the previous month's history. Refreshing it first
--- would not error -- it would quietly produce a stale interval width, which is
--- the worst kind of wrong.
+-- ORDER IS LOAD-BEARING, in both directions.
+--
+-- The development rates go FIRST: the chain-ladder backtest joins them by
+-- origin, so refreshing it against last month's rates would silently score
+-- every origin with the wrong numbers.
+--
+-- The ensemble backtest goes LAST: it reads both other caches through
+-- v_sales_projection_ensemble_backtest. Refreshing it first would not error --
+-- it would quietly produce a stale interval width, which is the worst kind of
+-- wrong.
 create or replace function public.refresh_sales_projection_caches()
 returns text
 language plpgsql
@@ -209,14 +241,16 @@ as $$
 declare
     v_started timestamptz := clock_timestamp();
 begin
+    refresh materialized view private.mv_sales_order_development_pit;
     refresh materialized view private.mv_sales_chainladder_backtest;
     refresh materialized view private.mv_sales_projection_baseline;
     refresh materialized view private.mv_sales_projection_ensemble_backtest;
 
     return format(
-        'refreshed in %s -- baseline %s rows, chainladder backtest %s rows, '
-        'ensemble backtest %s rows',
+        'refreshed in %s -- development rates %s rows, baseline %s rows, '
+        'chainladder backtest %s rows, ensemble backtest %s rows',
         clock_timestamp() - v_started,
+        (select count(*) from private.mv_sales_order_development_pit),
         (select count(*) from private.mv_sales_projection_baseline),
         (select count(*) from private.mv_sales_chainladder_backtest),
         (select count(*) from private.mv_sales_projection_ensemble_backtest)

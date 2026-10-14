@@ -128,8 +128,12 @@ with params as (
            0.60  as max_weight
 ),
 
+-- 6 months dropped 2026-10-14. C12 and C20 both measured it WORST at nearly
+-- every horizon -- noise costs more than staleness here. Carrying a candidate
+-- already known to lose is pure cost, and the sweep needs the headroom now
+-- that origins have gone from 29 to roughly 70.
 windows as (
-    select unnest(array[6, 12, 18, 24]) as window_months
+    select unnest(array[12, 18, 24]) as window_months
 ),
 
 -- The order-book weight grid. NULL means "use coverage(h)" -- the
@@ -167,6 +171,21 @@ ap as materialized (
 -- target_month is taken from the view rather than recomputed from
 -- origin + horizon: the backtest already derives it, and two independent
 -- derivations of the same month are two chances to disagree.
+-- ── THE HOLD-OUT (2026-10-14) ──────────────────────────────────────────────
+--
+-- Every parameter in this system was chosen by scoring options against history,
+-- and then its accuracy was reported from that same history. The sample used
+-- to choose was the sample used to score, which flatters the result by an
+-- unknown amount. The M competitions exist partly because of this failure.
+--
+-- The last 12 origins are now marked. Parameters get chosen on everything
+-- else; accuracy gets reported on these alone. That is the one number that can
+-- honestly be quoted, and it should come out WORSE than the in-sample figure --
+-- if it comes out better, the hold-out is not actually being held out.
+holdout_bound as (
+    select (date_trunc('month', current_date) - interval '13 months')::date as cutoff
+),
+
 cl as materialized (
     select c.horizon,
            c.origin_month,
@@ -427,18 +446,22 @@ estimators as (
 -- taking any error at all -- a three-month total is not the average of three
 -- monthly errors. Aggregating here would force that query to rebuild this
 -- entire CTE chain a second time, and the two copies would drift.
-select window_months,
-       cl_weight_label,
-       cl_weight,
-       horizon,
-       origin_month,
-       target_month,
-       estimator,
-       predicted,
-       actual,
-       predicted - actual as error
-from estimators
-order by horizon, window_months, cl_weight_label, estimator, origin_month;
+select e.window_months,
+       e.cl_weight_label,
+       e.cl_weight,
+       e.horizon,
+       e.origin_month,
+       e.target_month,
+       e.estimator,
+       e.predicted,
+       e.actual,
+       e.predicted - e.actual as error,
+       -- Choose parameters where this is FALSE. Report accuracy where it is
+       -- TRUE. Mixing the two is what made every figure so far optimistic.
+       (e.origin_month > hb.cutoff) as is_holdout
+from estimators e
+cross join holdout_bound hb
+order by e.horizon, e.window_months, e.cl_weight_label, e.estimator, e.origin_month;
 
 
 comment on view public.v_sales_projection_ensemble_backtest is

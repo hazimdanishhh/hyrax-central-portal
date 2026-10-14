@@ -143,20 +143,36 @@ select c.model,
        c.bias_all,
        c.bias_recent,
 
-       -- Which window the factor is drawn from, and why.
-       case when c.origins_recent >= bd.min_origins then 'recent' else 'full history' end
+       -- ── NO FULL-HISTORY FALLBACK. CHANGED 2026-10-14. ──────────────────
+       --
+       -- This used to fall back to the FULL-HISTORY bias when a model had too
+       -- few recent origins. That looked prudent and was not.
+       --
+       -- At h=12 there are ZERO origins inside the 12-month window -- the
+       -- newest twelve-month origin is thirteen months old. So every
+       -- twelve-month forecast was corrected by a five-year-old figure of
+       -- -77.3%, which floored the factor at 0.25 and multiplied the
+       -- prediction by four. Combined with the coverage division that is a
+       -- 133x amplification, and it published RM34M of implied order-book
+       -- revenue for a single month (C3, C5).
+       --
+       -- Applying NO correction is the honest response to having no recent
+       -- evidence. A stale correction is not a cautious one -- it is a
+       -- confident statement about a business that no longer exists.
+       case when c.origins_recent >= bd.min_origins then 'recent' else 'uncalibrated' end
                                                                    as basis,
 
-       -- The bias actually applied.
        case when c.origins_recent >= bd.min_origins
-            then c.bias_recent else c.bias_all end                 as bias_used,
+            then c.bias_recent else 0 end                          as bias_used,
 
        -- Divide a prediction by this to de-bias it. Floored at 0.25 so a
        -- pathological window cannot quadruple a forecast; a factor that low
-       -- means the model is broken, not that it needs scaling.
+       -- means the model is broken, not that it needs scaling. With the
+       -- fallback gone the floor is now a crash guard rather than a routine
+       -- path -- `basis` says which applied.
        greatest(
            1 + case when c.origins_recent >= bd.min_origins
-                    then c.bias_recent else c.bias_all end,
+                    then c.bias_recent else 0 end,
            0.25
        )                                                            as factor,
 

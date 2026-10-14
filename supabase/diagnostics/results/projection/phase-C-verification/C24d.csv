@@ -1,0 +1,4 @@
+horizon,chosen_weight,chosen_window,chosen_mae,chosen_pct_of_month,shipped_mae,shipped_pct_of_month,pct_worse
+1,0.8,18,1773217,42,1445189,34,-18
+3,coverage(h),24,1117465,31,856164,23,-23
+6,coverage(h),24,2024154,59,663847,19,-67
