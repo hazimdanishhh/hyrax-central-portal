@@ -103,6 +103,20 @@
 -- COLUMN LIST changes -- renamed, removed, reordered or retyped. Postgres
 -- raises 42P16 when that happens, so it tells you; APPENDING a column at the
 -- end needs no drop. Full rule in sales_projection_baseline_view.sql.
+--
+-- ⚠ NEW DEPENDANT, 2026-10-15: private.mv_sales_projection_ensemble is built
+-- FROM this view. A `drop view ... cascade` here now silently deletes that
+-- cache too -- the 2026-10-03 failure, one level up -- and the three RPCs that
+-- read it then raise 42P01 on the next page load. A column-list change means:
+--
+--     drop view ... cascade
+--  -> re-run this file
+--  -> re-run sales_projection_materialization.sql SECTION 6 (recreates the
+--     cache, its unique index and its grant)
+--  -> select public.refresh_sales_projection_ensemble_cache();
+--
+-- The cache also FREEZES this view's column list at creation. Appending a
+-- column here is invisible to the cache until section 6 is re-run.
 -- ── READS THE CACHE, NOT THE VIEW (2026-10-03) ─────────────────────────────
 -- Sources below point at private.mv_* rather than public.v_*. A single
 -- v_sales_projection_ensemble query was rebuilding the scoring harness four

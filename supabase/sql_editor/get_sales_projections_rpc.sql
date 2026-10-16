@@ -145,8 +145,23 @@ ord as (
     where measure = 'orders'
 ),
 
+-- READS THE CACHE, NOT THE VIEW (2026-10-15).
+--
+-- v_sales_projection_ensemble measured 4,202 ms to produce twelve rows, and
+-- this RPC read it on every page load. private.mv_sales_projection_ensemble is
+-- the same twelve rows, pre-built.
+--
+-- ⚠ THE CACHE CAN NAME THE WRONG MONTH. period_month is derived from
+-- current_date inside the model views, so a cache built last month says h=1 is
+-- the month we are now IN. `fy_proj` below filters
+-- `period_month > cur_month` against a LIVE calendar, so such a row is not
+-- rejected -- it is silently DROPPED, n_months falls by one, and both the
+-- Full-Year outlook and its band move with nothing raised.
+--
+-- That is what refresh-sales-projection-ensemble-daily at 00:20 MYT exists to
+-- prevent, and what `ensembleCacheStale` below exists to report if it fails.
 proj as (
-    select * from public.v_sales_projection_ensemble
+    select * from private.mv_sales_projection_ensemble
 ),
 
 nxt as (
@@ -164,6 +179,39 @@ fy_actual as (
     where i.is_complete
       and i.period_month >= b.fy_start
       and i.period_month <= b.fy_end_month
+),
+
+-- ── THE PLAN TO MEASURE THE FORECAST AGAINST (added 2026-10-14) ────────────
+--
+-- Until now the Full-Year Outlook stood alone with nothing to compare it to,
+-- while the budget it should be read against sat six sections up the page.
+-- Variance-to-plan is the question a finance review opens with, and a forecast
+-- with no plan beside it cannot answer it.
+--
+-- This is ALSO what lets that tile carry the severity ramp. Per
+-- DASHBOARD-CONVENTIONS.md §4 a tile earns colour only with an inherent
+-- direction of "better" AND a comparator already in `kpis`. A bare projection
+-- has neither -- revenue above forecast is not "good", it means the forecast
+-- was low. Outlook against budget has both.
+--
+-- ── WHY NO PRORATION, AND NO REP FILTER ───────────────────────────────────
+--
+-- Shape lifted from get_sales_reports_dashboard_rpc.sql's `budget_by_month`
+-- (its unprorated one), NOT its `budget_math`. budget_math prorates by day
+-- overlap because that RPC answers an arbitrary date range; a whole fiscal
+-- year has no partial months, so proration degenerates to 1.0. budget_math
+-- also filters by v_sales_rep_code for the per-rep scorecard -- this figure is
+-- company-wide, matching the projection it sits next to, which takes no
+-- salesperson filter at all.
+--
+-- date_trunc defensively: budget_month is normalised to a month start by the
+-- frontend (salesBudgetsMutations.js), not by a database constraint.
+fy_budget as (
+    select coalesce(sum(b.budget_revenue), 0) as v
+    from public.sales_budgets b
+    cross join fy_bounds fb
+    where date_trunc('month', b.budget_month)::date >= fb.fy_start
+      and date_trunc('month', b.budget_month)::date <= fb.fy_end_month
 ),
 
 -- Month-to-date. is_complete is false for the current month by construction
@@ -227,7 +275,21 @@ span_origins as (
     cross join fy_proj fp
     where eb.estimator       = 'ensemble'
       and eb.window_months   = 12
-      and eb.cl_weight_label = 'smooth w(h)'
+      -- FIXED 2026-10-14. Read 'smooth w(h)' until today.
+      --
+      -- The order-book weight reverted to coverage(h) on 2026-10-14 (see
+      -- sales_projection_ensemble_view.sql), after the stale-bias fallback and
+      -- a divide-by-coverage weight compounded into a 133x regression. The
+      -- revert swept the views. It did not sweep this file, so the LIVE
+      -- Full-Year 80% range has been sized from a configuration the system
+      -- abandoned -- a band measured against one blend wrapped around a point
+      -- estimate produced by another.
+      --
+      -- This filter must track sales_projection_ensemble_view.sql's
+      -- measured_err / measured_quantiles CTEs. If the weight rule changes
+      -- again, it changes in three places or the band stops describing the
+      -- number it surrounds.
+      and eb.cl_weight_label = 'coverage(h)'
       and eb.horizon        <= fp.n_months
     group by eb.origin_month
 ),
@@ -277,7 +339,15 @@ fy_band as (
 fy_interval as (
     select fb.*,
            case when fb.outlook > 0 and fb.fy_var > 0
-                then ln(1 + fb.fy_var / power(fb.outlook, 2)) end as sigma_sq
+                then ln(1 + fb.fy_var / power(fb.outlook, 2)) end as sigma_sq,
+           -- The current month gets its OWN band (added 2026-10-15), from the
+           -- same cur_month_var that already feeds the fiscal-year variance
+           -- above. It is narrower than a full month's by construction --
+           -- frac_remaining squares down as the month fills, so on the 28th
+           -- the range is nearly closed.
+           case when fb.current_month_est > 0 and fb.cur_month_var > 0
+                then ln(1 + fb.cur_month_var / power(fb.current_month_est, 2))
+           end                                                    as cur_sigma_sq
     from fy_band fb
 ),
 
@@ -288,7 +358,15 @@ fy_final as (
            end as fy_lo_80,
            case when fi.sigma_sq is not null
                 then exp(ln(fi.outlook) - fi.sigma_sq / 2 + sqrt(fi.sigma_sq) * 1.2816)
-           end as fy_hi_80
+           end as fy_hi_80,
+           case when fi.cur_sigma_sq is not null
+                then exp(ln(fi.current_month_est) - fi.cur_sigma_sq / 2
+                         - sqrt(fi.cur_sigma_sq) * 1.2816)
+           end as cur_lo_80,
+           case when fi.cur_sigma_sq is not null
+                then exp(ln(fi.current_month_est) - fi.cur_sigma_sq / 2
+                         + sqrt(fi.cur_sigma_sq) * 1.2816)
+           end as cur_hi_80
     from fy_interval fi
 ),
 
@@ -365,9 +443,9 @@ agreement as (
 ),
 
 -- ─── cache staleness ───────────────────────────────────────────────────────
--- The three caches in `private` are refreshed by hand (Phase E schedules it).
--- If a month closes and nobody runs refresh_sales_projection_caches(), every
--- number on this dashboard silently describes last month's world.
+-- The backtest caches in `private` are refreshed monthly by
+-- snapshot-sales-projections-monthly. If a month closes and that job does not
+-- fire, every number on this dashboard silently describes last month's world.
 --
 -- Detected from the data rather than from a timestamp table: compare the
 -- newest month the cached scoring harness has scored against the newest month
@@ -377,6 +455,34 @@ cache_state as (
       (select max(period_month) from private.mv_sales_projection_baseline
         where measure = 'invoiced')                                as cache_latest,
       (select max(period_month) from inv where is_complete)        as series_latest
+),
+
+-- ─── ensemble cache staleness -- a DIFFERENT failure (2026-10-15) ──────────
+--
+-- cache_state above is a MONTH-ROLLOVER detector. It is structurally blind to
+-- the failure this cache introduces: a daily job that dies silently. The four
+-- backtest caches can be probed from their own data because max(period_month)
+-- of scored history IS a watermark. These twelve FORWARD rows have no such
+-- marker, which is why the cache carries cache_refreshed_at at all.
+--
+-- Two probes, because they catch different things:
+--   h1_month  -- the cache was built in a previous MONTH, so it names the
+--               wrong month for horizon 1. This is the silent-drop fault.
+--   age_hours -- the cache is from this month but the job has not run for
+--               days. Only cache_refreshed_at can see this.
+--
+-- `is distinct from`, not `<>`: `where f.blend > 0` in the ensemble can drop
+-- the h=1 row entirely, and with `<>` that yields null, which the frontend
+-- banner reads as "fine". The two dates publish beside the boolean so a reader
+-- can tell a dead cron from a missing h=1 row.
+ens_cache_state as (
+    select
+      (select max(e.period_month) from private.mv_sales_projection_ensemble e
+        where e.horizon = 1)                                       as ens_h1_month,
+      (date_trunc('month', current_date) + interval '1 month')::date
+                                                                   as ens_h1_expected,
+      (select max(e.cache_refreshed_at)
+         from private.mv_sales_projection_ensemble e)              as ens_refreshed_at
 ),
 
 -- ─── chart data ────────────────────────────────────────────────────────────
@@ -401,6 +507,24 @@ cache_state as (
 -- historical fit is mildly optimistic against what live forecasting will
 -- deliver. Phase E's frozen snapshots are the honest experience study; this is
 -- the best available until three months of them exist.
+-- ── KNOWINGLY STALE, AND SCHEDULED FOR DELETION (2026-10-14) ───────────────
+--
+-- This filter still reads 'smooth w(h)', the weight abandoned on 2026-10-14.
+-- Its sibling in span_origins (above) was fixed; this one is deliberately NOT,
+-- for exactly one release.
+--
+-- fanChartData is superseded by the merged fiscal-year timeline in
+-- get_sales_projection_accuracy(). Both charts ship together for one cycle so
+-- they can be compared, and the difference across the current year's past
+-- months IS the proof the weight fix landed. Fixing this filter would make
+-- the two agree and prove nothing.
+--
+-- DELETE in the follow-up: this CTE, fan_hist, fan_hist_band, fan_cur,
+-- fan_cur_band, fan_fwd, fan, and the 'fanChartData' key.
+--
+-- DO NOT also delete cal, nxt, cur_mtd or cur_est. They look like part of this
+-- chain and are not -- cur_est feeds fullYearCurrentMonthEstimate, and the
+-- Full-Year tile goes a month low without it.
 backfit as (
     select eb.target_month,
            eb.predicted
@@ -588,6 +712,11 @@ select json_build_object(
             'fullYearOutlook',                round(f.outlook),
             'fullYearActualToDate',           round(f.actual_to_date),
             'fullYearCurrentMonthEstimate',   round(f.current_month_est),
+            -- Its own 80% range, so the tile can show one beside every forward
+            -- figure. Narrower than next month's by construction: part of this
+            -- month is already banked, so only the remainder is uncertain.
+            'fullYearCurrentMonthLo80',       round(f.cur_lo_80),
+            'fullYearCurrentMonthHi80',       round(f.cur_hi_80),
             'fullYearProjectedRemainder',     round(f.projected_remainder),
             'fullYearLo80',                   round(f.fy_lo_80),
             'fullYearHi80',                   round(f.fy_hi_80),
@@ -596,6 +725,19 @@ select json_build_object(
             'fullYearPriorActual',            round(pfy.v),
             'fullYearVsPriorPct',             case when pfy.v > 0
                                                    then round(100.0 * f.outlook / pfy.v - 100, 1) end,
+
+            -- The plan, and the forecast measured against it (added
+            -- 2026-10-14). This pair is what gives the tile the severity ramp
+            -- -- see the fy_budget CTE for why.
+            --
+            -- Attainment is NULL, never 0, when no budget exists for the year.
+            -- A zero would read as "0% of budget" and paint the tile red for a
+            -- year nobody has budgeted yet; null makes the tile fall back to
+            -- informational blue, which getStatusVariant does on its own ("it
+            -- never guesses a tier for missing data").
+            'fullYearBudget',                 round(fb.v),
+            'fullYearBudgetAttainmentPct',    case when fb.v > 0
+                                                   then round(100.0 * f.outlook / fb.v) end,
 
             -- ─── TILE 2: Next Month ────────────────────────────────────────
             'nextMonthLabel',                 to_char(n.period_month, 'Mon YYYY'),
@@ -648,12 +790,29 @@ select json_build_object(
             'currentMonthEstimateBasis',      'month-to-date actual + model level pro-rated over days remaining',
             'cacheLatestMonth',               cs.cache_latest,
             'seriesLatestCompleteMonth',      cs.series_latest,
-            'cacheStale',                     (cs.cache_latest is distinct from cs.series_latest),
-            'sourceView',                     'v_sales_projection_ensemble'
+
+            -- OR'd, deliberately, so the EXISTING frontend banner fires for
+            -- either failure without a React change. The four keys below say
+            -- which one it was; the banner text covers both because both mean
+            -- "these figures describe an older world than you think".
+            'cacheStale',                     (cs.cache_latest is distinct from cs.series_latest)
+                                              or (ecs.ens_h1_month is distinct from ecs.ens_h1_expected),
+
+            'ensembleCacheH1Month',           ecs.ens_h1_month,
+            'ensembleCacheExpectedH1Month',   ecs.ens_h1_expected,
+            'ensembleCacheStale',             (ecs.ens_h1_month is distinct from ecs.ens_h1_expected),
+            'ensembleCacheAgeHours',          case when ecs.ens_refreshed_at is not null
+                                                   then round(extract(epoch from
+                                                        (now() - ecs.ens_refreshed_at))::numeric / 3600, 1) end,
+
+            -- Now a cache, not a view. Left as `sourceView` rather than
+            -- renamed, because the frontend reads the key by name.
+            'sourceView',                     'private.mv_sales_projection_ensemble'
         )
         from fy_final f
         cross join nxt n
         cross join hcap h
+        cross join fy_budget fb
         cross join prior_fy_actual pfy
         cross join trailing_inv ti
         cross join trailing_ord tor
@@ -661,6 +820,7 @@ select json_build_object(
         cross join last_year_same_month lysm
         cross join agreement a
         cross join cache_state cs
+        cross join ens_cache_state ecs
     ),
 
     'fanChartData', (
@@ -716,4 +876,16 @@ $$;
 --   5. bandBasis reads 'measured span error'. 'summed monthly variance' means
 --      the backtest could not reach this span length and the band assumes
 --      independent months, which C16 showed they are not.
+--   6. fullYearBudget is NON-ZERO (added 2026-10-14). Cross-check:
+--
+--        select sum(budget_revenue)
+--        from sales_budgets
+--        where date_trunc('month', budget_month)::date
+--              between make_date(2026, 4, 1) and make_date(2027, 3, 1);
+--
+--      The two must match exactly. If the RPC reads 0 while the table has
+--      rows, the fiscal-year window is wrong. If the TABLE is genuinely empty
+--      for this year, fullYearBudgetAttainmentPct is null by design and the
+--      tile falls back to informational blue rather than painting itself red
+--      against a budget nobody set.
 -- ############################################################################

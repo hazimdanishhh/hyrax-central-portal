@@ -115,6 +115,24 @@ Canonical tags in use today — extend this table rather than inventing new voca
 
 **"Client" vs. "Customer" — not interchangeable, but not exclusive to one dashboard either.** "Client" always means the CRM-native `clients` table (Sales Reports' "Top Clients" chart); "Customer" always means SAP's own `customer_code` on `sap_invoices` (Finance Reports' "Top Customers by Revenue," and — added 2026-07 — Sales Reports' own "Customer Concentration" tile/"Top Customers by Invoiced Revenue" chart, converted from CRM to SAP-invoiced per an explicit product decision that concentration risk belongs on audited billing data). Sales Reports now legitimately carries both words side by side, one per source table — don't let either word drift into meaning the same thing as the other, on either dashboard.
 
+**A scenario is a peer only when it shares the measure's dimensions (added 2026-10-16).**
+
+Actual, Plan/Budget and Forecast are *scenarios of one measure*, and IBCS — now an ISO standard — puts them together: same chart, same table, distinguished by fill. That is correct, and it has a condition that is easy to miss.
+
+**They may sit together only where they slice the same way.** On Sales Reports, Actual and Budget both slice by salesperson and by date. The revenue forecast slices by date alone — `get_sales_projections` takes no owner parameter, and per-rep projections are permanently out of scope (splitting an already-lumpy series makes every sub-series lumpier; the top three invoices are ~31% of a typical month).
+
+Three forecast rows were added to the Invoiced Revenue tile on 2026-10-15 and removed on 2026-10-16 for exactly this. With a salesperson selected the tile read **RM 4.2M actual, RM 8.1M budget, RM 32.8M company forecast** — a crisis that was not there. A label does not repair it, because a tile is a comparison frame: putting a figure in one is an invitation to compare it with its neighbours. It also breaks IBCS's own consistent-scaling rule.
+
+> **The test:** before placing a figure beside another, ask whether it responds to *every* filter its neighbours respond to. If it responds to some and not others, it is not a peer — give it a region of its own that declares its scope, the way the Projections section declares "company-wide; ignores the salesperson and date filters".
+
+This is the dimensional sibling of the source-labelling rule above. That one says *name what a number came from*; this one says *do not seat it next to numbers it cannot be compared with*.
+
+Research and sources: `DASHBOARD-DESIGN-RESEARCH.md`.
+
+**Stating an interval as a likelihood (added 2026-10-14).** A published interval may be written as a probability in plain words — `"80% likely RM 3.6M – RM 4.8M"` rather than an `"80% range"` sub-metric — **only where the coverage has actually been measured.** Sales Reports' projection qualifies: `v_sales_projection_ensemble`'s bands are sized from measured quantiles and verified at 77–82% coverage at every horizon, and the Forecast Reliability tile beside it publishes how often that has held.
+
+The claim is unchanged either way — an 80% interval *is* an 80% likelihood — but the second wording is readable by someone who has never met a prediction interval, and the first is not. The constraint is the measurement, not the wording: **do not phrase an assumed or nominal interval as a likelihood.** A lognormal band nobody has back-tested stays an "80% range", because calling it "80% likely" asserts a frequency that has never been checked.
+
 Two figures can legitimately disagree (e.g. GL revenue vs. invoice-subledger revenue, or a manually-set budget vs. an audited actual) — that's normal for these table pairings, not a bug to reconcile away. The fix is always to **label both sides so the difference is visible**, never to silently pick one or blend them.
 
 ### Watch-outs baked into every reference RPC — respect them in every new query

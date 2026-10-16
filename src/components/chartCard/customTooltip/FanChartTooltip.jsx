@@ -44,6 +44,14 @@ export default function FanChartTooltip({ active, payload, label, darkMode }) {
   const band80 = byKey.band80?.value;
   const band95 = byKey.band95?.value;
 
+  // Row-level fields are NOT in `payload` keyed by dataKey -- only the four
+  // series values are. Recharts does hang the whole source row off every
+  // entry as `.payload`, so anything the RPC attached to the month is read
+  // from there. Any entry will do; they all carry the same row.
+  const sourceRow = payload.find((e) => e?.payload)?.payload;
+  const source = sourceRow?.source;
+  const horizon = sourceRow?.horizon;
+
   const isRange = (v) =>
     Array.isArray(v) && v.length === 2 && v[0] != null && v[1] != null;
 
@@ -69,15 +77,42 @@ export default function FanChartTooltip({ active, payload, label, darkMode }) {
   }
 
   // Shown on BOTH sides of the seam. On a past month this is what the model
-  // would have said a month ahead, reconstructed point-in-time; forward it is
-  // the live projection.
+  // would have said a month ahead; forward it is the live projection, made at
+  // whatever horizon reaches that month -- which is why the label names it.
+  // A number 11 months out and a number 1 month out are not the same claim.
   if (typeof projected === "number") {
     rows.push(
       row(
         "projected",
-        actual == null ? "Projected" : "Projected (1 month ahead)",
+        actual == null
+          ? horizon
+            ? `Projected (${horizon} month${horizon === 1 ? "" : "s"} ahead)`
+            : "Projected"
+          : "Projected (1 month ahead)",
         byKey.projected.stroke,
         preciseCurrency(projected),
+      ),
+    );
+  }
+
+  // RECORDED vs RECONSTRUCTED -- the distinction that separates an honest
+  // claim from a flattering one, and the reason the accuracy view keeps the
+  // two sources apart rather than averaging them.
+  //
+  // It lives here rather than in the line style on purpose: splitting one
+  // series visually needs a second Recharts Line over a sister dataKey, which
+  // this codebase has nowhere, and until a month closes after the first
+  // snapshot every past row is reconstructed -- so the visual split would
+  // carry no information at all.
+  if (source) {
+    rows.push(
+      row(
+        "source",
+        "Evidence",
+        "transparent",
+        source === "recorded"
+          ? "Recorded — frozen before the month closed"
+          : "Reconstructed — rebuilt afterwards, flatters the model",
       ),
     );
   }

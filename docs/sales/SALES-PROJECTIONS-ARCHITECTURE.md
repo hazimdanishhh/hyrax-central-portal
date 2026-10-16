@@ -416,6 +416,123 @@ reports as `42P16` rather than leaving it to guesswork. Appending a column at
 the end needs no drop. The dependency map and the rule live in the banner of
 `sales_projection_baseline_view.sql`.
 
+### Stages 1–2 and Phase E additions (2026-10-14)
+
+| New file | New object | Role |
+| --- | --- | --- |
+| `sql_editor/sales_order_development_pit_view.sql` | `v_sales_order_development_pit` | Link ratios for **every as-of month**, not just today's. The fix for the peeking conversion rates — see §11h |
+| `sql_editor/sales_projection_snapshots_migration.sql` | `sales_projection_snapshots` + 3 RLS policies | The frozen record. One row per `(snapshot_month, horizon)` |
+| `functions/snapshot_sales_projections.sql` | `snapshot_sales_projections()` | The writer. `security definer`, `returns text`, idempotent on `(snapshot_month, horizon)` |
+| `sql_editor/schedule_snapshot_sales_projections_cron.sql` | `snapshot-sales-projections-monthly` | **The first monthly job and the first scheduled matview refresh in this repo.** 09:00 MYT on the 2nd |
+| `sql_editor/sales_projection_accuracy_view.sql` | `v_sales_projection_accuracy` | Forecast against actual, carrying `source` — `recorded` or `reconstructed`, never merged |
+| `sql_editor/get_sales_projection_accuracy_rpc.sql` | `get_sales_projection_accuracy()` | Backs the Track Record section. A **companion** to `get_sales_projections()`, not an extension |
+
+**Merged 2026-10-14.** `v_sales_projection_accuracy` gained `lo_95`/`hi_95` (appended — no drop), and `get_sales_projection_accuracy()` took ownership of the whole fiscal-year timeline, past and future. `fanChartData` in `get_sales_projections()` is superseded and deleted next release; `config/trackRecordTableConfig.jsx` is already gone.
+
+**`sales_order_development_view.sql` was rewritten**, not added: it is now a
+thin filter over `v_sales_order_development_pit` at the current month, so one
+calculation serves both the forward model and the backtest and they cannot
+drift apart. Same seven columns, so `create or replace` held.
+
+**Why the cron takes two statements in one job.** Refresh, *then* snapshot.
+Snapshotting first would freeze last month's view of the world and label it
+this month's — undetectable afterwards. The 2nd rather than the 1st because
+SAP is still closing the previous month on day one; we watched the age-0
+conversion rate move between 2 and 14 October as September invoices arrived.
+
+**`config` jsonb on every snapshot is not optional.** Six weeks of this
+project changed settings underneath the numbers more than once. A snapshot
+that does not record which configuration produced it cannot be compared with
+one taken after a change. `weight_rule` is **derived** — the weight actually
+applied is compared against `coverage`, so the field reads `custom` if the
+ensemble view moves and the function's assumptions go stale, rather than
+asserting a rule that is no longer true.
+
+**No `authenticated` write grant on the snapshot table.** The only writer is
+the `security definer` job. A hand-edited snapshot is a falsified record.
+
+## 8b. How the module updates — the whole map (added 2026-10-15)
+
+Written because nobody could hold it in their head, including the people who
+built it. There are twenty-odd objects and the vocabulary is the problem.
+
+### Three kinds of object, and only one of them stores anything
+
+| | What it is | When its contents change |
+| --- | --- | --- |
+| **View** | a saved *question* | **it stores nothing.** Re-runs on every read, so it is always current. Costs time |
+| **Materialized view** ("cache") | a saved *answer*, in a real table | **only** when someone runs `refresh`. Costs staleness |
+| **Table** | rows someone wrote | only when something INSERTs |
+
+**The RPCs refresh nothing.** They read. What happens on every page load is
+that the views they touch re-run their queries from scratch. No stored data
+moves.
+
+### The objects, bottom to top
+
+| # | Object | Kind | Contents change… |
+| --- | --- | --- | --- |
+| 0 | `sap_sales_orders`, `sap_invoices`, `sap_invoice_lines`, `sap_payments` | tables | when the **external SAP pipeline** syncs — outside this repo, tracked in `sap_pipeline_state` |
+| 1 | `v_sales_monthly_series` | view | every read |
+| 1 | `v_sales_orderbook_open` | view | every read. **No date filter — moves whenever an order is keyed** |
+| 1 | `v_sales_coverage_by_horizon` | view | every read, but excludes the partial month → monthly in effect |
+| 2 | `mv_sales_order_development_pit` | **CACHE** | `refresh_sales_projection_caches()` |
+| 2 | `v_sales_order_development` | view over that cache | as fresh as the cache |
+| 3 | `mv_sales_projection_baseline` | **CACHE** | `refresh_sales_projection_caches()` |
+| 3 | `mv_sales_chainladder_backtest` | **CACHE** | `refresh_sales_projection_caches()` |
+| 3 | `mv_sales_projection_ensemble_backtest` | **CACHE** | `refresh_sales_projection_caches()` |
+| 3 | `v_sales_projection_calibration`, `v_sales_projection_backtest` | views over caches | as fresh as the caches |
+| 4 | `v_sales_model_chainladder` | view | every read — **daily in practice**, it reads the open order book |
+| 4 | `v_sales_model_baseline`, `_freqsev`, `_ses` | views | every read, completed months only → monthly in practice |
+| 5 | `v_sales_projection_ensemble` | view | every read — **4,202 ms**, which is why it is now cached |
+| 5 | **`mv_sales_projection_ensemble`** | **CACHE** (2026-10-15) | `refresh_sales_projection_ensemble_cache()` — **daily, 00:20 MYT** |
+| 6 | `sales_projection_snapshots` | **TABLE** | `snapshot_sales_projections()`. **Append-only** — `on conflict do nothing`, a row is never rewritten |
+| 6 | `v_sales_projection_accuracy` | view | every read — joins the snapshots table to the backtest cache |
+| 7 | `get_sales_projections()`, `get_sales_projection_accuracy()` | functions | **nothing. They read.** |
+
+### Four clocks, and that is all
+
+| Clock | What fires | What changes |
+| --- | --- | --- |
+| **Every page load** | the RPCs | nothing stored. Views recompute |
+| **Daily, 00:20 MYT** | `refresh-sales-projection-ensemble-daily` | rebuilds the published blend. **Correctness, not speed** — see below |
+| **Monthly, 2nd at 09:00 MYT** | `snapshot-sales-projections-monthly`, two statements in order | ① `refresh_sales_projection_caches()` rebuilds all five caches in dependency order ② `snapshot_sales_projections()` writes **12 rows** permanently |
+| **Whenever SAP syncs** | external pipeline | the `sap_*` tables underneath everything |
+
+### Why the daily job exists, and why its slot is not negotiable
+
+The ensemble stores no dates. Every row's `period_month` is **derived at query
+time** — `date_trunc('month', current_date) + horizon months`, in three model
+views. A live view can never be wrong about which month `horizon = 1` is. **A
+cache can, from midnight on the 1st until the job fires.**
+
+It fails silently, not loudly. `get_sales_projections` filters
+`period_month > cur_month` against a **live** calendar, so a stale h=1 row is
+not rejected — it is **dropped**. `n_months` falls by one, that feeds
+`span_origins`' horizon filter, and the Full-Year outlook **and its 80% band**
+both move with nothing raised.
+
+It cannot be defended downstream either: guarding the forward branch would
+empty `nxt`, and `get_sales_projections` does `cross join nxt` in six places,
+so an empty `nxt` nulls the whole `kpis` object — a crash, not a banner.
+
+**00:20 MYT** turns a nine-hour wrong-month window into twenty minutes.
+`cacheStale` and `ensembleCacheStale` report it if the job dies; **C28b** is
+the assertion to run by hand.
+
+### The rule the cadences follow
+
+> **Do not refresh a cache faster than its inputs change.**
+
+Caches 0–3 are a pure function of **closed months**, so monthly is correct and
+nightly churn would be harmful. The ensemble has one input with no date filter
+at all — `v_sales_orderbook_open` — so daily is that same rule applied, not an
+exception to it. The daily refresh materially moves **Next Month and little
+else**, because the order-book signal enters scaled by `coverage(h)`: ~0.63 at
+h=1, ~0.03 at h=12.
+
+---
+
 ## 9. On Sales Reports — not a separate page
 
 **Decision reversed 2026-10-02.** v1 put this on its own page, arguing different epistemic status. That was wrong twice over: the source-labeling rule exists precisely so differently-sourced numbers can sit together safely, and Sales Reports already carries Target and Budget. A separate page would split the forward view across two screens.
@@ -440,7 +557,71 @@ the end needs no drop. The dependency map and the rule live in the banner of
 
 So Phase D ships **four tiles and three charts**: Full-Year Outlook, Next Month, Order Book vs Statistical, Forecast Confidence; fan chart, method-selection exhibit, build-up bridge.
 
+**Resolved 2026-10-14, Phase E.** Tile 4 and chart 4 above are now built —
+but **not where §9 put them**, and the difference is deliberate.
+
+They live in a **second section**, *Projection Track Record*, below the forward
+one, with their own RPC (`get_sales_projection_accuracy`) and their own
+fiscal-year selector. "What will happen" and "how good has this been" are
+different questions; a tile row that mixes them makes neither readable. The
+forward section is untouched.
+
+The section carries **three** tiles, not §9's one: Forecast Accuracy (typical
+miss), Range Reliability (coverage against a target of 80%), and Year Total vs
+Actual. Chart 4 is the **fan chart** reused rather than `LineChartRenderer` —
+the 80% band is the point of the exhibit, and a line chart cannot draw it.
+
+The accuracy tile reports **a typical miss in percent and MYR, not MASE**.
+MASE is the right measure for comparing models against each other and is where
+it belongs — §11's bake-off tables. It is the wrong measure to put in front of
+an executive, who needs "about a third out in a typical month", not a ratio
+against a naive benchmark they have never seen.
+
+**One thing §9 did not anticipate at all:** every row carries whether it was
+`recorded` or `reconstructed`, and the two are never merged. §9 assumed
+snapshots would exist before accuracy was shown. They did not, so the section
+has to show reconstructed months — and say, in plain text on its own face,
+that those flatter the model because their settings were chosen knowing how
+the months turned out.
+
 Tiles 1–2 are **informational blue, never the green/amber/red ramp** — §4 of `DASHBOARD-CONVENTIONS.md` reserves that for verdicts, and a projection has no good direction. Tiles 3–4 _are_ verdicts and earn colour.
+
+**Restructured 2026-10-14 — seven tiles to four.** §9 specified four tiles;
+Phase E added three more in a second section; the merge put all seven in one.
+That is the failure `DASHBOARD-CONVENTIONS.md` §4a names — *"a wall of numbers
+rather than a story someone can walk through in a department meeting"* — and
+§4a's own test resolves it: a tile earns its place only by answering a **new**
+question.
+
+Four questions were actually being asked, so four tiles:
+
+| Tile | Question | Folded in |
+| --- | --- | --- |
+| **Projected Invoiced Revenue — Full Year** | How much this year, and is it enough? | gains **Budget** |
+| **Projected Invoiced Revenue — Next Month** | How much next month? | — |
+| **Order Book vs Invoicing History** | Are the orders we hold converting? | renamed from "Forecast Inputs — Order Book vs Statistical" |
+| **Forecast Reliability** | How much should I trust any of this? | Forecast Confidence, Forecast Accuracy, Range Reliability, Year Total |
+
+22 sub-metric rows became ~15. `config/trackRecordConfig.js` is deleted.
+
+**The Budget comparator is the substantive addition**, not a cosmetic one.
+Variance-to-plan is the question a finance review opens with, and the outlook
+had nothing to be measured against while Budget sat six sections up the page.
+It is also what finally lets that tile carry the severity ramp: §4 requires an
+inherent direction of better *and* a comparator in `kpis`, and a bare
+projection has neither — revenue above forecast is not "good", it means the
+forecast was low. Outlook against budget has both.
+
+**Two fiscal years are now visible at once, deliberately.** Tile 1 reads the
+current FY from `get_sales_projections` (no arguments); tile 4 reads the
+selected one from `get_sales_projection_accuracy`. Pick an old year and they
+disagree. Both sublabels name their year, per §3's rule for figures that can
+legitimately differ — *"label both sides so the difference is visible"*.
+
+**The section description went from five lines to two.** Every sibling section
+on the page gets one. What was cut (the order book is an input not the subject;
+the view name) moved into the tile tooltips, where §3 says supplementary detail
+belongs.
 
 ### Charts
 
@@ -449,7 +630,7 @@ Tiles 1–2 are **informational blue, never the green/amber/red ramp** — §4 o
 | 1   | **Projection fan** — 24 months actual + 12 forward, 80/95 bands                                   | `FanChartRenderer` _(new)_   | The headline                                                                           |
 | 2   | **Method selection exhibit** — what each model says for the selected month, with the blend marked | `HorizontalBarChartRenderer` | **The actuarial exhibit.** Makes the number challengeable instead of merely believable |
 | 3   | **Build-up bridge** — committed order book → a-priori → total                                     | `HorizontalBarChartRenderer` | Explains the number at a glance: how much is known versus predicted                    |
-| 4   | **Actual vs Expected** — snapshot versus realised, per closed month                               | `LineChartRenderer`          | The experience study. What earns trust, and what says when to stop believing it        |
+| 4   | **Actual vs Expected** — snapshot versus realised, per closed month                               | ~~`LineChartRenderer`~~ **`FanChartRenderer`** (2026-10-14) — the 80% band is the point, and a line chart cannot draw it | The experience study. What earns trust, and what says when to stop believing it. **Built in Phase E, in its own section** — see above |
 
 Charts 2 and 3 are what make this actuarial rather than a black box. **An actuary never shows only the answer** — a reserving exhibit shows each method's indication, the selection, and the reasoning. Ship those two, or the dashboard is just a line with no defence.
 
@@ -796,6 +977,187 @@ Bugs 4 and 5 are the instructive pair: both were silent, both produced plausible
 
 ---
 
+## 11h. Stages 1–2 and Phase E (2026-10-14)
+
+### Verdict: the testing was wrong, not the model. Fixed, re-measured, and the Phase C headline partly retracted.
+
+### Two faults in how the model was TESTED
+
+1. **`first_origin = current_date - interval '30 months'`** in the chain-ladder
+   backtest — a bound set for performance and never revisited. The order-book
+   model was tested on **29 origins while 106 existed**.
+2. **The conversion rates came from a window ending today.** Scoring March 2025
+   applied rates partly derived from 2026. The model was shown the answer.
+
+Because the blend contains that model, **every parameter in the system was
+chosen on 22 clean observations, and the accuracy figure came from those same
+22.** Both faults are mine, and both are the kind that make a model look better
+than it is rather than worse.
+
+**Also retracted:** the Phase C claim that h=12 "cannot be validated — not a
+choice". It was a choice. The bound caused it.
+
+### What the fixes changed
+
+| | Before | After |
+| --- | --- | --- |
+| Backtest origins | 29 | **70** |
+| h=12 scoreable origins | 5 | **46** |
+| Conversion rate, Nov 2020 as-of | 0.351 (today's) | **0.502** |
+| Conversion rate, Feb 2024 as-of | 0.351 (today's) | **0.249** |
+| Band coverage | 46–134% too wide, never checked | **77–82% at every horizon** |
+
+The 77–82% is the first properly calibrated interval this project has had.
+`first_origin` is now **derived** (earliest order + 36 months) rather than a
+literal, so it cannot silently bind again.
+
+### A regression found and fixed in the same pass
+
+With the widened backtest, the published figure went to **RM8.4M at six months
+and RM27.9M at twelve**, against a RM4.5M norm. Two faults multiplying:
+
+- At h=12 there were **zero origins inside the 12-month calibration window**,
+  so the view fell back to a five-year-old bias of −77.3%, floored the
+  correction factor at 0.25, and multiplied by four.
+- `coverage(12)` is 0.030, and the then-current weight rule divided by it —
+  multiplying by 33 again.
+
+**133× in total.** Two fixes, both of which remove a failure mode rather than
+tune around it:
+
+- **The order-book weight reverted to `coverage(h)`.** Self-limiting: a model
+  that can see 3% of a month can no longer drive 80% of the forecast.
+- **The stale-bias fallback was removed.** No recent evidence now means **no
+  correction**, and `basis` publishes `uncalibrated` rather than quietly
+  applying a five-year-old number.
+
+### Finding 1 — the Phase C headline was overturned, then partly restored
+
+Phase C concluded Bornhuetter-Ferguson was "upside down for this business", on
+22 contaminated observations. On 52 clean ones, `coverage(h)` ranks **1st at
+h=3, 1st at h=6, 2nd at h=1 and h=12** — the textbook was right and §11g
+Finding 1 was an artefact of the bug.
+
+But the hold-out then showed the newly-chosen settings performing **worse**
+than the shipped ones, because selection (2021–2025) and hold-out (Oct
+2025–Aug 2026) are different regimes.
+
+**Neither reading is wrong. The parameter is not stable.** That is the standing
+argument for walk-forward, and the reason it is the next piece of work rather
+than a refinement.
+
+### Finding 2 — beyond three months, the modelling adds little
+
+C27, re-run against what is actually live, on 63 origins:
+
+| Horizon | Winner | Note |
+| --- | --- | --- |
+| h=1 | **blend** | `ses_020` wins the hold-out by 41%, but runs **+22.5% high** there against the blend's **+3.8%** |
+| h=3 | **blend** | |
+| h=6 | `seasonal_naive` | |
+| h=12 | `seasonal_naive` | |
+
+"Assume last year's same month repeats" beats us at six and twelve months.
+Recorded here rather than hidden, because it is the honest bound on what this
+feature claims.
+
+**Decision: keep the blend at every horizon.** A noisier centred number beats a
+tighter biased one on a dashboard, and one model everywhere means no special
+case to explain or maintain.
+
+### Finding 3 — nothing was recording what was forecast
+
+The structural gap Phase E exists to close. The views recompute on every page
+load, so last month's figure for November is gone the moment November's actuals
+land. Accuracy could only ever be **reconstructed** — and reconstruction is
+precisely what the hold-out work showed to distrust, because the settings were
+chosen knowing how those months turned out.
+
+**Until forecasts are frozen the day they are made, "how accurate is this" has
+no honest answer.** Snapshots are the experience study; everything before them
+is an estimate of our own past skill, made by us, after the fact.
+
+### Where the numbers stand
+
+| Horizon | Projected | vs trailing |
+| --- | --- | --- |
+| h=1 | RM5,306,480 | +49% |
+| h=3 | RM4,365,771 | |
+| h=6 | RM4,346,752 | |
+| h=12 | RM3,531,594 | −1% |
+
+Honest accuracy: **~29–34% typical miss at one month**, **~11% on a six-month
+total**. Seasonal-naive is 49%. Totals are reliably tighter than single months
+because they cancel timing errors — a shipment slipping from March to April
+does not move a figure containing both.
+
+### The business signal, unchanged and getting louder
+
+Orders up 43% year on year while invoicing is down 35%. The order book is
+filling with work that does not convert. The model surfaced it; the model
+cannot fix it.
+
+### Finding 4 — the two charts were drawing the same thing
+
+Phase D's forward fan carried the model's own one-month-ahead prediction across
+history so its track record would be visible rather than asserted. Phase E then
+built a Track Record chart to show exactly that. For every month the two shared,
+**both plotted the same actual line against the same h=1 forecast from the same
+backtest** — from `private.mv_sales_projection_ensemble_backtest`, at
+`window_months = 12`, `horizon = 1`.
+
+Merged into one fiscal-year timeline, owned by `get_sales_projection_accuracy`.
+Past months show what was forecast against what happened; future months show
+what is forecast now; months beyond reach are blank rather than absent. The
+detail table was removed — the chart already carried its data.
+
+**The blanks are the feature.** Selecting a fiscal year we can only half-see
+should show how far we can see and then stop. Standing in October 2026,
+FY2027-28 gives Apr–Oct 2027 (horizons 6–12) and five empty slots.
+
+**The six-month cap is not applied to that chart**, because applying it would
+make any future fiscal year almost entirely blank — and because the finding
+that set the cap is the one this section retracts. With h=12 now carrying 46
+scoreable origins, `measured_quantiles`' `count(*) >= 20` guard clears at every
+horizon, so the uncapped forward months get a **measured** band rather than the
+lognormal fallback. That is a data argument, not a UX one, and it has its own
+verification query. §11h Finding 2 still stands and is disclosed in the chart
+subtitle: past six months, `seasonal_naive` is about as good.
+
+### Finding 5 — a third stale filter, in the live KPI
+
+The 2026-10-14 revert from `smooth w(h)` to `coverage(h)` swept the views and
+missed `get_sales_projections_rpc.sql`, which carried the abandoned label in
+**two** places. One fed the old chart's historical line. The other —
+`span_origins` — sizes **`fullYearLo80`/`fullYearHi80`**.
+
+So the Full-Year range on the live dashboard was **a band measured against one
+blend wrapped around a point estimate produced by another**. Not a large error,
+and not one anybody would have noticed, which is precisely the problem.
+
+The lesson is cheap to state and was learned twice in one day: **a filter that
+encodes a modelling choice is a configuration value pretending to be code.**
+There is no mechanism in this estate that makes three copies of
+`cl_weight_label = '…'` move together. Each now carries a comment naming the
+other two.
+
+The chart's copy is left stale for exactly one release, deliberately: shipping
+both charts lets them be diffed, and the difference across the current year's
+past months is the proof the fix landed.
+
+### Carried forward
+
+1. **Walk-forward (stage 3).** The answer to the regime problem. Snapshots are
+   what will eventually show whether it is worth the work.
+2. **Watch the h=6 chain-ladder advantage erode** — §11g flagged it, and
+   `seasonal_naive` now beating us there is consistent with it.
+3. **Backfilling snapshots is impossible to do honestly** and is not attempted.
+   Past months show as `reconstructed` and say so on the dashboard's own face.
+4. **The first real accuracy measurement is December 2026.** The October
+   snapshot predicts November; November closes; December compares them.
+
+---
+
 ## 11. Phase 0 findings
 
 > **Run 2026-10-02 against reconciled data.** Source:
@@ -1083,3 +1445,8 @@ The required links are already extracted:
 | 2026-10-01 | Written. Supersedes `hyrax-data-platform/docs/plans/10-forecasting-predictive-analytics-plan.md`, which was designed against an unbuilt star schema. Phase 0 diagnostic created; nothing else built. |
 | 2026-10-02 | Phases 0, A and B built and backtested. Chain-ladder passes as an ensemble member (§11e); `freqsev` scores MASE 0.748 at twelve months (§11f). |
 | 2026-10-03 | **Phase C complete — §11g.** Ensemble beats or ties the best single model at 9 of 11 horizons. Two design assumptions overturned by measurement: Bornhuetter-Ferguson's `coverage(h)` weighting is **upside down** for this business (order book is a 6-month signal, not a 1-month one), and the regime argument that opened Phase C was **wrong** — a 6-month calibration window was worst, not best. h=12 proved unvalidatable; **published horizon capped at 6 months**, which still covers the full fiscal year from October. Intervals were found 46–134% too wide and are now sized from measured error. Seven bugs recorded, including a `UNION ALL` positional mismatch that made the h=1 blend read 46% *below* actuals. |
+| 2026-10-14 | **Stages 1–2 and Phase E — §11h.** Two faults found in how the model was *tested*: a 30-month backtest bound set for performance and never revisited (29 origins used of 106), and conversion rates computed from a window ending today, so scoring March 2025 applied rates derived from 2026. **Every parameter had been chosen on 22 contaminated observations, and the accuracy figure came from those same 22.** Fixed point-in-time: **70 origins**, h=12 gains 41 scoreable ones, and band coverage lands at **77–82% at every horizon** — the first properly calibrated interval here. §11g Finding 1 is **retracted**: `coverage(h)` ranks 1st or 2nd at every horizon on clean data. A 133× regression surfaced and was fixed in the same pass (stale-bias fallback × a weight rule dividing by `coverage`). C27 records that `seasonal_naive` beats the blend at h=6 and h=12 — beyond three months the modelling adds little. **Phase E ships snapshots**, the first monthly cron and scheduled matview refresh in this repo, `v_sales_projection_accuracy`, and a Track Record section that never merges recorded with reconstructed. First real measurement: **December 2026**. |
+| 2026-10-14 | **The two projection sections merged — §11h Findings 4–5.** Phase D's fan and Phase E's track-record chart drew the same actual line against the same h=1 forecast from the same backtest for every month they shared. One fiscal-year timeline now replaces both, owned by `get_sales_projection_accuracy`, with **future fiscal years selectable** and unreachable months **blank rather than absent**. The six-month cap is not applied to it — defensible on the data now that h=12 carries 46 origins and `measured_quantiles` clears its guard at every horizon. The detail table was removed. All 7 tiles kept pending a later call. **A third stale `smooth w(h)` filter was found in `span_origins`**, sizing the live `fullYearLo80`/`fullYearHi80` — a band measured against one blend wrapped around a point estimate from another. Fixed. |
+| 2026-10-14 | **Projections section restructured — 7 tiles to 4, §9.** §4a's test (does this answer a NEW question, or another angle on a neighbour's?) collapsed Forecast Confidence, Forecast Accuracy, Range Reliability and Year Total into one **Forecast Reliability** tile; 22 sub-metric rows became ~15; `trackRecordConfig.js` deleted. The Full-Year tile **gains a Budget comparator** — the section's biggest BI gap, and what lets it carry the severity ramp at all. **Two `getStatusVariant` bugs fixed**: both Forecast Confidence and Forecast Accuracy passed `low-good` with a `goodAt` key, which that direction does not read — `criticalAt` was `undefined`, so the critical tier was dead code and **a 45% miss rendered green "On track"** while red was unreachable. Next Month now states its interval as a likelihood ("80% likely RM X – RM Y"), permitted because the coverage is measured, not assumed — new rule in CONVENTIONS §3. |
+| 2026-10-15 | **The published blend is cached — §8b.** `v_sales_projection_ensemble` measured **4,202 ms to produce twelve rows** and ran on every page load, twice over; it was the entire cost of the Projections section. Now `private.mv_sales_projection_ensemble`, refreshed **daily at 00:20 MYT**. **The daily job is a correctness requirement, not a tuning choice:** `period_month` is derived from `current_date`, so a cache built last month names the wrong month for h=1 — and `get_sales_projections` filters against a live calendar, so that row is **silently dropped** rather than rejected, moving the Full-Year outlook and its band with nothing raised. Three estate firsts, all argued in section 6's banner: a UNIQUE index on an MV, `refresh ... concurrently`, and a `cache_refreshed_at` column (these twelve forward rows carry no natural watermark, so a dead cron would otherwise be undetectable). §8b is new and is the first complete map of how every object in this module updates. |
+| 2026-10-16 | **Forecast rows removed from the Invoiced Revenue tile, one day after being added — and the rule that stops it recurring.** They were justified by IBCS (actual/plan/forecast are scenarios of one measure). That reading omitted a condition: **scenarios are peers only when they share the measure's dimensions.** Actual and Budget slice by salesperson and date; the forecast slices by date alone, because per-rep projections are permanently out of scope. With a rep selected the tile read RM 4.2M actual, RM 8.1M budget, RM 32.8M *company* forecast — and no label repairs a tile, because a tile is a comparison frame. Rule written into `DASHBOARD-CONVENTIONS.md` §3. The forward view stays in the Projections section, unchanged. **A variance bridge was added in its place** — the one element an executive report is prescribed to have that this page did not (`docs/portal/DASHBOARD-DESIGN-RESEARCH.md`, new, which records every source and the decision it drove). `fullYearCurrentMonthLo80`/`Hi80` stay published but unrendered. |

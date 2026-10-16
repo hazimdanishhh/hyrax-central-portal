@@ -8,10 +8,7 @@ import {
   WalletIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import {
-  compactCurrency,
-  preciseCurrencyWithCents,
-} from "../../../../../functions/formatNumber";
+import { preciseCurrency } from "../../../../../functions/formatNumber";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
 
 /**
@@ -103,15 +100,17 @@ export function getSalesReportsOverviewConfig(
   };
 
   const deltaText = (delta) =>
-    delta === null ? "" : delta > 0 ? `↑ ${delta}%` : `↓ ${Math.abs(delta)}%`;
+    delta === null
+      ? ""
+      : delta > 0
+        ? `↑ ${delta}% vs last period`
+        : `↓ ${Math.abs(delta)}% vs last period`;
 
   // Appends a period-over-period delta into an existing attainment/rate
   // subvalue, rather than replacing it -- see this file's own header comment.
   const pctWithDelta = (pct, delta) => {
     const base = `${pct ?? 0}%`;
-    return delta === null
-      ? base
-      : `${base} (${deltaText(delta)} vs last period)`;
+    return delta === null ? base : `${base} (${deltaText(delta)})`;
   };
 
   const isPeriodFiltered =
@@ -369,13 +368,11 @@ export function getSalesReportsOverviewConfig(
     // it deliberately ignores the date filter, same as before.
     {
       icon: GaugeIcon,
-      label: "Leads Won vs Target",
+      label: "Pipeline Leads Won",
       sublabel: periodLabel,
-      value: preciseCurrencyWithCents(kpis.pipelineWonRevenue),
-      subvalue: pctWithDelta(
-        kpis.pipelineAttainmentPct,
-        pipelineAttainmentDelta,
-      ),
+      value: preciseCurrency(kpis.pipelineWonRevenue),
+      delta: `${kpis.pipelineAttainmentPct || 0}%`,
+      subvalue: deltaText(pipelineAttainmentDelta),
       variant: pipelineAttainmentStatus.variant,
       status: {
         icon: pipelineAttainmentStatus.statusIcon,
@@ -386,12 +383,18 @@ export function getSalesReportsOverviewConfig(
       metrics: [
         {
           label: "Pipeline Target",
-          value: preciseCurrencyWithCents(kpis.pipelineTargetRevenue),
+          value: preciseCurrency(kpis.pipelineTargetRevenue),
           to: "/app/sales/leads/targets",
           // Targets Management's own filterConfig.js supports "owner" (Sales
           // Rep) -- previously this link carried no filter at all, so
           // selecting a Salesperson on this page didn't carry through.
           filter: { ...baseFilterCRM },
+        },
+        {
+          label: "Open Pipeline Value",
+          value: preciseCurrency(kpis.activePipelineValue),
+          to: "../leads/list",
+          filter: { ...baseFilterCRM, activePipelineOnly: "true" },
         },
         {
           label: "Win Rate",
@@ -402,12 +405,6 @@ export function getSalesReportsOverviewConfig(
             closedOnly: "true",
             ...closedPeriodFilter,
           },
-        },
-        {
-          label: "Active Pipeline Value",
-          value: compactCurrency(kpis.activePipelineValue),
-          to: "../leads/list",
-          filter: { ...baseFilterCRM, activePipelineOnly: "true" },
         },
         {
           label: "Pipeline Cycle",
@@ -430,7 +427,7 @@ export function getSalesReportsOverviewConfig(
       icon: FileTextIcon,
       label: "Sales Orders",
       sublabel: periodLabel,
-      value: preciseCurrencyWithCents(kpis.orderBookValue),
+      value: preciseCurrency(kpis.orderBookValue),
       // Nothing to combine this delta with -- no order-level target exists.
       subvalue: deltaText(orderBookDelta),
       // Informational -- no natural target to evaluate order value against.
@@ -446,7 +443,7 @@ export function getSalesReportsOverviewConfig(
         },
         {
           label: "Avg Order Value",
-          value: compactCurrency(kpis.avgOrderValue),
+          value: preciseCurrency(kpis.avgOrderValue),
         },
         {
           label: "Distinct Customers Ordering",
@@ -474,8 +471,9 @@ export function getSalesReportsOverviewConfig(
       icon: ReceiptIcon,
       label: "Invoiced Revenue vs Budget",
       sublabel: periodLabel,
-      value: preciseCurrencyWithCents(kpis.totalInvoiced),
-      subvalue: pctWithDelta(kpis.budgetAttainmentPct, budgetAttainmentDelta),
+      value: preciseCurrency(kpis.totalInvoiced),
+      delta: `${kpis.budgetAttainmentPct || 0}%`,
+      subvalue: deltaText(budgetAttainmentDelta),
       variant: invoiceBudgetStatus.variant,
       status: {
         icon: invoiceBudgetStatus.statusIcon,
@@ -483,10 +481,27 @@ export function getSalesReportsOverviewConfig(
       },
       to: canAccessInvoices ? "/app/finance/invoices/list" : null,
       filter: { ...baseFilterSAP, ...periodFilter },
+      // ⚠ EVERY ROW HERE IS SCOPED THE SAME WAY AS THE HEADLINE -- by the
+      // date filter AND by the salesperson filter. Do not add a row that
+      // obeys only one of them.
+      //
+      // Three forecast rows lived here briefly on 2026-10-15 and were removed
+      // the next day. They followed neither filter, and the salesperson one
+      // is the fatal axis: there IS no per-rep forecast (get_sales_projections
+      // takes no owner parameter, and Phase D ruled per-rep projections
+      // permanently out of scope). Pick a rep and the tile showed RM 4.2M
+      // actual, RM 8.1M budget, RM 32.8M company forecast -- a crisis that was
+      // not there, which no label repairs.
+      //
+      // The rule it produced, now in DASHBOARD-CONVENTIONS.md §3: a scenario
+      // belongs beside a measure only when it shares that measure's
+      // DIMENSIONS. Actual and Budget both slice by rep and date; the forecast
+      // slices by date alone, so it is not a peer. It lives in the Projections
+      // section, where "company-wide" is the stated contract.
       metrics: [
         {
           label: "Revenue Budget",
-          value: preciseCurrencyWithCents(kpis.revenueBudgetTotal),
+          value: preciseCurrency(kpis.revenueBudgetTotal),
           to: "/app/sales/orders/budgets",
           // Budgets' own filterConfig.js keys on salesRepCode too -- see
           // baseFilterSAP's own comment above.
@@ -498,11 +513,17 @@ export function getSalesReportsOverviewConfig(
         },
         {
           label: "Avg Invoice Value",
-          value: compactCurrency(kpis.avgInvoiceValue),
+          value: preciseCurrency(kpis.avgInvoiceValue),
         },
       ],
       title:
-        "Backward-looking, Invoiced Revenue VS Invoice Budget. Avg Invoice Value is the mean of all invoices issued this period, regardless of whether they were paid. Color: Critical below 70% of budget, Warning 70-94%, Good at 95%+.",
+        "Backward-looking: invoiced revenue (sap_invoices) for the selected period, " +
+        "against the budget someone set for it (sales_budgets). Avg Invoice Value is " +
+        "the mean of all invoices issued this period, regardless of whether they were " +
+        "paid. Every figure here follows BOTH filters -- the date range and the " +
+        "salesperson. The forward view lives in the Projections section below, which " +
+        "is company-wide and deliberately ignores both. " +
+        "Colour: Critical below 70% of budget, Watch 70-94%, On track at 95%+.",
     },
 
     // TILE 4: Payments Collected. FIXED 2026-09-30 (verification #2, flagged
@@ -516,8 +537,9 @@ export function getSalesReportsOverviewConfig(
       icon: WalletIcon,
       label: "Payments Collected",
       sublabel: periodLabel,
-      value: preciseCurrencyWithCents(kpis.totalCollected),
-      subvalue: pctWithDelta(kpis.collectionRatePct, collectionRateDelta),
+      value: preciseCurrency(kpis.totalCollected),
+      delta: `${kpis.collectionRatePct || 0}%`,
+      subvalue: deltaText(collectionRateDelta),
       variant: paymentsCollectedStatus.variant,
       status: {
         icon: paymentsCollectedStatus.statusIcon,
@@ -572,7 +594,7 @@ export function getSalesReportsOverviewConfig(
       metrics: [
         {
           label: "Top 5 Revenue",
-          value: compactCurrency(kpis.top5CustomerRevenue),
+          value: preciseCurrency(kpis.top5CustomerRevenue),
           to: canAccessInvoices ? "/app/finance/invoices/list" : null,
           filter: {
             ...baseFilterSAP,
@@ -626,7 +648,7 @@ export function getSalesReportsOverviewConfig(
       metrics: [
         {
           label: "Top 5 Revenue",
-          value: compactCurrency(kpis.top5ProductRevenue),
+          value: preciseCurrency(kpis.top5ProductRevenue),
         },
         {
           label: "Top Product",
@@ -662,7 +684,7 @@ export function getSalesReportsOverviewConfig(
       metrics: [
         {
           label: "Top 3 Revenue",
-          value: compactCurrency(kpis.top3GroupRevenue),
+          value: preciseCurrency(kpis.top3GroupRevenue),
         },
         {
           label: "Top Group",

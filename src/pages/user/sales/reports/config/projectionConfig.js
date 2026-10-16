@@ -2,7 +2,7 @@ import {
   TrendUpIcon,
   CalendarBlankIcon,
   ScalesIcon,
-  GaugeIcon,
+  TargetIcon,
 } from "@phosphor-icons/react";
 import {
   compactCurrency,
@@ -11,7 +11,27 @@ import {
 import { getStatusVariant } from "../../../../../functions/statusVariant";
 
 /**
- * Projection KPI tiles for Sales Reports (Phase D).
+ * Projection KPI tiles for Sales Reports.
+ *
+ * ── RESTRUCTURED 2026-10-14: SEVEN TILES TO FOUR ──────────────────────────
+ *
+ * This section had grown to 7 tiles carrying 22 sub-metric rows across two
+ * files -- the exact failure DASHBOARD-CONVENTIONS.md §4a names: "a wall of
+ * numbers rather than a story someone can walk through in a department
+ * meeting". §4a's own test resolves it: a tile earns its place only if it
+ * answers a NEW question, not another angle on a neighbour's.
+ *
+ * Four questions were actually being asked:
+ *
+ *   1. How much will we invoice this fiscal year -- and is that enough?
+ *   2. How much next month?
+ *   3. Are the orders we already hold turning into invoices?
+ *   4. How much should I trust any of this?
+ *
+ * Four tiles, one per question. The old Forecast Confidence, Forecast
+ * Accuracy, Range Reliability and Year Total tiles all answered (4) from
+ * different angles and are now sub-metric rows inside it. trackRecordConfig.js
+ * is deleted; its three tiles live here.
  *
  * ── WHAT IS BEING FORECAST: INVOICED REVENUE ──────────────────────────────
  *
@@ -21,228 +41,289 @@ import { getStatusVariant } from "../../../../../functions/statusVariant";
  *
  * The order book (`sap_sales_orders`) is an INPUT to the forecast, not its
  * subject: the chain-ladder develops orders already placed into the invoicing
- * they are expected to produce. So "Order Book vs Statistical" compares two
- * ways of estimating the SAME invoiced-revenue figure, not orders against
- * invoices.
- *
- * This was ambiguous in the first cut and is the reason every label below now
- * carries the word "Invoiced" or names its source table outright.
+ * they are expected to produce. So tile 3 compares two ways of estimating the
+ * SAME invoiced-revenue figure, not orders against invoices.
  *
  * ── LABELLING CONVENTION ──────────────────────────────────────────────────
  *
- * Per DASHBOARD-CONVENTIONS.md §3/§4b and the shape of this page's own
- * overviewConfig.js: the LABEL carries the canonical source tag ("Sales
- * Orders", "Invoiced Revenue", "Payments Collected"), the SUBLABEL carries the
- * window and nothing else, and every sub-metric label names its literal source
- * table. The tag for this section is **Projection** -- added to the canonical
- * table in DASHBOARD-CONVENTIONS.md §3 -- which exists precisely because
- * "Projected" alone could mean the CRM Target or the SAP Budget, both of which
- * already live on this page and are both set BY A HUMAN. This one is computed.
+ * Per DASHBOARD-CONVENTIONS.md §3/§4b and this page's own overviewConfig.js:
+ * the LABEL carries the canonical source tag, the SUBLABEL carries the window
+ * and nothing else, and every sub-metric label names its literal source table.
+ * The tag for this section is **Projection** -- it exists because "Projected"
+ * alone could mean the CRM Target or the SAP Budget, both of which live on
+ * this page and are both set BY A HUMAN. This one is computed.
  *
- * ── WHY THREE OF THE FOUR ARE INFORMATIONAL BLUE ───────────────────────────
+ * ── TWO TILES NOW CARRY THE SEVERITY RAMP, AND TWO DO NOT ─────────────────
  *
- * §4 of DASHBOARD-CONVENTIONS.md: a tile earns the green/amber/red ramp only
- * if it has BOTH an inherent direction of "better" AND a comparator already in
- * `kpis`. A projection has neither -- revenue coming in above forecast is not
- * "good", it means the forecast was low. Tiles 1-3 are therefore fixed blue,
- * tint only, no status badge.
+ * §4: a tile earns the green/amber/red ramp only with BOTH an inherent
+ * direction of "better" AND a comparator already in `kpis`.
  *
- * Tile 4 is the exception and a genuine verdict: models disagreeing more IS
- * unambiguously worse, and the spread is computable from fields already in
- * `kpis`. It gets the ramp and a badge, so severity is never colour alone.
+ *   Tile 1 EARNS IT, as of 2026-10-14, because it finally has a budget to be
+ *   measured against. Beating plan is unambiguously good. Before the budget
+ *   existed this was informational blue and correctly so -- revenue above
+ *   forecast is not "good", it means the forecast was low.
  *
- * ── WHAT IS NOT HERE ───────────────────────────────────────────────────────
+ *   Tile 4 EARNS IT: a smaller miss is unambiguously better.
  *
- * The "Projection Accuracy" tile from architecture §9 needs Phase E's frozen
- * snapshots. A live-computed projection rewrites its own history -- last
- * month's forecast for March is a different number this month -- so accuracy
- * measured without snapshots compares against a moving target and would
- * flatter itself indefinitely.
+ *   Tiles 2 and 3 do NOT. A next-month projection has no good direction, and
+ *   a gap between the two estimation methods could mean growth or could mean
+ *   non-conversion -- the sign alone does not say which.
+ *
+ * ── TWO FISCAL YEARS ARE IN PLAY, DELIBERATELY ────────────────────────────
+ *
+ * Tile 1 reads the CURRENT fiscal year from get_sales_projections, which takes
+ * no arguments. Tile 4 reads the SELECTED one from get_sales_projection_
+ * accuracy, driven by the section's own year picker. Choose an old year and
+ * the two legitimately disagree.
+ *
+ * Both sublabels therefore say which year they mean, out loud. §3's rule for
+ * two figures that can legitimately differ is to "label both sides so the
+ * difference is visible", never to silently pick one.
  */
-export function getSalesProjectionsConfig(kpis) {
+
+const pct = (v) => (v == null ? null : `${v > 0 ? "+" : ""}${v}%`);
+
+export function getSalesProjectionsConfig(kpis, trackRecord) {
   if (!kpis) return [];
 
-  const pct = (v) => (v == null ? null : `${v > 0 ? "+" : ""}${v}%`);
-
-  // ─── Tile 1: Full-Year Outlook (fiscal April-March) ──────────────────────
-  // Leads the section. C19 measured a multi-month total at ~10% error against
-  // 32-42% for any single month -- timing noise cancels over a span, so this
-  // is the trustworthy number and Next Month is the volatile one.
-  const beyond = kpis.fullYearMonthsBeyondValidated || 0;
-
-  // Honest disclosure rather than a footnote nobody reads. From April to July
-  // the remaining fiscal year is longer than the six months Phase C could
-  // validate (C21), and those months carry visibly wider bands.
-  const horizonNote =
-    beyond > 0
-      ? `${kpis.fullYearMonthsProjected} months projected · ${beyond} beyond validated horizon`
-      : `${kpis.fullYearMonthsProjected} months projected · all within validated horizon`;
-
-  // ─── Tile 4: Forecast Confidence ─────────────────────────────────────────
-  // Spread between the highest and lowest model, as a share of the published
-  // number. "The models agree within 12%" is actionable; "between-model
-  // variance is 18% of total" is not. Thresholds are documented estimates, not
-  // audited targets -- per §4's closing line.
-  const spread = kpis.modelSpreadPct;
-  const confidenceStatus = getStatusVariant(spread, {
-    direction: "low-good",
-    thresholds: { warningAt: 25, goodAt: 45 },
+  // ── TILE 1 ───────────────────────────────────────────────────────────────
+  // Thresholds match this page's own "Invoiced Revenue vs Budget" tile
+  // (warningAt 70, goodAt 95) on purpose: same question, same bar, so a
+  // forecast of 94% attainment and an actual of 94% attainment read the same
+  // amber. Documented estimates, not audited targets, per §4's closing line.
+  //
+  // Null attainment (no budget set for the year) returns blueCard from
+  // getStatusVariant on its own -- it never guesses a tier for missing data.
+  const budgetStatus = getStatusVariant(kpis.fullYearBudgetAttainmentPct, {
+    direction: "high-good",
+    thresholds: { warningAt: 70, goodAt: 95 },
   });
 
+  const beyond = kpis.fullYearMonthsBeyondValidated || 0;
+  const horizonNote =
+    beyond > 0
+      ? `${kpis.fullYearMonthsProjected} months projected · ${beyond} more than six ahead`
+      : `${kpis.fullYearMonthsProjected} months projected · all within six`;
+
+  // ── TILE 4 ───────────────────────────────────────────────────────────────
+  // FIXED 2026-10-14. This read `{ warningAt: 50, goodAt: 35 }` -- but
+  // `goodAt` is a high-good key and low-good reads `criticalAt`. criticalAt
+  // was undefined, every `value >= undefined` is false, so the critical tier
+  // was dead code: a 45% miss rendered GREEN "On track" and red was
+  // unreachable. The thresholds below are what the old comment always said
+  // the intent was.
+  //
+  // Anchored on what this series supports: a single month runs ~30% error and
+  // seasonal-naive -- the dumbest possible benchmark -- runs ~49%. Beating
+  // 35% is good; past 50% the forecast is adding nothing over "last year
+  // repeated", which is a failure, not a warning.
+  const tr = trackRecord || null;
+  const missStatus = getStatusVariant(tr?.typicalMissPct, {
+    direction: "low-good",
+    thresholds: { warningAt: 35, criticalAt: 50 },
+  });
+
+  // Stated on the tile that makes accuracy claims, because a year rebuilt
+  // after the fact is a weaker claim than one recorded before the outcome was
+  // known, and a tile that hides the difference overstates what it knows.
+  const evidence = !tr
+    ? "No track record loaded"
+    : tr.recordedMonths > 0
+      ? `${tr.recordedMonths} recorded · ${tr.reconstructedMonths} rebuilt afterwards`
+      : `${tr.reconstructedMonths} months, all rebuilt afterwards`;
+
   return [
+    // ══ 1. How much this fiscal year, and is it enough? ═════════════════════
     {
       icon: TrendUpIcon,
-      label: "Projected Invoiced Revenue — Full Year",
-      sublabel: `FY ${kpis.fiscalYearLabel}, Apr–Mar · actual + projected`,
+      label: `Projected Invoiced Revenue — FY ${kpis.fiscalYearLabel}`,
+      // Derived, not hardcoded -- fiscalYearLabel is "2026-2027".
+      sublabel: `Apr ${kpis.fiscalYearLabel?.slice(2, 4) ?? ""} – Mar ${kpis.fiscalYearLabel?.slice(-2) ?? ""}`,
       value: preciseCurrencyWithCents(kpis.fullYearOutlook),
       subvalue:
-        kpis.fullYearVsPriorPct == null
-          ? null
-          : `${pct(kpis.fullYearVsPriorPct)} vs FY prior`,
-      variant: "blueCard",
+        kpis.fullYearBudgetAttainmentPct == null
+          ? kpis.fullYearVsPriorPct == null
+            ? null
+            : `${pct(kpis.fullYearVsPriorPct)} vs FY prior`
+          : `${kpis.fullYearBudgetAttainmentPct}% of budget`,
+      variant: budgetStatus.variant,
+      status: budgetStatus.statusIcon
+        ? { icon: budgetStatus.statusIcon, label: budgetStatus.statusLabel }
+        : undefined,
       to: null,
       metrics: [
         {
-          label: "Invoiced, closed months (sap_invoices)",
-          value: compactCurrency(kpis.fullYearActualToDate),
+          label: "Revenue Budget",
+          value:
+            kpis.fullYearBudget > 0
+              ? preciseCurrencyWithCents(kpis.fullYearBudget)
+              : "none set",
         },
         {
-          label: "Current month — invoiced to date + run-rate",
-          value: compactCurrency(kpis.fullYearCurrentMonthEstimate),
+          label: "Invoiced so far",
+          value: preciseCurrencyWithCents(kpis.fullYearActualToDate),
         },
         {
-          label: "Projected invoicing, remaining months",
-          value: compactCurrency(kpis.fullYearProjectedRemainder),
+          label: "Still forecast",
+          value: preciseCurrencyWithCents(
+            (kpis.fullYearCurrentMonthEstimate || 0) +
+              (kpis.fullYearProjectedRemainder || 0),
+          ),
         },
         {
           label: "80% range",
           value: `${compactCurrency(kpis.fullYearLo80)} – ${compactCurrency(kpis.fullYearHi80)}`,
         },
-        { label: horizonNote, value: "" },
+        // { label: horizonNote, value: "" },
       ],
       title:
-        "Projected INVOICED revenue for the fiscal year (April–March) — the same measure as " +
-        "this page's 'Invoiced Revenue vs Budget' tile, from sap_invoices. Not orders. " +
-        "Closed months are actual invoicing; the current month is what has been invoiced " +
-        "so far plus the model's monthly level for the days remaining; the rest is projected. " +
-        "A multi-month total is markedly more reliable than any single month in it — timing " +
-        "errors (did that large shipment land in March or April?) cancel over a span. " +
-        "Informational blue: a projection has no inherently good direction.",
+        "Invoiced revenue expected for the full fiscal year (sap_invoices), against the " +
+        "budget. Closed months are actual; the rest is forecast. A year total is far more " +
+        "reliable than any single month in it — timing errors cancel over a span. " +
+        "This forecasts ATTAINMENT, it is not attainment achieved. " +
+        "Colour: Critical below 70% of budget, Watch 70–94%, On track at 95%+. Blue if no " +
+        "budget is set.",
     },
 
+    // ══ 2. How much next month? ═════════════════════════════════════════════
     {
       icon: CalendarBlankIcon,
-      label: "Projected Invoiced Revenue — Next Month",
-      sublabel: `${kpis.nextMonthLabel} · single month`,
+      label: `Projected Invoiced Revenue — ${kpis.nextMonthLabel}`,
+      sublabel: `Next month`,
       value: preciseCurrencyWithCents(kpis.nextMonthProjected),
+      // "80% likely" rather than "80% range". The claim is identical -- an 80%
+      // interval IS an 80% likelihood -- but said this way it reads to someone
+      // who has never met a prediction interval. Honest because the coverage
+      // is MEASURED at 77-82% across every horizon, not assumed. Tile 4 is
+      // where that measurement is published. See DASHBOARD-CONVENTIONS.md §3.
       subvalue:
-        kpis.nextMonthVsTrailing3mPct == null
+        kpis.nextMonthLo80 == null
           ? null
-          : `${pct(kpis.nextMonthVsTrailing3mPct)} vs trailing 3-month average`,
+          : `80% likely ${compactCurrency(kpis.nextMonthLo80)} – ${compactCurrency(kpis.nextMonthHi80)}`,
       variant: "blueCard",
       to: null,
       metrics: [
         {
-          label: "80% range",
-          value: `${compactCurrency(kpis.nextMonthLo80)} – ${compactCurrency(kpis.nextMonthHi80)}`,
+          label: "vs trailing 3-month average",
+          value: pct(kpis.nextMonthVsTrailing3mPct) || "—",
         },
         {
-          label: "vs same month last year (sap_invoices)",
+          label: "vs same month last year",
           value: pct(kpis.nextMonthVsLastYearPct) || "—",
         },
         {
-          label: "Weight on order book (sap_sales_orders)",
-          value: `${kpis.nextMonthOrderBookWeightPct}%`,
+          label: "Already in order book",
+          value:
+            kpis.nextMonthOrderBookWeightPct == null
+              ? "—"
+              : `${kpis.nextMonthOrderBookWeightPct}% of the estimate`,
         },
       ],
       title:
-        "Projected INVOICED revenue for next month alone (sap_invoices). Not orders booked. " +
-        "Single months are volatile here — the top three invoices are typically 31.2% of a " +
-        "month, so one large shipment slipping a few days moves this figure materially. The " +
-        "fiscal-year outlook is the more dependable number. " +
-        "'Weight on order book' is how much of this estimate comes from orders already " +
-        "placed rather than from statistical models; it was measured, not assumed.",
+        "Invoiced revenue expected next month (sap_invoices). Not orders booked. " +
+        "Single months are volatile — the top three invoices are typically 31% of a month, " +
+        "so one shipment slipping a few days moves this. The full-year figure is the " +
+        "dependable one. " +
+        "'80% likely' means four months in five land inside that range; Forecast " +
+        "Reliability reports how often that has held. " +
+        "Blue: a forecast has no good direction.",
     },
 
+    // ══ 3. Are the orders we hold turning into invoices? ════════════════════
     {
       icon: ScalesIcon,
-      label: "Forecast Inputs — Order Book vs Statistical",
-      sublabel: `${kpis.nextMonthLabel} · two estimates of the same invoiced revenue`,
-      value: preciseCurrencyWithCents(kpis.orderBookGap),
-      subvalue:
+      label: "Order Book vs Invoicing History",
+      sublabel: `${kpis.nextMonthLabel} · two estimates`,
+      value:
         kpis.orderBookGapPct == null
+          ? "—"
+          : `${Math.abs(kpis.orderBookGapPct)}% apart`,
+      subvalue:
+        kpis.orderBookImplied == null
           ? null
-          : `Order book implies ${pct(kpis.orderBookGapPct)} vs statistical`,
+          : `Order book ${compactCurrency(kpis.orderBookImplied)} · history ${compactCurrency(kpis.aprioriImplied)}`,
       variant: "blueCard",
       to: null,
       metrics: [
         {
-          label: "Implied by order book (sap_sales_orders)",
-          value: compactCurrency(kpis.orderBookImplied),
-        },
-        {
-          label: "Implied by invoicing history (sap_invoices)",
-          value: compactCurrency(kpis.aprioriImplied),
-        },
-        {
-          label: "Orders booked, last 6m vs prior yr (sap_sales_orders)",
+          label: "Orders booked, 6m vs last yr",
           value: pct(kpis.ordersYoyPct) || "—",
         },
         {
-          label: "Invoiced, last 6m vs prior yr (sap_invoices)",
+          label: "Invoiced, 6m vs last yr",
           value: pct(kpis.invoicedYoyPct) || "—",
         },
       ],
       title:
-        "Two independent estimates of the SAME figure — next month's invoiced revenue — " +
-        "deliberately shown side by side rather than blended away. This is not orders vs " +
-        "invoices: both numbers are invoiced-revenue estimates. One develops the orders " +
-        "already on the book (sap_sales_orders) into the invoicing they should produce; the " +
-        "other extrapolates recent invoicing history (sap_invoices). " +
-        "A persistent gap is a conversion and delivery signal, not a forecasting error — " +
-        "orders arriving faster than they are being invoiced accumulate as backlog. " +
-        "Two figures may legitimately disagree; the convention is to label both sides so " +
-        "the difference stays visible.",
+        "Two ways of estimating the SAME figure — next month's invoiced revenue. One " +
+        "develops orders already placed; the other extrapolates invoicing history. " +
+        "Not orders vs invoices: both are invoiced-revenue estimates. " +
+        "The two percentages below matter most. Orders rising while invoicing falls means " +
+        "the book is filling with work that is not converting — a delivery signal, not a " +
+        "forecasting error. " +
+        "Blue: a gap can mean growth or non-conversion, and the sign alone does not say.",
     },
 
+    // ══ 4. How much should I trust any of this? ═════════════════════════════
     {
-      icon: GaugeIcon,
-      label: "Forecast Confidence",
-      sublabel: `${kpis.nextMonthLabel} · agreement across 4 models`,
-      value: spread == null ? "—" : `${spread}% spread`,
+      icon: TargetIcon,
+      label: "Forecast Reliability",
+      sublabel: tr
+        ? `FY ${tr.fiscalYearLabel} · closed months`
+        : "Closed months",
+      value:
+        tr?.typicalMissPct == null ? "—" : `${tr.typicalMissPct}% typical miss`,
+      // Headline is the miss, subvalue is the coverage, and BOTH are needed.
+      // Coverage alone can be gamed by a wide enough band; the miss alone says
+      // nothing about whether the published range is honest. The miss drives
+      // the colour because it is the quality verdict.
       subvalue:
-        kpis.modelHighImplied == null
+        tr?.bandCoveragePct == null
           ? null
-          : `${compactCurrency(kpis.modelLowImplied)} – ${compactCurrency(kpis.modelHighImplied)} across models`,
-      variant: confidenceStatus.variant,
-      status: confidenceStatus.statusIcon
-        ? {
-            icon: confidenceStatus.statusIcon,
-            label: confidenceStatus.statusLabel,
-          }
+          : `${tr.bandCoveragePct}% landed inside the 80% range`,
+      variant: missStatus.variant,
+      status: missStatus.statusIcon
+        ? { icon: missStatus.statusIcon, label: missStatus.statusLabel }
         : undefined,
       to: null,
       metrics: [
         {
-          label: "Highest model",
-          value: compactCurrency(kpis.modelHighImplied),
-        },
-        { label: "Lowest model", value: compactCurrency(kpis.modelLowImplied) },
-        {
-          label: "Disagreement share of total uncertainty",
+          label: "Typical miss",
           value:
-            kpis.betweenModelSharePct == null
+            tr?.typicalMissMyr == null
               ? "—"
-              : `${kpis.betweenModelSharePct}%`,
+              : compactCurrency(tr.typicalMissMyr),
         },
+        {
+          label: "Year total vs actual",
+          value:
+            tr?.yearErrorPct == null
+              ? "—"
+              : `${tr.yearErrorPct > 0 ? "+" : ""}${tr.yearErrorPct}%`,
+        },
+        // Forward-looking, inside a backward-looking tile. §4b allows a tile's
+        // sub-metrics to mix time-window families as long as each row's own
+        // label makes which one unambiguous -- so this one names the month.
+        {
+          label: `Models disagree, ${kpis.nextMonthLabel}`,
+          value:
+            kpis.modelSpreadPct == null ? "—" : `${kpis.modelSpreadPct}% apart`,
+        },
+        { label: evidence, value: "" },
       ],
       title:
-        "How far apart the four models are on next month's invoiced revenue, as a share of " +
-        "the published number. This is the one projection tile that earns the severity ramp: models " +
-        "disagreeing more is unambiguously worse, which gives it the direction a forecast " +
-        "itself lacks. " +
-        "Wide disagreement does not mean the number is wrong — it means the evidence is " +
-        "genuinely mixed and the interval around it deserves more weight than the point.",
+        "How far the one-month-ahead forecast has typically landed from actual invoiced " +
+        "revenue, for the selected year. FOR SCALE: assuming last year's same month " +
+        "repeats misses by about 49%. That is the bar to clear. " +
+        "The second figure is how often actuals landed inside the 80% range. 80% is the " +
+        "aim — well above it is also a failure, because a range that is never wrong is " +
+        "too wide to be useful. " +
+        "'Rebuilt afterwards' months flatter the result: their settings were chosen " +
+        "knowing how those months turned out. " +
+        "This tile follows the year picker; the full-year tile always shows the current " +
+        "year, so the two can name different years. " +
+        "Colour: Critical at 50%+ miss (no better than assuming last year repeats), " +
+        "Watch 35–49%, On track below 35%.",
     },
   ];
 }

@@ -50,7 +50,20 @@ export default function OverviewCards({ items = [], style }) {
                   </p>
                 )}
                 <div className="overviewCardValue">
-                  <h2 className="textXL">{item.value}</h2>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      justifyContent: "end",
+                      gap: "4px",
+                    }}
+                  >
+                    <h2 className="textXL">{item.value}</h2>
+                    {item.delta && (
+                      <span className="textL">({item.delta})</span>
+                    )}
+                  </div>
                   <p className="textXXS">{item.subvalue}</p>
                 </div>
                 {/* Severity badge for dynamic tiles (see getStatusVariant) --

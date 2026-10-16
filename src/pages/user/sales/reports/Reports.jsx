@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import Select from "react-select";
 import {
   GaugeIcon,
   UsersThreeIcon,
@@ -43,6 +44,7 @@ import { getFilterConfig } from "./config/filterConfig";
 import { getSalesReportsOverviewConfig } from "./config/overviewConfig";
 import { getSalesProjectionsConfig } from "./config/projectionConfig";
 import { useSalesProjections } from "../../../../features/sales/reports/private/hooks/useSalesProjections";
+import { useSalesProjectionAccuracy } from "../../../../features/sales/reports/private/hooks/useSalesProjectionAccuracy";
 import { useTheme } from "../../../../context/ThemeContext";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
@@ -141,27 +143,69 @@ function Reports() {
   // second RPC on a different cadence, and a projection outage must leave the
   // rest of Sales Reports standing -- see
   // features/sales/reports/private/api/fetchSalesProjections.js.
+  // fanChartData is deliberately NOT destructured here any more (2026-10-14).
+  // The chart it fed was merged into the fiscal-year timeline below. The RPC
+  // still returns the key for one release so the two can be diffed by hand --
+  // `select get_sales_projections();` against
+  // `select get_sales_projection_accuracy();` -- and then it is deleted.
+  //
+  // forecastStartLabel used to be derived here by scanning backwards for the
+  // last row with an actual. It is now computed server-side, because on a
+  // FUTURE fiscal year there is no such row and the rule has to be stated
+  // somewhere that knows what "today" means.
   const {
     kpis: projectionKpis,
-    fanChartData: projectionFan,
     methodExhibitData: projectionMethods,
     buildUpData: projectionBuildUp,
     isLoading: projectionsLoading,
     error: projectionsError,
   } = useSalesProjections();
 
-  const projectionItems = getSalesProjectionsConfig(projectionKpis);
-
-  // The seam between fact and forecast: the LAST month that has an actual.
+  // ─── Track Record (Phase E) ───────────────────────────────────────────
+  // The fiscal year is LOCAL state, not a URL filter. Every URL param on this
+  // page is swept into `filters` by useDashboardQuery and lands in the Sales
+  // Reports query key, so putting the year there would refetch the whole
+  // 1,638-line dashboard RPC on every change and render an unlabelled chip in
+  // ActiveFiltersBar. Same reasoning as the lens toggle on LeadsOverview.
   //
-  // This was "the first row carrying both an actual and a projection", which
-  // worked only while the projection series started at the seam. It no longer
-  // does -- every historical month now carries the model's own one-month-ahead
-  // prediction so its track record is visible -- so that test would have
-  // matched the oldest month on the chart and drawn the rule two years early.
-  const forecastStartLabel = [...projectionFan]
-    .reverse()
-    .find((d) => d.actual != null)?.name;
+  // null means "the fiscal year we are in", resolved server-side so the April
+  // boundary is decided in exactly one place.
+  const [trackRecordFy, setTrackRecordFy] = useState(null);
+
+  const {
+    kpis: trackRecordKpis,
+    monthlyData: trackRecordMonthly,
+    availableYears: trackRecordYears,
+    isLoading: trackRecordLoading,
+    error: trackRecordError,
+  } = useSalesProjectionAccuracy(trackRecordFy);
+
+  // ONE tile row, built from BOTH RPCs (2026-10-14). The section used to show
+  // two rows from two configs; §4a's test collapsed seven tiles into four, and
+  // the fourth -- Forecast Reliability -- needs the forward model spread from
+  // one RPC and the measured accuracy from the other. trackRecordConfig.js is
+  // gone; its three tiles are sub-metric rows inside that tile now.
+  //
+  // trackRecordKpis may be null while the second RPC is still in flight. The
+  // config handles that: tile 4 renders em-dashes rather than disappearing, so
+  // the row does not reflow from 3 tiles to 4 as the slower call lands.
+  const projectionItems = getSalesProjectionsConfig(
+    projectionKpis,
+    trackRecordKpis,
+  );
+
+  // Offered years come from the DATA, not from FISCAL_YEAR_PRESETS -- that
+  // list runs back 11 years and would let someone pick a year that renders an
+  // empty section.
+  const trackRecordYearOptions = trackRecordYears.map((y) => ({
+    value: y.startYear,
+    label: `FY ${y.label} (${y.monthsWithData} months)`,
+  }));
+
+  const selectedTrackRecordYear =
+    trackRecordYearOptions.find(
+      (o) => o.value === (trackRecordFy ?? trackRecordKpis?.fiscalYearStart),
+    ) || null;
 
   const overviewItems = getSalesReportsOverviewConfig(
     kpis,
@@ -220,6 +264,89 @@ function Reports() {
   // "view profile" link; falls back to the raw SAP rep code if this rep's
   // employee_sales_rep_mapping row (auto-created per SAP rep) has no
   // employee_id assigned yet -- see docs/DASHBOARD-ROADMAP.md §1.1.
+  // ─── THE VARIANCE BRIDGE (2026-10-16) ─────────────────────────────────
+  //
+  // "Budget says 51.3M, we invoiced 31.0M" tells an executive THAT there is a
+  // gap. This says WHERE it came from. It is the one element the research
+  // prescribes for an executive report that this page did not have -- see
+  // docs/portal/DASHBOARD-DESIGN-RESEARCH.md.
+  //
+  // Zero new SQL: invoiceBudgetScorecardData is already fetched for the Rep
+  // Funnel Scorecard below, and already carries both legs per rep. The variance
+  // is a subtraction.
+  //
+  // ⚠ REPS WITH NO BUDGET ROW ARE SEPARATED, NOT SUMMED IN. budget_math has a
+  // `group by`, so a rep who invoiced but was never given a budget comes back
+  // with budget_revenue = 0 -- and their "variance" is then their entire
+  // invoiced amount, which renders as spectacular overperformance. They are a
+  // data-completeness problem, not a performance story, so they get their own
+  // row and say so.
+  //
+  // Rendered with HorizontalBarChartRenderer, matching Finance's own "Cash
+  // Flow Waterfall" (FinancialReports.jsx) -- which is also not a floating-bar
+  // waterfall. No bridge renderer exists in this codebase.
+  const budgetBridge = (() => {
+    const budgeted = invoiceBudgetScorecardData.filter(
+      (r) => (r.budget_revenue || 0) > 0,
+    );
+    const unbudgeted = invoiceBudgetScorecardData.filter(
+      (r) => !(r.budget_revenue > 0),
+    );
+
+    const totalBudget = budgeted.reduce(
+      (a, r) => a + (r.budget_revenue || 0),
+      0,
+    );
+    const variances = budgeted
+      .map((r) => ({
+        name: r.rep_name || `Rep ${r.sales_rep_code}`,
+        value: (r.invoiced_revenue || 0) - (r.budget_revenue || 0),
+      }))
+      // Worst first -- the gap is the story, and a reader scanning from the
+      // top should meet the biggest shortfall before anything else.
+      .sort((a, b) => a.value - b.value);
+
+    const behind = variances.filter((v) => v.value < 0);
+    const aheadTotal = variances
+      .filter((v) => v.value >= 0)
+      .reduce((a, v) => a + v.value, 0);
+    const unbudgetedTotal = unbudgeted.reduce(
+      (a, r) => a + (r.invoiced_revenue || 0),
+      0,
+    );
+
+    if (!budgeted.length && !unbudgeted.length) return [];
+
+    return [
+      { name: "Revenue Budget", value: totalBudget },
+      ...behind,
+      ...(aheadTotal > 0
+        ? [
+            {
+              name: `Reps at or above budget (${variances.length - behind.length})`,
+              value: aheadTotal,
+            },
+          ]
+        : []),
+      ...(unbudgetedTotal > 0
+        ? [
+            {
+              name: `Invoiced with no budget set (${unbudgeted.length})`,
+              value: unbudgetedTotal,
+            },
+          ]
+        : []),
+      {
+        name: "Invoiced Revenue",
+        value:
+          totalBudget +
+          aheadTotal +
+          unbudgetedTotal +
+          behind.reduce((a, v) => a + v.value, 0),
+      },
+    ];
+  })();
+
   const invoiceBudgetScorecard = invoiceBudgetScorecardData.map((r) => ({
     lead_owner_id: r.employee_uuid ?? r.sales_rep_code,
     rep_name: r.rep_name,
@@ -556,30 +683,59 @@ function Reports() {
                   </div>
 
                   <div className="pdfOverviewSection">
-                    {/* PROJECTIONS (Phase D, 2026-10-03) -- see
+                    {/* PROJECTIONS (Phase D 2026-10-03; Track Record merged in
+                        2026-10-14) -- see
                         docs/sales/SALES-PROJECTIONS-ARCHITECTURE.md §9 for the
-                        tile/chart spec and §11g for the evidence behind every
-                        number. Renders from its own RPC and its own query
-                        state, so a failure here is contained to this block. */}
+                        tile/chart spec and §11g/§11h for the evidence behind
+                        every number. Renders from its own RPCs and its own
+                        query state, so a failure here is contained to this
+                        block.
+
+                        THE TRACK RECORD USED TO BE ITS OWN SECTION BELOW THIS
+                        ONE. It was merged because the two drew the same thing:
+                        for every month they shared, both plotted the same
+                        actual line against the same one-month-ahead forecast
+                        from the same backtest. One chart now runs the whole
+                        fiscal year -- what we said, what happened, and what we
+                        now expect for the months still ahead. */}
                     <div className="chartSection">
-                      <div className="chartHeading">
-                        <div className="chartTitle">
-                          <TrendUpIcon size={24} />
-                          <h2 className="textL textBold">
-                            Projected Invoiced Revenue
-                          </h2>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div className="chartHeading">
+                          <div className="chartTitle">
+                            <TrendUpIcon size={24} />
+                            <h2 className="textL textBold">
+                              Projected Invoiced Revenue
+                            </h2>
+                          </div>
+                          <p className="textXS textLight">
+                            Backward and forward-looking forecasts for{" "}
+                            <strong>invoiced revenue</strong>
+                          </p>
                         </div>
-                        <p className="textXS textLight">
-                          Forecasts <strong>invoiced revenue</strong>{" "}
-                          (sap_invoices) &mdash; the same measure as the
-                          Invoiced Revenue tile above, not orders booked. The
-                          order book (sap_sales_orders) is an input to the
-                          forecast, not its subject. Computed from{" "}
-                          <code>v_sales_projection_ensemble</code>; unlike
-                          Target (sales_targets) and Budget (sales_budgets),
-                          nobody sets this figure. Company-wide &mdash; not
-                          affected by the salesperson or date filters.
-                        </p>
+
+                        <div
+                          style={{ minWidth: "220px", paddingBottom: "0.8rem" }}
+                        >
+                          <Select
+                            unstyled
+                            className="selectContainer"
+                            classNamePrefix="reactSelect"
+                            placeholder="Select Fiscal Year"
+                            isSearchable={false}
+                            options={trackRecordYearOptions}
+                            value={selectedTrackRecordYear}
+                            onChange={(o) =>
+                              setTrackRecordFy(o ? o.value : null)
+                            }
+                          />
+                        </div>
                       </div>
 
                       {projectionsLoading ? (
@@ -599,6 +755,17 @@ function Reports() {
                             flexDirection: "column",
                           }}
                         >
+                          {/* ONE row of four, down from two rows of seven
+                              (2026-10-14). Four questions, one tile each:
+                              how much this year and is it enough · how much
+                              next month · are our orders converting · how much
+                              should I trust any of this.
+
+                              The fourth tile is fed by BOTH RPCs, so it does
+                              not get its own loading branch -- it renders
+                              em-dashes while the accuracy call is in flight,
+                              which keeps the row at four tiles instead of
+                              reflowing from three as the slower call lands. */}
                           <OverviewCards items={projectionItems} />
 
                           {projectionKpis?.cacheStale && (
@@ -613,23 +780,57 @@ function Reports() {
                             </p>
                           )}
 
+                          {trackRecordError && (
+                            <p className="textXS textLight">
+                              <WarningCircleIcon size={14} /> Accuracy figures
+                              are unavailable, so Forecast Reliability is blank.
+                              The forecasts themselves are unaffected.
+                            </p>
+                          )}
+
+                          {/* THE MERGED CHART. One fiscal year, every month
+                              present as an axis slot even when we cannot reach
+                              it -- a year we can only half-see should show how
+                              far we can see and then stop. */}
                           <CardLayout style="cardLayout1">
                             <ChartCard
-                              title="Invoiced Revenue — Actual vs Projected"
-                              subtitle={`sap_invoices: 24 months actual + ${projectionKpis?.publishedHorizonCap ?? 6} months projected, with 80% and 95% ranges. The dashed line runs across history too — what the model would have said one month ahead, rebuilt without hindsight — so its track record is visible, not asserted. Not affected by the date filter.`}
+                              title="Invoiced Revenue — Forecast vs Actual"
+                              subtitle={
+                                trackRecordKpis?.monthsWithData
+                                  ? `FY ${trackRecordKpis?.fiscalYearLabel ?? ""} · ${trackRecordKpis?.monthsScored ?? 0} closed months scored · 80% and 95% ranges${trackRecordKpis?.monthsBeyondValidated ? ` · ${trackRecordKpis.monthsBeyondValidated} month(s) past the validated six` : ""}`
+                                  : `FY ${trackRecordKpis?.fiscalYearLabel ?? ""} — nothing to show yet`
+                              }
                               style="cardGapSmall"
                             >
-                              <FanChartRenderer
-                                data={projectionFan}
-                                forecastStartLabel={forecastStartLabel}
-                              />
+                              {/* monthsWithData, NOT monthlyData.length. The
+                                  RPC now returns a 12-row spine that is never
+                                  empty, so a length test can never fire and a
+                                  blank future year would render an empty chart
+                                  frame instead of saying so.
+
+                                  The loading branch comes FIRST: without it, a
+                                  fetch in progress has no monthsWithData yet
+                                  and would render "no forecast or actuals",
+                                  which reads as an answer rather than a wait. */}
+                              {trackRecordLoading ? (
+                                <LoadingIcon />
+                              ) : trackRecordKpis?.monthsWithData ? (
+                                <FanChartRenderer
+                                  data={trackRecordMonthly}
+                                  forecastStartLabel={
+                                    trackRecordKpis?.forecastStartLabel
+                                  }
+                                />
+                              ) : (
+                                <NoResult title="No forecast or actuals for this fiscal year yet." />
+                              )}
                             </ChartCard>
                           </CardLayout>
 
                           <CardLayout style="cardLayout2">
                             <ChartCard
                               title="What Each Model Says — Invoiced Revenue"
-                              subtitle={`${projectionKpis?.nextMonthLabel ?? "Next month"} — every method's own estimate of invoiced revenue, and the blend published from them`}
+                              subtitle={`${projectionKpis?.nextMonthLabel ?? "Next month"} — each method's own estimate, and the blend published from them`}
                               style="cardGapSmall"
                             >
                               <HorizontalBarChartRenderer
@@ -639,8 +840,8 @@ function Reports() {
                             </ChartCard>
 
                             <ChartCard
-                              title="How the Number Is Built"
-                              subtitle={`${projectionKpis?.nextMonthLabel ?? "Next month"} invoiced revenue — the share derived from the committed order book, and the share from invoicing history`}
+                              title="How the Number Is Built — Invoiced Revenue"
+                              subtitle={`${projectionKpis?.nextMonthLabel ?? "Next month"} — how much comes from the order book, how much from invoicing history`}
                               style="cardGapSmall"
                             >
                               <HorizontalBarChartRenderer
@@ -656,7 +857,14 @@ function Reports() {
 
                   <div className="pdfOverviewSection">
                     {/* THE ORDER-TO-CASH FUNNEL (new, 2026-08) */}
-                    <div className="chartSection">
+                    <div
+                      className="chartSection"
+                      style={{
+                        gap: "1rem",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
                       <div className="chartHeading">
                         <div className="chartTitle">
                           <FunnelIcon size={24} />
@@ -681,6 +889,33 @@ function Reports() {
                             colorMap={BLUE_COLOR}
                           />
                         </ChartCard>
+
+                        {/* THE VARIANCE BRIDGE (2026-10-16). Budget at the
+                            top, each rep's shortfall beneath it, invoiced
+                            revenue at the bottom -- so the rows between the
+                            two totals ARE the gap, named.
+
+                            Follows both filters, because its source does.
+                            Picking a salesperson collapses it to that one rep,
+                            which is correct and is the opposite of the problem
+                            that got three forecast rows removed from the
+                            Invoiced Revenue tile the same day. */}
+                        <ChartCard
+                          title="Where the Budget Gap Came From (RM)"
+                          subtitle={`Revenue Budget → per-rep variance → Invoiced Revenue, ${periodLabel} — sales_budgets vs sap_invoices, day-prorated`}
+                          style="cardGapSmall"
+                        >
+                          {budgetBridge.length > 0 ? (
+                            <HorizontalBarChartRenderer
+                              data={budgetBridge}
+                              colorMap={BLUE_COLOR}
+                            />
+                          ) : (
+                            <NoResult title="No budget or invoicing for this period." />
+                          )}
+                        </ChartCard>
+                      </CardLayout>
+                      <CardLayout>
                         <ChartCard
                           title="Order-to-Cash — Year over Year (RM)"
                           subtitle="Trailing 10 Fiscal Years — Not Affected by the Date Filter"
@@ -709,52 +944,6 @@ function Reports() {
                                 name: "Collected",
                                 color: PURPLE_COLOR,
                               },
-                            ]}
-                          />
-                        </ChartCard>
-                        {/* Replaces "Invoice (SAP) vs Pipeline (CRM)
-                              Revenue" (2026-10-01) -- that chart compared two
-                              different O2C stages that were never expected to
-                              match (won pipeline vs invoiced revenue are
-                              different stages entirely), a real source of
-                              confusion per direct feedback. This is CRM
-                              Forecast 1's own trend instead: won revenue
-                              against the monthly quota it's actually judged
-                              against. */}
-                        <ChartCard
-                          title="Pipeline vs Target (RM)"
-                          subtitle={trendSubtitle}
-                          style="cardGapSmall"
-                        >
-                          <LineChartRenderer
-                            data={pipelineVsTargetData}
-                            lines={[
-                              {
-                                dataKey: "Pipeline (Won)",
-                                color: BLUE_COLOR,
-                              },
-                              { dataKey: "Target", color: YELLOW_COLOR },
-                            ]}
-                          />
-                        </ChartCard>
-                        {/* Renamed from "Invoiced / Collected / Budget"
-                              (2026-10-01) -- same data/3 lines (Collected
-                              still plotted as "Payment"), reframed as SAP
-                              Forecast 2's own attainment trend, the natural
-                              pair to Pipeline vs Target above (CRM forecast
-                              vs SAP forecast, side by side, never blended --
-                              see docs/DASHBOARD-ROADMAP.md §1.2). */}
-                        <ChartCard
-                          title="Revenue vs Budget (RM)"
-                          subtitle={trendSubtitle}
-                          style="cardGapSmall"
-                        >
-                          <LineChartRenderer
-                            data={invoicedVsBudgetTrendData}
-                            lines={[
-                              { dataKey: "Invoice", color: BLUE_COLOR },
-                              { dataKey: "Payment", color: GREEN_COLOR },
-                              { dataKey: "Budget", color: YELLOW_COLOR },
                             ]}
                           />
                         </ChartCard>
@@ -824,7 +1013,14 @@ function Reports() {
 
                   <div className="pdfOverviewSection">
                     {/* PIPELINE-STAGE DETAIL */}
-                    <div className="chartSection">
+                    <div
+                      className="chartSection"
+                      style={{
+                        gap: "1rem",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
                       <div className="chartHeading">
                         <div className="chartTitle">
                           <ChartPieIcon size={24} />
@@ -911,6 +1107,33 @@ function Reports() {
                           />
                         </ChartCard>
                       </CardLayout>
+                      <CardLayout>
+                        {/* Replaces "Invoice (SAP) vs Pipeline (CRM)
+                              Revenue" (2026-10-01) -- that chart compared two
+                              different O2C stages that were never expected to
+                              match (won pipeline vs invoiced revenue are
+                              different stages entirely), a real source of
+                              confusion per direct feedback. This is CRM
+                              Forecast 1's own trend instead: won revenue
+                              against the monthly quota it's actually judged
+                              against. */}
+                        <ChartCard
+                          title="Pipeline vs Target (RM)"
+                          subtitle={trendSubtitle}
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={pipelineVsTargetData}
+                            lines={[
+                              {
+                                dataKey: "Pipeline (Won)",
+                                color: BLUE_COLOR,
+                              },
+                              { dataKey: "Target", color: YELLOW_COLOR },
+                            ]}
+                          />
+                        </ChartCard>
+                      </CardLayout>
                     </div>
                   </div>
 
@@ -969,7 +1192,14 @@ function Reports() {
 
                   {/* INVOICE-STAGE DETAIL */}
                   <div className="pdfOverviewSection">
-                    <div className="chartSection">
+                    <div
+                      className="chartSection"
+                      style={{
+                        gap: "1rem",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
                       <div className="chartHeading">
                         <div className="chartTitle">
                           <ReceiptIcon size={24} />
@@ -984,6 +1214,7 @@ function Reports() {
                       </div>
 
                       <CardLayout style="cardLayout2">
+                        {/* Problem with this data, it defaults to all-time, not this month when no period is selected */}
                         <ChartCard
                           title="Revenue & Gross Profit by Rep (RM)"
                           subtitle={`${periodLabel}`}
@@ -1076,6 +1307,29 @@ function Reports() {
                               Unspecified: "#9ca3af",
                             }}
                             centerLabel="total"
+                          />
+                        </ChartCard>
+                      </CardLayout>
+                      <CardLayout>
+                        {/* Renamed from "Invoiced / Collected / Budget"
+                              (2026-10-01) -- same data/3 lines (Collected
+                              still plotted as "Payment"), reframed as SAP
+                              Forecast 2's own attainment trend, the natural
+                              pair to Pipeline vs Target above (CRM forecast
+                              vs SAP forecast, side by side, never blended --
+                              see docs/DASHBOARD-ROADMAP.md §1.2). */}
+                        <ChartCard
+                          title="Revenue vs Budget (RM)"
+                          subtitle={trendSubtitle}
+                          style="cardGapSmall"
+                        >
+                          <LineChartRenderer
+                            data={invoicedVsBudgetTrendData}
+                            lines={[
+                              { dataKey: "Invoice", color: BLUE_COLOR },
+                              { dataKey: "Payment", color: GREEN_COLOR },
+                              { dataKey: "Budget", color: YELLOW_COLOR },
+                            ]}
                           />
                         </ChartCard>
                       </CardLayout>

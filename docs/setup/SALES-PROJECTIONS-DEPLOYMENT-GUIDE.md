@@ -46,7 +46,192 @@ Everything in `supabase/` is hand-run in the Supabase SQL editor; editing a `.sq
 | 2026-10-03 | **Scope corrections recorded against architecture §9**, struck through rather than rewritten: the "Next 12 Months" tile is replaced by the fiscal-year outlook (h=12 unvalidatable, C21); a third informational tile was added for the order-book gap (the finding did not exist when §9 was written); the accuracy tile and actual-vs-expected chart are deferred to Phase E, both blocked on frozen snapshots.                                                                                                                                                                                                                                                                                                                                               |
 | 2026-10-14 | **🔴 Two faults found in how the model was TESTED, both mine.** (1) `first_origin = current_date - interval '30 months'` in the chain-ladder backtest — a bound set for performance and never revisited, so the order-book model was tested on 29 months while 106 existed. (2) The conversion rates came from a window ending _today_, so scoring March 2025 applied rates partly derived from 2026. Because the blend contains that model, **every parameter in the system was chosen on 22 observations, and the accuracy figure came from those same 22.** Also retracted: the claim that h=12 "cannot be validated — not a choice". It was a choice.                                                                                                      |
 | 2026-10-14 | **Stage 1 built.** New `sales_order_development_pit_view.sql` computes link ratios for every as-of month; `sales_order_development_view.sql` becomes a thin filter over it at the current month, so one calculation serves both the forward model and the backtest. Backtest window now **derived** (earliest order + 36 months ≈ 2020-11) rather than a literal. Hold-out flag added to the ensemble backtest — last 12 origins. Window 6 dropped from the sweep, already measured worst everywhere.                                                                                                                                                                                                                                                          |
-|            | **← you are here. Next: deploy stages 1–2 (run order below), then stage 3 (walk-forward), then snapshots.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 2026-10-14 | **Stages 1–2 verified.** C25: conversion rates now move by as-of month (0.502 in Nov 2020, down to 0.249 in Feb 2024, back to 0.351 today) — the point-in-time fix binds. C21: origins 29 → **70**, and h=12 gained 41 scoreable origins, retracting the claim that twelve months "cannot be validated". C26a: band coverage **77–82% at every horizon**, the first properly calibrated interval in this project.                                                                                                                                                                                                                                                                                                                                              |
+| 2026-10-14 | **🔴 A regression found and fixed in the same pass.** With the widened backtest, C7 published RM8.4M at six months and **RM27.9M at twelve** against a RM4.5M norm. Cause (C3/C5): at h=12 there were zero origins inside the 12-month calibration window, so the view fell back to a five-year-old bias of −77.3%, floored the factor at 0.25 and multiplied by four — then `coverage(12)` = 0.030 multiplied by 33 again. 133× in total. Two fixes: the order-book weight **reverted to `coverage(h)`** (self-limiting — a model seeing 3% of a month can no longer drive 80% of the forecast), and the stale-bias fallback removed (no recent evidence now means **no correction**, and `basis` reads `uncalibrated`).                                      |
+| 2026-10-14 | **The Phase C headline was overturned, then partly restored.** Phase C claimed Bornhuetter-Ferguson was "upside down for this business", on 22 contaminated observations. On 52 clean ones `coverage(h)` ranks 1st at h=3, 1st at h=6, 2nd at h=1 and h=12 (C24a) — the textbook was right. But C24d then showed the C24a-chosen settings performing **worse** on the hold-out than the shipped ones, because selection (2021–2025) and hold-out (Oct 2025–Aug 2026) are different regimes. **Neither reading is wrong; the parameter is not stable.** That is the standing argument for walk-forward.                                                                                                                                                         |
+| 2026-10-14 | **C27, the gate re-run against what is actually live.** The blend wins at h=1 and h=3 on all 63 origins. `ses_020` wins h=1 on the hold-out by 41% but runs **+22.5% high** there against the blend's **+3.8%**. `seasonal_naive` wins h=6 and h=12 on full history — beyond three months our modelling adds little over "last year repeated", recorded here rather than hidden. **Decision: keep the blend at every horizon.** A noisier centred number beats a tighter biased one, and one model everywhere means no special case.                                                                                                                                                                                                                           |
+| 2026-10-14 | **Phase E built.** `sales_projection_snapshots` + RLS, `snapshot_sales_projections()`, the first monthly cron in this repo, `v_sales_projection_accuracy` (recorded vs reconstructed, never merged), `get_sales_projection_accuracy()`, and a **Track Record** section on Sales Reports with its own fiscal-year selector.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 2026-10-14 | **Phase E deployed.** Table, writer, cron, accuracy view and RPC all live. First snapshot taken by hand. |
+| 2026-10-14 | **The two projection sections merged into one.** They drew the same thing twice — for every month they shared, "Actual vs Projected" and "Forecast vs Actual" plotted the same actual line against the same one-month-ahead forecast from the same backtest. One chart now runs a whole fiscal year: what we said, what happened, and what we now expect for the months still ahead. The detail table is **removed** — the chart already carries its data. All 7 tiles kept for now; which to cut is a later call. |
+| 2026-10-14 | **🔴 A third stale-filter bug found, in the live KPI.** `get_sales_projections_rpc.sql` filtered `cl_weight_label = 'smooth w(h)'` in **two** places. The 2026-10-14 revert to `coverage(h)` swept the views and missed this file. One instance feeds the old chart's historical line; the other (`span_origins`, line 230) sizes **`fullYearLo80`/`fullYearHi80`** — so the Full-Year range on the live dashboard has been a band measured against one blend wrapped around a point estimate produced by another. Fixed. The chart's copy is left stale for exactly one release, deliberately, so the old and new charts can be diffed as proof the fix landed. |
+| 2026-10-14 | **Future fiscal years are now selectable.** Standing in October 2026, FY2027-28 shows Apr–Oct 2027 projected (horizons 6–12) and Nov 2027–Mar 2028 **blank** — the models emit 12 months from today and stop. The blanks are the point: a year we can only half-see shows how far we can see, then stops. |
+| 2026-10-14 | **The six-month cap is not applied to the merged chart.** It existed because C21 found h=12 unvalidatable — a claim §11h retracts (5 scoreable origins → 46, coverage 77–82% at every horizon). Applying it would make any future fiscal year almost entirely blank. Months past six are counted into `monthsBeyondValidated` and disclosed in the subtitle. |
+| 2026-10-15 | **The published blend is cached.** `v_sales_projection_ensemble` measured **4,202 ms to produce twelve rows**, on every page load, twice over — the entire cost of the Projections section. Now `private.mv_sales_projection_ensemble`, the fifth cache. |
+| 2026-10-15 | **🔴 The daily refresh is a CORRECTNESS requirement, not a speed one.** The ensemble stores no dates — `period_month` is derived from `current_date` inside three model views. A cache built last month names the month we are now IN as horizon 1, and `get_sales_projections` filters `period_month > cur_month` against a **live** calendar — so that row is not rejected, it is **silently dropped**. `n_months` falls by one, the Full-Year outlook **and its 80% band** both move, nothing raises. Hence 00:20 MYT: a nine-hour wrong-month window on the 1st becomes twenty minutes. |
+| 2026-10-15 | **Three estate firsts, each argued in section 6's banner:** a UNIQUE index on a materialized view, `refresh ... concurrently`, and a `cache_refreshed_at` column. The last breaks this estate's "detect staleness from the data, not a timestamp" preference on purpose — that works for the backtest caches because `max(period_month)` of scored history *is* a watermark; twelve forward rows have none, so a cron that died three weeks ago would be invisible. |
+| 2026-10-15 | **Architecture §8b written** — the first complete map of how every object in this module updates. Three kinds of object, four clocks. Read it if "what does the RPC refresh?" is ever a question again. (Answer: nothing. It reads.) |
+|            | **← you are here. Next: deploy the cache (run order below), then the dashboard-RPC merge it unblocks.** |
+
+---
+
+## The ensemble cache — deploy order
+
+**Two deploys, deliberately.** Deploy 1 creates the cache and nothing reads it — zero production impact, and rollback is a `drop`. Deploy 2 repoints the readers, and its rollback is re-running the previous version of three files.
+
+### Deploy 1 — the cache
+
+| # | Run | Note |
+| --- | --- | --- |
+| 1 | `sql_editor/sales_projection_materialization.sql` — **section 6 only**, plus **section 5** | Section 5 is `create or replace function`, always safe. Sections 0–4 are unchanged and **must not** be re-run — they will fail `2BP01`, which is correct |
+| 2 | `select public.refresh_sales_projection_ensemble_cache();` | The first run, by hand. Expect `12 rows, h=1 is <next month>` |
+| 3 | `sql_editor/schedule_refresh_sales_projection_ensemble_cron.sql` | The daily job |
+
+🔴 **Section 6 has no `2BP01` protection.** The rest of this file is safe to re-run because a no-cascade drop fails once *views* depend on a cache. Section 6's consumers are three **function bodies**, which register no catalog dependency — so its `drop materialized view if exists` **succeeds silently** and the next page load raises `42P01`. Run section 6 whole or not at all.
+
+**Section 5 calls a function defined in section 6**, further down the same file. Fine on a full-file run (plpgsql resolves calls at call time, not creation). On a partial run, **run both** or it raises `42883`.
+
+### Then verify — before deploying anything else
+
+1. 🔴 **C28a — does the cache equal the view?** In `supabase/diagnostics/sales_projection_phaseC_verification.sql`. Run it **as written, inside its transaction** — the order book commits between statements and comparing across two snapshots shows real churn that looks like cache error. **Zero rows, both directions.**
+2. 🔴 **C28b — the frozen-calendar assertion.** Expect **12, 12, 0**. A non-zero `calendar_mismatches` means the cache was built in a previous month and **nothing should be repointed at it** until it is refreshed.
+3. **Did `concurrently` work?** Step 2 of the deploy already told you. If it raised, remove the keyword from `refresh_sales_projection_ensemble_cache()` and redeploy — nothing else in section 6 depends on that choice.
+4. **Timing.** `explain (analyze) select * from private.mv_sales_projection_ensemble;` — milliseconds, against 4,202 ms for the view.
+5. **`select * from cron.job;`** — `refresh-sales-projection-ensemble-daily` is there. This is the **second** scheduled matview refresh in the repo, retiring half of `schedule_snapshot_sales_projections_cron.sql`'s "two firsts" claim.
+
+### Deploy 2 — repoint the readers
+
+| # | Run | Note |
+| --- | --- | --- |
+| 1 | `sql_editor/get_sales_projections_rpc.sql` | `proj` reads the cache; `sourceView` corrected; four staleness keys added |
+| 2 | `sql_editor/get_sales_projection_accuracy_rpc.sql` | `fwd` reads the cache; `sourceView` corrected |
+| 3 | `functions/snapshot_sales_projections.sql` | reads the cache, and gains `private` in its `search_path` |
+
+All three are `create or replace function` with unchanged signatures — no drop, no `PGRST203`.
+
+4. **Both RPCs return JSON identical to before**, and both drop well under a second. `select get_sales_projections();` and `select get_sales_projection_accuracy();`
+5. **No React change is needed.** `ensembleCacheStale` is OR'd into the existing `cacheStale`, so the banner already on the page fires for either failure.
+6. 🔴 **The rollover test — the one that actually matters.** On **1 November**, before 00:20 MYT, confirm `ensembleCacheStale` is true and the banner fires; after the job, confirm it clears.
+   ```sql
+   select * from cron.job_run_details
+   where jobid = (select jobid from cron.job
+                  where jobname = 'refresh-sales-projection-ensemble-daily')
+   order by start_time desc limit 5;
+   ```
+
+**One thing NOT to "fix" later:** `sales_projection_ensemble_view.sql` now has a dependant. A `drop view ... cascade` there silently deletes the cache, and the three RPCs raise `42P01` on the next page load — the 2026-10-03 cascade failure, one level up. A column-list change means: drop view cascade → re-run the view → re-run **section 6** → refresh. That warning is in the view's own header.
+
+---
+
+## The merge — deploy order
+
+Each file on its own, in this order.
+
+| # | Run | Note |
+| --- | --- | --- |
+| 1 | `sql_editor/sales_projection_accuracy_view.sql` | `create or replace view`. Appends `lo_95`/`hi_95` only — **appending needs no drop**. Nothing else reads this view |
+| 2 | `sql_editor/get_sales_projection_accuracy_rpc.sql` | `create or replace function`, same name, same argument list, same return type. **No drop, no `PGRST203`**. 🔴 **Re-run this if you deployed it before the 2026-10-14 double-scan fix — the first version timed out.** |
+| 3 | `sql_editor/get_sales_projections_rpc.sql` | `create or replace function`. The `span_origins` weight fix |
+
+**Nothing cascades and nothing is dropped.** Order matters only between 1 and 2 — the RPC reads the widened view.
+
+Then deploy the frontend. `trackRecordTableConfig.jsx` is deleted.
+
+### Run these three BEFORE trusting the chart
+
+1. **The fan-out check.** Must return two equal numbers.
+   ```sql
+   select count(*), count(distinct period_month)
+   from public.v_sales_projection_accuracy where horizon = 1;
+   ```
+   The RPC LEFT JOINs this onto a 12-month spine. A duplicate fans the join out and the chart gains repeated months with no error raised anywhere.
+
+2. **The horizon identity** the blank-month logic rests on.
+   ```sql
+   select horizon, period_month from public.v_sales_projection_ensemble order by horizon;
+   ```
+   Every row must satisfy `period_month = date_trunc('month', current_date) + horizon months`.
+
+3. 🔴 **The query that validates dropping the six-month cap.**
+   ```sql
+   select horizon, count(*) from private.mv_sales_projection_ensemble_backtest
+   where estimator='ensemble' and window_months=12
+     and cl_weight_label='coverage(h)' and predicted>0
+   group by horizon order by horizon;
+   ```
+   **Every horizon must show ≥ 20.** That is the guard on the ensemble view's `measured_quantiles`; below it the band falls back to the lognormal and the far end of the fan balloons. If any horizon is short, reinstate a cap at the last horizon that clears 20.
+
+### Then verify
+
+4. `select get_sales_projection_accuracy(2027);` — 12 rows, 7 with a non-null `projected`, 5 null except `name` and `segment = 'blank'`. `monthsScored` is 0 and that is correct.
+5. `select get_sales_projection_accuracy(2024);` — **`monthsScored` unchanged** from before. The regression test that the 12-row spine did not leak into the aggregates.
+6. **Seam continuity.** For the last closed month and the first forward month, `band80[0]/projected` must agree to 4 decimal places **when the closed month is `reconstructed`** — the two band derivations are bit-identical. They will differ when it is `recorded`, and that is correct: a frozen snapshot keeps the configuration it was frozen under. Do not "fix" it.
+7. **The Full-Year band moved.** Compare `fullYearLo80`/`fullYearHi80` before and after step 3 — it should change, because it was sized from the abandoned weight. If it did not move, the fix did not take.
+8. **In the browser:** changing the fiscal year must not fire `get_sales_reports_dashboard` (watch the network tab). Pick a future year and confirm blanks render as gaps, not zeros. Pick the oldest year and confirm `NoResult` rather than an empty chart frame. Hover a past month and confirm the tooltip says **Recorded** or **Reconstructed**. Dark mode, phone width.
+9. **Rename the accuracy RPC** and confirm the forward tiles and the rest of Sales Reports still render.
+
+### 🔴 If it times out
+
+The first deploy of the merged RPC did. Cause, and the rule it produced:
+
+**`v_sales_projection_ensemble` is NOT a materialized view.** It joins six live
+views (chainladder, baseline, freqsev, ses, calibration twice, coverage) and
+scans the backtest cache twice for its measured bands, to produce twelve rows.
+It is the most expensive object in this feature.
+
+The merged RPC read it **twice** — once in the `fwd` CTE, and again inside the
+`years` subquery, which named the view directly instead of the CTE. Postgres
+cannot share those: a CTE referenced twice is materialized and evaluated once,
+but a separate reference to the underlying view is a second full build. Same
+mistake on `v_sales_projection_accuracy`. Four heavy evaluations where two
+would do.
+
+**The rule, now written into the file:** inside this RPC, downstream CTEs read
+`acc_h1` and `fwd`, never the views. A direct view reference looks free when
+the subquery asks for one column; it is not, because the planner still builds
+the whole view to produce it.
+
+To confirm the fix landed, time it:
+
+```sql
+explain (analyze, buffers) select get_sales_projection_accuracy();
+```
+
+Look for how many times `v_sales_projection_ensemble`'s scan appears. **Once.**
+If the page is still slow after this, the next lever is materialising the
+ensemble itself into `private.mv_sales_projection_ensemble` alongside the other
+four caches — twelve rows, trivial to store, and **both** RPCs would stop
+rebuilding it on every page load. That is a real design decision, not a tuning
+knob: the chain-ladder leg reads the open order book, which changes daily, so a
+monthly-refreshed cache would freeze the order-book signal between runs.
+`cacheStale` already exists to detect exactly that, but the trade is worth
+stating out loud before taking it.
+
+**Still to delete, next release:** `fanChartData` and its CTE chain (`backfit`, `fan_hist`, `fan_hist_band`, `fan_cur`, `fan_cur_band`, `fan_fwd`, `fan`) in `get_sales_projections_rpc.sql`. **Do not also delete `cal`, `nxt`, `cur_mtd` or `cur_est`** — they look like part of that chain and are not; `cur_est` feeds `fullYearCurrentMonthEstimate`, and the Full-Year tile reads a month low without it. The file carries this warning at the `backfit` CTE.
+
+---
+
+## Phase E — deploy order
+
+Each file on its own.
+
+| #   | Run                                                       | Note                                                                                                                                                                 |
+| --- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `sql_editor/sales_projection_snapshots_migration.sql`     | table + 3 RLS policies. `create table if not exists`, nothing dropped                                                                                                |
+| 2   | `functions/snapshot_sales_projections.sql`                | `create or replace function`                                                                                                                                         |
+| 3   | `sql_editor/sales_projection_accuracy_view.sql`           | `create or replace view`                                                                                                                                             |
+| 4   | `sql_editor/get_sales_projection_accuracy_rpc.sql`        | new function, no `drop` needed — a **companion** to `get_sales_projections()`, not a change to its signature, which would need an explicit drop and risks `PGRST203` |
+| 5   | `select public.snapshot_sales_projections();`             | the first snapshot, by hand                                                                                                                                          |
+| 6   | `sql_editor/schedule_snapshot_sales_projections_cron.sql` | the monthly job                                                                                                                                                      |
+
+**Nothing cascades.** The only `drop` statements are `drop policy if exists` before each policy is recreated.
+
+### Then verify
+
+1. **12 rows landed** — `select count(*), min(horizon), max(horizon) from sales_projection_snapshots;`
+2. **Run step 5 again.** It must return a no-op message and change nothing. If it writes a second set, the idempotency key is wrong and a double-fired cron would quietly rewrite history.
+3. **`config->>'weight_rule'` reads `coverage(h)`.** It is derived by comparing the weight actually applied against coverage, so `custom` means the ensemble view has moved and this function's assumptions are stale.
+4. **h=1 `projected` equals the Next Month tile exactly.** A difference means the function is reading something other than the live view.
+5. **`v_sales_projection_accuracy` has `reconstructed` rows and ZERO `recorded` rows.** Correct, not a bug — no month has closed since the first snapshot. The first recorded row appears in December.
+6. **Band coverage agrees with C26a** (~80%). A material difference means the view and the diagnostic disagree about what "inside the band" means.
+7. **`select get_sales_projection_accuracy();`** — `availableYears` must not be empty, and `monthlyData` must be `[]` rather than `null` for a year with no data.
+8. **Call it as a non-SAL/MGM user** — must raise `42501`.
+9. **Calling `snapshot_sales_projections()` as a normal user must raise**, not insert.
+10. **⚠ Test RLS from a real manager's session, not the SQL editor.** The editor runs as owner and bypasses RLS entirely, so a broken policy looks perfect there and returns an empty section in the app. That is exactly how the `pipeline_run_log` fault went unnoticed — see `policies/reconciliation_results_access.sql`.
+11. **Changing the fiscal year must not refetch the page.** Watch the network tab: `get_sales_reports_dashboard` must not fire.
+12. **Break the accuracy RPC** (rename it) — the forward Projections section and the rest of Sales Reports must still render.
+13. **`select * from cron.job;`** — the new job is there. It will show alongside two jobs created in the Supabase dashboard that have no file in this repo (`auto_clock_out`'s sweeps); those are not strays.
+
+**The first scheduled run is 2 November.** The first real accuracy measurement is **December** — the October snapshot predicts November, November closes, December compares them.
 
 ---
 
@@ -54,16 +239,16 @@ Everything in `supabase/` is hand-run in the Supabase SQL editor; editing a `.sq
 
 **Every view file is `create or replace`. Nothing cascades, nothing gets dropped.** The only `drop` statements live in the materialization file, and only its section 0 is new — sections 1–3 have dependants and will refuse.
 
-| # | Run | Replaces in place | What depends on it (survives untouched) |
-| --- | --- | --- | --- |
-| 1 | `sales_order_development_pit_view.sql` | *(new object)* | — |
-| 2 | `sales_projection_materialization.sql` — **section 0 + its one grant + section 5 ONLY** | creates and populates `mv_sales_order_development_pit`; `create or replace` on the refresh function | sections 1–3 will fail `2BP01` — do not run them |
-| 3 | `sales_order_development_view.sql` | `v_sales_order_development` → a filter | `v_sales_model_chainladder` |
-| 4 | `sales_chainladder_backtest_view.sql` | `v_sales_chainladder_backtest` | `mv_sales_chainladder_backtest` |
-| 5 | `sales_projection_ensemble_backtest_view.sql` | `v_sales_projection_ensemble_backtest` | `mv_sales_projection_ensemble_backtest` |
-| 6 | `select public.refresh_sales_projection_caches();` | rebuilds all four caches in dependency order | — |
+| #   | Run                                                                                     | Replaces in place                                                                                   | What depends on it (survives untouched)          |
+| --- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 1   | `sales_order_development_pit_view.sql`                                                  | _(new object)_                                                                                      | —                                                |
+| 2   | `sales_projection_materialization.sql` — **section 0 + its one grant + section 5 ONLY** | creates and populates `mv_sales_order_development_pit`; `create or replace` on the refresh function | sections 1–3 will fail `2BP01` — do not run them |
+| 3   | `sales_order_development_view.sql`                                                      | `v_sales_order_development` → a filter                                                              | `v_sales_model_chainladder`                      |
+| 4   | `sales_chainladder_backtest_view.sql`                                                   | `v_sales_chainladder_backtest`                                                                      | `mv_sales_chainladder_backtest`                  |
+| 5   | `sales_projection_ensemble_backtest_view.sql`                                           | `v_sales_projection_ensemble_backtest`                                                              | `mv_sales_projection_ensemble_backtest`          |
+| 6   | `select public.refresh_sales_projection_caches();`                                      | rebuilds all four caches in dependency order                                                        | —                                                |
 
-**One refresh, at the end.** An earlier draft of this table also refreshed at step 3. That rebuilt the chain-ladder cache against its *old* definition and then threw the result away at the final step. The caches are the slow part — refresh once, after every definition has moved.
+**One refresh, at the end.** An earlier draft of this table also refreshed at step 3. That rebuilt the chain-ladder cache against its _old_ definition and then threw the result away at the final step. The caches are the slow part — refresh once, after every definition has moved.
 
 **Between steps 4 and 6** the chain-ladder cache still holds data from the 30-month definition. That is a deploy window, not a fault. The dashboard is unaffected throughout: from step 3 onward `v_sales_order_development` reads the new cache at the current month, which returns what it returned before.
 

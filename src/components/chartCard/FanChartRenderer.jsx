@@ -61,8 +61,18 @@ export default function FanChartRenderer({
 
   // The 95% band sits behind the 80% and must read as the fainter of the two,
   // or the nesting inverts and the wider band looks like the more confident one.
-  const band95Fill = darkMode ? "rgba(103,99,215,0.14)" : "rgba(103,99,215,0.10)";
-  const band80Fill = darkMode ? "rgba(103,99,215,0.30)" : "rgba(103,99,215,0.22)";
+  //
+  // Raised 2026-10-16 -- the original values were invisible against both a
+  // white and a black card. The RATIO between them is what carries the nesting
+  // (95% stays roughly half the 80%), so both moved together rather than just
+  // lifting the floor.
+  //
+  // Dark mode needs MORE opacity than light, not less: a translucent fill
+  // lightens a dark background but darkens a light one, and the eye reads the
+  // lightening as weaker. The first version had this backwards at the 80%
+  // level and inconsistent at the 95%.
+  const band95Fill = darkMode ? "rgba(103,99,215,0.26)" : "rgba(103,99,215,0.20)";
+  const band80Fill = darkMode ? "rgba(103,99,215,0.52)" : "rgba(103,99,215,0.40)";
 
   return (
     <ResponsiveContainer width="100%" height={height}>

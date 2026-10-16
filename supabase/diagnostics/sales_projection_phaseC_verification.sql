@@ -1915,3 +1915,93 @@ select horizon,
 from s
 where horizon in (1, 3, 6)
 order by horizon, mae;
+
+
+-- ############################################################################
+-- C28 -- ★★ THE ENSEMBLE CACHE: DOES IT EQUAL THE VIEW? ★★       (2026-10-15)
+--
+-- private.mv_sales_projection_ensemble was created because the view measured
+-- 4,202 ms to produce twelve rows and ran on every page load. Three objects
+-- now read the cache instead: get_sales_projections, get_sales_projection_
+-- accuracy and snapshot_sales_projections.
+--
+-- Every other block in this file reads the live VIEW on purpose -- a
+-- diagnostic that reads a cache cannot detect a cache that is wrong. This
+-- block is the exception, because it IS the cache test. Without it the cache
+-- would be the only object in this feature with nothing pointed at it.
+--
+-- RUN C28a AND C28b AFTER EVERY `refresh`, AND BEFORE TRUSTING ANY FIGURE
+-- THE DASHBOARD SHOWS ON THE 1st OF A MONTH.
+-- ############################################################################
+
+-- ── C28a -- cache vs view, in ONE transaction ──────────────────────────────
+--
+-- The transaction is load-bearing. v_sales_orderbook_open has no date filter,
+-- so the order book commits rows between statements; comparing across two
+-- snapshots shows real churn that looks like cache error. Inside one
+-- transaction both sides see the same snapshot.
+--
+-- Columns are listed explicitly because the cache carries cache_refreshed_at
+-- and the view does not -- `except` demands identical column lists. It also
+-- demands identical TYPES, so the `::numeric` drift that once changed lo_80
+-- from numeric to double raises here instead of passing silently.
+--
+-- EXPECT: zero rows, both directions.
+
+begin;
+
+refresh materialized view concurrently private.mv_sales_projection_ensemble;
+
+select 'in cache, not in view' as side, *
+from (
+    select period_month, horizon, projected, coverage, order_book_weight,
+           implied_from_order_book, implied_from_apriori, within_var,
+           between_var, total_var, sd, lo_80, hi_80, lo_95, hi_95,
+           composed_var, band_origins, model_detail
+    from private.mv_sales_projection_ensemble
+    except
+    select * from public.v_sales_projection_ensemble
+) d
+
+union all
+
+select 'in view, not in cache', *
+from (
+    select * from public.v_sales_projection_ensemble
+    except
+    select period_month, horizon, projected, coverage, order_book_weight,
+           implied_from_order_book, implied_from_apriori, within_var,
+           between_var, total_var, sd, lo_80, hi_80, lo_95, hi_95,
+           composed_var, band_origins, model_detail
+    from private.mv_sales_projection_ensemble
+) d;
+
+commit;
+
+
+-- ── C28b -- ★ THE FROZEN-CALENDAR ASSERTION ★ ──────────────────────────────
+--
+-- THE ONE THAT MATTERS. The ensemble stores no dates: period_month is derived
+-- from current_date inside three model views. A cache built last month names
+-- the month we are now IN as horizon 1 -- and get_sales_projections filters
+-- `period_month > cur_month` against a LIVE calendar, so that row is not
+-- rejected, it is silently DROPPED. n_months falls by one, the Full-Year
+-- outlook and its 80% band both move, and nothing raises.
+--
+-- EXPECT: 12, 12, 0.
+--
+-- A non-zero calendar_mismatches means the daily 00:20 MYT job did not fire.
+-- Run `select public.refresh_sales_projection_ensemble_cache();` and check
+-- cron.job_run_details before trusting anything on the Projections section.
+
+select count(*)                                            as rows,
+       count(distinct horizon)                             as horizons,
+       count(*) filter (
+         where period_month
+            <> (date_trunc('month', current_date)
+                + (horizon || ' months')::interval)::date
+       )                                                   as calendar_mismatches,
+       max(cache_refreshed_at)                             as last_refreshed,
+       round(extract(epoch from (now() - max(cache_refreshed_at)))::numeric
+             / 3600, 1)                                    as age_hours
+from private.mv_sales_projection_ensemble;
