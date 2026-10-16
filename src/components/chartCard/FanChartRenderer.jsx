@@ -44,6 +44,28 @@ import { BLUE_COLOR, PURPLE_COLOR } from "./chartColors";
  *
  * The tooltip is FanChartTooltip, NOT the shared CustomTooltip -- see that
  * file for why the shared one renders array values as garbage.
+ *
+ * ── CLICK-TO-SELECT (added 2026-10-16) ────────────────────────────────────
+ *
+ * The FIRST chart in this codebase whose click sets IN-PAGE STATE rather than
+ * navigating. Every other renderer here follows DASHBOARD-CONVENTIONS.md
+ * §4d's drill-through contract: the handler returns a URL and the renderer
+ * calls `openChartClickThrough` to open it in a new tab. This one does not --
+ * `onMonthClick` returns nothing, and the page uses the clicked month to
+ * re-point two sibling charts and a KPI tile. VerticalMultiBarRenderer is the
+ * only existing precedent for a raw, non-navigating callback.
+ *
+ * CHART-LEVEL onClick, NOT activeDot. LineChartRenderer hangs its clicks off
+ * `activeDot`, which does not work here: both lines are `dot={false}`, and
+ * `actual` is null on every future month -- so dot-based clicks would leave
+ * the whole forward half of the chart dead. ComposedChart's own onClick fires
+ * for the entire month column, including blank months, which is what a
+ * 12-month fiscal spine needs.
+ *
+ * It hands up `activeLabel` (the X category string). The PAGE maps that back
+ * to a machine month key through its own data; §4d forbids re-deriving a
+ * click target by parsing a display label, and `periodMonth` travels on every
+ * row for exactly this.
  */
 export default function FanChartRenderer({
   data = [],
@@ -53,6 +75,10 @@ export default function FanChartRenderer({
   // Month label of the last actual. Drawn as a vertical rule so the eye can
   // tell fact from forecast without reading the legend.
   forecastStartLabel,
+  // (name) => void. Optional -- without it the chart is inert, as it was.
+  onMonthClick,
+  // The `name` of the currently selected month, highlighted as a column.
+  selectedMonth,
 }) {
   const { darkMode } = useTheme();
 
@@ -74,9 +100,29 @@ export default function FanChartRenderer({
   const band95Fill = darkMode ? "rgba(103,99,215,0.26)" : "rgba(103,99,215,0.20)";
   const band80Fill = darkMode ? "rgba(103,99,215,0.52)" : "rgba(103,99,215,0.40)";
 
+  // Neutral grey, not the series purple: the selection marks WHICH column you
+  // are reading, it does not add a third quantity to a chart that already has
+  // two nested bands.
+  const selectionFill = darkMode
+    ? "rgba(255,255,255,0.10)"
+    : "rgba(0,0,0,0.06)";
+
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={data}>
+      <ComposedChart
+        data={data}
+        onClick={
+          onMonthClick
+            ? (state) => {
+                // Recharts fires onClick with no activeLabel when the click
+                // lands outside the plot area. Guard, or a stray click on the
+                // legend clears the selection.
+                if (state?.activeLabel) onMonthClick(state.activeLabel);
+              }
+            : undefined
+        }
+        style={onMonthClick ? { cursor: "pointer" } : undefined}
+      >
         {showGrid && (
           <CartesianGrid
             strokeDasharray="3 3"
@@ -107,6 +153,22 @@ export default function FanChartRenderer({
 
         {showLegend && (
           <Legend wrapperStyle={{ fontSize: 12, color: textColor }} />
+        )}
+
+        {/* The selected column, behind everything including the bands.
+            A thick translucent ReferenceLine, not a ReferenceArea: this XAxis
+            is point-scaled, so a ReferenceArea from a category to ITSELF has
+            zero width, and spanning to a neighbour would highlight two months.
+            The width is therefore fixed pixels rather than one axis band --
+            roughly a month's slot on a phone, a little narrow on a wide
+            screen. Recharts has no "highlight this category" primitive. */}
+        {selectedMonth && (
+          <ReferenceLine
+            x={selectedMonth}
+            stroke={selectionFill}
+            strokeWidth={22}
+            ifOverflow="hidden"
+          />
         )}
 
         {/* Bands first -- they must layer behind both lines. */}

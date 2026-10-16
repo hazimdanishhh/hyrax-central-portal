@@ -1,10 +1,33 @@
-create or replace function get_sales_projections()
+-- ############################################################################
+-- ⚠ DEPLOY ORDER MATTERS. RUN THIS WHOLE FILE AS ONE SUBMISSION.
+--
+-- This function GAINS A PARAMETER. `create or replace` cannot alter an
+-- argument list, so the old zero-argument version must be dropped first. If
+-- both exist, PostgREST sees two overloads of one name and refuses BOTH with
+-- PGRST203 -- the section goes blank, not degraded.
+--
+-- The drop and the create are in the same file for exactly that reason. The
+-- page 500s for the second or two between them.
+--
+-- AFTER the frontend is deployed, drop the function this one absorbs:
+--
+--     drop function if exists public.get_sales_projection_accuracy(int);
+--
+-- Not before -- the running frontend still calls it until the new bundle
+-- ships.
+-- ############################################################################
+
+drop function if exists public.get_sales_projections();
+
+create or replace function get_sales_projections(
+    p_fiscal_year_start int default null
+)
 returns json
 language plpgsql
 -- SECURITY INVOKER (the default, written explicitly). NOT definer: the guard
--- below is an authorization check, not a privilege escalation, and the caller's
--- own grants are what let the underlying views resolve. See the access-guard
--- note after `begin`.
+-- below is an authorization check, not a privilege escalation, and the
+-- caller's own grants are what let the underlying views and
+-- sales_projection_snapshots resolve.
 security invoker
 as
 $$
@@ -12,60 +35,71 @@ declare
     result json;
     v_role_name       text;
     v_department_sub  text;
+    v_fy_start        int;
 begin
 
 -- ############################################################################
--- get_sales_projections -- backs the Projections section of Sales Reports
--- (src/pages/user/sales/reports/Reports.jsx).
+-- get_sales_projections -- backs the ENTIRE Projections section of Sales
+-- Reports (src/pages/user/sales/reports/Reports.jsx).
 --
--- Phase D of docs/setup/SALES-PROJECTIONS-DEPLOYMENT-GUIDE.md. §9 of
--- docs/sales/SALES-PROJECTIONS-ARCHITECTURE.md is the tile and chart spec;
--- §11g is the evidence behind every number here.
+-- §9 of docs/sales/SALES-PROJECTIONS-ARCHITECTURE.md is the tile and chart
+-- spec; §11 is the evidence behind every number here.
 --
--- ── NO PARAMETERS, DELIBERATELY ─────────────────────────────────────────────
+-- ── THE MERGE (2026-10-16) ──────────────────────────────────────────────────
+--
+-- This function absorbs get_sales_projection_accuracy(). Until today the
+-- section ran on TWO CLOCKS: tiles 1-3 and both exhibit charts read this
+-- function, which took no arguments and always described *now*; tile 4 and the
+-- main chart read the accuracy function, which followed the section's year
+-- dropdown. Choosing FY 2024-2025 left three tiles and two charts still
+-- talking about November 2026.
+--
+-- One function, one fiscal year, one answer. The old split is why
+-- `fanChartData` existed at all, and it goes with it.
+--
+-- ── NO SALESPERSON FILTER, STILL ────────────────────────────────────────────
 --
 -- Sales Reports carries a salesperson filter and a date range. Neither applies
--- here. The projection is company-wide by design -- §"Permanently out of scope"
--- records why per-rep projections are not built: splitting an already-lumpy
--- series makes every sub-series lumpier, and §11 measured the top three
--- invoices at 31.2% of a typical month.
+-- here, and the fiscal-year parameter below is NOT the page's date filter --
+-- it is the section's own dropdown.
 --
--- A filter that silently does nothing is worse than one that is absent, so the
--- page section states this in its subtitle, the same way existing FIXED-WINDOW
--- charts say "Trailing 12 Months -- not affected by the date filter".
+-- The projection is company-wide by design -- architecture §"Permanently out
+-- of scope" records why per-rep projections are not built: splitting an
+-- already-lumpy series makes every sub-series lumpier, and §11 measured the
+-- top three invoices at 31.2% of a typical month.
 --
--- ── THE ONE SOURCE ──────────────────────────────────────────────────────────
+-- ── WHY kpis IS NESTED ──────────────────────────────────────────────────────
 --
--- v_sales_projection_ensemble, plus v_sales_monthly_series for history. Both
--- read the three caches in `private` (see sales_projection_materialization.sql),
--- so this RPC does not rebuild a backtest on every page load -- which is
--- exactly what it did before Phase C's final pass, and it timed out.
+-- The two merged key sets are ~35 and ~33 keys. json_build_object takes at
+-- most 100 ARGUMENTS -- 50 key/value pairs -- and raises 54023 past that.
+-- A flat merge is ~136 arguments and will not compile.
 --
--- ── HORIZON CAP ─────────────────────────────────────────────────────────────
+-- So `kpis` is four sub-objects: year, month, reliability, health. The
+-- frontend reads kpis.year.*, kpis.month.*, and so on. Adding a key is safe;
+-- adding a fifth sub-object is safer than growing one past 50 pairs.
 --
--- The ensemble emits h = 1..12. This publishes SIX. C21 proved h=12 cannot be
--- validated from the data that exists: the maximum prior scored origins
--- available at that horizon is 5 against a guard of 6, and relaxing the guard
--- would buy exactly one origin. h=7-8 are thin (10 and 8 origins), h=9-11
--- untrustworthy (6, 4, 2).
+-- ── EVALUATE EACH HEAVY SOURCE EXACTLY ONCE ─────────────────────────────────
 --
--- The cap will LIFT on its own as months close -- each one adds an origin at
--- every horizon -- so this is a constant to revisit, not a permanent ceiling.
---
--- The fiscal-year total is the one place horizons past the cap are used, and
--- only when the remaining year is longer than six months (April to July). Those
--- months are COUNTED and reported as `fullYearMonthsBeyondValidated` so the
--- tile can say so rather than implying the whole figure is equally sound.
+-- THE RULE: downstream CTEs read `acc_h1` and `fwd`, NEVER the views behind
+-- them. A second reference to the view is a second full evaluation the planner
+-- cannot share with the CTE -- which is what timed the accuracy RPC out on
+-- first deploy, in `years`, and what the 4,202 ms ensemble measurement was.
+-- Both `as materialized` markers are load-bearing. Do not remove them because
+-- "the source is cached now".
 --
 -- ── WATCH-OUTS ──────────────────────────────────────────────────────────────
 --
---   * Every array key uses coalesce(json_agg(...), '[]'::json). A null where
---     the frontend expects an array is a render crash, not an empty chart.
+--   * Every array key uses coalesce(json_agg(...), '[]'::json), and
+--     exhibitsByMonth uses coalesce(..., '{}'::json). A null where the
+--     frontend expects a container is a render crash, not an empty chart.
 --   * band80/band95 are TWO-ELEMENT ARRAYS. Recharts renders a ranged Area
 --     from a tuple. CustomTooltip cannot format them -- FanChartTooltip exists
 --     for this and FanChartRenderer must not fall back to the shared one.
 --   * Month labels are emitted HERE. src/functions/formatDate.js has no month
 --     formatter, and every existing monthly chart takes `name` verbatim.
+--   * monthlyData carries BOTH `name` (display) and `periodMonth` (machine).
+--     The chart's click target must come from the RPC, never from parsing
+--     'Mon YYYY' client-side -- DASHBOARD-CONVENTIONS.md §4d.
 -- ############################################################################
 
 -- ─── Access guard ──────────────────────────────────────────────────────────
@@ -73,10 +107,9 @@ begin
 -- get_finance_dashboard_rpc.sql instead, and for the reason that file states:
 -- its source is a materialized view, which cannot carry RLS.
 --
--- The same applies here. v_sales_projection_ensemble is security_invoker, but
--- it reads private.mv_* materialized views, and an MV has no RLS at all. The
--- `private` schema is not in PostgREST's exposed list so the caches are not
--- REST-routable, but this function IS -- so the gate has to be here.
+-- The same applies here. The caches live in `private`, which is not in
+-- PostgREST's exposed list, so they are not REST-routable -- but this function
+-- IS, so the gate has to be here.
 --
 -- Mirrors SalesRoutes.jsx's AccessRoute(departments:["SAL","MGM"],
 -- roles:["manager"]). Raises rather than returning empty: an empty projection
@@ -95,30 +128,28 @@ then
         using errcode = '42501';
 end if;
 
+-- Default to the fiscal year we are in. Same April-March rule as
+-- src/functions/fiscalYearPresets.js and get_sales_reports_dashboard's
+-- fy_window CTE: on or after April belongs to the FY starting this calendar
+-- year, January-March to the one that started last.
+v_fy_start := coalesce(
+    p_fiscal_year_start,
+    (extract(year from current_date)
+     - case when extract(month from current_date) >= 4 then 0 else 1 end)::int
+);
+
 
 with
 -- ─── windows ───────────────────────────────────────────────────────────────
--- Fiscal year, April-March. The expression is the same one used by
--- get_sales_reports_dashboard_rpc.sql's own fy_window CTE and by
--- src/functions/fiscalYearPresets.js: a date on or after April belongs to the
--- FY starting that calendar year; January-March belongs to the FY that started
--- the previous one. Computed ONCE here rather than repeated per CTE.
-fy_window as (
-    select (extract(year from current_date)
-            - case when extract(month from current_date) >= 4 then 0 else 1 end)::int
-             as fy_start_year
-),
-
-fy_bounds as (
-    select fw.fy_start_year,
-           make_date(fw.fy_start_year, 4, 1)                                as fy_start,
-           make_date(fw.fy_start_year + 1, 3, 1)                            as fy_end_month,
-           make_date(fw.fy_start_year - 1, 4, 1)                            as prior_fy_start,
-           make_date(fw.fy_start_year, 3, 1)                                as prior_fy_end_month,
-           -- "2026-2027", matching FISCAL_YEAR_PRESETS' own label format so the
-           -- tile reads identically to the page's FiscalYearFilterBar options.
-           fw.fy_start_year::text || '-' || (fw.fy_start_year + 1)::text    as fy_label
-    from fy_window fw
+bounds as (
+    select make_date(v_fy_start, 4, 1)                    as fy_start,
+           make_date(v_fy_start + 1, 3, 1)                as fy_end_month,
+           make_date(v_fy_start - 1, 4, 1)                as prior_fy_start,
+           make_date(v_fy_start, 3, 1)                    as prior_fy_end_month,
+           -- "2026-2027", matching FISCAL_YEAR_PRESETS' own label format so
+           -- the tile reads identically to the page's other fiscal-year
+           -- controls.
+           v_fy_start::text || '-' || (v_fy_start + 1)::text  as fy_label
 ),
 
 -- Day arithmetic for the current, part-invoiced month.
@@ -128,6 +159,16 @@ cal as (
            extract(day from (date_trunc('month', current_date)
                              + interval '1 month - 1 day'))::numeric
                                                               as days_in_month
+),
+
+-- Does the SELECTED fiscal year contain today? This one boolean decides the
+-- shape of the whole response: whether there is a live month at all, whether
+-- tile 3 is "This Month" or "Biggest Miss", and which month the exhibits
+-- default to.
+fy_meta as (
+    select (c.cur_month >= b.fy_start and c.cur_month <= b.fy_end_month) as is_current_fy,
+           (b.fy_end_month < c.cur_month)                                as is_past_fy
+    from bounds b cross join cal c
 ),
 
 hcap as (select 6 as cap),
@@ -145,54 +186,130 @@ ord as (
     where measure = 'orders'
 ),
 
--- READS THE CACHE, NOT THE VIEW (2026-10-15).
+-- ############################################################################
+-- THE TWO MATERIALIZED CTEs. See the banner above -- these are the reason this
+-- function returns in milliseconds instead of timing out.
+-- ############################################################################
+acc_h1 as materialized (
+    select a.*
+    from public.v_sales_projection_accuracy a
+    where a.horizon = 1
+),
+
+-- READS THE CACHE, NOT THE VIEW.
 --
--- v_sales_projection_ensemble measured 4,202 ms to produce twelve rows, and
--- this RPC read it on every page load. private.mv_sales_projection_ensemble is
--- the same twelve rows, pre-built.
+-- v_sales_projection_ensemble measured 4,202 ms to produce twelve rows.
+-- private.mv_sales_projection_ensemble is the same twelve rows, pre-built by
+-- refresh-sales-projection-ensemble-daily at 00:20 MYT.
 --
 -- ⚠ THE CACHE CAN NAME THE WRONG MONTH. period_month is derived from
 -- current_date inside the model views, so a cache built last month says h=1 is
--- the month we are now IN. `fy_proj` below filters
--- `period_month > cur_month` against a LIVE calendar, so such a row is not
--- rejected -- it is silently DROPPED, n_months falls by one, and both the
--- Full-Year outlook and its band move with nothing raised.
+-- the month we are now IN -- which makes `fwd` and `cur_row` collide on one
+-- period_month and breaks the disjointness `timeline` relies on.
+-- kpis.health.ensembleCacheStale exists to report exactly that.
 --
--- That is what refresh-sales-projection-ensemble-daily at 00:20 MYT exists to
--- prevent, and what `ensembleCacheStale` below exists to report if it fails.
-proj as (
-    select * from private.mv_sales_projection_ensemble
+-- model_detail, implied_from_order_book and order_book_weight were added to
+-- this select list on 2026-10-16 for exhibitsByMonth. They are the same
+-- columns the snapshot table stores, in the same shape.
+fwd as materialized (
+    select e.period_month, e.horizon, e.projected,
+           e.lo_80, e.hi_80, e.lo_95, e.hi_95, e.total_var,
+           e.implied_from_order_book, e.implied_from_apriori,
+           e.order_book_weight, e.model_detail,
+           e.within_var, e.between_var, e.band_origins
+    from private.mv_sales_projection_ensemble e
 ),
 
-nxt as (
-    select * from proj where horizon = 1
+nxt as (select * from fwd where horizon = 1),
+
+rows_in_year as (
+    select a.*
+    from acc_h1 a
+    cross join bounds b
+    where a.period_month >= b.fy_start
+      and a.period_month <= b.fy_end_month
+),
+
+-- ############################################################################
+-- agg READS rows_in_year, AND MUST CONTINUE TO.
+--
+-- Every figure below counts SCORED months only -- months that closed and had
+-- an outcome to compare against. The guarantee comes from inside
+-- v_sales_projection_accuracy, which INNER JOINs actuals on `is_complete`, so
+-- a month with no outcome produces no row at all.
+--
+-- Do NOT "simplify" this by re-pointing it at `timeline` below. That CTE is a
+-- 12-row spine with one row per fiscal month whether or not anything is known
+-- about it, so count(*) would become the constant 12 and monthsScored would
+-- silently stop meaning anything.
+-- ############################################################################
+agg as (
+    select count(*)                                              as months_scored,
+           count(*) filter (where source = 'recorded')            as recorded_months,
+           count(*) filter (where source = 'reconstructed')       as reconstructed_months,
+           avg(abs_error)                                         as mae,
+           avg(actual)                                            as avg_actual,
+           sum(projected)                                         as total_projected,
+           sum(actual)                                            as total_actual,
+           count(*) filter (where inside_80)                      as inside_count,
+           count(*) filter (where inside_80 is not null)          as banded_count
+    from rows_in_year
+),
+
+-- ── THE WORST SINGLE MONTH OF THE SELECTED YEAR (added 2026-10-16) ─────────
+--
+-- Tile 3 on any year that is not the current one. `agg` above gives the
+-- AVERAGE miss; this gives the one that would have hurt. A manager reviewing a
+-- closed year asks which month we got wrong, not what the mean was.
+--
+-- Ordered on abs_error, not error_pct: a 60% miss on a RM200k month is noise,
+-- a 25% miss on a RM6M month is the one that moved the year.
+biggest_miss as (
+    select r.period_month,
+           to_char(r.period_month, 'Mon YYYY') as name,
+           r.projected,
+           r.actual,
+           r.abs_error,
+           r.error_pct,
+           r.inside_80,
+           r.source
+    from rows_in_year r
+    where r.abs_error is not null
+    order by r.abs_error desc
+    limit 1
 ),
 
 -- ─── fiscal-year build-up ──────────────────────────────────────────────────
 -- Three parts, kept separate so the tile can show its own arithmetic and a
 -- reader can check it:
 --     closed actuals  +  current month estimate  +  projected remainder
+--
+-- All three generalise to ANY fiscal year without a branch:
+--   * a PAST year has no current month inside it and no future months, so the
+--     second and third parts are zero and outlook = actual;
+--   * a FUTURE year has no closed months, so the first part is zero;
+--   * the current year has all three.
+-- The band collapses to null on a past year for the same reason -- there is no
+-- variance to carry. Do not add `case when is_past_fy` guards; they would be
+-- dead code that hides a real bug if one of these ever returns rows it should
+-- not.
 fy_actual as (
     select coalesce(sum(i.value), 0) as v
     from inv i
-    cross join fy_bounds b
+    cross join bounds b
     where i.is_complete
       and i.period_month >= b.fy_start
       and i.period_month <= b.fy_end_month
 ),
 
--- ── THE PLAN TO MEASURE THE FORECAST AGAINST (added 2026-10-14) ────────────
+-- ── THE PLAN TO MEASURE THE FORECAST AGAINST ──────────────────────────────
 --
--- Until now the Full-Year Outlook stood alone with nothing to compare it to,
--- while the budget it should be read against sat six sections up the page.
 -- Variance-to-plan is the question a finance review opens with, and a forecast
--- with no plan beside it cannot answer it.
---
--- This is ALSO what lets that tile carry the severity ramp. Per
--- DASHBOARD-CONVENTIONS.md §4 a tile earns colour only with an inherent
--- direction of "better" AND a comparator already in `kpis`. A bare projection
--- has neither -- revenue above forecast is not "good", it means the forecast
--- was low. Outlook against budget has both.
+-- with no plan beside it cannot answer it. This is ALSO what lets tile 1 carry
+-- the severity ramp: per DASHBOARD-CONVENTIONS.md §4 a tile earns colour only
+-- with an inherent direction of "better" AND a comparator already in `kpis`.
+-- A bare projection has neither -- revenue above forecast is not "good", it
+-- means the forecast was low. Outlook against budget has both.
 --
 -- ── WHY NO PRORATION, AND NO REP FILTER ───────────────────────────────────
 --
@@ -201,17 +318,16 @@ fy_actual as (
 -- overlap because that RPC answers an arbitrary date range; a whole fiscal
 -- year has no partial months, so proration degenerates to 1.0. budget_math
 -- also filters by v_sales_rep_code for the per-rep scorecard -- this figure is
--- company-wide, matching the projection it sits next to, which takes no
--- salesperson filter at all.
+-- company-wide, matching the projection it sits next to.
 --
 -- date_trunc defensively: budget_month is normalised to a month start by the
 -- frontend (salesBudgetsMutations.js), not by a database constraint.
 fy_budget as (
-    select coalesce(sum(b.budget_revenue), 0) as v
-    from public.sales_budgets b
-    cross join fy_bounds fb
-    where date_trunc('month', b.budget_month)::date >= fb.fy_start
-      and date_trunc('month', b.budget_month)::date <= fb.fy_end_month
+    select coalesce(sum(bg.budget_revenue), 0) as v
+    from public.sales_budgets bg
+    cross join bounds b
+    where date_trunc('month', bg.budget_month)::date >= b.fy_start
+      and date_trunc('month', bg.budget_month)::date <= b.fy_end_month
 ),
 
 -- Month-to-date. is_complete is false for the current month by construction
@@ -232,29 +348,37 @@ cur_mtd as (
 -- cannot validate -- and every horizon published here has measured accuracy
 -- behind it.
 --
--- So: take what is banked, and add the model's monthly level for the days left.
--- Standard practice, and it uses only a horizon that was actually scored.
+-- So: take what is banked, and add the model's monthly level for the days
+-- left. Standard practice, and it uses only a horizon that was actually
+-- scored.
+--
+-- ZERO when the selected year does not contain today -- see fy_actual's note.
 cur_est as (
-    select cm.v
-             + n.projected * ((c.days_in_month - c.day_elapsed) / c.days_in_month)
-               as v,
-           ((c.days_in_month - c.day_elapsed) / c.days_in_month) as frac_remaining
+    select case when fm.is_current_fy
+                then cm.v + n.projected
+                          * ((c.days_in_month - c.day_elapsed) / c.days_in_month)
+                else 0 end                                         as v,
+           case when fm.is_current_fy
+                then ((c.days_in_month - c.day_elapsed) / c.days_in_month)
+                else 0 end                                         as frac_remaining
     from cur_mtd cm
     cross join cal c
     cross join nxt n
+    cross join fy_meta fm
 ),
 
 fy_proj as (
-    select coalesce(sum(p.projected), 0)                        as v,
+    select coalesce(sum(f.projected), 0)                        as v,
            count(*)::int                                        as n_months,
-           count(*) filter (where p.horizon > h.cap)::int        as n_beyond,
-           coalesce(sum(p.total_var), 0)                        as var_sum
-    from proj p
-    cross join fy_bounds b
+           count(*) filter (where f.horizon > h.cap)::int        as n_beyond,
+           coalesce(sum(f.total_var), 0)                        as var_sum
+    from fwd f
+    cross join bounds b
     cross join cal c
     cross join hcap h
-    where p.period_month >  c.cur_month
-      and p.period_month <= b.fy_end_month
+    where f.period_month >  c.cur_month
+      and f.period_month >= b.fy_start
+      and f.period_month <= b.fy_end_month
 ),
 
 -- ── the fiscal-year band, MEASURED where possible ──────────────────────────
@@ -275,20 +399,11 @@ span_origins as (
     cross join fy_proj fp
     where eb.estimator       = 'ensemble'
       and eb.window_months   = 12
-      -- FIXED 2026-10-14. Read 'smooth w(h)' until today.
-      --
-      -- The order-book weight reverted to coverage(h) on 2026-10-14 (see
-      -- sales_projection_ensemble_view.sql), after the stale-bias fallback and
-      -- a divide-by-coverage weight compounded into a 133x regression. The
-      -- revert swept the views. It did not sweep this file, so the LIVE
-      -- Full-Year 80% range has been sized from a configuration the system
-      -- abandoned -- a band measured against one blend wrapped around a point
-      -- estimate produced by another.
-      --
       -- This filter must track sales_projection_ensemble_view.sql's
       -- measured_err / measured_quantiles CTEs. If the weight rule changes
-      -- again, it changes in three places or the band stops describing the
-      -- number it surrounds.
+      -- again, it changes in BOTH places or the band stops describing the
+      -- number it surrounds. (It read a stale 'smooth w(h)' until 2026-10-14;
+      -- the band was sized from a configuration the system had abandoned.)
       and eb.cl_weight_label = 'coverage(h)'
       and eb.horizon        <= fp.n_months
     group by eb.origin_month
@@ -313,13 +428,13 @@ fy_total as (
            fp.n_months,
            fp.n_beyond,
            -- Falls back to the independence assumption only when the backtest
-           -- cannot reach this span length; `bandBasis` reports which was used.
+           -- cannot reach this span length; bandBasis reports which was used.
            coalesce(se.rmse_total, sqrt(nullif(fp.var_sum, 0)))  as span_sd,
            se.origins                                    as span_origins_used,
            -- The part-month carries the same uncertainty as a full month,
            -- scaled by how much of it is still unknown.
            n.total_var * power(ce.frac_remaining, 2)      as cur_month_var
-    from fy_bounds b
+    from bounds b
     cross join fy_actual fa
     cross join cur_est ce
     cross join fy_proj fp
@@ -329,7 +444,8 @@ fy_total as (
 
 fy_band as (
     select ft.*,
-           ft.span_sd * ft.span_sd + ft.cur_month_var as fy_var
+           coalesce(ft.span_sd, 0) * coalesce(ft.span_sd, 0)
+             + coalesce(ft.cur_month_var, 0) as fy_var
     from fy_total ft
 ),
 
@@ -340,11 +456,10 @@ fy_interval as (
     select fb.*,
            case when fb.outlook > 0 and fb.fy_var > 0
                 then ln(1 + fb.fy_var / power(fb.outlook, 2)) end as sigma_sq,
-           -- The current month gets its OWN band (added 2026-10-15), from the
-           -- same cur_month_var that already feeds the fiscal-year variance
-           -- above. It is narrower than a full month's by construction --
-           -- frac_remaining squares down as the month fills, so on the 28th
-           -- the range is nearly closed.
+           -- The current month gets its OWN band, from the same cur_month_var
+           -- that already feeds the fiscal-year variance above. Narrower than
+           -- a full month's by construction -- frac_remaining squares down as
+           -- the month fills, so on the 28th the range is nearly closed.
            case when fb.current_month_est > 0 and fb.cur_month_var > 0
                 then ln(1 + fb.cur_month_var / power(fb.current_month_est, 2))
            end                                                    as cur_sigma_sq
@@ -373,13 +488,46 @@ fy_final as (
 prior_fy_actual as (
     select coalesce(sum(i.value), 0) as v
     from inv i
-    cross join fy_bounds b
+    cross join bounds b
     where i.is_complete
       and i.period_month >= b.prior_fy_start
       and i.period_month <= b.prior_fy_end_month
 ),
 
+-- ── WHAT WE SAID THIS MONTH WOULD BE, FROZEN LAST MONTH (2026-10-16) ───────
+--
+-- Tile 3's whole point: a live month judged against the number we actually
+-- published for it, not against a figure recomputed today knowing how the
+-- month has gone so far.
+--
+-- READS sales_projection_snapshots DIRECTLY, and cannot read
+-- v_sales_projection_accuracy instead -- that view INNER JOINs actuals on
+-- is_complete, so it has no row for a month still open. This is the one place
+-- in the file that touches the snapshot table.
+--
+-- ⚠ NULL UNTIL 1 NOVEMBER 2026. The first snapshot was taken by hand on
+-- 2026-10-14, so snapshot_month = 2026-10-01 and its h=1 target is November.
+-- No frozen forecast for October exists and none can be created after the
+-- fact -- the ensemble rebuilds itself from the data as it now stands, which
+-- is the entire reason the snapshot table exists. The tile renders an em-dash
+-- and starts working on its own.
+cur_prior_fc as (
+    select s.projected, s.lo_80, s.hi_80, s.snapshot_month
+    from public.sales_projection_snapshots s
+    cross join cal c
+    cross join fy_meta fm
+    where fm.is_current_fy
+      and s.horizon      = 1
+      and s.period_month = c.cur_month
+    limit 1
+),
+
 -- ─── comparators ───────────────────────────────────────────────────────────
+-- These describe NOW, not the selected fiscal year: trailing averages and
+-- year-on-year movement as of today. They are published only when the
+-- selected year contains today, and null otherwise -- a trailing-6-month
+-- comparison rendered inside a tile labelled FY 2024-2025 would be read as
+-- describing that year, which it does not.
 trailing_inv as (
     select avg(q.value) as avg_3m
     from (select i.value from inv i where i.is_complete
@@ -392,7 +540,10 @@ trailing_ord as (
           order by o.period_month desc limit 3) q
 ),
 
--- Same six months, year on year -- the comparison behind §11g Finding 5.
+-- Same six months, year on year -- the comparison behind §11g Finding 5, and
+-- the C11 finding: orders up 43% while invoicing is down 35%. These two
+-- percentages were the whole point of the retired "Order Book vs Invoicing
+-- History" tile and move into tile 1 so the signal survives its removal.
 yoy as (
     select
       (select coalesce(sum(o.value), 0) from ord o cross join cal c
@@ -421,7 +572,7 @@ last_year_same_month as (
       and i.is_complete
 ),
 
--- ─── model agreement, for the Confidence tile ──────────────────────────────
+-- ─── model agreement ───────────────────────────────────────────────────────
 -- Expressed as spread rather than as the between/within split. "The models
 -- agree within 12%" is a sentence a sales manager can act on; "between-model
 -- variance is 18% of total" is not. Both are published -- the decomposition
@@ -457,13 +608,13 @@ cache_state as (
       (select max(period_month) from inv where is_complete)        as series_latest
 ),
 
--- ─── ensemble cache staleness -- a DIFFERENT failure (2026-10-15) ──────────
+-- ─── ensemble cache staleness -- a DIFFERENT failure ───────────────────────
 --
 -- cache_state above is a MONTH-ROLLOVER detector. It is structurally blind to
--- the failure this cache introduces: a daily job that dies silently. The four
--- backtest caches can be probed from their own data because max(period_month)
--- of scored history IS a watermark. These twelve FORWARD rows have no such
--- marker, which is why the cache carries cache_refreshed_at at all.
+-- the failure the forward cache introduces: a daily job that dies silently.
+-- The four backtest caches can be probed from their own data because
+-- max(period_month) of scored history IS a watermark. The twelve FORWARD rows
+-- have no such marker, which is why the cache carries cache_refreshed_at.
 --
 -- Two probes, because they catch different things:
 --   h1_month  -- the cache was built in a previous MONTH, so it names the
@@ -473,8 +624,7 @@ cache_state as (
 --
 -- `is distinct from`, not `<>`: `where f.blend > 0` in the ensemble can drop
 -- the h=1 row entirely, and with `<>` that yields null, which the frontend
--- banner reads as "fine". The two dates publish beside the boolean so a reader
--- can tell a dead cron from a missing h=1 row.
+-- banner reads as "fine".
 ens_cache_state as (
     select
       (select max(e.period_month) from private.mv_sales_projection_ensemble e
@@ -485,372 +635,667 @@ ens_cache_state as (
          from private.mv_sales_projection_ensemble e)              as ens_refreshed_at
 ),
 
--- ─── chart data ────────────────────────────────────────────────────────────
--- 24 months of history. The LAST historical row also carries `projected` and a
--- degenerate band equal to the actual, so the dashed forward line and the
--- shaded band both begin exactly at the origin instead of floating detached a
--- month to the right.
--- ── WHAT THE MODEL WOULD HAVE SAID, MONTH BY MONTH ─────────────────────────
+-- ############################################################################
+-- THE FISCAL-YEAR TIMELINE
 --
--- The one-month-ahead ensemble prediction for each PAST month, so the dashed
--- line runs across history beside the solid actual and the chart answers "has
--- this thing been any good?" without anyone having to open a document.
+-- One row per month of the selected fiscal year, always twelve:
 --
--- This is legitimate, not a victory lap. v_sales_projection_ensemble_backtest
--- rebuilds the blend at each historical origin with POINT-IN-TIME calibration
--- and weights -- only months whose target fell strictly before that origin --
--- so no row here was fitted on the month it is predicting.
+--     past     actual + what was forecast one month ahead + its bands
+--     current  forecast and bands only -- NOT month-to-date as an actual
+--     future   the projection made today, at whatever horizon reaches it
+--     blank    name only. The axis slot exists; the lines simply stop
 --
--- ONE HONEST CAVEAT, carried into the subtitle and §11g: the calibration window
--- (12 months) and the order-book weight rule were chosen by scoring the whole
--- backtest. That is ordinary hyper-parameter selection, but it does mean this
--- historical fit is mildly optimistic against what live forecasting will
--- deliver. Phase E's frozen snapshots are the honest experience study; this is
--- the best available until three months of them exist.
--- ── KNOWINGLY STALE, AND SCHEDULED FOR DELETION (2026-10-14) ───────────────
+-- Blank rows are the point, not an oversight. Selecting a fiscal year we
+-- cannot fully reach should show how far we can see and then stop, rather
+-- than hiding the year or implying the months do not exist.
 --
--- This filter still reads 'smooth w(h)', the weight abandoned on 2026-10-14.
--- Its sibling in span_origins (above) was fixed; this one is deliberately NOT,
--- for exactly one release.
+-- ── THE SIX-MONTH CAP IS NOT APPLIED HERE ───────────────────────────────────
 --
--- fanChartData is superseded by the merged fiscal-year timeline in
--- get_sales_projection_accuracy(). Both charts ship together for one cycle so
--- they can be compared, and the difference across the current year's past
--- months IS the proof the weight fix landed. Fixing this filter would make
--- the two agree and prove nothing.
+-- kpis.health.publishedHorizonCap is 6. That cap was set because C21 found
+-- h=12 unvalidatable -- a finding architecture §11h RETRACTS: the backtest had
+-- been bounded to 30 months for performance, and point-in-time testing took
+-- h=12 from 5 scoreable origins to 46, with band coverage measuring 77-82% at
+-- every horizon.
 --
--- DELETE in the follow-up: this CTE, fan_hist, fan_hist_band, fan_cur,
--- fan_cur_band, fan_fwd, fan, and the 'fanChartData' key.
---
--- DO NOT also delete cal, nxt, cur_mtd or cur_est. They look like part of this
--- chain and are not -- cur_est feeds fullYearCurrentMonthEstimate, and the
--- Full-Year tile goes a month low without it.
-backfit as (
-    select eb.target_month,
-           eb.predicted
-    from private.mv_sales_projection_ensemble_backtest eb
-    where eb.estimator       = 'ensemble'
-      and eb.window_months   = 12
-      and eb.cl_weight_label = 'smooth w(h)'
-      and eb.horizon         = 1
+-- Applying the cap here would make any future fiscal year almost entirely
+-- blank. The bands widen with horizon on their own, and months past 6 are
+-- counted into monthsBeyondValidated so the chart can disclose rather than
+-- imply. Still true and still disclosed: §11h Finding 2 measured
+-- seasonal_naive beating the blend at h=6 and h=12.
+-- ############################################################################
+
+-- The spine. `name` is emitted HERE, not from a joined branch -- Recharts keys
+-- its XAxis on `name`, so a blank month with a null name loses its slot
+-- entirely and the axis silently shortens.
+months as (
+    select g::date                  as period_month,
+           to_char(g, 'Mon YYYY')   as name
+    from bounds b,
+         generate_series(b.fy_start, b.fy_end_month, interval '1 month') g
 ),
 
-fan_hist as (
-    select i.period_month,
-           to_char(i.period_month, 'Mon YYYY')  as name,
-           i.value                              as actual,
-           bf.predicted                         as backfit,
-           (i.period_month = (select max(i2.period_month) from inv i2 where i2.is_complete))
-                                                as is_anchor
-    from inv i
-    cross join cal c
-    left join backfit bf on bf.target_month = i.period_month
-    where i.is_complete
-      and i.period_month > (c.cur_month - interval '25 months')::date
-),
-
--- The band around a historical prediction, from the SAME measured h=1 variance
--- the forward h=1 band uses. Without it the dashed line would show the misses
--- but not whether they were inside the range we published -- which is the
--- actual question. Lognormal, matching the ensemble's own transform.
-fan_hist_band as (
-    select fh.*,
-           case when fh.backfit > 0 and n.total_var > 0
-                then ln(1 + n.total_var / power(fh.backfit, 2)) end as sigma_sq
-    from fan_hist fh
-    cross join nxt n
-),
-
--- ── THE CURRENT MONTH -- otherwise a hole in the middle of the chart ───────
---
--- fan_hist takes only CLOSED months and fan_fwd starts at h=1, which is NEXT
--- month. The month we are actually in belonged to neither, so the line broke
--- between the last closed month and the first projected one -- while the
--- Full-Year Outlook tile was quietly counting that same month all along.
---
--- It is shown as PROJECTED, not actual: it carries the same month-to-date
--- plus run-rate estimate the tile uses. Plotting the raw month-to-date figure
--- as an actual would draw a collapse that is not real -- on the 3rd of the
--- month that is three days of invoicing against a full month everywhere else.
---
--- Its band is narrower than a full month's by construction: part of the month
--- is already banked, so only the remaining fraction is uncertain.
-fan_cur as (
-    select c.cur_month                          as period_month,
-           to_char(c.cur_month, 'Mon YYYY')     as name,
-           ce.v                                 as estimate,
-           n.total_var * power(ce.frac_remaining, 2) as cur_var
+-- Narrower than a full month by construction: part of the month is banked, so
+-- only the remaining fraction is uncertain. This is the one band in the chart
+-- built from a lognormal rather than measured quantiles -- a one-month shape
+-- change in the middle of the fan, stated here so it is not debugged later.
+cur_row as (
+    select c.cur_month as period_month,
+           ce.v        as estimate,
+           case when ce.v > 0
+                 and (n.total_var * power(ce.frac_remaining, 2)) > 0
+                then ln(1 + (n.total_var * power(ce.frac_remaining, 2))
+                            / power(ce.v, 2)) end as sigma_sq
     from cal c
     cross join cur_est ce
     cross join nxt n
+    cross join fy_meta fm
+    where fm.is_current_fy
 ),
 
-fan_cur_band as (
-    select fc.*,
-           case when fc.estimate > 0 and fc.cur_var > 0
-                then ln(1 + fc.cur_var / power(fc.estimate, 2)) end as sigma_sq
-    from fan_cur fc
+-- The three branches are DISJOINT by construction -- past is is_complete
+-- (strictly before this month), cur_row is exactly this month, fwd starts at
+-- h=1 (next month). The coalesce order below is therefore a safety net, not an
+-- arbitration between competing claims.
+timeline as (
+    select m.period_month,
+           m.name,
+
+           -- Actual comes from the past branch ONLY. The current month's
+           -- month-to-date is deliberately not plotted as an actual: on the
+           -- 3rd that is three days of invoicing drawn against full months
+           -- everywhere else, which reads as a collapse that did not happen.
+           p.actual,
+
+           coalesce(p.projected, c.estimate, f.projected)       as projected,
+
+           -- Each bound pair is guarded as a PAIR. A one-sided band must be
+           -- null, never [null, x] -- Recharts would try to draw it.
+           coalesce(
+               case when p.lo_80 is not null and p.hi_80 is not null
+                    then json_build_array(round(p.lo_80), round(p.hi_80)) end,
+               case when c.sigma_sq is not null
+                    then json_build_array(
+                           round(exp(ln(c.estimate) - c.sigma_sq / 2 - sqrt(c.sigma_sq) * 1.2816)),
+                           round(exp(ln(c.estimate) - c.sigma_sq / 2 + sqrt(c.sigma_sq) * 1.2816))) end,
+               case when f.lo_80 is not null and f.hi_80 is not null
+                    then json_build_array(round(f.lo_80), round(f.hi_80)) end
+           )                                                    as band80,
+
+           coalesce(
+               case when p.lo_95 is not null and p.hi_95 is not null
+                    then json_build_array(round(p.lo_95), round(p.hi_95)) end,
+               case when c.sigma_sq is not null
+                    then json_build_array(
+                           round(exp(ln(c.estimate) - c.sigma_sq / 2 - sqrt(c.sigma_sq) * 1.9600)),
+                           round(exp(ln(c.estimate) - c.sigma_sq / 2 + sqrt(c.sigma_sq) * 1.9600))) end,
+               case when f.lo_95 is not null and f.hi_95 is not null
+                    then json_build_array(round(f.lo_95), round(f.hi_95)) end
+           )                                                    as band95,
+
+           p.source,
+           f.horizon,
+           p.error_pct,
+           p.inside_80,
+
+           case when p.period_month is not null then 'past'
+                when c.period_month is not null then 'current'
+                when f.period_month is not null then 'future'
+                else 'blank' end                                as segment
+
+    from months m
+    left join rows_in_year p on p.period_month = m.period_month
+    left join fwd          f on f.period_month = m.period_month
+    left join cur_row      c on c.period_month = m.period_month
 ),
 
-fan_fwd as (
-    select p.period_month,
-           to_char(p.period_month, 'Mon YYYY')  as name,
-           p.projected, p.lo_80, p.hi_80, p.lo_95, p.hi_95
-    from proj p
-    cross join hcap h
-    where p.horizon <= h.cap
+tl_agg as (
+    select count(*) filter (where segment <> 'blank')                  as months_with_data,
+           count(*) filter (where segment = 'future' and horizon > 6)  as months_beyond_validated,
+           to_char(max(period_month) filter (where segment = 'past'),
+                   'Mon YYYY')                                         as forecast_start_label
+    from timeline
 ),
 
-fan as (
-    select fh.period_month,
-           fh.name,
-           round(fh.actual)                                        as actual,
-           -- The dashed line now runs across history too. Falls back to the
-           -- actual on the final month only if the backtest cannot reach it
-           -- (stale caches), so the line still meets the forward projection
-           -- instead of breaking at the seam.
-           coalesce(round(fh.backfit),
-                    case when fh.is_anchor then round(fh.actual) end)
-                                                                   as projected,
-           case when fh.sigma_sq is not null
-                then json_build_array(
-                       round(exp(ln(fh.backfit) - fh.sigma_sq / 2 - sqrt(fh.sigma_sq) * 1.2816)),
-                       round(exp(ln(fh.backfit) - fh.sigma_sq / 2 + sqrt(fh.sigma_sq) * 1.2816)))
-                when fh.is_anchor
-                then json_build_array(round(fh.actual), round(fh.actual))
-           end                                                     as band80,
-           case when fh.sigma_sq is not null
-                then json_build_array(
-                       round(exp(ln(fh.backfit) - fh.sigma_sq / 2 - sqrt(fh.sigma_sq) * 1.9600)),
-                       round(exp(ln(fh.backfit) - fh.sigma_sq / 2 + sqrt(fh.sigma_sq) * 1.9600)))
-                when fh.is_anchor
-                then json_build_array(round(fh.actual), round(fh.actual))
-           end                                                     as band95
-    from fan_hist_band fh
+-- ############################################################################
+-- exhibitsByMonth -- WHAT THE MODEL SAID, FOR EVERY MONTH OF THE YEAR
+--
+-- The two exhibit charts used to describe next month and nothing else.
+-- Clicking a month on the main chart now re-points them, so both need a value
+-- for every month of the selected year.
+--
+-- All twelve are sent in one payload rather than refetched per click. Twelve
+-- months x ~5 rows is nothing, and a click that costs a round trip does not
+-- feel like a selection.
+--
+-- ── THREE SOURCES, DISJOINT BY MONTH ───────────────────────────────────────
+--
+--   period_month >  cur_month   LIVE      the forward cache, at that month's
+--                                         own horizon
+--   period_month <  cur_month   SNAPSHOT  if one was frozen for it, else
+--                                         REBUILT from the backtest
+--   period_month =  cur_month   NONE      the current month is month-to-date
+--                                         plus a run rate, not a model output.
+--                                         There is no per-model breakdown to
+--                                         show and inventing one would imply
+--                                         the models were consulted.
+--
+-- `basis` travels with every month so the chart subtitle can say which. A
+-- rebuilt month is a weaker claim than a published one -- the same distinction
+-- v_sales_projection_accuracy already draws between recorded and
+-- reconstructed, and it must never be hidden.
+-- ############################################################################
+
+-- LIVE and SNAPSHOT share a shape: both carry model_detail in the jsonb form
+-- sales_projection_ensemble_view.sql builds, plus the three scalars the
+-- build-up needs. snapshot_sales_projections() stores model_detail as a
+-- straight pass-through of the same column, so this union is safe.
+ex_live as (
+    select f.period_month,
+           f.projected,
+           f.implied_from_order_book,
+           f.order_book_weight,
+           f.model_detail,
+           'live'::text as basis
+    from fwd f
+    cross join bounds b
+    cross join cal c
+    where f.period_month >  c.cur_month
+      and f.period_month >= b.fy_start
+      and f.period_month <= b.fy_end_month
+),
+
+ex_snap as (
+    select s.period_month,
+           s.projected,
+           s.implied_from_order_book,
+           s.order_book_weight,
+           s.model_detail,
+           'as published'::text as basis
+    from public.sales_projection_snapshots s
+    cross join bounds b
+    cross join cal c
+    where s.horizon       = 1
+      and s.period_month  <  c.cur_month
+      and s.period_month  >= b.fy_start
+      and s.period_month  <= b.fy_end_month
+),
+
+-- EXPLICIT COLUMN LISTS, NOT `select *`. UNION ALL matches by POSITION, and
+-- this project has already lost a day to that: v_sales_projection_calibration
+-- unioned two CTEs with `select *` whose columns were in opposite orders, an
+-- origin COUNT landed in a bias column, and the chain-ladder factor became
+-- 1 + 24 = 25. Naming the columns makes a future reorder a compile error
+-- instead of a wrong number.
+ex_md as (
+    select period_month, projected, implied_from_order_book,
+           order_book_weight, model_detail, basis
+    from ex_live
+    union all
+    select period_month, projected, implied_from_order_book,
+           order_book_weight, model_detail, basis
+    from ex_snap
+),
+
+-- ── THE REBUILT BRANCH ─────────────────────────────────────────────────────
+--
+-- Months that closed before snapshots existed. Every figure comes from
+-- private.mv_sales_projection_ensemble_backtest at h=1, window 12, rebuilt
+-- point-in-time -- no row here was fitted on the month it is predicting.
+--
+-- ⚠ TWO TRAPS, BOTH LOAD-BEARING:
+--
+-- 1. cl_weight EXISTS ONLY ON THE ENSEMBLE ROW. Member rows carry
+--    cl_weight_label = 'n/a' and a null weight, because the weight sweep does
+--    not touch them -- they are emitted once per origin, not once per grid
+--    point. So the predicate below must NOT filter members on the label.
+--    `cl_weight_label = 'coverage(h)'` applied to the whole set returns the
+--    ensemble row and nothing else.
+--
+-- 2. THE MODEL NAMES DIFFER FROM model_detail's. The backtest emits
+--    'ma12' and 'ses_020'; model_detail->'apriori' emits 'baseline' and 'ses'.
+--    Two of three do not overlap. The display names below are mapped from the
+--    BACKTEST set and must match the mapping used for ex_md, or the same model
+--    gets two different bar labels depending on which month you clicked.
+--
+-- seasonal_naive is in the backtest and NOT in model_detail. Excluded on
+-- purpose: including it would make a month's bars depend on its source.
+ex_bt as (
+    select e.target_month                                                  as period_month,
+           max(e.predicted) filter (where e.estimator = 'ensemble')        as blend,
+           max(e.cl_weight) filter (where e.estimator = 'ensemble')        as cl_weight,
+           max(e.predicted) filter (where e.estimator = 'chainladder')     as cl_implied,
+           max(e.predicted) filter (where e.estimator = 'ma12')            as v_ma12,
+           max(e.predicted) filter (where e.estimator = 'freqsev')         as v_freqsev,
+           max(e.predicted) filter (where e.estimator = 'ses_020')         as v_ses
+    from private.mv_sales_projection_ensemble_backtest e
+    cross join bounds b
+    cross join cal c
+    where e.horizon        = 1
+      and e.window_months  = 12
+      and e.target_month   <  c.cur_month
+      and e.target_month   >= b.fy_start
+      and e.target_month   <= b.fy_end_month
+      and e.estimator in ('ensemble', 'chainladder', 'ma12', 'freqsev', 'ses_020')
+      -- See trap 1. The label pins the ensemble row only.
+      and (e.estimator <> 'ensemble' or e.cl_weight_label = 'coverage(h)')
+      and not exists (select 1 from ex_snap s where s.period_month = e.target_month)
+    group by e.target_month
+    having max(e.predicted) filter (where e.estimator = 'ensemble') is not null
+),
+
+-- One flat row set, pivoted into two arrays per month at the end. `kind`
+-- separates the two charts; `sort_order` reproduces the ordering the old
+-- single-month exhibits used.
+exhibit_rows as (
+    -- ── methods, from model_detail ──
+    select x.period_month, x.basis, 'method'::text as kind,
+           'Order Book (chain-ladder)'::text as name,
+           round(x.implied_from_order_book) as value,
+           false as is_blend, 1 as sort_order
+    from ex_md x
 
     union all
 
-    select fc.period_month,
-           fc.name,
-           null::numeric,
-           round(fc.estimate),
-           case when fc.sigma_sq is not null
-                then json_build_array(
-                       round(exp(ln(fc.estimate) - fc.sigma_sq / 2 - sqrt(fc.sigma_sq) * 1.2816)),
-                       round(exp(ln(fc.estimate) - fc.sigma_sq / 2 + sqrt(fc.sigma_sq) * 1.2816)))
-           end,
-           case when fc.sigma_sq is not null
-                then json_build_array(
-                       round(exp(ln(fc.estimate) - fc.sigma_sq / 2 - sqrt(fc.sigma_sq) * 1.9600)),
-                       round(exp(ln(fc.estimate) - fc.sigma_sq / 2 + sqrt(fc.sigma_sq) * 1.9600)))
-           end
-    from fan_cur_band fc
-
-    union all
-
-    select ff.period_month,
-           ff.name,
-           null::numeric,
-           round(ff.projected),
-           json_build_array(round(ff.lo_80), round(ff.hi_80)),
-           json_build_array(round(ff.lo_95), round(ff.hi_95))
-    from fan_fwd ff
-),
-
--- Every model's full-month estimate for next month, plus the blend. The
--- actuarial exhibit: it makes the number challengeable instead of merely
--- believable.
-method_exhibit as (
-    select 'Order Book (chain-ladder)'::text as name,
-           round(n.implied_from_order_book)  as value,
-           false                             as is_blend,
-           1                                 as sort_order
-    from nxt n
-
-    union all
-
-    select case m->>'model'
+    select x.period_month, x.basis, 'method',
+           case m->>'model'
              when 'baseline' then 'Trailing Mean (ma12)'
              when 'freqsev'  then 'Frequency x Severity'
              when 'ses'      then 'Exponential Smoothing'
              else m->>'model'
            end,
            round((m->>'implied')::numeric),
-           false,
-           2
-    from nxt n, jsonb_array_elements(n.model_detail->'apriori') m
+           false, 2
+    from ex_md x, jsonb_array_elements(x.model_detail->'apriori') m
 
     union all
 
-    select 'Blend (published)', round(n.projected), true, 3
-    from nxt n
+    select x.period_month, x.basis, 'method',
+           'Blend (published)', round(x.projected), true, 3
+    from ex_md x
+
+    -- ── methods, rebuilt ──
+    union all
+    select x.period_month, 'rebuilt afterwards', 'method',
+           'Order Book (chain-ladder)', round(x.cl_implied), false, 1
+    from ex_bt x where x.cl_implied is not null
+    union all
+    select x.period_month, 'rebuilt afterwards', 'method',
+           'Trailing Mean (ma12)', round(x.v_ma12), false, 2
+    from ex_bt x where x.v_ma12 is not null
+    union all
+    select x.period_month, 'rebuilt afterwards', 'method',
+           'Frequency x Severity', round(x.v_freqsev), false, 2
+    from ex_bt x where x.v_freqsev is not null
+    union all
+    select x.period_month, 'rebuilt afterwards', 'method',
+           'Exponential Smoothing', round(x.v_ses), false, 2
+    from ex_bt x where x.v_ses is not null
+    union all
+    select x.period_month, 'rebuilt afterwards', 'method',
+           'Blend (published)', round(x.blend), true, 3
+    from ex_bt x
+
+    -- ── build-up, from model_detail ──
+    -- The two shares sum EXACTLY to the blend by construction. The statistical
+    -- share is the blend MINUS the order-book share, never
+    -- (1 - weight) * apriori: that is the same number by algebra but it
+    -- divides by (1 - weight), which is zero at a weight of 1.0.
+    union all
+    select x.period_month, x.basis, 'buildup',
+           'From Order Book',
+           round(x.order_book_weight * x.implied_from_order_book), false, 1
+    from ex_md x
+    union all
+    select x.period_month, x.basis, 'buildup',
+           'From Statistical Models',
+           round(x.projected - x.order_book_weight * x.implied_from_order_book), false, 2
+    from ex_md x
+    union all
+    select x.period_month, x.basis, 'buildup',
+           'Projected Total', round(x.projected), false, 3
+    from ex_md x
+
+    -- ── build-up, rebuilt ──
+    union all
+    select x.period_month, 'rebuilt afterwards', 'buildup',
+           'From Order Book', round(x.cl_weight * x.cl_implied), false, 1
+    from ex_bt x where x.cl_weight is not null and x.cl_implied is not null
+    union all
+    select x.period_month, 'rebuilt afterwards', 'buildup',
+           'From Statistical Models',
+           round(x.blend - x.cl_weight * x.cl_implied), false, 2
+    from ex_bt x where x.cl_weight is not null and x.cl_implied is not null
+    union all
+    select x.period_month, 'rebuilt afterwards', 'buildup',
+           'Projected Total', round(x.blend), false, 3
+    from ex_bt x
 ),
 
--- How the published number is built: the order book's share plus the
--- statistical share. The two sum exactly to the blend by construction.
-build_up as (
-    select 'From Order Book'::text as name,
-           round(n.order_book_weight * n.implied_from_order_book) as value,
-           1 as sort_order
-    from nxt n
-    union all
-    select 'From Statistical Models',
-           round((1 - n.order_book_weight) * n.implied_from_apriori),
-           2
-    from nxt n
-    union all
-    select 'Projected Total', round(n.projected), 3
-    from nxt n
+exhibits as (
+    select er.period_month,
+           min(er.basis)                                              as basis,
+           coalesce(json_agg(json_build_object(
+                        'name', er.name, 'value', er.value, 'isBlend', er.is_blend)
+                    order by er.sort_order, er.value desc)
+                    filter (where er.kind = 'method'), '[]'::json)    as methods,
+           coalesce(json_agg(json_build_object(
+                        'name', er.name, 'value', er.value)
+                    order by er.sort_order)
+                    filter (where er.kind = 'buildup'), '[]'::json)   as build_up
+    from exhibit_rows er
+    group by er.period_month
+),
+
+-- Which month the section opens on, decided HERE rather than in React. §4d's
+-- principle: a chart's selection comes from the RPC, so the tile and the
+-- exhibits can never disagree about which month they describe.
+--
+-- Next month when the selected year contains today -- that is the number the
+-- section exists to publish. Otherwise the last month of that year we know
+-- anything about, which for a closed year is March and for a future year is
+-- as far as the horizon reaches.
+default_exhibit as (
+    select coalesce(
+             (select n.period_month from nxt n cross join fy_meta fm
+               cross join bounds b
+               where fm.is_current_fy
+                 and n.period_month >= b.fy_start
+                 and n.period_month <= b.fy_end_month),
+             (select max(x.period_month) from exhibits x)
+           ) as period_month
+),
+
+-- Which years the selector should offer. Derived from the data rather than
+-- from the frontend's preset list, which runs back 11 years and would offer a
+-- year that renders empty.
+--
+-- UNION, not UNION ALL, and over MONTHS rather than rows: the current fiscal
+-- year has both scored past months and projected future ones, and counting
+-- both would report 17 months in a 12-month year.
+--
+-- `having count(*) >= 2` keeps out a year reachable by a single far horizon --
+-- standing in April 2027, FY2028-29 is touched by Apr 2028 at h=12 alone, and
+-- one point is not a chart.
+years as (
+    select (extract(year from period_month)
+            - case when extract(month from period_month) >= 4 then 0 else 1 end)::int
+               as fy_start_year,
+           count(*) as months_with_data
+    from (
+        -- Reads the CTEs, NOT the sources. Querying them here again cost a
+        -- second full evaluation of both and timed this RPC out on first
+        -- deploy. The scans look free because the subquery asks for one
+        -- column; they are not, because the planner must build the whole view
+        -- to produce it.
+        select period_month from acc_h1
+        union
+        select period_month from fwd
+    ) u
+    group by 1
+    having count(*) >= 2
 )
 
 select json_build_object(
 
-    'kpis', (
-        select json_build_object(
-            -- ─── TILE 1: Full-Year Outlook (fiscal, leads the section) ─────
-            'fiscalYearLabel',                f.fy_label,
-            'fullYearOutlook',                round(f.outlook),
-            'fullYearActualToDate',           round(f.actual_to_date),
-            'fullYearCurrentMonthEstimate',   round(f.current_month_est),
-            -- Its own 80% range, so the tile can show one beside every forward
-            -- figure. Narrower than next month's by construction: part of this
-            -- month is already banked, so only the remainder is uncertain.
-            'fullYearCurrentMonthLo80',       round(f.cur_lo_80),
-            'fullYearCurrentMonthHi80',       round(f.cur_hi_80),
-            'fullYearProjectedRemainder',     round(f.projected_remainder),
-            'fullYearLo80',                   round(f.fy_lo_80),
-            'fullYearHi80',                   round(f.fy_hi_80),
-            'fullYearMonthsProjected',        f.n_months,
-            'fullYearMonthsBeyondValidated',  f.n_beyond,
-            'fullYearPriorActual',            round(pfy.v),
-            'fullYearVsPriorPct',             case when pfy.v > 0
-                                                   then round(100.0 * f.outlook / pfy.v - 100, 1) end,
+    -- ── NESTED, because a flat merge is 136 arguments and the limit is 100.
+    --    See the banner. Each sub-object must stay under 50 key/value pairs.
+    'kpis', json_build_object(
 
-            -- The plan, and the forecast measured against it (added
-            -- 2026-10-14). This pair is what gives the tile the severity ramp
-            -- -- see the fy_budget CTE for why.
-            --
-            -- Attainment is NULL, never 0, when no budget exists for the year.
-            -- A zero would read as "0% of budget" and paint the tile red for a
-            -- year nobody has budgeted yet; null makes the tile fall back to
-            -- informational blue, which getStatusVariant does on its own ("it
-            -- never guesses a tier for missing data").
-            'fullYearBudget',                 round(fb.v),
-            'fullYearBudgetAttainmentPct',    case when fb.v > 0
-                                                   then round(100.0 * f.outlook / fb.v) end,
+        -- ─── TILE 1: the fiscal year ───────────────────────────────────────
+        'year', (
+            select json_build_object(
+                'fiscalYearLabel',                b.fy_label,
+                'fiscalYearStart',                v_fy_start,
+                'isCurrentFiscalYear',            fm.is_current_fy,
+                'isPastFiscalYear',               fm.is_past_fy,
 
-            -- ─── TILE 2: Next Month ────────────────────────────────────────
-            'nextMonthLabel',                 to_char(n.period_month, 'Mon YYYY'),
-            'nextMonthProjected',             round(n.projected),
-            'nextMonthLo80',                  round(n.lo_80),
-            'nextMonthHi80',                  round(n.hi_80),
-            'nextMonthOrderBookWeightPct',    round(100.0 * n.order_book_weight, 0),
-            'nextMonthVsTrailing3mPct',       case when ti.avg_3m > 0
+                'outlook',                        round(f.outlook),
+                'actualToDate',                   round(f.actual_to_date),
+                'currentMonthEstimate',           round(f.current_month_est),
+                'projectedRemainder',             round(f.projected_remainder),
+                'lo80',                           round(f.fy_lo_80),
+                'hi80',                           round(f.fy_hi_80),
+                'monthsProjected',                f.n_months,
+                'monthsBeyondValidated',          f.n_beyond,
+
+                -- Attainment is NULL, never 0, when no budget exists for the
+                -- year. A zero would read as "0% of budget" and paint the tile
+                -- red for a year nobody has budgeted; null makes the tile fall
+                -- back to informational blue, which getStatusVariant does on
+                -- its own ("it never guesses a tier for missing data").
+                'budget',                         round(bg.v),
+                'budgetAttainmentPct',            case when bg.v > 0
+                                                       then round(100.0 * f.outlook / bg.v) end,
+
+                'priorYearActual',                round(pfy.v),
+                'vsPriorYearPct',                 case when pfy.v > 0
+                                                       then round(100.0 * f.outlook / pfy.v - 100, 1) end,
+
+                -- What the forecast said for this year against what landed.
+                -- Only meaningful once months have closed; on the current year
+                -- it covers the closed months only, which is why it sits
+                -- beside monthsScored rather than beside outlook.
+                'forecastTotalScored',            round(ag.total_projected),
+                'actualTotalScored',              round(ag.total_actual),
+                'scoredErrorPct',                 case when ag.total_actual > 0
+                                                       then round(100.0 * (ag.total_projected - ag.total_actual)
+                                                                  / ag.total_actual, 1) end,
+
+                -- The C11 finding, inherited from the retired Order Book vs
+                -- Invoicing History tile. Trailing six months against the same
+                -- six a year earlier -- a FIXED-WINDOW figure describing NOW,
+                -- so it is null on any year that does not contain today.
+                'ordersYoyPct',                   case when fm.is_current_fy and y.ord_prior > 0
+                                                       then round(100.0 * y.ord_recent / y.ord_prior - 100, 0) end,
+                'invoicedYoyPct',                 case when fm.is_current_fy and y.inv_prior > 0
+                                                       then round(100.0 * y.inv_recent / y.inv_prior - 100, 0) end
+            )
+            from fy_final f
+            cross join bounds b
+            cross join fy_meta fm
+            cross join fy_budget bg
+            cross join prior_fy_actual pfy
+            cross join agg ag
+            cross join yoy y
+        ),
+
+        -- ─── TILES 2 AND 3: months ─────────────────────────────────────────
+        -- Tile 2 reads monthlyData client-side for whichever month is
+        -- selected -- every field it needs (projected, actual, band80,
+        -- errorPct, insideBand, source, horizon) is already a column there, so
+        -- clicking a month costs no refetch and the tile can never disagree
+        -- with the chart it was clicked on.
+        --
+        -- What is NOT in monthlyData is published here: the next-month
+        -- comparators, which only make sense for h=1, and the two tile-3
+        -- variants.
+        'month', (
+            select json_build_object(
+                'nextLabel',                  to_char(n.period_month, 'Mon YYYY'),
+                'nextPeriodMonth',            n.period_month,
+                'nextProjected',              round(n.projected),
+                'nextLo80',                   round(n.lo_80),
+                'nextHi80',                   round(n.hi_80),
+                'nextOrderBookWeightPct',     round(100.0 * n.order_book_weight, 0),
+                'nextVsTrailing3mPct',        case when ti.avg_3m > 0
                                                    then round(100.0 * n.projected / ti.avg_3m - 100, 0) end,
-            'nextMonthVsLastYearPct',         case when lysm.v > 0
+                'nextVsLastYearPct',          case when lysm.v > 0
                                                    then round(100.0 * n.projected / lysm.v - 100, 0) end,
 
-            -- ─── TILE 3: Order Book vs Statistical ─────────────────────────
-            'orderBookImplied',               round(n.implied_from_order_book),
-            'aprioriImplied',                 round(n.implied_from_apriori),
-            'orderBookGap',                   round(n.implied_from_order_book - n.implied_from_apriori),
-            'orderBookGapPct',                case when n.implied_from_apriori > 0
-                                                   then round(100.0 * n.implied_from_order_book
-                                                              / n.implied_from_apriori - 100, 0) end,
-            'ordersTrailing3mAvg',            round(tor.avg_3m),
-            'invoicedTrailing3mAvg',          round(ti.avg_3m),
-            'ordersYoyPct',                   case when y.ord_prior > 0
-                                                   then round(100.0 * y.ord_recent / y.ord_prior - 100, 0) end,
-            'invoicedYoyPct',                 case when y.inv_prior > 0
-                                                   then round(100.0 * y.inv_recent / y.inv_prior - 100, 0) end,
-
-            -- ─── TILE 4: Forecast Confidence (the one verdict tile) ────────
-            'modelSpreadPct',                 case when a.projected > 0
+                -- Two ways of estimating the SAME next-month figure. Retired
+                -- as a tile, kept as data: the gap is what tells a reader
+                -- whether the order book and invoicing history agree.
+                'nextOrderBookImplied',       round(n.implied_from_order_book),
+                'nextAprioriImplied',         round(n.implied_from_apriori),
+                'nextModelSpreadPct',         case when a.projected > 0
                                                    then round(100.0 * (a.high_v - a.low_v) / a.projected, 0) end,
-            'modelHighImplied',               round(a.high_v),
-            'modelLowImplied',                round(a.low_v),
-            -- ::numeric is load-bearing. within_var/between_var come from
-            -- exp()/avg() arithmetic and are double precision, and Postgres
-            -- has no round(double precision, int) -- only round(numeric, int).
-            -- Every other percentage here is already numeric.
-            'betweenModelSharePct',           case when (n.within_var + n.between_var) > 0
-                                                   then round((100.0 * n.between_var
-                                                              / (n.within_var + n.between_var))::numeric, 0) end,
 
-            -- ─── provenance and health ─────────────────────────────────────
-            -- Surfaced as plain keys so the frontend can explain itself rather
-            -- than render a confident-looking wrong number. Same convention as
-            -- get_sales_reports_dashboard's ownerSapMappingMissing.
-            'publishedHorizonCap',            h.cap,
-            'bandOriginsAtH1',                n.band_origins,
-            'spanOriginsUsed',                f.span_origins_used,
-            'bandBasis',                      case when f.span_origins_used is not null
-                                                   then 'measured span error'
-                                                   else 'summed monthly variance' end,
-            'currentMonthEstimateBasis',      'month-to-date actual + model level pro-rated over days remaining',
-            'cacheLatestMonth',               cs.cache_latest,
-            'seriesLatestCompleteMonth',      cs.series_latest,
+                -- ── TILE 3, variant A: the live month ──
+                'currentLabel',               case when fm.is_current_fy
+                                                   then to_char(c.cur_month, 'Mon YYYY') end,
+                'currentPeriodMonth',         case when fm.is_current_fy then c.cur_month end,
+                'currentMtdActual',           case when fm.is_current_fy then round(cm.v) end,
+                'currentEstimate',            case when fm.is_current_fy
+                                                   then round(f.current_month_est) end,
+                'currentLo80',                round(f.cur_lo_80),
+                'currentHi80',                round(f.cur_hi_80),
+                'currentDayElapsed',          case when fm.is_current_fy then c.day_elapsed end,
+                'currentDaysInMonth',         case when fm.is_current_fy then c.days_in_month end,
+                -- Null until 1 Nov 2026. See the cur_prior_fc banner.
+                'currentPriorForecast',       round(pf.projected),
+                'currentVsPriorForecastPct',  case when pf.projected > 0
+                                                   then round(100.0 * f.current_month_est
+                                                              / pf.projected - 100, 0) end,
+                'currentPriorForecastFrom',   to_char(pf.snapshot_month, 'Mon YYYY'),
 
-            -- OR'd, deliberately, so the EXISTING frontend banner fires for
-            -- either failure without a React change. The four keys below say
-            -- which one it was; the banner text covers both because both mean
-            -- "these figures describe an older world than you think".
-            'cacheStale',                     (cs.cache_latest is distinct from cs.series_latest)
-                                              or (ecs.ens_h1_month is distinct from ecs.ens_h1_expected),
+                -- ── TILE 3, variant B: the year's worst month ──
+                'biggestMissLabel',           bm.name,
+                'biggestMissPeriodMonth',     bm.period_month,
+                'biggestMissProjected',       round(bm.projected),
+                'biggestMissActual',          round(bm.actual),
+                'biggestMissMyr',             round(bm.abs_error),
+                'biggestMissPct',             round(bm.error_pct),
+                'biggestMissInsideBand',      bm.inside_80,
+                'biggestMissSource',          bm.source
+            )
+            from nxt n
+            cross join cal c
+            cross join fy_meta fm
+            cross join cur_mtd cm
+            cross join fy_final f
+            cross join trailing_inv ti
+            cross join last_year_same_month lysm
+            cross join agreement a
+            left join cur_prior_fc pf on true
+            left join biggest_miss bm on true
+        ),
 
-            'ensembleCacheH1Month',           ecs.ens_h1_month,
-            'ensembleCacheExpectedH1Month',   ecs.ens_h1_expected,
-            'ensembleCacheStale',             (ecs.ens_h1_month is distinct from ecs.ens_h1_expected),
-            'ensembleCacheAgeHours',          case when ecs.ens_refreshed_at is not null
-                                                   then round(extract(epoch from
-                                                        (now() - ecs.ens_refreshed_at))::numeric / 3600, 1) end,
+        -- ─── TILE 4: how much to trust any of this ─────────────────────────
+        'reliability', (
+            select json_build_object(
+                'monthsScored',           ag.months_scored,
+                'recordedMonths',         ag.recorded_months,
+                'reconstructedMonths',    ag.reconstructed_months,
+                'hasRecorded',            (ag.recorded_months > 0),
 
-            -- Now a cache, not a view. Left as `sourceView` rather than
-            -- renamed, because the frontend reads the key by name.
-            'sourceView',                     'private.mv_sales_projection_ensemble'
+                -- MAE over the mean actual -- a WAPE, not a MAPE. The typical
+                -- month's miss as a share of the typical month's revenue, not
+                -- the average of per-month percentages, which one small month
+                -- would dominate.
+                'typicalMissMyr',         round(ag.mae),
+                'typicalMissPct',         case when ag.avg_actual > 0
+                                               then round(100.0 * ag.mae / ag.avg_actual) end,
+
+                -- Did reality land inside the published range. 80% is the aim
+                -- in BOTH directions -- well above it is also a failure,
+                -- because a range that is never wrong is too wide to be
+                -- useful.
+                'bandCoveragePct',        case when ag.banded_count > 0
+                                               then round(100.0 * ag.inside_count / ag.banded_count) end,
+                'bandCoverageTarget',     80,
+                'bandedMonths',           ag.banded_count
+            )
+            from agg ag
+        ),
+
+        -- ─── provenance and health ─────────────────────────────────────────
+        -- Surfaced as plain keys so the frontend can explain itself rather
+        -- than render a confident-looking wrong number. Same convention as
+        -- get_sales_reports_dashboard's ownerSapMappingMissing.
+        'health', (
+            select json_build_object(
+                'monthsWithData',         t.months_with_data,
+                'forecastStartLabel',     t.forecast_start_label,
+                'monthsBeyondValidated',  t.months_beyond_validated,
+                'publishedHorizonCap',    h.cap,
+                'bandOriginsAtH1',        n.band_origins,
+                'spanOriginsUsed',        f.span_origins_used,
+                'bandBasis',              case when f.span_origins_used is not null
+                                               then 'measured span error'
+                                               else 'summed monthly variance' end,
+                'currentMonthEstimateBasis',
+                    'month-to-date actual + model level pro-rated over days remaining',
+                'cacheLatestMonth',       cs.cache_latest,
+                'seriesLatestCompleteMonth', cs.series_latest,
+
+                -- OR'd, deliberately, so the frontend banner fires for either
+                -- failure. The keys below say which one it was; the banner
+                -- text covers both because both mean "these figures describe
+                -- an older world than you think".
+                'cacheStale',             (cs.cache_latest is distinct from cs.series_latest)
+                                          or (ecs.ens_h1_month is distinct from ecs.ens_h1_expected),
+                'ensembleCacheH1Month',   ecs.ens_h1_month,
+                'ensembleCacheExpectedH1Month', ecs.ens_h1_expected,
+                'ensembleCacheStale',     (ecs.ens_h1_month is distinct from ecs.ens_h1_expected),
+                'ensembleCacheAgeHours',  case when ecs.ens_refreshed_at is not null
+                                               then round(extract(epoch from
+                                                    (now() - ecs.ens_refreshed_at))::numeric / 3600, 1) end,
+                'sourceView',             'private.mv_sales_projection_ensemble'
+            )
+            from tl_agg t
+            cross join hcap h
+            cross join nxt n
+            cross join fy_final f
+            cross join cache_state cs
+            cross join ens_cache_state ecs
         )
-        from fy_final f
-        cross join nxt n
-        cross join hcap h
-        cross join fy_budget fb
-        cross join prior_fy_actual pfy
-        cross join trailing_inv ti
-        cross join trailing_ord tor
-        cross join yoy y
-        cross join last_year_same_month lysm
-        cross join agreement a
-        cross join cache_state cs
-        cross join ens_cache_state ecs
     ),
 
-    'fanChartData', (
+    -- ── the chart, and the source tile 2 reads ─────────────────────────────
+    -- periodMonth is NEW and load-bearing: it is the click target. §4d
+    -- requires it to come from here rather than be parsed back out of
+    -- 'Mon YYYY' in React.
+    'monthlyData', (
         select coalesce(json_agg(
                    json_build_object(
-                       'name',      x.name,
-                       'actual',    x.actual,
-                       'projected', x.projected,
-                       'band80',    x.band80,
-                       'band95',    x.band95
-                   ) order by x.period_month
+                       'periodMonth', t.period_month,
+                       'name',        t.name,
+                       'segment',     t.segment,
+                       'source',      t.source,
+                       'projected',   round(t.projected),
+                       'actual',      round(t.actual),
+                       'band80',      t.band80,
+                       'band95',      t.band95,
+                       'horizon',     t.horizon,
+                       -- Single-argument round, matching what this key emitted
+                       -- before the merge. Postgres has no
+                       -- round(double precision, int) -- only round(numeric,
+                       -- int) -- and error_pct arrives from a division chain
+                       -- whose type is not worth betting on.
+                       'errorPct',    round(t.error_pct),
+                       'insideBand',  t.inside_80
+                   ) order by t.period_month
                ), '[]'::json)
-        from fan x
+        from timeline t
     ),
 
-    'methodExhibitData', (
+    'availableYears', (
         select coalesce(json_agg(
-                   json_build_object('name', x.name, 'value', x.value, 'isBlend', x.is_blend)
-                   order by x.sort_order, x.value desc
+                   json_build_object(
+                       'startYear',      y.fy_start_year,
+                       'label',          y.fy_start_year::text || '-' || (y.fy_start_year + 1)::text,
+                       'monthsWithData', y.months_with_data
+                   ) order by y.fy_start_year desc
                ), '[]'::json)
-        from method_exhibit x
+        from years y
     ),
 
-    'buildUpData', (
-        select coalesce(json_agg(
-                   json_build_object('name', x.name, 'value', x.value)
-                   order by x.sort_order
-               ), '[]'::json)
-        from build_up x
-    )
+    -- Keyed by period_month as 'YYYY-MM-DD' so the frontend can look up the
+    -- clicked month directly. '{}' not '[]' -- it is an object, and a null
+    -- here is a render crash.
+    'exhibitsByMonth', (
+        select coalesce(json_object_agg(
+                   x.period_month::text,
+                   json_build_object(
+                       'basis',   x.basis,
+                       'methods', x.methods,
+                       'buildUp', x.build_up
+                   )
+               ), '{}'::json)
+        from exhibits x
+    ),
+
+    'defaultExhibitMonth', (select de.period_month from default_exhibit de)
 
 ) into result;
 
@@ -863,20 +1308,28 @@ $$;
 -- ############################################################################
 -- VERIFY
 --
---     select get_sales_projections();
+--     select get_sales_projections();                -- current FY
+--     select get_sales_projections(2024);            -- a closed FY
+--     select get_sales_projections(2027);            -- a future FY
 --
 -- Check, in this order:
---   1. kpis.nextMonthProjected equals verification C6's h=1 figure exactly.
---   2. fullYearActualToDate + fullYearCurrentMonthEstimate
---        + fullYearProjectedRemainder = fullYearOutlook. The three parts are
---      published separately precisely so this is checkable by eye.
---   3. No array key returns null. All three use coalesce(..., '[]'::json).
---   4. cacheStale is false. If true, run:
---        select public.refresh_sales_projection_caches();
---   5. bandBasis reads 'measured span error'. 'summed monthly variance' means
---      the backtest could not reach this span length and the band assumes
---      independent months, which C16 showed they are not.
---   6. fullYearBudget is NON-ZERO (added 2026-10-14). Cross-check:
+--
+--   1. NO PGRST203. The drop at the top of this file must have removed the
+--      zero-argument overload. From the SQL editor:
+--
+--        select p.oid::regprocedure
+--        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--        where n.nspname = 'public' and p.proname = 'get_sales_projections';
+--
+--      Exactly ONE row, reading get_sales_projections(integer).
+--
+--   2. kpis.year reconciles on the current FY:
+--        actualToDate + currentMonthEstimate + projectedRemainder = outlook
+--      The three parts are published separately precisely so this is
+--      checkable by eye. On a CLOSED year, outlook = actualToDate and the
+--      other two are 0.
+--
+--   3. kpis.year.budget is NON-ZERO for a year that has one. Cross-check:
 --
 --        select sum(budget_revenue)
 --        from sales_budgets
@@ -884,8 +1337,37 @@ $$;
 --              between make_date(2026, 4, 1) and make_date(2027, 3, 1);
 --
 --      The two must match exactly. If the RPC reads 0 while the table has
---      rows, the fiscal-year window is wrong. If the TABLE is genuinely empty
---      for this year, fullYearBudgetAttainmentPct is null by design and the
---      tile falls back to informational blue rather than painting itself red
---      against a budget nobody set.
+--      rows, the fiscal-year window is wrong.
+--
+--   4. No array key returns null, and exhibitsByMonth returns {} not null.
+--
+--   5. kpis.health.cacheStale is false. If true, run:
+--        select public.refresh_sales_projection_caches();
+--
+--   6. kpis.health.bandBasis reads 'measured span error'. 'summed monthly
+--      variance' means the backtest could not reach this span length and the
+--      band assumes independent months, which C16 showed they are not.
+--
+--   7. EXHIBIT ARITHMETIC, every month. For each key in exhibitsByMonth:
+--        buildUp[From Order Book] + buildUp[From Statistical Models]
+--          = buildUp[Projected Total]
+--      exactly, and Projected Total = the methods row flagged isBlend.
+--      A mismatch on a 'rebuilt afterwards' month means the cl_weight join
+--      picked up the wrong grid point.
+--
+--   8. EXHIBIT BAR NAMES ARE THE SAME FIVE ON EVERY MONTH. Different names on
+--      a rebuilt month than on a live one means the ma12/baseline mapping
+--      drifted:
+--
+--        select distinct jsonb_array_elements(v->'methods')->>'name'
+--        from jsonb_each((get_sales_projections()->>'exhibitsByMonth')::jsonb) as t(k, v);
+--
+--      Five rows, no 'ma12', no 'ses_020', no 'seasonal_naive'.
+--
+--   9. kpis.month.currentPriorForecast is NULL before 2026-11-01 and NON-NULL
+--      after. It cannot be backfilled -- see the cur_prior_fc banner.
+--
+--  10. TIMING. `explain analyze` must not regress past what
+--      get_sales_projection_accuracy measured before the merge. A large jump
+--      means a CTE lost its `as materialized` and is being evaluated twice.
 -- ############################################################################

@@ -7,7 +7,7 @@ What actually exists today, page by page: every KPI, every chart, exactly how ea
 | Dashboard            | Route                  | Tier | Audience / cadence                       | RPC                           | Page component          |
 | -------------------- | ---------------------- | ---- | ---------------------------------------- | ----------------------------- | ----------------------- |
 | Sales Leads Overview | `sales/leads/overview` | 2    | Sales reps + manager, daily              | `get_sales_leads_dashboard`   | `LeadsOverview.jsx`     |
-| Sales Reports        | `sales/reports`        | 3    | Sales Manager + execs, monthly/quarterly | `get_sales_reports_dashboard` **+ `get_sales_projections`** (2026-10) **+ `get_sales_projection_accuracy`** (2026-10) — the only three-RPC page in the app | `Reports.jsx`           |
+| Sales Reports        | `sales/reports`        | 3    | Sales Manager + execs, monthly/quarterly | `get_sales_reports_dashboard` **+ `get_sales_projections`** (2026-10) — two RPCs; it was briefly three, until the projection pair merged on 2026-10-16 | `Reports.jsx`           |
 | Finance Reports      | `finance/reports`      | 3    | Finance + execs                          | `get_finance_dashboard`       | `FinancialReports.jsx`  |
 | Operations Reports   | `operations/reports`   | 3    | Ops Manager + execs                      | `get_operations_dashboard`    | `OperationsReports.jsx` |
 
@@ -89,7 +89,7 @@ The Overview-vs-List shape mismatch (some submodules have both, some are flat st
 | `sap_pipeline_state`                                                                       | Freshness banners on Sales Reports, Finance, Operations                                                                                                                                                                                                                                                                                                                                                                               |
 | `sales_orders`, `sales_attainment_snapshots`                                               | **Dormant** — schema exists, zero application code reads/writes either                                                                                                                                                                                                                                                                                                                                                                |
 | `private.mv_sales_projection_ensemble` (+ `mv_sales_order_development_pit`, `mv_sales_projection_baseline`, `mv_sales_chainladder_backtest`, `mv_sales_projection_ensemble_backtest`) | Sales Reports — Projections section. **The blend itself was cached 2026-10-15** — the view measured 4,202 ms for twelve rows on every page load. Five caches now: four refreshed **monthly** by `snapshot-sales-projections-monthly`, the blend **daily at 00:20 MYT** by `refresh-sales-projection-ensemble-daily`, because it reads the open order book and because a cache built in a previous month names the wrong month for horizon 1. Full map: architecture §8b |
-| `sales_projection_snapshots` (+ `v_sales_projection_accuracy`) (added 2026-10-14) | Sales Reports — Track Record section, via `get_sales_projection_accuracy`. **Written only by `snapshot_sales_projections()`**, a `security definer` job; `authenticated` has no insert/update/delete, because a hand-edited snapshot is a falsified record. Read via three RLS policies (`Sales Department VIEW`, `MGM Department VIEW`, `Superadmin CRUD`) |
+| `sales_projection_snapshots` (+ `v_sales_projection_accuracy`) (added 2026-10-14) | Sales Reports — Projections section, via `get_sales_projections`. **Written only by `snapshot_sales_projections()`**, a `security definer` job; `authenticated` has no insert/update/delete, because a hand-edited snapshot is a falsified record. Read via three RLS policies (`Sales Department VIEW`, `MGM Department VIEW`, `Superadmin CRUD`) |
 
 ## 4. Sales Leads Overview (`LeadsOverview.jsx`, RPC `get_sales_leads_dashboard`)
 
@@ -161,7 +161,20 @@ Three tiles (Forecast Accuracy, Range Reliability, Year Total vs Actual), one fa
 
 **The Full-Year tile gained a Budget comparator** (`fullYearBudget`, new in `get_sales_projections`), which is also what lets it carry the severity ramp — a bare projection has no direction of "better", but beating plan does. It and Forecast Reliability are the section's only two ramped tiles; the other two stay informational blue.
 
-**Tile 1 shows the CURRENT fiscal year and tile 4 the SELECTED one.** Picking an old year makes them name different years, which is correct — `get_sales_projections` takes no arguments. Both sublabels say which, per §3.
+**One clock, 2026-10-16 — every tile and chart follows the dropdown.** Until this date tiles 1–3 and both exhibit charts read an RPC that took no arguments and always described *now*, while tile 4 and the main chart followed the year selector. Picking FY 2024-2025 left three tiles talking about next month. `get_sales_projection_accuracy` was absorbed into `get_sales_projections(p_fiscal_year_start)`; one call, one year, one answer.
+
+**Slot 3 changes with the year, and is sometimes absent.** "This month, live" only exists in the year containing today. A closed year carries that year's **biggest miss** instead — the month we got most wrong, ranked in ringgit not percent, which is the question a review of a closed year opens with. A future year has neither and the slot is omitted rather than filled with em-dashes, so the section renders three tiles.
+
+| | FY contains today | Past FY | Future FY |
+| --- | --- | --- | --- |
+| 1 | FY outlook vs budget | FY actual vs budget | FY forecast vs budget |
+| 2 | Selected month (default: next) | Selected month (default: last with data) | Selected month |
+| 3 | This month, live | Biggest miss | *omitted* |
+| 4 | Reliability | Reliability | Reliability, empty |
+
+**Clicking a month on the chart drives the section** — the first chart in this codebase whose click sets in-page state rather than navigating. It re-points tile 2 and both exhibit charts together, so the three always describe the same month. See `DASHBOARD-CONVENTIONS.md` §4d for the renderer contract and why `ComposedChart`'s own `onClick` is used rather than `activeDot`.
+
+**"Order Book vs Invoicing History" was retired** to make room for the live-month tile. Its two percentages — orders up 43% while invoicing is down 35% over the same six months, the C11 finding — moved into tile 1 as sub-metric rows, because that divergence is a delivery signal and this page is the only place it is visible.
 
 **Future fiscal years are selectable.** Standing in October 2026, FY2027-28 shows Apr–Oct 2027 projected and Nov 2027–Mar 2028 blank — the models emit 12 months from today and stop. The six-month publishing cap is not applied to this chart; months past it are counted and disclosed in the subtitle.
 

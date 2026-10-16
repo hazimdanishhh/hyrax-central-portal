@@ -44,7 +44,6 @@ import { getFilterConfig } from "./config/filterConfig";
 import { getSalesReportsOverviewConfig } from "./config/overviewConfig";
 import { getSalesProjectionsConfig } from "./config/projectionConfig";
 import { useSalesProjections } from "../../../../features/sales/reports/private/hooks/useSalesProjections";
-import { useSalesProjectionAccuracy } from "../../../../features/sales/reports/private/hooks/useSalesProjectionAccuracy";
 import { useTheme } from "../../../../context/ThemeContext";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
@@ -138,30 +137,18 @@ function Reports() {
   // revenueByProductGroupData) are still derived further down, unchanged.
   const topInvoicedProductsRaw = dashboard?.topProductsData ?? [];
   const productGroupsRaw = dashboard?.revenueByProductGroupData ?? [];
-  // ─── Projections (Phase D) ────────────────────────────────────────────
+  // ─── Projections ──────────────────────────────────────────────────────
   // Deliberately NOT merged into isLoading/isFetching/isError above. This is a
   // second RPC on a different cadence, and a projection outage must leave the
   // rest of Sales Reports standing -- see
   // features/sales/reports/private/api/fetchSalesProjections.js.
-  // fanChartData is deliberately NOT destructured here any more (2026-10-14).
-  // The chart it fed was merged into the fiscal-year timeline below. The RPC
-  // still returns the key for one release so the two can be diffed by hand --
-  // `select get_sales_projections();` against
-  // `select get_sales_projection_accuracy();` -- and then it is deleted.
   //
-  // forecastStartLabel used to be derived here by scanning backwards for the
-  // last row with an actual. It is now computed server-side, because on a
-  // FUTURE fiscal year there is no such row and the rule has to be stated
-  // somewhere that knows what "today" means.
-  const {
-    kpis: projectionKpis,
-    methodExhibitData: projectionMethods,
-    buildUpData: projectionBuildUp,
-    isLoading: projectionsLoading,
-    error: projectionsError,
-  } = useSalesProjections();
-
-  // ─── Track Record (Phase E) ───────────────────────────────────────────
+  // ONE RPC AS OF 2026-10-16. There used to be two: get_sales_projections()
+  // took no arguments and always described *now*, while
+  // get_sales_projection_accuracy(fy) followed the dropdown below. The section
+  // ran on two clocks -- pick FY 2024-2025 and three of four tiles carried on
+  // talking about next month. Both are now one function taking the year.
+  //
   // The fiscal year is LOCAL state, not a URL filter. Every URL param on this
   // page is swept into `filters` by useDashboardQuery and lands in the Sales
   // Reports query key, so putting the year there would refetch the whole
@@ -170,42 +157,67 @@ function Reports() {
   //
   // null means "the fiscal year we are in", resolved server-side so the April
   // boundary is decided in exactly one place.
-  const [trackRecordFy, setTrackRecordFy] = useState(null);
+  const [projectionFy, setProjectionFy] = useState(null);
+
+  // The month the section is focused on, set by clicking the chart. null means
+  // "whatever the RPC says the default is" -- next month on the current year,
+  // the last month with data otherwise. Decided server-side so the tile and
+  // the exhibits can never disagree about which month they describe.
+  const [selectedMonth, setSelectedMonth] = useState(null);
 
   const {
-    kpis: trackRecordKpis,
-    monthlyData: trackRecordMonthly,
-    availableYears: trackRecordYears,
-    isLoading: trackRecordLoading,
-    error: trackRecordError,
-  } = useSalesProjectionAccuracy(trackRecordFy);
+    kpis: projectionKpis,
+    monthlyData: projectionMonthly,
+    availableYears: projectionYears,
+    exhibitsByMonth,
+    defaultExhibitMonth,
+    isLoading: projectionsLoading,
+    error: projectionsError,
+  } = useSalesProjections(projectionFy);
 
-  // ONE tile row, built from BOTH RPCs (2026-10-14). The section used to show
-  // two rows from two configs; §4a's test collapsed seven tiles into four, and
-  // the fourth -- Forecast Reliability -- needs the forward model spread from
-  // one RPC and the measured accuracy from the other. trackRecordConfig.js is
-  // gone; its three tiles are sub-metric rows inside that tile now.
-  //
-  // trackRecordKpis may be null while the second RPC is still in flight. The
-  // config handles that: tile 4 renders em-dashes rather than disappearing, so
-  // the row does not reflow from 3 tiles to 4 as the slower call lands.
-  const projectionItems = getSalesProjectionsConfig(
-    projectionKpis,
-    trackRecordKpis,
-  );
+  // The focused month, as a 'YYYY-MM-DD' key. Falls back to the server's
+  // default, and again to null while the first fetch is in flight.
+  const focusedMonth = selectedMonth ?? defaultExhibitMonth ?? null;
+
+  // The row behind tile 2. Everything that tile needs -- projected, actual,
+  // band80, errorPct, insideBand, source, horizon -- is already a column of
+  // monthlyData, which is why clicking a month costs no refetch.
+  const focusedRow =
+    projectionMonthly.find((r) => r.periodMonth === focusedMonth) || null;
+
+  const focusedExhibit = focusedMonth ? exhibitsByMonth[focusedMonth] : null;
+
+  const projectionItems = getSalesProjectionsConfig(projectionKpis, focusedRow);
 
   // Offered years come from the DATA, not from FISCAL_YEAR_PRESETS -- that
   // list runs back 11 years and would let someone pick a year that renders an
   // empty section.
-  const trackRecordYearOptions = trackRecordYears.map((y) => ({
+  const projectionYearOptions = projectionYears.map((y) => ({
     value: y.startYear,
     label: `FY ${y.label} (${y.monthsWithData} months)`,
   }));
 
-  const selectedTrackRecordYear =
-    trackRecordYearOptions.find(
-      (o) => o.value === (trackRecordFy ?? trackRecordKpis?.fiscalYearStart),
+  const selectedProjectionYear =
+    projectionYearOptions.find(
+      (o) => o.value === (projectionFy ?? projectionKpis?.year?.fiscalYearStart),
     ) || null;
+
+  // Changing the year must clear the month, or a month from the old year stays
+  // selected and tile 2 renders a row that is no longer in monthlyData. Done
+  // here rather than in an effect so the two pieces of state always move
+  // together, in one render.
+  function handleProjectionYearChange(option) {
+    setProjectionFy(option ? option.value : null);
+    setSelectedMonth(null);
+  }
+
+  // The chart hands up the X-axis category string; monthlyData carries the
+  // machine key beside it. DASHBOARD-CONVENTIONS.md §4d: a click target comes
+  // from the RPC, never from parsing a display label.
+  function handleMonthClick(name) {
+    const row = projectionMonthly.find((r) => r.name === name);
+    if (row?.periodMonth) setSelectedMonth(row.periodMonth);
+  }
 
   const overviewItems = getSalesReportsOverviewConfig(
     kpis,
@@ -729,11 +741,9 @@ function Reports() {
                             classNamePrefix="reactSelect"
                             placeholder="Select Fiscal Year"
                             isSearchable={false}
-                            options={trackRecordYearOptions}
-                            value={selectedTrackRecordYear}
-                            onChange={(o) =>
-                              setTrackRecordFy(o ? o.value : null)
-                            }
+                            options={projectionYearOptions}
+                            value={selectedProjectionYear}
+                            onChange={handleProjectionYearChange}
                           />
                         </div>
                       </div>
@@ -755,71 +765,62 @@ function Reports() {
                             flexDirection: "column",
                           }}
                         >
-                          {/* ONE row of four, down from two rows of seven
-                              (2026-10-14). Four questions, one tile each:
-                              how much this year and is it enough · how much
-                              next month · are our orders converting · how much
-                              should I trust any of this.
+                          {/* ONE row, every tile describing the year in the
+                              dropdown. Four questions, one tile each: how much
+                              this year and is it enough · the month in focus ·
+                              how is the live month tracking (or, on a closed
+                              year, which month did we get most wrong) · how
+                              much should I trust any of this.
 
-                              The fourth tile is fed by BOTH RPCs, so it does
-                              not get its own loading branch -- it renders
-                              em-dashes while the accuracy call is in flight,
-                              which keeps the row at four tiles instead of
-                              reflowing from three as the slower call lands. */}
+                              The third slot is ABSENT on a future year, where
+                              there is neither a month in progress nor a miss
+                              to report -- three tiles rather than one full of
+                              em-dashes. */}
                           <OverviewCards items={projectionItems} />
 
-                          {projectionKpis?.cacheStale && (
+                          {projectionKpis?.health?.cacheStale && (
                             <p className="textXS textLight">
                               <WarningCircleIcon size={14} /> Projection caches
                               were last rebuilt through{" "}
-                              {projectionKpis.cacheLatestMonth}, but invoicing
-                              is closed through{" "}
-                              {projectionKpis.seriesLatestCompleteMonth}. These
-                              figures do not yet include the most recent closed
-                              month.
-                            </p>
-                          )}
-
-                          {trackRecordError && (
-                            <p className="textXS textLight">
-                              <WarningCircleIcon size={14} /> Accuracy figures
-                              are unavailable, so Forecast Reliability is blank.
-                              The forecasts themselves are unaffected.
+                              {projectionKpis.health.cacheLatestMonth}, but
+                              invoicing is closed through{" "}
+                              {projectionKpis.health.seriesLatestCompleteMonth}.
+                              These figures do not yet include the most recent
+                              closed month.
                             </p>
                           )}
 
                           {/* THE MERGED CHART. One fiscal year, every month
                               present as an axis slot even when we cannot reach
                               it -- a year we can only half-see should show how
-                              far we can see and then stop. */}
+                              far we can see and then stop.
+
+                              It is also the section's SELECTOR. Clicking a
+                              month re-points tile 2 and both charts below, so
+                              the three always describe the same month. */}
                           <CardLayout style="cardLayout1">
                             <ChartCard
                               title="Invoiced Revenue — Forecast vs Actual"
                               subtitle={
-                                trackRecordKpis?.monthsWithData
-                                  ? `FY ${trackRecordKpis?.fiscalYearLabel ?? ""} · ${trackRecordKpis?.monthsScored ?? 0} closed months scored · 80% and 95% ranges${trackRecordKpis?.monthsBeyondValidated ? ` · ${trackRecordKpis.monthsBeyondValidated} month(s) past the validated six` : ""}`
-                                  : `FY ${trackRecordKpis?.fiscalYearLabel ?? ""} — nothing to show yet`
+                                projectionKpis?.health?.monthsWithData
+                                  ? `FY ${projectionKpis?.year?.fiscalYearLabel ?? ""} · ${projectionKpis?.reliability?.monthsScored ?? 0} closed months scored · 80% and 95% ranges · click a month${projectionKpis?.health?.monthsBeyondValidated ? ` · ${projectionKpis.health.monthsBeyondValidated} month(s) past the validated six` : ""}`
+                                  : `FY ${projectionKpis?.year?.fiscalYearLabel ?? ""} — nothing to show yet`
                               }
                               style="cardGapSmall"
                             >
                               {/* monthsWithData, NOT monthlyData.length. The
-                                  RPC now returns a 12-row spine that is never
+                                  RPC returns a 12-row spine that is never
                                   empty, so a length test can never fire and a
                                   blank future year would render an empty chart
-                                  frame instead of saying so.
-
-                                  The loading branch comes FIRST: without it, a
-                                  fetch in progress has no monthsWithData yet
-                                  and would render "no forecast or actuals",
-                                  which reads as an answer rather than a wait. */}
-                              {trackRecordLoading ? (
-                                <LoadingIcon />
-                              ) : trackRecordKpis?.monthsWithData ? (
+                                  frame instead of saying so. */}
+                              {projectionKpis?.health?.monthsWithData ? (
                                 <FanChartRenderer
-                                  data={trackRecordMonthly}
+                                  data={projectionMonthly}
                                   forecastStartLabel={
-                                    trackRecordKpis?.forecastStartLabel
+                                    projectionKpis?.health?.forecastStartLabel
                                   }
+                                  onMonthClick={handleMonthClick}
+                                  selectedMonth={focusedRow?.name}
                                 />
                               ) : (
                                 <NoResult title="No forecast or actuals for this fiscal year yet." />
@@ -827,27 +828,41 @@ function Reports() {
                             </ChartCard>
                           </CardLayout>
 
+                          {/* Both follow the clicked month. `basis` says where
+                              the month's figures came from, and it matters: a
+                              month rebuilt from the backtest is a weaker claim
+                              than one frozen at the time it was published, and
+                              hiding the difference would overstate what we
+                              know. */}
                           <CardLayout style="cardLayout2">
                             <ChartCard
                               title="What Each Model Says — Invoiced Revenue"
-                              subtitle={`${projectionKpis?.nextMonthLabel ?? "Next month"} — each method's own estimate, and the blend published from them`}
+                              subtitle={`${focusedRow?.name ?? "Selected month"} — each method's own estimate, and the blend published from them${focusedExhibit?.basis ? ` · ${focusedExhibit.basis}` : ""}`}
                               style="cardGapSmall"
                             >
-                              <HorizontalBarChartRenderer
-                                data={projectionMethods}
-                                colorMap={PURPLE_COLOR}
-                              />
+                              {focusedExhibit?.methods?.length ? (
+                                <HorizontalBarChartRenderer
+                                  data={focusedExhibit.methods}
+                                  colorMap={PURPLE_COLOR}
+                                />
+                              ) : (
+                                <NoResult title="No per-model breakdown for this month." />
+                              )}
                             </ChartCard>
 
                             <ChartCard
                               title="How the Number Is Built — Invoiced Revenue"
-                              subtitle={`${projectionKpis?.nextMonthLabel ?? "Next month"} — how much comes from the order book, how much from invoicing history`}
+                              subtitle={`${focusedRow?.name ?? "Selected month"} — how much comes from the order book, how much from invoicing history${focusedExhibit?.basis ? ` · ${focusedExhibit.basis}` : ""}`}
                               style="cardGapSmall"
                             >
-                              <HorizontalBarChartRenderer
-                                data={projectionBuildUp}
-                                colorMap={BLUE_COLOR}
-                              />
+                              {focusedExhibit?.buildUp?.length ? (
+                                <HorizontalBarChartRenderer
+                                  data={focusedExhibit.buildUp}
+                                  colorMap={BLUE_COLOR}
+                                />
+                              ) : (
+                                <NoResult title="No build-up for this month." />
+                              )}
                             </ChartCard>
                           </CardLayout>
                         </div>

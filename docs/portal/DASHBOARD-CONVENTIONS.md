@@ -264,6 +264,19 @@ Title stays a bare description of what's plotted; the subtitle is the one place 
 
 **The real per-chart blocker is identity, not the renderer.** `buildFilterUrl`/`ChartCard` are already generic enough for any chart; what actually gates whether a chart *can* be made clickable is whether its underlying query already carries a stable id (department/employee id, not just a display name) per row, and whether the target list page has a real, currently-selectable filter for that id. Two concrete fixes this pass needed before wiring clicks: `departmentAttendanceData`/`topAbsenteeismData`/`topOvertimeData` only grouped by display name, not id, so `department_id`/`employee_uuid` had to be added to their `GROUP BY`; and Attendance's Work Channel Mix chart needed a filter option (`evidenceSource`) added to `filterConfig.js` that the list page's query switch already technically supported but had never exposed as a selectable filter. **Don't guess a filter mapping you haven't verified** — Attendance's `leaveTypeBreakdownData` was deliberately left non-clickable this pass because the list page has no verified per-leave-type filter column; shipping a guessed filter key that silently matches zero rows is worse than no drill-through at all.
 
+**A click has TWO legitimate destinations, not one (added 2026-10-16).** Everything above assumes a click navigates. Sales Reports' projection fan is the first chart here whose click sets **in-page state** instead: it selects a month, and that selection re-points a KPI tile and two sibling charts without leaving the page. Both are valid; what matters is that a renderer never decides which.
+
+The two shapes differ only in what the page's handler returns:
+
+- **Navigating** — the handler returns a URL and the renderer calls its `openChartClickThrough` wrapper. This is the default and every bar/pie/line renderer does it today.
+- **Selecting** — the handler returns nothing and sets state. `VerticalMultiBarRenderer`'s raw `onBarClick(entry)` was the only precedent before `FanChartRenderer`. A renderer in this mode must also accept the current selection as a prop and show it, or the user cannot tell what they picked.
+
+**ComposedChart sub-contract: `onMonthClick(name)` + `selectedMonth`, fired from the CHART, not a dot.** `LineChartRenderer` hangs clicks off `activeDot`, which does not generalise: in a fan chart both lines are `dot={false}` and the `actual` series is null across every future month, so dot-based clicks would leave the whole forward half dead. `ComposedChart`'s own `onClick` fires for the entire category column — including blank months, which a 12-month fiscal spine needs. Guard on `state?.activeLabel`: Recharts fires with no active label when the click lands outside the plot area, and an unguarded handler clears the selection on a stray click.
+
+**The identity rule still binds, and bites harder here.** The chart hands up the X-axis *category string*. The page must map that back through its own data to a machine key the RPC supplied — `monthlyData` carries `periodMonth` beside `name` for exactly this. Parsing `'Mon YYYY'` back into a date client-side is the same mistake as re-deriving a line chart's date range from its bucket label, and it is forbidden for the same reason.
+
+**Selection highlighting has no clean Recharts primitive on a point-scaled axis.** A `ReferenceArea` from a category to itself has zero width, and spanning to a neighbour highlights two. `FanChartRenderer` uses a thick translucent `ReferenceLine` — fixed pixels, so it is about one slot wide on a phone and a little narrow on a wide screen. Known compromise, not an oversight.
+
 **Not yet done:** retrofitting this onto Sales/Finance's own Pie/Line charts (only their Bar charts have it today) is separate follow-up work, not a blocker for adopting this convention on new dashboards going forward.
 
 ## 5. Department module boundaries — no inter-departmental linking (added 2026-09)

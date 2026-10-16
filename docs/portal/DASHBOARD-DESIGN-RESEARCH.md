@@ -104,13 +104,71 @@ It drove the Projections section from **7 tiles to 4** on 2026-10-15 (`DASHBOARD
 
 But it also corrected an overstatement: the page's 12 top-level tiles sit at the **top of the recommended range, not past it**. The problem is not the count. It is that all 12 carry equal weight, with no hero and no layering — which is §2, not §7.
 
+## 8. Navigating a long report: jump links, yes — in the nav bar, no
+
+**Nielsen Norman Group,** [*Anchors OK? Re-Assessing In-Page Links*](https://www.nngroup.com/articles/in-page-links/)
+
+The most authoritative source in this file on the question, and it is unusually specific.
+
+> In-page links "do not meet users' mental model for a link" — people expect a link to take them to a new page. They are "only helpful if the content on a page is lengthy", and the benefit "increases as screen size decreases".
+
+Four concrete rules:
+
+1. **Label the list.** "On this page", not a bare row of links.
+2. **Do not put them in the sticky navigation bar.** *"Putting links in an area commonly used for navigation makes this problem worse."* A sticky table of contents **beside** the content is fine on large screens; the global nav bar is not.
+3. **Show where you are.** If the list is sticky it must mark the current section, you-are-here style.
+4. **Do not let the sticky header cover the heading you jumped to.** This is the classic anchor bug; `scroll-margin-top` is the fix.
+
+And one that cuts the other way: if a page holds *4 or 5 distinct topics and users read only a few*, NN/G says **split it into separate pages** rather than adding jump links.
+
+**What it decided.** Sales Reports has **nine** `.pdfOverviewSection` blocks and scrolls for several screens — comfortably past "lengthy". A section index is justified. But it goes in **its own rail or an "On this page" control at the top of the content**, never into the page's existing header bar beside the filters. The split-into-pages escape hatch does not apply: see §9.
+
+## 9. Tabs and accordions hide what this page needs combined
+
+**NN/G,** [*Accordions on Desktop*](https://www.nngroup.com/articles/accordions-on-desktop/) · [*Accordions for Complex Content*](https://www.nngroup.com/articles/accordions-complex-content/) · [*Accordions on Mobile*](https://www.nngroup.com/articles/mobile-accordions/) · [*Tabs vs. Accordions*](https://www.nngroup.com/videos/tabs-vs-accordions/)
+
+> Accordions are progressive disclosure: a heading gives the overview, the panel is hidden by default. But hidden content is less discoverable, and where users need many sections, *"on the desktop it is easier to simply scroll the page than to decide on which topics to click on."*
+
+> Use them "on content-heavy pages where users **don't need to combine information across sections**." Tabs suit a few long sections; accordions suit many short ones. Both are avoided where "a seamless reading experience and uninterrupted narrative flow are prioritized".
+
+Corroborated from the BI side: [Preset](https://preset.io/blog/bi-dashboard-best-practices/) recommends tabs to avoid overloading one view, [Fresh Consulting](https://www.freshconsulting.com/insights/blog/uiux-principle-21-when-and-when-not-to-use-tabs/) offers the test *"if you would want readers to access each section separately when printed, tabs are a logical choice"*, and [Graphed](https://www.graphed.com/blog/how-to-make-power-bi-page-scrollable) defends top-to-bottom scrolling for a KPI→detail narrative. [One essay](https://medium.com/@pavithraa/why-it-is-okay-to-scroll-d1a4a3d0e589) notes tabs force key metrics to be repeated on every tab.
+
+**What it decided — no tabs, and the reason is specific to this page.** The combine-across-sections test fails outright here:
+
+- the variance bridge in Order-to-Cash Overview explains the Invoiced Revenue tile six sections up;
+- the funnel explains the four stage-detail sections below it;
+- Projections' reliability tile is read against the forecast tile beside it.
+
+A monthly review argues *across* these, not within one. Fresh Consulting's printing test points the same way — see §10, where it turns out to be the wrong test for this codebase.
+
+§1's finding still governs: by Few's definition this is a **report**, not a dashboard, and a report is allowed to be long. The defect was never its length.
+
+## 10. The export already decides this, and it has not been consulted
+
+Not a published source — a finding from the code, recorded here because it outranks every opinion above.
+
+`src/components/exportActions/ExportActions.jsx` **already treats the section as the unit of export.** It does not screenshot the page; it iterates `targetRef.current.querySelectorAll(".pdfOverviewSection")`, captures each one with `html2canvas`, and paginates between them.
+
+Two consequences nobody has acted on:
+
+**Section-selective export is nearly free.** The list of sections already exists at export time. What is missing is only that the sections have no *names* — the DOM nodes are anonymous. Give them identity and the same list drives the index, the anchors and a set of export checkboxes.
+
+**Tabs and collapsed accordions would BREAK the existing export.** React unmounts inactive tab panels, so `querySelectorAll` would find only the visible ones and silently emit a partial PDF — the worst failure mode, because it looks like a complete document. A CSS-collapsed panel is no better: `display: none` gives `html2canvas` a zero-height box, and `(canvas.height * width) / canvas.width` then feeds `NaN` into `pdf.addImage`.
+
+Either is solvable by rendering every section off-screen during export, but that is real work on a fragile path, and it is a cost that the scroll-plus-index option simply does not have.
+
+**What it decided.** Keep one scrolling page. Add identity to the sections, and spend the effort on export selection rather than on hiding things.
+
+---
+
 ---
 
 ## What this page still doesn't do
 
 Named so the next restructure argues from evidence.
 
-1. **No layer-1 overview.** §2. The single largest gap.
+1. **No layer-1 overview.** §2. The single largest gap. Note that a section index (§8) is **not** this — a table of contents answers "where is it", not "what should I care about today". Shipping one without a hero would close the navigation gap and leave this one open.
+1b. **The nine sections have no names in code.** §10. They are anonymous `.pdfOverviewSection` divs with their titles hardcoded in JSX, so nothing can enumerate them — not an index, not anchors, not export checkboxes. One list of `{ id, label }` is the prerequisite for all three.
 2. **No page hero.** `DASHBOARD-CONVENTIONS.md` §4 defines one — "the page's one designated headline metric", fixed blue, always filled. Sales Reports has none; `blueCardFill` appears nowhere in its three configs. Finance Reports has one ("Revenue Invoiced").
 3. **IBCS notation is not implemented** — only its placement rules. §3.
 4. **Three concentration tiles ask one question.** Customer, Product and Product Group Concentration are three angles on *how concentrated are we?* — §4a says fold. Not done, because they were deliberately built and the fold deserves its own conversation.
@@ -120,6 +178,6 @@ Named so the next restructure argues from evidence.
 
 ## A note on using these sources
 
-Most of the links above are vendor blogs and practitioner write-ups, not peer-reviewed work. The two exceptions are Shneiderman (1996, a cited paper) and IBCS (a published standard). Where a vendor source agreed with a standard we treated it as corroboration; where it stood alone we treated it as a prompt to check our own data, not as proof.
+Most of the links above are vendor blogs and practitioner write-ups, not peer-reviewed work. The two exceptions are Shneiderman (1996, a cited paper) and IBCS (a published standard); the Nielsen Norman Group articles in §§8–9 sit between the two — practitioner research from usability testing, not peer review, and the in-page-links piece is some years old. Where a vendor source agreed with a standard we treated it as corroboration; where it stood alone we treated it as a prompt to check our own data, not as proof.
 
 The numbers that actually bind on this project — band coverage at 77–82%, the ~30% single-month miss, seasonal-naive at 49%, the top three invoices at 31.2% of a month — are all **measured from Hyrax data**, in `docs/sales/SALES-PROJECTIONS-ARCHITECTURE.md` §11. Nothing here overrides those.

@@ -146,9 +146,9 @@
 -- correct outcome" -- works because sections 0-3 are read by VIEWS, and a view
 -- registers a catalog dependency that a no-cascade drop refuses to break.
 --
--- Section 6's cache is read by three FUNCTION BODIES
--- (get_sales_projections, get_sales_projection_accuracy,
--- snapshot_sales_projections). plpgsql bodies register NO catalog dependency.
+-- Section 6's cache is read by two FUNCTION BODIES
+-- (get_sales_projections, snapshot_sales_projections). plpgsql bodies
+-- register NO catalog dependency.
 -- So `drop materialized view if exists private.mv_sales_projection_ensemble`
 -- SUCCEEDS SILENTLY, and the next page load raises 42P01 instead.
 --
@@ -393,9 +393,8 @@ grant execute on function public.refresh_sales_projection_caches()
 -- This file's whole safety story is that a no-cascade drop FAILS once views
 -- depend on a cache. That works because views register a catalog dependency.
 --
--- This cache's consumers are three FUNCTION BODIES -- get_sales_projections,
--- get_sales_projection_accuracy, snapshot_sales_projections -- and plpgsql
--- bodies register NONE. The drop below SUCCEEDS SILENTLY and the next page
+-- This cache's consumers are two FUNCTION BODIES -- get_sales_projections
+-- and snapshot_sales_projections -- and plpgsql bodies register NONE. The drop below SUCCEEDS SILENTLY and the next page
 -- load raises 42P01. Re-run this section only as a whole, never the drop on
 -- its own, and do not expect the file to stop you.
 --

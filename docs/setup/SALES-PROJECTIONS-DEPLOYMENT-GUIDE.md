@@ -60,7 +60,84 @@ Everything in `supabase/` is hand-run in the Supabase SQL editor; editing a `.sq
 | 2026-10-15 | **🔴 The daily refresh is a CORRECTNESS requirement, not a speed one.** The ensemble stores no dates — `period_month` is derived from `current_date` inside three model views. A cache built last month names the month we are now IN as horizon 1, and `get_sales_projections` filters `period_month > cur_month` against a **live** calendar — so that row is not rejected, it is **silently dropped**. `n_months` falls by one, the Full-Year outlook **and its 80% band** both move, nothing raises. Hence 00:20 MYT: a nine-hour wrong-month window on the 1st becomes twenty minutes. |
 | 2026-10-15 | **Three estate firsts, each argued in section 6's banner:** a UNIQUE index on a materialized view, `refresh ... concurrently`, and a `cache_refreshed_at` column. The last breaks this estate's "detect staleness from the data, not a timestamp" preference on purpose — that works for the backtest caches because `max(period_month)` of scored history *is* a watermark; twelve forward rows have none, so a cron that died three weeks ago would be invisible. |
 | 2026-10-15 | **Architecture §8b written** — the first complete map of how every object in this module updates. Three kinds of object, four clocks. Read it if "what does the RPC refresh?" is ever a question again. (Answer: nothing. It reads.) |
-|            | **← you are here. Next: deploy the cache (run order below), then the dashboard-RPC merge it unblocks.** |
+| 2026-10-16 | **The two projection RPCs merged into one, and the section became month-selectable.** `get_sales_projection_accuracy` is absorbed into `get_sales_projections(p_fiscal_year_start)`; all four tiles and all three charts now follow the one fiscal-year dropdown. Tile 3 ("Order Book vs Statistical") is replaced by the **live current month** against the forecast frozen for it. Clicking a month on the main chart re-points tile 2 and both exhibit charts. `fanChartData` and its stale `smooth w(h)` filter deleted. **One SQL file to run — see the run order below. It contains a `drop function`, and the order is not optional.** |
+|            | **← you are here. Next: run the merged RPC (run order below), deploy the frontend, then drop the absorbed function.** |
+
+---
+
+## The RPC merge (2026-10-16) — deploy order
+
+**Three statements, three separate moments.** The middle one is a frontend
+deploy, and the order matters because the running bundle keeps calling the old
+function until it is replaced.
+
+### 1. Run `supabase/sql_editor/get_sales_projections_rpc.sql` — THE WHOLE FILE, ONE SUBMISSION
+
+The file opens with a `drop function if exists public.get_sales_projections();`
+and this is **not** optional cosmetics:
+
+> `create or replace` cannot alter a function's argument list. Adding
+> `p_fiscal_year_start` creates a **second overload** rather than replacing the
+> first, and PostgREST refuses a name with two overloads — `PGRST203`. The
+> section does not degrade, it goes blank.
+
+Running the drop and the create as one submission keeps the window to the
+second or two between them, during which the page 500s. Do not run them as two
+separate submissions, and do not run the drop alone "to check".
+
+Confirm exactly one overload survived:
+
+```sql
+select p.oid::regprocedure
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname = 'get_sales_projections';
+```
+
+**One row**, reading `get_sales_projections(integer)`. Two rows means the drop
+did not take and the page is already broken.
+
+### 2. Deploy the frontend
+
+The old bundle calls `get_sales_projection_accuracy`. It still exists at this
+point, so the page keeps working through step 1 — that is the entire reason
+step 3 is separate.
+
+### 3. Only then, drop the absorbed function
+
+```sql
+drop function if exists public.get_sales_projection_accuracy(int);
+```
+
+Its SQL file is already deleted from the repo; this statement is the last
+thing that references it.
+
+### Then verify
+
+Run the ten checks in the `VERIFY` banner at the foot of
+`get_sales_projections_rpc.sql`. The three worth doing by hand before trusting
+the section:
+
+1. **The year reconciles.** `actualToDate + currentMonthEstimate +
+   projectedRemainder = outlook` on the current FY. On a closed FY, `outlook =
+   actualToDate` and the other two are 0.
+2. **Every month's exhibit adds up.** For each key in `exhibitsByMonth`,
+   `From Order Book + From Statistical Models = Projected Total`, exactly. A
+   mismatch on a `rebuilt afterwards` month means the `cl_weight` join picked
+   up the wrong grid point — that weight exists only on the ensemble row.
+3. **The bars are the same five on every month.** Different names on a rebuilt
+   month than on a live one means the `ma12`/`baseline` mapping drifted:
+
+```sql
+select distinct jsonb_array_elements(v->'methods')->>'name'
+from jsonb_each((get_sales_projections()->>'exhibitsByMonth')::jsonb) as t(k, v);
+```
+
+Five rows. No `ma12`, no `ses_020`, no `seasonal_naive`.
+
+**Expect `kpis.month.currentPriorForecast` to be null** until 1 November 2026.
+The first snapshot was taken by hand on 2026-10-14 and its one-month-ahead
+target is November, so no frozen October forecast exists. It cannot be
+backfilled and the tile is built to show an em-dash until it appears.
 
 ---
 

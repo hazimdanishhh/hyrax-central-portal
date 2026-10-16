@@ -284,122 +284,110 @@ The Pipeline Coverage ratio (`activePipelineValue / pipelineTargetRevenue`) and 
 
 ## `get_sales_projections`
 
-Backs the **Projections** section of Sales Reports (`Reports.jsx`) — a *second* RPC on that page, not part of `get_sales_reports_dashboard`. Built 2026-10-03 (Phase D of `docs/sales/SALES-PROJECTIONS-ARCHITECTURE.md`; §11g carries the evidence behind every figure).
+Backs the **entire Projections section** of Sales Reports (`Reports.jsx`) — a *second* RPC on that page, not part of `get_sales_reports_dashboard`. Built 2026-10-03 (Phase D of `docs/sales/SALES-PROJECTIONS-ARCHITECTURE.md`; §11g/§11h carry the evidence behind every figure).
 
-Separate because the two have different cadences and different failure domains: the dashboard moves whenever a filter changes, the projection only when a month closes. The page gives this its own query key and a 30-minute `staleTime` against the dashboard's 30 seconds, and keeps it **out of the shared `isLoading`/`isError` chain** so a projection outage leaves the rest of the page standing.
+Separate because the two have different cadences and different failure domains: the dashboard moves whenever a filter changes, the projection only when a month closes or the section's own year dropdown moves. The page gives this its own query key and a 30-minute `staleTime` against the dashboard's 30 seconds, and keeps it **out of the shared `isLoading`/`isError` chain** so a projection outage leaves the rest of the page standing.
 
 **Access guard:** stricter than `get_sales_reports_dashboard`'s department-only check — it mirrors `get_finance_dashboard`'s, requiring **`manager` in `SAL`/`MGM`, or `superadmin`**, and raising `errcode = '42501'`. Same reason Finance has it: the underlying views read `private.mv_*` materialized views, and an MV cannot carry RLS. `private` is not a PostgREST-exposed schema so the caches are not REST-routable, but this function is, so the gate has to live here. It **raises rather than returning empty** — an empty projection reads as "no data", which is a business statement.
 
+### It absorbed `get_sales_projection_accuracy` on 2026-10-16
+
+There were two RPCs here. This one took no arguments and always described *now*; `get_sales_projection_accuracy(fy)` followed the section's year dropdown. **The section ran on two clocks** — picking FY 2024-2025 left three of four tiles and both exhibit charts still describing next month.
+
+One function, one fiscal year, one answer. What the merge required, all of it previously hit on this project:
+
+| Hazard | What it means here |
+| --- | --- |
+| **`PGRST203`** | `create or replace` cannot alter an argument list. The zero-argument version must be **dropped** before the parameterised one is created, or PostgREST sees two overloads of one name and refuses both. Both statements live in one file for that reason; the page 500s for the second between them. |
+| **`54023`** | The two merged key sets are ~68 keys = ~136 arguments, and `json_build_object` takes at most **100**. `kpis` is therefore **four nested sub-objects** — `year`, `month`, `reliability`, `health`. Each must stay under 50 pairs. |
+| **Double evaluation** | `acc_h1` and `fwd` are `as materialized` and every downstream CTE reads *them*, never the source views. A second reference is a second full evaluation the planner cannot share — which is exactly what timed the accuracy RPC out on its first deploy, in `years`. |
+
+`fanChartData` went with the merge, along with its `backfit`/`fan_*` CTE chain and the knowingly-stale `cl_weight_label = 'smooth w(h)'` filter it carried.
+
 **Signature:**
 
 ```
-get_sales_projections()
+get_sales_projections(p_fiscal_year_start int default null)
 ```
 
-**No parameters, deliberately.** The projection is company-wide; per-rep projections are permanently out of scope (splitting an already-lumpy series makes every sub-series lumpier — §11 measured the top three invoices at 31.2% of a typical month). The page's salesperson and date filters therefore do **not** apply. The section's subtitle says so outright rather than accepting a filter and ignoring it.
+`null` means "the fiscal year we are in", resolved **server-side** with the same April–March rule as `fiscalYearPresets.js` and `get_sales_reports_dashboard`'s `fy_window`, so the boundary is decided in exactly one place.
 
-**The budget is read here, not borrowed from the dashboard RPC.** `get_sales_reports_dashboard`'s `revenueBudgetTotal` is **period-filtered and day-prorated**, so it is the budget for whatever range the user picked — the wrong number for a fiscal-year outlook. `fy_budget` lifts the shape of that RPC's *unprorated* `budget_by_month` instead, minus its per-rep scoping: a whole fiscal year has no partial months, so proration degenerates to 1.0, and this figure is company-wide like the projection it sits beside.
+**The argument is the section's dropdown, not a URL filter and not the page's date range.** `useDashboardQuery` sweeps every non-reserved URL param into `filters` and into the Sales Reports query key, so a fiscal-year param in the URL would refetch the whole 1,638-line dashboard RPC on every change and render an unlabelled chip in `ActiveFiltersBar`. It is local React state instead.
 
-**Reads the cache, not the view (2026-10-15).** `proj` now reads `private.mv_sales_projection_ensemble`. The view it caches measured **4,202 ms for twelve rows** and ran on every page load. ⚠ The cache freezes the calendar — `period_month` is derived from `current_date`, so a cache built last month names the month we are now in as h=1, and `fy_proj`'s `period_month > cur_month` filter **silently drops** it against a live calendar. A daily 00:20 MYT cron and the staleness keys exist for that one reason.
+**Still no salesperson parameter.** The projection is company-wide; per-rep projections are permanently out of scope (splitting an already-lumpy series makes every sub-series lumpier — §11 measured the top three invoices at 31.2% of a typical month). The section's subtitle says so outright rather than accepting a filter and ignoring it.
 
-**Base CTEs:** `fy_window`/`fy_bounds` (fiscal April–March, the same `month >= 4 ? year : year - 1` expression as `get_sales_reports_dashboard`'s own `fy_window` and `src/functions/fiscalYearPresets.js`), `cal` (current month, days elapsed/remaining), `inv`/`ord` (`v_sales_monthly_series`, measures `invoiced` and `orders`), `proj` (`v_sales_projection_ensemble` — **the only projection object this RPC reads**), `nxt` (h=1), `span_origins`/`span_err` (`private.mv_sales_projection_ensemble_backtest`, for the measured multi-month band), `cache_state` (`private.mv_sales_projection_baseline` vs the live series, for staleness).
+**The budget is read here, not borrowed from the dashboard RPC.** `get_sales_reports_dashboard`'s `revenueBudgetTotal` is period-filtered and day-prorated, so it is the budget for whatever range the user picked — the wrong number for a whole fiscal year. `fy_budget` sums `sales_budgets` unprorated across the year; a whole fiscal year has no partial months, so proration degenerates to 1.0 anyway.
 
-**`kpis`:**
+**Reads the cache, not the view.** `fwd` reads `private.mv_sales_projection_ensemble`. The view it caches measured **4,202 ms for twelve rows** and ran on every page load. ⚠ The cache freezes the calendar — `period_month` is derived from `current_date` inside the model views, so a cache built last month names the wrong month for h=1. `kpis.health.ensembleCacheStale` is the detector; `refresh-sales-projection-ensemble-daily` at 00:20 MYT is the prevention.
 
-| Field | Formula | Source |
+### One fiscal year generalises without a branch
+
+The three parts of the year total are composed so that every year type falls out of the same arithmetic:
+
+```
+closed actuals  +  current-month estimate  +  projected remainder  =  outlook
+```
+
+- a **past** year has no current month inside it and no future months, so the last two are zero and `outlook = actualToDate`;
+- a **future** year has no closed months, so the first is zero;
+- the **current** year has all three.
+
+The band collapses to `null` on a closed year for the same reason — there is no variance to carry. There are deliberately no `case when is_past_fy` guards on these; they would be dead code hiding a real bug if one of them ever returned rows it should not.
+
+### `kpis.year`
+
+| Field | Formula | Note |
 | --- | --- | --- |
-| `fullYearOutlook` | `fullYearActualToDate + fullYearCurrentMonthEstimate + fullYearProjectedRemainder` | composed below |
-| `fullYearActualToDate` | `sum(value)` over **closed** months within the fiscal year | `inv` |
-| `fullYearCurrentMonthEstimate` | month-to-date actual **+** h=1 projected × (days remaining ÷ days in month) | `inv` + `nxt` |
-| `fullYearProjectedRemainder` | `sum(projected)` for months after the current one, up to fiscal year end | `proj` |
-| `fullYearLo80` / `fullYearHi80` | lognormal around `fullYearOutlook`, variance = measured span error² + part-month variance. **Fixed 2026-10-14:** `span_origins` filtered `cl_weight_label = 'smooth w(h)'`, the weight abandoned on 2026-10-14 — so this band was measured against one blend and wrapped around a point estimate produced by another. This filter must track the ensemble view's `measured_err`/`measured_quantiles`; if the weight rule changes again it changes in three places. | `span_err`, `nxt` |
-| `fullYearMonthsBeyondValidated` | count of projected months with `horizon > 6` | `proj` |
-| `fullYearBudget` | `sum(budget_revenue)` across all reps for the fiscal year, **unprorated** | `fy_budget` (added 2026-10-14) |
-| `fullYearCurrentMonthLo80` / `Hi80` | the current month's own 80% band, from `cur_sigma_sq` — narrower than next month's because part of the month is banked. **Published but not rendered** (added 2026-10-15 for three tile rows removed on 2026-10-16); kept because it is correct and the Projections section's Full-Year tile is its natural home | `fy_final` |
-| `fullYearBudgetAttainmentPct` | `fullYearOutlook / fullYearBudget × 100`, **null when no budget exists** — a zero would paint the tile red against a plan nobody set | `fy_budget` |
-| `nextMonthProjected` / `nextMonthLo80` / `nextMonthHi80` | published straight through | `proj` h=1 |
-| `nextMonthOrderBookWeightPct` | `order_book_weight × 100` — the measured weight `w(h)`, not `coverage(h)` | `proj` h=1 |
-| `orderBookImplied` / `aprioriImplied` / `orderBookGap` | the two independent views of the same month, and their difference | `proj` h=1 |
-| `ordersYoyPct` / `invoicedYoyPct` | last 6 months vs the same 6 a year earlier | `ord`, `inv` |
-| `modelSpreadPct` | `(highest model − lowest model) ÷ projected × 100` | `proj.model_detail` |
-| `betweenModelSharePct` | `between_var ÷ (within_var + between_var) × 100` | `proj` h=1 |
-| `cacheStale` | **two causes OR'd together (2026-10-15):** the cached scoring harness's newest month `is distinct from` the series' newest closed month, OR the ensemble cache names the wrong month for h=1. OR'd so the existing frontend banner fires for either without a React change — the four keys below say which | `cache_state`, `ens_cache_state` |
-| `ensembleCacheStale` | the ensemble cache's h=1 `period_month` `is distinct from` next month. **This is the silent-drop detector** | `ens_cache_state` |
-| `ensembleCacheH1Month` / `ensembleCacheExpectedH1Month` | published beside the boolean, because `where blend > 0` can drop the h=1 row — a reader needs to tell a dead cron from a missing row | `ens_cache_state` |
-| `ensembleCacheAgeHours` | hours since `cache_refreshed_at`. Catches a cron that died **within** the month, which no month-comparison can see | `ens_cache_state` |
-| `bandBasis` | `'measured span error'` or `'summed monthly variance'` — which one sized the fiscal band | `span_err` |
+| `fiscalYearLabel`, `fiscalYearStart` | the selected year | `"2026-2027"`, matching `FISCAL_YEAR_PRESETS` |
+| `isCurrentFiscalYear` / `isPastFiscalYear` | does the year contain today | **decides the whole response shape** — whether slot 3 is "This Month" or "Biggest Miss" or absent |
+| `outlook` | the three parts above | reconcilable by eye, which is why they are published separately |
+| `actualToDate` | `sum(value)` over **closed** months in the year | `inv` |
+| `currentMonthEstimate` | month-to-date actual **+** h=1 projected × (days remaining ÷ days in month). Zero outside the current year | `inv` + `nxt` |
+| `projectedRemainder` | `sum(projected)` for months after the current one, within the year | `fwd` |
+| `lo80` / `hi80` | lognormal around `outlook`, variance = measured span error² + part-month variance | `span_err` |
+| `monthsBeyondValidated` | count of projected months with `horizon > 6` | `fwd` |
+| `budget` | `sum(budget_revenue)` across all reps for the year, **unprorated** | `fy_budget` |
+| `budgetAttainmentPct` | `outlook / budget × 100`, **null when no budget exists** — a zero would paint the tile red against a plan nobody set | `fy_budget` |
+| `priorYearActual` / `vsPriorYearPct` | the year before the selected one | `inv` |
+| `forecastTotalScored` / `actualTotalScored` / `scoredErrorPct` | the year's forecasts summed against actuals, **closed months only** | reliably tighter than the monthly miss: totals cancel timing errors |
+| `ordersYoyPct` / `invoicedYoyPct` | last 6 months vs the same 6 a year earlier. **Null on any year that does not contain today** | the C11 finding, inherited from the retired Order Book vs Invoicing History tile — a trailing figure describing *now*, nulled rather than let it read as describing a closed year |
 
-**Chart datasets:**
+### `kpis.month`
 
-- **`fanChartData`** — ⚠ **SUPERSEDED 2026-10-14 and scheduled for deletion.** The chart it fed was merged into `get_sales_projection_accuracy`'s fiscal-year timeline; the two drew the same actual line against the same one-month-ahead forecast for every month they shared. The key is retained for one release so the two can be diffed by hand. Its `backfit` CTE still filters the abandoned `cl_weight_label = 'smooth w(h)'` — **left stale on purpose**, because fixing it would make old and new agree and prove nothing. Original description follows. 24 closed months plus 6 projected. **Every historical month also carries the model's own one-month-ahead prediction and its 80/95 band**, from `private.mv_sales_projection_ensemble_backtest` at `horizon = 1`, so the dashed line runs across history beside the actual and the model's track record is visible on the chart rather than asserted in a document. Those rows are point-in-time — the backtest calibrates and weights each origin using only months whose target fell strictly before it — but the *hyper-parameters* (12-month window, the order-book weight rule) were chosen over the whole backtest, so the historical fit is mildly optimistic against live performance. Phase E's frozen snapshots are the honest experience study. `band80`/`band95` are **two-element arrays** `[lo, hi]`; Recharts renders a tuple `dataKey` as a ranged `Area`. Historical rows carry `null` bands, **except the last**, which also carries `projected` equal to its own actual and a degenerate band — that is what makes the dashed forward line and the shaded band start flush against history instead of floating a month to the right. `FanChartRenderer` + `FanChartTooltip` (the shared `CustomTooltip` cannot format an array value and fails silently rather than loudly).
-- **`methodExhibitData`** — every model's own full-month estimate for h=1, plus the blend, flagged `isBlend`. `HorizontalBarChartRenderer`, unchanged. This is the actuarial exhibit: it makes the number challengeable rather than merely believable.
-- **`buildUpData`** — `w(h) × order book` and `(1 − w(h)) × statistical`, which sum exactly to the published figure. `HorizontalBarChartRenderer`, unchanged.
+Three blocks, because slots 2 and 3 answer different questions depending on the year.
 
-**Known gaps:**
+**`next*`** — the h=1 forward month: `nextLabel`, `nextPeriodMonth`, `nextProjected`, `nextLo80`/`nextHi80`, `nextOrderBookWeightPct` (`order_book_weight × 100`, the measured `w(h)` not `coverage(h)`), `nextVsTrailing3mPct`, `nextVsLastYearPct`, `nextOrderBookImplied`/`nextAprioriImplied` (the two independent views of the same month) and `nextModelSpreadPct`.
 
-- **Horizon capped at 6.** The ensemble emits h=1..12; C21 showed h=12 cannot be validated (max 5 prior scored origins against a guard of 6) and h=9..11 rest on 6, 4 and 2 origins. The cap **lifts on its own** as months close, so it is a constant to revisit, not a ceiling. The fiscal-year total is the one place horizons past it are used, and only from April to July — those months are counted in `fullYearMonthsBeyondValidated`.
-- ~~**The caches go stale silently.**~~ **Closed 2026-10-14 (Phase E), then partly REOPENED 2026-10-15** in a new form: the ensemble cache added that day can go stale daily, not just monthly, and a stale one names the wrong month for h=1 rather than merely holding old numbers. `ensembleCacheStale` and `ensembleCacheAgeHours` are the detectors; architecture §8b has the full story. Original note:  `snapshot-sales-projections-monthly` refreshes them at 09:00 MYT on the 2nd of each month, immediately before taking the snapshot. The 2nd, not the 1st, because SAP is still closing the previous month on day one — we watched the age-0 conversion rate move between 2 and 14 October as September invoices landed. `cacheStale` stays, as the detector for a job that failed to fire.
-- ~~**No accuracy measurement.**~~ **Addressed 2026-10-14 (Phase E),** in a separate section and a separate RPC — `get_sales_projection_accuracy` below. Not folded into this one: "what will happen" and "how good has this been" are different questions, and the second needs a fiscal-year argument the first must not take.
-- **The median month runs low.** `empirical_median_ratio` is 0.87–0.95 (C22a): the total is unbiased but a typical single month lands slightly under. The fiscal-year figure is the trustworthy one and leads the section for that reason.
+**`current*`** — the live month, null outside the current year: `currentLabel`, `currentPeriodMonth`, `currentMtdActual`, `currentEstimate`, `currentLo80`/`currentHi80` (narrower than a full month's — `frac_remaining` squares down as the month fills), `currentDayElapsed`/`currentDaysInMonth`, and:
 
----
+> ⚠ **`currentPriorForecast` is null until 1 November 2026.** It reads `sales_projection_snapshots` **directly**, because `v_sales_projection_accuracy` INNER JOINs actuals on `is_complete` and so has no row for a month still open. The first snapshot was taken by hand on 2026-10-14, so `snapshot_month = 2026-10-01` and its h=1 target is November — **no frozen forecast for October exists and none can be created after the fact.** The tile renders an em-dash and starts working on its own.
 
-## `get_sales_projection_accuracy`
+**`biggestMiss*`** — the worst single month of the selected year, for slot 3 on a closed year. Ranked on `abs_error` in **ringgit, not percent**: a 60% miss on a RM200k month is noise, a 25% miss on a RM6M month moved the year. Carries `biggestMissLabel`, `Projected`, `Actual`, `Myr`, `Pct`, `InsideBand`, `Source`.
 
-Backs the **Track Record** section of Sales Reports (`Reports.jsx`) — a *third* RPC on that page. Built 2026-10-14 (Phase E).
+**Tile 2 is NOT in `kpis`.** Everything the selected-month tile needs — `projected`, `actual`, `band80`, `errorPct`, `insideBand`, `source`, `horizon` — is already a column of `monthlyData`, so the frontend reads the clicked row directly. Clicking a month costs no refetch and the tile cannot disagree with the chart it was clicked on.
 
-A **companion** to `get_sales_projections`, not an extension of it. That function takes no arguments; adding one would need an explicit `drop function`, because `create or replace` cannot alter an argument list, and the orphaned overload left behind breaks PostgREST with `PGRST203`. A second function leaves a working one alone.
+### `kpis.reliability`
 
-**Access guard:** identical to `get_sales_projections` — `manager` in `SAL`/`MGM`, or `superadmin`, raising `42501`. `SECURITY INVOKER`, written explicitly: the guard is an authorization check, and the caller's own grants are what let `sales_projection_snapshots` resolve under its RLS policies.
-
-**Signature:**
-
-```
-get_sales_projection_accuracy(p_fiscal_year_start int default null)
-```
-
-`null` means "the fiscal year we are in", resolved **server-side** with the same April–March rule as `fiscalYearPresets.js` and `get_sales_reports_dashboard`'s `fy_window`, so the boundary is decided in one place rather than two.
-
-**The argument is not a URL filter.** `useDashboardQuery` sweeps every non-reserved URL param into `filters` and into the Sales Reports query key, so a fiscal-year param would refetch the whole 1,638-line dashboard RPC on every change and render an unlabelled chip in `ActiveFiltersBar`. It lives in local `useState` instead — the same pattern as the lens toggle on `LeadsOverview.jsx`.
+| Field | Formula | Note |
+| --- | --- | --- |
+| `monthsScored`, `recordedMonths`, `reconstructedMonths`, `hasRecorded` | counts over the selected year | how much evidence, and of which kind |
+| `typicalMissMyr` / `typicalMissPct` | `avg(abs_error)`, and that over `avg(actual)` | a **WAPE**, not a MAPE: the typical month's miss as a share of the typical month's revenue, not an average of per-month percentages, which one small month would dominate |
+| `bandCoveragePct` / `bandedMonths` / `bandCoverageTarget` | share of months where actual fell inside the published 80% range; target `80` | months with no published range score `null`, not "no" |
 
 ### Recorded versus reconstructed
 
-The single most load-bearing distinction in this RPC, and it is **never collapsed**. Every row in `monthlyData` carries `source`, and `kpis` publishes both counts separately.
+The single most load-bearing distinction in this RPC, and it is **never collapsed**. Every row in `monthlyData` carries `source`, and `kpis.reliability` publishes both counts separately.
 
 | | |
 | --- | --- |
 | **`recorded`** | From a frozen snapshot in `sales_projection_snapshots`. What the dashboard actually said at the time. Honest. |
-| **`reconstructed`** | Rebuilt from `private.mv_sales_projection_ensemble_backtest` at the live configuration, for months that closed before snapshots existed. Useful, and **flattering** — the hyper-parameters behind it were chosen knowing how those months turned out. |
+| **`reconstructed`** | Rebuilt from `private.mv_sales_projection_ensemble_backtest` at the live configuration, for months that closed before snapshots existed. Useful, and **flattering** — the hyper-parameters were chosen knowing how those months turned out. |
 
-`v_sales_projection_accuracy` emits both in one shape, and a `not exists` guard means a real snapshot displaces its reconstruction rather than sitting beside it. The frontend prints the word in a table column rather than encoding it as a colour or a badge, so it survives being read in a hurry or printed in black and white, and the tiles carry a warning line while a year is entirely reconstructed.
+`v_sales_projection_accuracy` emits both in one shape, and a `not exists` guard means a real snapshot displaces its reconstruction rather than sitting beside it.
 
-**Every row is `horizon = 1`** — what was said one month before the month in question. Comparable across a whole year, and the horizon with the most observations behind it. Longer horizons are stored and could become a selector later; mixing them now would put "what we said in April about March" beside "what we said in February about March" with no way to tell which is which.
+### `monthlyData` — a 12-row spine, and the section's selector
 
-**`kpis`:**
-
-| Field | Formula | Note |
-| --- | --- | --- |
-| `monthsScored`, `recordedMonths`, `reconstructedMonths`, `hasRecorded` | counts over the selected fiscal year | how much evidence, and of which kind |
-| `typicalMissMyr` / `typicalMissPct` | `avg(abs_error)`, and that over `avg(actual)` | MAE, not MAPE — a percentage per month then averaged over-weights small months |
-| `bandCoveragePct` / `bandedMonths` / `bandCoverageTarget` | share of months where actual fell inside the published 80% range; target `80` | months with no published range score `null`, not "no" — they were never given the chance to miss |
-| `yearForecastTotal` / `yearActualTotal` / `yearErrorPct` | the year's forecasts summed against actuals, **closed months only** | reliably tighter than the monthly miss: totals cancel timing errors a single month cannot |
-| `horizonShown`, `sourceView` | `1`, `'v_sales_projection_accuracy'` | stated rather than implied |
-
-**`monthlyData`** — one row per scored month: `name`, `source`, `projected`, `actual`, `band80` (a two-element array, or `null`), `errorPct`, `insideBand`. Feeds `FanChartRenderer` and, as a **sibling** of the ChartCard rather than nested inside it, a `DataTable`. `coalesce(..., '[]'::json)` so an empty year renders `NoResult` instead of crashing the chart.
-
-**`availableYears`** — derived from the data, **not** from `FISCAL_YEAR_PRESETS`. That list runs back 11 years and would let someone pick a year that renders an empty section.
-
-**Known gaps:**
-
-- **Nothing is recorded yet.** `recordedMonths` is 0 until a month closes after the first snapshot — the first real measurement is **December 2026**. Everything shown before then is reconstructed, and the section says so on its own face.
-- **Backfilling is impossible to do honestly** and is not attempted. A forecast that was never frozen cannot be un-hindsighted.
-- **The hyper-parameters are still chosen over the whole backtest.** Snapshots fix the *measurement*; walk-forward (deferred) is what would fix the *selection*. C24d showed the settings chosen on 2021–2025 performing worse on the Oct 2025–Aug 2026 hold-out than the shipped ones — the parameter is not stable across regimes, and that is the standing argument for doing it.
-
----
-
-### Superseded 2026-10-14 — it now owns the whole fiscal-year timeline
-
-The function was built to answer "has this forecast been any good?" and keeps that name, because renaming means drop-and-create and an orphaned overload is `PGRST203`. It now returns **past and future in one series**:
+One row per fiscal month, **always**, whether or not anything is known about it: `periodMonth`, `name`, `segment`, `source`, `projected`, `actual`, `band80`, `band95`, `horizon`, `errorPct`, `insideBand`.
 
 | `segment` | What the row is |
 | --- | --- |
@@ -408,22 +396,61 @@ The function was built to answer "has this forecast been any good?" and keeps th
 | `future` | the projection made today, at whatever horizon reaches that month |
 | `blank` | `name` only. The axis slot exists; the lines stop |
 
-`monthlyData` is now a **12-row spine** — one row per fiscal month, always, whether or not anything is known about it. Consequences:
-
-- **`monthsWithData` is the emptiness test**, not `monthlyData.length`, which can never be zero again. A blank future year would otherwise render tiles full of nulls instead of `NoResult`.
+- **`periodMonth` is new on 2026-10-16 and load-bearing.** It is the click target. `DASHBOARD-CONVENTIONS.md` §4d requires a chart's selection to come from the RPC rather than be re-derived by parsing a `'Mon YYYY'` label client-side.
+- **`kpis.health.monthsWithData` is the emptiness test**, not `monthlyData.length`, which can never be zero. A blank future year would otherwise render an empty chart frame instead of `NoResult`.
 - **`forecastStartLabel` is computed server-side.** The frontend used to scan backwards for the last row with an actual; on a future fiscal year there is no such row.
-- **`monthsBeyondValidated`** counts forward months past h=6, mirroring `fullYearMonthsBeyondValidated`.
-- **`horizonShown: 1` became `pastHorizonShown: 1`.** It stopped being true the moment the chart gained forward months — the past is h=1, the future is whatever horizon reaches it.
+- **The six-month publishing cap is NOT applied here.** It was set when C21 found h=12 unvalidatable — a claim architecture §11h retracts (5 scoreable origins → 46; band coverage 77–82% at every horizon). Applying it would make any future year almost entirely blank. Months past h=6 are counted into `monthsBeyondValidated` so the chart discloses rather than implies.
+- **`agg` still reads `rows_in_year`, and must.** Every accuracy figure counts scored past months only; the guarantee is the INNER join to `is_complete` actuals inside `v_sales_projection_accuracy`. Re-pointing it at the spine would make `monthsScored` the constant 12.
 
 **Future fiscal years are selectable.** Standing in October 2026, FY2027-28 returns Apr–Oct 2027 projected (h=6..12) and Nov 2027–Mar 2028 blank, because the models emit 12 months from today and stop.
 
-**The six-month publishing cap is NOT applied here.** It was set when C21 found h=12 unvalidatable — a claim architecture §11h retracts (5 scoreable origins → 46; band coverage 77–82% at every horizon). Applying it would make any future fiscal year almost entirely blank. Validate before trusting it: every horizon must have ≥ 20 origins in `private.mv_sales_projection_ensemble_backtest`, or `measured_quantiles` falls back to the lognormal and the far end of the fan balloons.
+### `exhibitsByMonth` — what the model said, for every month of the year
 
-**`agg` still reads `rows_in_year`, and must.** Every accuracy figure counts scored past months only; the guarantee is the INNER join to `is_complete` actuals inside `v_sales_projection_accuracy`. Re-pointing `agg` at the spine would make `count(*)` the constant 12 and `monthsScored` meaningless. The file carries this as a banner comment.
+An **object keyed by `'YYYY-MM-DD'`**, not an array, so the frontend can look the clicked month up directly. `coalesce(..., '{}'::json)` — a null here is a render crash. Each value is `{ basis, methods[], buildUp[] }`, both arrays in the shape `HorizontalBarChartRenderer` already takes.
 
-**`availableYears` unions both views over months** — `UNION`, not `UNION ALL`. The current fiscal year has both scored past months and projected future ones, and counting both reports 17 months in a 12-month year. `having count(*) >= 2` keeps out a year touched by a single far horizon.
+All twelve months ship in one payload rather than being refetched per click. Twelve months × ~5 rows is nothing, and a click that costs a round trip does not feel like a selection.
 
-**The detail table was removed** in the same change. The chart carries its data, and the recorded/reconstructed distinction moved into the tooltip — not the line style, which would need a second Recharts series over a sister `dataKey` that this codebase has nowhere, and which would carry no information until the first month closes after a snapshot.
+Three sources, disjoint by month:
+
+| Month | Source | `basis` |
+| --- | --- | --- |
+| after the current one | `private.mv_sales_projection_ensemble` at that row's own horizon | `"live"` |
+| before it, with a snapshot | `sales_projection_snapshots` — carries `model_detail`, `implied_from_order_book`, `implied_from_apriori`, `order_book_weight` verbatim, no algebra | `"as published"` |
+| before it, without one | `private.mv_sales_projection_ensemble_backtest` at h=1, window 12 | `"rebuilt afterwards"` |
+| **the current month** | none — it is month-to-date plus a run rate, not a model output. Inventing a breakdown would imply the models were consulted | — |
+
+**Three traps in the rebuilt branch, all load-bearing:**
+
+1. **`cl_weight` exists only on the ensemble row.** Member rows carry `cl_weight_label = 'n/a'` and a null weight, because the weight sweep does not touch them — they are emitted once per origin, not once per grid point. Filtering the whole set on `cl_weight_label = 'coverage(h)'` returns the ensemble row and nothing else.
+2. **The model names differ from `model_detail`'s.** The backtest emits `ma12` and `ses_020`; `model_detail->'apriori'` emits `baseline` and `ses`. Two of three do not overlap, so both sources are mapped to the same display names — otherwise one model gets two different bar labels depending on which month you clicked.
+3. **The statistical share is `blend − weight × cl_implied`, never `(1 − weight) × apriori`.** Identical by algebra, but the second divides by `(1 − weight)`, which is zero at the `'1.0'` grid point.
+
+`seasonal_naive` is in the backtest and not in `model_detail`. **Excluded on purpose** — including it would make a month's bars depend on its source.
+
+**`defaultExhibitMonth`** — which month the section opens on, decided here rather than in React so the tile and the exhibits can never disagree. Next month when the selected year contains today; otherwise the last month of that year we know anything about.
+
+**`availableYears`** — derived from the data, **not** from `FISCAL_YEAR_PRESETS`, which runs back 11 years and would let someone pick a year that renders an empty section. `UNION`, not `UNION ALL`, and over months: the current fiscal year has both scored past months and projected future ones, and counting both reports 17 months in a 12-month year. `having count(*) >= 2` keeps out a year reachable by a single far horizon.
+
+### `kpis.health`
+
+`monthsWithData`, `forecastStartLabel`, `monthsBeyondValidated`, `publishedHorizonCap`, `bandOriginsAtH1`, `spanOriginsUsed`, `currentMonthEstimateBasis`, `sourceView`, plus:
+
+| Field | Note |
+| --- | --- |
+| `bandBasis` | `'measured span error'` or `'summed monthly variance'` — which one sized the fiscal band. The second means the backtest could not reach this span length and the band assumes independent months, which C16 showed they are not |
+| `cacheStale` | **two causes OR'd together:** the cached scoring harness's newest month `is distinct from` the series' newest closed month, OR the ensemble cache names the wrong month for h=1. OR'd so one frontend banner covers both — they mean the same thing to a reader |
+| `ensembleCacheStale` | the ensemble cache's h=1 `period_month` `is distinct from` next month. **The silent-drop detector** |
+| `ensembleCacheH1Month` / `ensembleCacheExpectedH1Month` | published beside the boolean, because `where blend > 0` can drop the h=1 row — a reader needs to tell a dead cron from a missing row |
+| `ensembleCacheAgeHours` | hours since `cache_refreshed_at`. Catches a cron that died **within** the month, which no month-comparison can see |
+
+**Known gaps:**
+
+- **Horizon capped at 6 for `publishedHorizonCap`,** though the timeline no longer applies it — see above. The cap **lifts on its own** as months close.
+- **Nothing is recorded yet.** `recordedMonths` is 0 until a month closes after the first snapshot — the first real measurement is **December 2026**.
+- **Backfilling is impossible to do honestly** and is not attempted. A forecast that was never frozen cannot be un-hindsighted.
+- **The hyper-parameters are still chosen over the whole backtest.** Snapshots fix the *measurement*; walk-forward (deferred) is what would fix the *selection*. The remaining optimism is selection bias over ~30 configurations, not leakage — §11h made every individual forecast point-in-time — and its size is **unmeasured**.
+- **The median month runs low.** `empirical_median_ratio` is 0.87–0.95 (C22a): the total is unbiased but a typical single month lands slightly under. The fiscal-year figure is the trustworthy one and leads the section for that reason.
+- **`v_sales_projection_accuracy` leaves `implied_from_order_book`/`implied_from_apriori` null on reconstructed rows.** The columns exist and the algebra is known; it lives in this RPC instead, scoped to twelve months, because doing it in the view would add a backtest join to every row of a view with no horizon filter.
 
 ---
 

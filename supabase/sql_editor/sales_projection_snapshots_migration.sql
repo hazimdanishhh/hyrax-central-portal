@@ -94,7 +94,7 @@ create index if not exists sales_projection_snapshots_period_idx
 -- "Same class of table, same audience; don't repeat it."
 --
 -- This is that class exactly: written by a scheduled job, read by a dashboard.
--- get_sales_projection_accuracy() is SECURITY INVOKER, so the read happens as
+-- get_sales_projections() is SECURITY INVOKER, so the read happens as
 -- the calling manager. A policy they do not satisfy produces an empty section
 -- with no error anywhere -- the hardest kind of fault to notice.
 --

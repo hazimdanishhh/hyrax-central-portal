@@ -488,7 +488,7 @@ moves.
 | 5 | **`mv_sales_projection_ensemble`** | **CACHE** (2026-10-15) | `refresh_sales_projection_ensemble_cache()` — **daily, 00:20 MYT** |
 | 6 | `sales_projection_snapshots` | **TABLE** | `snapshot_sales_projections()`. **Append-only** — `on conflict do nothing`, a row is never rewritten |
 | 6 | `v_sales_projection_accuracy` | view | every read — joins the snapshots table to the backtest cache |
-| 7 | `get_sales_projections()`, `get_sales_projection_accuracy()` | functions | **nothing. They read.** |
+| 7 | `get_sales_projections(p_fiscal_year_start)` | function | **nothing. It reads.** Absorbed `get_sales_projection_accuracy()` on 2026-10-16 |
 
 ### Four clocks, and that is all
 
@@ -622,6 +622,65 @@ legitimately differ — *"label both sides so the difference is visible"*.
 on the page gets one. What was cut (the order book is an input not the subject;
 the view name) moved into the tile tooltips, where §3 says supplementary detail
 belongs.
+
+### Resolved again 2026-10-16 — one section, one clock, one RPC
+
+The two sections above merged on 2026-10-14, and the tiles followed on
+2026-10-16. The problem the merge left behind: the section had **one chart and
+four tiles reading two different clocks.** Tiles 1–3 and both exhibit charts
+came from `get_sales_projections()`, which took no arguments and always
+described *now*; tile 4 and the main chart followed the fiscal-year selector.
+Choosing FY 2024-2025 left three tiles still talking about next month.
+
+`get_sales_projection_accuracy` is **absorbed**. One function,
+`get_sales_projections(p_fiscal_year_start)`, answers the whole section.
+
+**Slot 3 changes with the year, and is sometimes absent.** This is the one
+place the four-tile row is not fixed, and it is deliberate — "this month,
+live" has no meaning in a year that does not contain today, and filling the
+slot with em-dashes would claim otherwise.
+
+| Slot | FY contains today | Past FY | Future FY |
+| --- | --- | --- | --- |
+| 1 | FY outlook vs budget | FY actual vs budget, and vs forecast | FY forecast vs budget |
+| 2 | Selected month (default: next month) | Selected month (default: last with data) | Selected month |
+| 3 | **This month, live** | **Biggest miss** | *omitted — three tiles* |
+| 4 | Reliability | Reliability | Reliability, empty state |
+
+**Tile 3's live variant is the one new question on the page:** what has this
+month banked so far, where is it heading, and how does that compare to the
+number we published for it *before the month started*. The comparison reads
+`sales_projection_snapshots` directly — `v_sales_projection_accuracy` INNER
+JOINs actuals on `is_complete` and has no row for a month still open.
+
+> ⚠ It is **null until 1 November 2026.** The first snapshot was taken by hand
+> on 2026-10-14, so its h=1 target is November. There is no frozen October
+> forecast and none can be created after the fact — that is the entire reason
+> the snapshot table exists. The row renders an em-dash and starts working on
+> its own.
+
+**"Order Book vs Statistical" was retired** to make room. The tile added on
+2026-10-03 for the C11 finding is gone, but the finding is not: `ordersYoyPct`
+and `invoicedYoyPct` moved into tile 1 as sub-metric rows. Orders rising while
+invoicing falls is a **delivery** signal, and this page is the only place it
+is visible.
+
+**The chart became the selector.** Clicking a month re-points tile 2 and both
+exhibit charts together. `exhibitsByMonth` therefore carries all twelve months
+of the selected year in one payload — twelve months × ~5 rows is nothing, and
+a click that costs a round trip does not feel like a selection. Three sources,
+disjoint by month: the forward cache for months ahead, `sales_projection_snapshots`
+for closed months that have one, and the backtest for closed months that do
+not. Each month's `basis` travels with it, because a **rebuilt** exhibit is a
+weaker claim than a **published** one and the chart subtitle must say which.
+
+Two traps in the rebuilt branch, both recorded here because neither is
+guessable from the column names: `cl_weight` exists **only on the ensemble
+row** (members carry `cl_weight_label = 'n/a'`, so filtering the whole set on
+the label returns one row), and the backtest names two of three models
+differently from `model_detail` (`ma12`/`ses_020` against `baseline`/`ses`).
+`seasonal_naive` exists in the backtest and not in `model_detail`, and is
+excluded so a month's bars never depend on its source.
 
 ### Charts
 
@@ -1450,3 +1509,4 @@ The required links are already extracted:
 | 2026-10-14 | **Projections section restructured — 7 tiles to 4, §9.** §4a's test (does this answer a NEW question, or another angle on a neighbour's?) collapsed Forecast Confidence, Forecast Accuracy, Range Reliability and Year Total into one **Forecast Reliability** tile; 22 sub-metric rows became ~15; `trackRecordConfig.js` deleted. The Full-Year tile **gains a Budget comparator** — the section's biggest BI gap, and what lets it carry the severity ramp at all. **Two `getStatusVariant` bugs fixed**: both Forecast Confidence and Forecast Accuracy passed `low-good` with a `goodAt` key, which that direction does not read — `criticalAt` was `undefined`, so the critical tier was dead code and **a 45% miss rendered green "On track"** while red was unreachable. Next Month now states its interval as a likelihood ("80% likely RM X – RM Y"), permitted because the coverage is measured, not assumed — new rule in CONVENTIONS §3. |
 | 2026-10-15 | **The published blend is cached — §8b.** `v_sales_projection_ensemble` measured **4,202 ms to produce twelve rows** and ran on every page load, twice over; it was the entire cost of the Projections section. Now `private.mv_sales_projection_ensemble`, refreshed **daily at 00:20 MYT**. **The daily job is a correctness requirement, not a tuning choice:** `period_month` is derived from `current_date`, so a cache built last month names the wrong month for h=1 — and `get_sales_projections` filters against a live calendar, so that row is **silently dropped** rather than rejected, moving the Full-Year outlook and its band with nothing raised. Three estate firsts, all argued in section 6's banner: a UNIQUE index on an MV, `refresh ... concurrently`, and a `cache_refreshed_at` column (these twelve forward rows carry no natural watermark, so a dead cron would otherwise be undetectable). §8b is new and is the first complete map of how every object in this module updates. |
 | 2026-10-16 | **Forecast rows removed from the Invoiced Revenue tile, one day after being added — and the rule that stops it recurring.** They were justified by IBCS (actual/plan/forecast are scenarios of one measure). That reading omitted a condition: **scenarios are peers only when they share the measure's dimensions.** Actual and Budget slice by salesperson and date; the forecast slices by date alone, because per-rep projections are permanently out of scope. With a rep selected the tile read RM 4.2M actual, RM 8.1M budget, RM 32.8M *company* forecast — and no label repairs a tile, because a tile is a comparison frame. Rule written into `DASHBOARD-CONVENTIONS.md` §3. The forward view stays in the Projections section, unchanged. **A variance bridge was added in its place** — the one element an executive report is prescribed to have that this page did not (`docs/portal/DASHBOARD-DESIGN-RESEARCH.md`, new, which records every source and the decision it drove). `fullYearCurrentMonthLo80`/`Hi80` stay published but unrendered. |
+| 2026-10-16 | **The two projection RPCs merged, and the section became month-selectable — §9.** The section had been running on two clocks: tiles 1–3 and both exhibit charts read an argument-less `get_sales_projections()` describing *now*, while tile 4 and the chart followed the year selector, so FY 2024-2025 left three tiles talking about next month. `get_sales_projection_accuracy` is **absorbed** into `get_sales_projections(p_fiscal_year_start)`. Three hazards, each previously hit here: the new argument forces a **drop-then-create** (`create or replace` cannot alter an argument list; the orphaned overload is `PGRST203`), the merged key sets are ~136 arguments against `json_build_object`'s limit of 100 so **`kpis` is nested** into `year`/`month`/`reliability`/`health` (`54023`), and both heavy CTEs keep `as materialized` because a second view reference is what timed this out on first deploy. **"Order Book vs Statistical" retired**, its C11 percentages moved into tile 1; **tile 3 is now the live month** against the forecast frozen for it — null until 2026-11-01, because the first snapshot's h=1 target is November and nothing can be backfilled honestly. **Clicking a month on the chart** re-points tile 2 and both exhibits, the first click-sets-state chart in the repo (§4d sub-contract added). `fanChartData` and its stale `smooth w(h)` filter deleted. |

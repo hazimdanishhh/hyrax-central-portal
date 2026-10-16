@@ -2,7 +2,7 @@
 -- v_sales_projection_accuracy -- what we said, against what happened
 --
 -- Phase E. Read-only view. Backs the Track Record section of Sales Reports via
--- get_sales_projection_accuracy().
+-- get_sales_projections().
 --
 -- Depends on: sales_projection_snapshots, v_sales_monthly_series,
 -- private.mv_sales_projection_ensemble_backtest.
@@ -45,7 +45,7 @@
 -- left join would admit unscored months and silently change the meaning of
 -- every aggregate downstream -- months_scored would start counting months
 -- that have no outcome to score. The forward half of that chart is unioned in
--- by get_sales_projection_accuracy() from v_sales_projection_ensemble, as a
+-- by get_sales_projections() from v_sales_projection_ensemble, as a
 -- separate branch that the aggregates never touch.
 --
 -- Idempotent. Hand-paste into the Supabase SQL editor.
@@ -213,7 +213,7 @@ comment on view public.v_sales_projection_accuracy is
 --     from public.v_sales_projection_accuracy
 --     where horizon = 1;
 --
--- MUST BE EQUAL. get_sales_projection_accuracy() LEFT JOINs this view onto a
+-- MUST BE EQUAL. get_sales_projections() LEFT JOINs this view onto a
 -- 12-month spine; a duplicate (period_month, horizon) would fan that join out
 -- and the chart would gain repeated months with no error anywhere.
 --
