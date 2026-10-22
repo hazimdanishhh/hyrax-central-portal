@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import { preciseCurrency } from "../../../../../functions/formatNumber";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
+import { describePeriod } from "../../../../../functions/periodRange";
 
 /**
  * KPI-cards restructuring (2026-09-30, see docs/portal/DASHBOARD-CONVENTIONS.md
@@ -99,12 +100,19 @@ export function getSalesReportsOverviewConfig(
     return Math.round(((current - previous) / previous) * 100);
   };
 
+  // The period this page is showing, named (2026-10-22, PeriodSelector).
+  // Tiles used to say "This Month"/"This Period"; they now say which month,
+  // quarter or year it is, and deltas say what they compare against, which
+  // is the previous whole period (see get_sales_reports_dashboard_rpc.sql's
+  // v_prev_start_date).
+  const period = describePeriod(filters);
+
   const deltaText = (delta) =>
     delta === null
       ? ""
       : delta > 0
-        ? `↑ ${delta}% vs last period`
-        : `↓ ${Math.abs(delta)}% vs last period`;
+        ? `↑ ${delta}% vs ${period.previousLabel}`
+        : `↓ ${Math.abs(delta)}% vs ${period.previousLabel}`;
 
   // Appends a period-over-period delta into an existing attainment/rate
   // subvalue, rather than replacing it -- see this file's own header comment.
@@ -113,14 +121,13 @@ export function getSalesReportsOverviewConfig(
     return delta === null ? base : `${base} (${deltaText(delta)})`;
   };
 
-  const isPeriodFiltered =
-    Boolean(filters?.startDate) && Boolean(filters?.endDate);
-  // REGULAR family's subtitle vocabulary -- same as Attendance/Employee
-  // Overview's own periodLabel.
-  const periodLabel = isPeriodFiltered ? "This Period" : "This Month";
-  // ACTIONABLE family's subtitle vocabulary (Card 8) -- "current backlog"
-  // when unfiltered, narrows to "this period" once a range is picked.
-  const actionableLabel = isPeriodFiltered ? "This Period" : "Current Backlog";
+  const isPeriodFiltered = period.hasDates;
+  // REGULAR family's subtitle: the period's name, e.g. "October 2026" (the
+  // unfiltered default month included) or "FY 2026-2027".
+  const periodLabel = period.title;
+  // ACTIONABLE family's subtitle (Card 8) -- "current backlog" when
+  // unfiltered, narrows to the named period once one is picked.
+  const actionableLabel = isPeriodFiltered ? period.title : "Current Backlog";
 
   // FIXED 2026-09-30: every REGULAR card's drill-through link must reproduce
   // the EXACT window the tile itself is showing -- when no date range is
@@ -131,21 +138,19 @@ export function getSalesReportsOverviewConfig(
   // an unfiltered tile silently showed ALL-TIME data on the list page --
   // a real mismatch against what the tile displayed. Computed once here so
   // every REGULAR card/metric below stays in sync with the RPC's default.
-  const now = new Date();
-  const defaultMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const defaultMonthEnd = `${lastDayOfMonth.getFullYear()}-${String(lastDayOfMonth.getMonth() + 1).padStart(2, "0")}-${String(lastDayOfMonth.getDate()).padStart(2, "0")}`;
+  // describePeriod already resolves "no dates" to that same full current
+  // month, so `period`'s dates are the tile's exact window either way.
 
   // created_at/invoice_date/order_date/payment_date window -- universal
   // across every SAP-sourced REGULAR card below.
   const periodFilter = isPeriodFiltered
     ? { startDate: filters.startDate, endDate: filters.endDate }
-    : { startDate: defaultMonthStart, endDate: defaultMonthEnd };
+    : { startDate: period.startDate, endDate: period.endDate };
   // closed_date window (Sales Leads' view-only column) -- backs the
   // CRM-side Leads vs Target card, windowed by when a deal closed.
   const closedPeriodFilter = isPeriodFiltered
     ? { closedDateFrom: filters.startDate, closedDateTo: filters.endDate }
-    : { closedDateFrom: defaultMonthStart, closedDateTo: defaultMonthEnd };
+    : { closedDateFrom: period.startDate, closedDateTo: period.endDate };
   // ACTIONABLE family (Card 8 only) -- deliberately NOT defaulted to This
   // Month: an unfiltered actionable tile means "the true current backlog,"
   // so its own drill-through must stay unbounded too, not silently narrow to

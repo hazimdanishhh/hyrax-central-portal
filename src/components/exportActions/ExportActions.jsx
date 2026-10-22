@@ -9,6 +9,9 @@ export default function ExportActions({
   reportTitle = "Dashboard Report",
   subtitle = "",
   logoUrl = null, // Optional: Pass a path to your logo (e.g., "/logo.png")
+  // Standalone button by default; SearchFilterBar's Export menu passes its
+  // own menu-item style so it matches the CSV/report items beside it.
+  className = "button buttonType5 textXXS",
 }) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -156,7 +159,7 @@ export default function ExportActions({
     <button
       onClick={handleExportPDF}
       disabled={isExporting}
-      className="button buttonType5 textXXS"
+      className={className}
     >
       {isExporting ? (
         <Spinner className="animate-spin" />

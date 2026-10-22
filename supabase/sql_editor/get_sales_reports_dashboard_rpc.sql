@@ -37,6 +37,8 @@ declare
     v_effective_end_date date;
     v_prev_start_date date;
     v_prev_end_date date;
+    -- Length of the effective range: whole MONTHS when it is whole months,
+    -- otherwise days. Only used to place the previous period below.
     v_interval integer;
     -- ACTIONABLE family (Sales Order Health, new card) -- true current
     -- backlog when unfiltered, narrows to "originated this period" once a
@@ -181,9 +183,29 @@ end if;
 v_effective_start_date := coalesce(p_start_date, date_trunc('month', current_date)::date);
 v_effective_end_date := coalesce(p_end_date, (date_trunc('month', current_date) + interval '1 month' - interval '1 day')::date);
 
-v_interval := v_effective_end_date - v_effective_start_date;
+-- Previous period (FIXED 2026-10-22). A range of WHOLE months -- every
+-- period the page's PeriodSelector produces: month, quarter, fiscal year,
+-- calendar year, and the unfiltered default month -- compares against the
+-- same number of whole months immediately before it. October compares with
+-- September, Q3 with Q2, a fiscal year with the previous fiscal year.
+-- Before this fix every range stepped back by its own DAY count, so October
+-- (31 days) compared with 31 Aug-30 Sep and March with 29 Jan-28 Feb: a
+-- "vs last month" that was never quite last month, and budget proration
+-- that straddled two months. Any other range (a hand-picked custom range)
+-- keeps the same-length-in-days window, which is still correct for those.
+-- Same rule as PeriodSelector's own stepping (functions/periodRange.js).
 v_prev_end_date := v_effective_start_date - 1;
-v_prev_start_date := v_prev_end_date - v_interval;
+
+if extract(day from v_effective_start_date) = 1
+   and extract(day from v_effective_end_date + 1) = 1 then
+    v_interval := (extract(year from v_effective_end_date) * 12 + extract(month from v_effective_end_date))
+                - (extract(year from v_effective_start_date) * 12 + extract(month from v_effective_start_date))
+                + 1;
+    v_prev_start_date := (v_effective_start_date - make_interval(months => v_interval))::date;
+else
+    v_interval := v_effective_end_date - v_effective_start_date;
+    v_prev_start_date := v_prev_end_date - v_interval;
+end if;
 
 -- ACTIONABLE family (Sales Order Health) -- see this variable's own
 -- declaration comment above.

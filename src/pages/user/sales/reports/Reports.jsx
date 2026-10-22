@@ -34,9 +34,8 @@ import OverviewCards from "../../../../components/crud/overviewCards/OverviewCar
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import PeriodSelector from "../../../../components/periodSelector/PeriodSelector";
-import { formatPeriod, readPeriod } from "../../../../functions/periodRange";
+import { describePeriod } from "../../../../functions/periodRange";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
-import ExportActions from "../../../../components/exportActions/ExportActions";
 import ScorecardList from "../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard";
 import useDashboardQuery from "../../../../hooks/useDashboardQuery";
 import { fetchSalesReportsDashboard } from "../../../../features/sales/reports/private/api/fetchSalesReportsDashboard";
@@ -114,10 +113,18 @@ function Reports() {
   const clearNonDateFilters = () =>
     setFilters(Object.fromEntries(nonDateFilters.map(([key]) => [key, ""])));
 
-  // Named period + exact dates for the PDF header. Replaces "All Time",
-  // which was wrong: unfiltered, this page shows the current month.
-  const exportPeriod = formatPeriod(readPeriod(filters));
-  const periodSubtitle = `${exportPeriod.title} (${exportPeriod.range})`;
+  // The period this page is showing, named -- drives every subtitle below and
+  // the PDF header. The header used to read "All Time", which was wrong:
+  // unfiltered, this page shows the current month.
+  const period = describePeriod(filters);
+  // The salesperson goes in the PDF header too: without it a one-rep export
+  // reads exactly like the company-wide one.
+  const ownerName = owners.find(
+    (o) => String(o.id) === String(filters.owner),
+  )?.full_name;
+  const periodSubtitle = `${period.title} (${period.range})${
+    ownerName ? ` · Salesperson: ${ownerName}` : ""
+  }`;
 
   const isLoading = dashboardLoading || metadataLoading;
   const isFetching = dashboardFetching || metadataFetching;
@@ -250,8 +257,7 @@ function Reports() {
   const chartBaseFilterCRM = {
     ...(filters.owner && { owner: filters.owner }),
   };
-  const chartIsPeriodFiltered =
-    Boolean(filters.startDate) && Boolean(filters.endDate);
+  const chartIsPeriodFiltered = period.hasDates;
   const chartPeriodFilter = chartIsPeriodFiltered
     ? { startDate: filters.startDate, endDate: filters.endDate }
     : {};
@@ -262,8 +268,15 @@ function Reports() {
   // docs/portal/DASHBOARD-CONVENTIONS.md §4c) -- every REGULAR chart's
   // subtitle now discloses its time window in the SAME words the KPI tiles
   // above already use, so a subtitle reads for free once a tile's sublabel
-  // has been learned. Mirrors overviewConfig.js's own periodLabel exactly.
-  const periodLabel = chartIsPeriodFiltered ? "This Period" : "This Month";
+  // has been learned. Mirrors overviewConfig.js's own periodLabel exactly:
+  // the period's name (2026-10-22), e.g. "October 2026" or "FY 2026-2027".
+  const periodLabel = period.title;
+  // For the five breakdown charts whose datasets read the RAW
+  // p_start_date/p_end_date (stageData, productTypeData, sourceData,
+  // topClientsData, grossProfitByRepData -- see the RPC's v_effective_*
+  // declaration comment): unfiltered they show ALL history, not this month.
+  // They used to be subtitled "This Month" regardless, which was false.
+  const rawPeriodLabel = chartIsPeriodFiltered ? period.title : "All Time";
   // For the two trend charts (Realized vs Pipeline, Invoiced/Collected/
   // Budget) that respect the date filter when one is set but default to
   // showing ALL historical months when it isn't -- same "needs width" shape
@@ -273,14 +286,14 @@ function Reports() {
   // "Not Affected by the Date Filter" either (unlike a true FIXED-WINDOW
   // chart, this one DOES narrow once a range is picked).
   const trendSubtitle = chartIsPeriodFiltered
-    ? "Monthly, This Period"
-    : "Monthly, All-Time";
+    ? `Monthly, ${period.title}`
+    : "Monthly, All Time";
   // ACTIONABLE family's subtitle vocabulary (2026-10-01, Outstanding by
   // Customer) -- mirrors overviewConfig.js's own actionableLabel exactly:
-  // "current backlog" when unfiltered, narrows to "this period" once a range
+  // "current backlog" when unfiltered, narrows to the named period once one
   // is picked.
   const actionableLabel = chartIsPeriodFiltered
-    ? "This Period"
+    ? period.title
     : "Current Backlog";
 
   // Reshape to the field names ScorecardList/LeadsScoreCard already expects
@@ -612,6 +625,14 @@ function Reports() {
               disableSearch={true}
               isLoading={isLoading}
               isError={isError}
+              enableExport
+              exportPdf={{
+                targetRef: dashboardRef,
+                fileName: "Sales_Dashboard_Report",
+                reportTitle: "Sales Dashboard",
+                logoUrl: "/logos/logo.png",
+                subtitle: periodSubtitle,
+              }}
             />
 
             {/* PERIOD (2026-10-22) -- replaces the date presets, the two
@@ -622,23 +643,6 @@ function Reports() {
             {/* Projections keep their own fiscal-year dropdown below for
                 now -- that section is company-wide and runs off a separate
                 RPC (see the projectionFy comment above). */}
-
-            {/* EXPORT */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "0.8rem",
-              }}
-            >
-              <ExportActions
-                targetRef={dashboardRef}
-                fileName="Sales_Dashboard_Report"
-                reportTitle="Sales Dashboard"
-                logoUrl="/logos/logo.png"
-                subtitle={periodSubtitle}
-              />
-            </div>
 
             <div
               ref={dashboardRef}
@@ -1064,7 +1068,7 @@ function Reports() {
                       <CardLayout style="cardLayout2">
                         <ChartCard
                           title="Pipeline Stage (RM — Won Actual, Others Expected)"
-                          subtitle={`${periodLabel}`}
+                          subtitle={rawPeriodLabel}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           // No date bounds -- this chart's own RPC condition
@@ -1085,7 +1089,7 @@ function Reports() {
 
                         <ChartCard
                           title="Product-Type Mix by Won Revenue (RM)"
-                          subtitle={`${periodLabel}`}
+                          subtitle={rawPeriodLabel}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -1102,7 +1106,7 @@ function Reports() {
 
                         <ChartCard
                           title="Lead-Source ROI by Won Revenue (RM)"
-                          subtitle={`${periodLabel}`}
+                          subtitle={rawPeriodLabel}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -1119,7 +1123,7 @@ function Reports() {
 
                         <ChartCard
                           title="Top Clients by Won Revenue (RM)"
-                          subtitle={`${periodLabel}`}
+                          subtitle={rawPeriodLabel}
                           style="cardGapSmall"
                           viewAllTo="../leads/list"
                           viewAllFilter={{
@@ -1241,10 +1245,11 @@ function Reports() {
                       </div>
 
                       <CardLayout style="cardLayout2">
-                        {/* Problem with this data, it defaults to all-time, not this month when no period is selected */}
+                        {/* All-time when unfiltered (raw p_start_date in the
+                            RPC) -- subtitled honestly via rawPeriodLabel. */}
                         <ChartCard
                           title="Revenue & Gross Profit by Rep (RM)"
-                          subtitle={`${periodLabel}`}
+                          subtitle={rawPeriodLabel}
                           style="cardGapSmall"
                           viewAllTo={
                             canAccessInvoices

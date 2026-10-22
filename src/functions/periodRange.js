@@ -286,6 +286,25 @@ function fiscalYearLabel(startYear) {
 }
 
 /**
+ * Everything a report page needs to label its figures, from its filters:
+ * the period (readPeriod) plus `title`/`range` (formatPeriod), `hasDates`
+ * (both dates explicitly set -- what the RPCs' own v_has_period tests), and
+ * `previousLabel` for deltas ("last month", "last fiscal year", or
+ * "previous period" for a custom range), matching the window the RPC
+ * compares against.
+ */
+export function describePeriod(filters, defaultMode = "month") {
+  const period = readPeriod(filters, defaultMode);
+  const def = MODE_BY_KEY[period.mode];
+  return {
+    ...period,
+    ...formatPeriod(period),
+    hasDates: Boolean(filters?.startDate && filters?.endDate),
+    previousLabel: def ? `last ${def.noun}` : "previous period",
+  };
+}
+
+/**
  * Display text for a period: `title` is the period's name ("October 2026",
  * "Q3 FY 2026-2027", "FY 2026-2027", "2026"), `range` its exact dates.
  */

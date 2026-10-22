@@ -21,6 +21,7 @@ import AsyncSelectEditor from "../dataTable/editors/AsyncSelectEditor";
 import MultiSelectEditor from "../dataTable/editors/MultiSelectEditor";
 import CsvExportButton from "../exportActions/CsvExportButton";
 import ExportFullReport from "../exportActions/ExportFullReport";
+import ExportActions from "../exportActions/ExportActions";
 import { DATE_RANGE_PRESETS } from "../../functions/dateRangePresets";
 import { shiftDateRange } from "../../functions/periodRange";
 
@@ -44,6 +45,11 @@ export default function SearchFilterBar({
   isLoading,
   isError,
   dashboardRef,
+  // Generic dashboard PDF (2026-10-22): { targetRef, fileName, reportTitle,
+  // subtitle, logoUrl } -> an ExportActions snapshot item in the Export menu.
+  // `dashboardRef` above stays the Sales Leads-specific full report (it
+  // fetches leads and appends a leads table), so it can't serve other pages.
+  exportPdf,
 }) {
   const { darkMode } = useTheme();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -175,6 +181,12 @@ export default function SearchFilterBar({
                         ? `${filters.startDate} to ${filters.endDate}`
                         : "All Time"
                     }`}
+                  />
+                )}
+                {exportPdf && (
+                  <ExportActions
+                    {...exportPdf}
+                    className="button buttonType4 blue textXXS"
                   />
                 )}
               </div>
