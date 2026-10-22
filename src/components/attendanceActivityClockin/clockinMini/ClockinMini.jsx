@@ -1,11 +1,9 @@
 // components/attendanceActivityClockin/clockinMini/ClockinMini.jsx
 
-import { AnimatePresence } from "framer-motion";
-import { CalendarDotsIcon, ClockUserIcon } from "@phosphor-icons/react";
+import { ClockUserIcon } from "@phosphor-icons/react";
 import Button from "../../buttons/button/Button";
-import DataSidebar from "../../dataSidebar/DataSidebar";
-import LoadingIcon from "../../loadingIcon/LoadingIcon";
 import CardLayout from "../../cardLayout/CardLayout";
+import ClockInSidebar from "../clockInSidebar/ClockInSidebar";
 import AttendanceType from "../../attendance/attendanceType/AttendanceType";
 import AttendanceClock from "../../attendance/attendanceClock/AttendanceClock";
 import useMyCurrentStatus from "../../../features/employee/attendance/private/hooks/useMyCurrentStatus";
@@ -88,30 +86,15 @@ export default function ClockinMini({ navIsOpen }) {
         </CardLayout>
       ) : null}
 
-      {/* DATASIDEBAR */}
-      <AnimatePresence>
-        {sidebarOpen &&
-          (attendanceTypesLoading ? (
-            <LoadingIcon />
-          ) : (
-            <DataSidebar
-              title="Attendance Activity"
-              icon={CalendarDotsIcon}
-              open={sidebarOpen}
-              onClose={closeClockIn}
-              rowData={{}}
-              columns={columns}
-              onSave={handleClockIn}
-              // `saving` is what disables DataForm's submit button
-              // (DataForm.jsx:193). Both clock-in sidebars omitted it, so the
-              // button stayed live for the whole insert -- the other half of
-              // the duplicate-row problem, alongside the ref guard in
-              // useClockInOutAction.
-              saving={saving}
-              creating
-            />
-          ))}
-      </AnimatePresence>
+      {/* DATASIDEBAR -- shared with BottomTabBar's clock button, portalled */}
+      <ClockInSidebar
+        sidebarOpen={sidebarOpen}
+        attendanceTypesLoading={attendanceTypesLoading}
+        columns={columns}
+        closeClockIn={closeClockIn}
+        handleClockIn={handleClockIn}
+        saving={saving}
+      />
     </>
   );
 }

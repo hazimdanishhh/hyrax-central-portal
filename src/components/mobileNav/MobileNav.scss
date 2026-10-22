@@ -1,17 +1,22 @@
 // MOBILE NAV
 .mobileNav {
+  // Opened from BottomTabBar's Menu button (2026-10-22). Fills the screen
+  // between the top chrome (none on phones) and the bottom bar, which stays
+  // visible above it (z-index 1900 vs 1600) so Menu can close it again.
   position: fixed;
-  top: 50px;
+  top: var(--app-top-chrome);
   left: 0;
   z-index: 1600;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: calc(100dvh - 50px);
+  height: calc(100vh - var(--app-top-chrome) - var(--app-bottom-chrome));
+  height: calc(100dvh - var(--app-top-chrome) - var(--app-bottom-chrome));
   width: 100%;
   padding: 0.5rem;
+  padding-top: calc(0.5rem + env(safe-area-inset-top));
   border-right: 1px solid $dark;
-  overflow-y: scroll;
+  overflow-y: auto;
   overflow-x: hidden;
   opacity: 1;
   transition: 0.3s;
@@ -87,6 +92,38 @@
       padding-bottom: 1rem;
 
       border-bottom: 1px solid $dark;
+    }
+
+    // Profile card at the top of the drawer (2026-10-22) -- on phones the
+    // Navbar, which held the profile photo and name, is hidden.
+    .mobileNavProfile {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.5rem;
+      border-radius: 12px;
+      border: 1px solid rgba($neutral500, 0.4);
+      text-align: start;
+
+      img {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+      }
+
+      .mobileNavProfileText {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        min-width: 0;
+      }
+
+      .mobileNavProfileArrow {
+        margin-left: auto;
+        flex-shrink: 0;
+      }
     }
 
     .sideNavLinkLayout {

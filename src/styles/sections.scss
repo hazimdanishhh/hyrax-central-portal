@@ -106,7 +106,10 @@
   width: 100%;
   // gap: 1rem;
   // padding-top: 1rem;
-  max-height: calc(100vh - 50px);
+  // The page's scroll area: the screen minus the navigation chrome (see
+  // --app-top-chrome / --app-bottom-chrome in index.scss).
+  max-height: calc(100vh - var(--app-top-chrome) - var(--app-bottom-chrome));
+  max-height: calc(100dvh - var(--app-top-chrome) - var(--app-bottom-chrome));
 }
 
 // CHART SECTIONS

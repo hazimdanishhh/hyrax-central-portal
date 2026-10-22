@@ -1,0 +1,180 @@
+// Height comes from --app-bottom-chrome (styles/index.scss), the one place
+// the app reserves room for this bar. Don't add bottom padding/margin for it
+// anywhere else.
+.bottomTabBar {
+  display: none;
+
+  @media screen and (max-width: 768px) {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1900;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    height: var(--app-bottom-chrome);
+    padding-bottom: env(safe-area-inset-bottom);
+    border-top: 1px solid rgba($neutral500, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  &.sectionLight {
+    background-color: rgba($neutral100, 0.92);
+  }
+
+  &.sectionDark {
+    background-color: rgba($neutral900, 0.92);
+  }
+
+  .bottomTabLink {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    opacity: 0.65;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    &.active {
+      opacity: 1;
+      color: $primary;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $primary;
+      outline-offset: -4px;
+      border-radius: 8px;
+    }
+  }
+
+  .bottomTabIcon {
+    position: relative;
+    display: flex;
+  }
+
+  // Clock In / Clock Out (BottomTabClockIn): always full strength and
+  // coloured, so it reads as the bar's one action, not a destination.
+  // Green to clock in, amber to clock out (the Dashboard fingerprint
+  // button's colours), with a live dot while clocked in.
+  .bottomTabClock {
+    opacity: 1;
+
+    &.clockedOut {
+      color: $success600;
+    }
+
+    &.clockedIn {
+      color: $warning600;
+    }
+
+    .bottomTabLiveDot {
+      position: absolute;
+      top: -2px;
+      right: -4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: $success600;
+      box-shadow: 0 0 0 2px rgba($success600, 0.3);
+    }
+  }
+
+  .bottomTabBadge {
+    position: absolute;
+    top: -4px;
+    right: -10px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background-color: $error600;
+    color: $light;
+    line-height: 16px;
+    text-align: center;
+  }
+}
+
+// BottomTabClockIn's chooser. Top level, not under .bottomTabBar: it is
+// portalled into document.body, outside the bar.
+.clockChooser {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  text-align: start;
+  padding: 0.8rem;
+
+  .clockChooserStatus {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .clockChooserOption {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    min-height: 72px;
+    padding: 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba($neutral500, 0.5);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      border-color: $primary;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $primary;
+      outline-offset: 2px;
+    }
+
+    // Same colour language as the Dashboard's fingerprint button.
+    &.clockIn {
+      border-color: $success600;
+      background-color: rgba($success600, 0.1);
+
+      svg {
+        color: $success600;
+      }
+    }
+
+    &.clockOut {
+      border-color: $warning600;
+      background-color: rgba($warning600, 0.1);
+
+      svg {
+        color: $warning600;
+      }
+    }
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
+  .clockChooserText {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+}

@@ -684,3 +684,35 @@ export const sideNavLinkData = [
     ],
   },
 ];
+
+// Phone bottom bar (BottomTabBar): the same few everyday destinations for
+// EVERY employee, whatever their department or role. Department pages live
+// in the Menu drawer (MobileNav), which the bar's last button opens -- so the
+// bar never changes shape between users and never needs an access check.
+// Only routes with no AccessRoute gate belong here. Four links + Menu; five
+// slots is the most a phone bar holds comfortably.
+//
+//   path   -- where the link goes (sideNavLinkData convention, "" = /app)
+//   match  -- optional wider path that also lights it up, e.g. Attendance
+//             links to its Overview tab but is active on its List tab too
+//   action -- not a link: "clockIn" renders the Clock In / Clock Out button
+//             (BottomTabClockIn) in that position
+export const bottomTabLinks = [
+  { label: "Home", icon: HouseIcon, path: "" },
+  // Attendance is reached from the drawer; its everyday action, clocking in
+  // and out, has the centre slot below (2026-10-22).
+  // {
+  //   label: "Attendance",
+  //   icon: CalendarIcon,
+  //   path: "employee/attendance/overview",
+  //   match: "employee/attendance",
+  // },
+  { label: "Tasks", icon: ListChecksIcon, path: "workspace/tasks" },
+  { action: "clockIn" },
+  {
+    label: "Alerts",
+    icon: BellIcon,
+    path: "notifications",
+    showUnreadBadge: true,
+  },
+];

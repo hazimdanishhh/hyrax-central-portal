@@ -10,6 +10,12 @@
   border-bottom: 1px solid $dark;
   z-index: 1800;
 
+  // Phones: hidden (2026-10-22). BottomTabBar + the MobileNav drawer carry
+  // navigation, profile and refresh; --app-top-chrome drops to 0 to match.
+  @media screen and (max-width: 768px) {
+    display: none;
+  }
+
   .navbarSegment {
     display: flex;
     justify-content: center;

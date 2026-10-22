@@ -6,14 +6,12 @@ import {
   ArrowsClockwiseIcon,
   BellIcon,
   CaretRightIcon,
-  SidebarSimpleIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "framer-motion";
 import useClickOutside from "../../hooks/useClickOutside";
 import { useTheme } from "../../context/ThemeContext";
 import NotificationCard from "../notifications/notificationCard/NotificationCard";
-import MobileNav from "../mobileNav/MobileNav";
 import useMediaQuery from "../../functions/mediaQuery";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../buttons/button/Button";
@@ -23,10 +21,11 @@ import { useRecentNotifications } from "../../features/notifications/private/hoo
 import { useUnreadNotificationCount } from "../../features/notifications/private/hooks/useUnreadNotificationCount";
 import useNotificationMutations from "../../features/notifications/private/hooks/useNotificationMutations";
 
+// Desktop and tablet only (> 768px). On phones it is hidden (Navbar.scss):
+// navigation moves to BottomTabBar, and the profile and Refresh move into
+// the MobileNav drawer, which AppLayout now renders and owns (2026-10-22).
 function Navbar() {
-  const [mobileNavIsOpen, setMobileNavIsOpen] = useState(false);
   const { darkMode } = useTheme();
-  const navModalRef = useRef(null);
   const [notificationIsOpen, setNotificationIsOpen] = useState(false);
   const notificationRef = useRef();
   useClickOutside(notificationRef, () => setNotificationIsOpen(false));
@@ -42,21 +41,11 @@ function Navbar() {
   // Fetch User Profile
   const { profile } = useProfile();
 
-  // Close navbar when clicked outside
-  useClickOutside(navModalRef, () => setMobileNavIsOpen(false));
-
   return (
     <>
       <nav className={darkMode ? "navbar sectionDark" : "navbar sectionLight"}>
         {/* LOGO & HEADER */}
         <div className="navbarSegment navbarLogoContainer">
-          <button
-            onClick={() => setMobileNavIsOpen(!mobileNavIsOpen)}
-            className="navButtonType1 mobileNavIcon"
-          >
-            <SidebarSimpleIcon size="24" />
-          </button>
-
           <Link to="/app" className="textRegular textXS navbarLogo">
             <img src={logo} alt="Logo" style={{ width: "40px" }} />
             Hyrax Portal
@@ -160,11 +149,6 @@ function Navbar() {
             <img src={profile?.avatar_url} alt={profile?.name} />
           </Link>
         </div>
-
-        <MobileNav
-          onClick={() => setMobileNavIsOpen(!mobileNavIsOpen)}
-          mobileNavIsOpen={mobileNavIsOpen}
-        />
       </nav>
     </>
   );

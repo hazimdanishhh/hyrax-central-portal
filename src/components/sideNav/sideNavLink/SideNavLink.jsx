@@ -6,12 +6,12 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { useUnreadNotificationCount } from "../../../features/notifications/private/hooks/useUnreadNotificationCount";
+import { isNavActive, navTo } from "../../../functions/navPaths";
 
 export default function SideNavLink({ segment, navIsOpen, onClick }) {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
   const linkRefs = useRef([]);
-  const basePath = "/app";
   const location = useLocation();
   const { unreadCount } = useUnreadNotificationCount();
 
@@ -19,9 +19,11 @@ export default function SideNavLink({ segment, navIsOpen, onClick }) {
   // unconditionally) so expandedPaths' lazy initializer can read it.
   const links = segment?.links || [];
 
+  // Shared with BottomTabBar (functions/navPaths.js). Fixes the dashboard
+  // link: its path is "", which used to build "/app/" and so never matched
+  // "/app".
   function isPathActive(pathSuffix) {
-    const to = `${basePath}/${pathSuffix}`;
-    return location.pathname === to || location.pathname.startsWith(to + "/");
+    return isNavActive(location.pathname, pathSuffix);
   }
 
   // Sidenav sub-links ("hide/show" page tabs) start expanded for whichever
@@ -91,9 +93,8 @@ export default function SideNavLink({ segment, navIsOpen, onClick }) {
 
       {links.map((link, index) => {
         const Icon = link.icon;
-        const to = `${basePath}/${link.path}`;
-        const isActive =
-          location.pathname === to || location.pathname.startsWith(to + "/");
+        const to = navTo(link.path);
+        const isActive = isPathActive(link.path);
         const hasTabs =
           navIsOpen && Array.isArray(link.tabs) && link.tabs.length > 0;
         const isExpanded = hasTabs && expandedPaths.has(link.path);
@@ -159,9 +160,9 @@ export default function SideNavLink({ segment, navIsOpen, onClick }) {
                     {link.tabs.map((tab) => {
                       const TabIcon = tab.icon;
                       const tabTo = `${to}/${tab.path}`;
-                      const tabActive =
-                        location.pathname === tabTo ||
-                        location.pathname.startsWith(tabTo + "/");
+                      const tabActive = isPathActive(
+                        `${link.path}/${tab.path}`,
+                      );
 
                       return (
                         <Link

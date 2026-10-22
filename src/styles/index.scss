@@ -23,6 +23,20 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  // App chrome (2026-10-22): the space the fixed navigation takes at the top
+  // and bottom of the screen. The ONE place that space is reserved -- page
+  // scroll areas (.sectionContent), MobileNav and BottomTabBar all read
+  // these, so nothing needs its own 50px/60px allowance.
+  //   desktop/tablet: Navbar on top, no bottom bar
+  //   phone (≤768):   no Navbar, BottomTabBar at the bottom (+ iOS home bar)
+  --app-top-chrome: 50px;
+  --app-bottom-chrome: 0px;
+
+  @media screen and (max-width: 768px) {
+    --app-top-chrome: 0px;
+    --app-bottom-chrome: calc(60px + env(safe-area-inset-bottom));
+  }
 }
 
 body {
@@ -39,7 +53,10 @@ main {
   position: relative;
   width: 100%;
   overflow-x: hidden; // IMPORTANT: app should never scroll horizontally
+  overflow-y: hidden; // IMPORTANT: app should never scroll vertically
+  // (each page's CardWrapper is the scroll area, sized by .sectionContent)
   height: 100vh;
+  height: 100dvh; // phones: the visible height, not behind the browser bars
 }
 
 a {
