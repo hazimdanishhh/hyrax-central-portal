@@ -1,0 +1,150 @@
+// Ported from Echoes Hub's dashboard period selector (finance.scss), sized
+// for the portal: centred and capped in width so the arrows don't drift to
+// opposite edges of a wide report card, 44px tap targets on every screen.
+
+.periodSelector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.periodToggle {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba($neutral500, 0.5);
+
+  .periodToggleButton {
+    min-width: 96px;
+    padding: 0.4rem 0.9rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover:not(.active) {
+      color: $primary;
+    }
+
+    &.active {
+      background-color: $primary;
+      color: $light;
+      font-weight: 700;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $primary;
+      outline-offset: 2px;
+    }
+  }
+
+  .periodLabelShort {
+    display: none;
+  }
+
+  // Four full labels don't fit a phone; "Month · Qtr · FY · Year" does, and
+  // the title/dates underneath say exactly which period it is.
+  @media screen and (max-width: 520px) {
+    .periodToggleButton {
+      min-width: 64px;
+      padding: 0.4rem 0.6rem;
+    }
+
+    .periodLabelLong {
+      display: none;
+    }
+
+    .periodLabelShort {
+      display: inline;
+    }
+  }
+}
+
+.periodSwitcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 520px;
+
+  .periodSwitcherButton {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba($neutral500, 0.5);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      border-color: $primary;
+      color: $primary;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $primary;
+      outline-offset: 2px;
+    }
+  }
+
+  .periodSwitcherLabel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .periodSwitcherLinks {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .periodLinkButton {
+    background: none;
+    border: none;
+    padding: 0;
+    color: $primary;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.periodCustom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem 1rem;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  input {
+    padding: 4px 8px;
+    width: fit-content;
+  }
+}

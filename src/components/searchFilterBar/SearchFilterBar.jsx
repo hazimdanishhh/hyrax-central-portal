@@ -22,76 +22,7 @@ import MultiSelectEditor from "../dataTable/editors/MultiSelectEditor";
 import CsvExportButton from "../exportActions/CsvExportButton";
 import ExportFullReport from "../exportActions/ExportFullReport";
 import { DATE_RANGE_PRESETS } from "../../functions/dateRangePresets";
-
-// Plain calendar-day arithmetic, same convention as
-// useAttendanceDailyList.js's shiftDate -- no date library in this repo.
-function pad(n) {
-  return String(n).padStart(2, "0");
-}
-
-function toDateString(d) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function parseDateString(dateString) {
-  const [year, month, day] = dateString.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function isFirstOfMonth(d) {
-  return d.getDate() === 1;
-}
-
-// Rolling forward one day lands in the next month iff d was that month's
-// last day -- avoids hardcoding month lengths/leap years.
-function isLastOfMonth(d) {
-  const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
-  return next.getDate() === 1;
-}
-
-function monthsBetweenInclusive(start, end) {
-  return (
-    (end.getFullYear() - start.getFullYear()) * 12 +
-    (end.getMonth() - start.getMonth()) +
-    1
-  );
-}
-
-// Shifts the WHOLE range by its own length, like the Attendance
-// day-navigator but for a range instead of a single day. A whole-calendar-
-// month range (1st of a month through the last day of a month, possibly
-// spanning several consecutive months) shifts by MONTHS via setMonth, so
-// e.g. May shifted back lands on the whole of April (Apr 1-30), not "31
-// days earlier" (which would drift into March because April is shorter
-// than May). Any other range (partial months, weeks, arbitrary custom
-// ranges) shifts by a fixed day count, which is already correct for those.
-function shiftDateRange(startDate, endDate, direction) {
-  const start = parseDateString(startDate);
-  const end = parseDateString(endDate);
-
-  if (isFirstOfMonth(start) && isLastOfMonth(end)) {
-    const monthSpan = monthsBetweenInclusive(start, end);
-    const newStart = new Date(
-      start.getFullYear(),
-      start.getMonth() + direction * monthSpan,
-      1,
-    );
-    const newEnd = new Date(
-      newStart.getFullYear(),
-      newStart.getMonth() + monthSpan,
-      0, // day 0 = last day of the previous month
-    );
-
-    return { startDate: toDateString(newStart), endDate: toDateString(newEnd) };
-  }
-
-  const spanDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
-  start.setDate(start.getDate() + direction * spanDays);
-  end.setDate(end.getDate() + direction * spanDays);
-
-  return { startDate: toDateString(start), endDate: toDateString(end) };
-}
+import { shiftDateRange } from "../../functions/periodRange";
 
 export default function SearchFilterBar({
   search,

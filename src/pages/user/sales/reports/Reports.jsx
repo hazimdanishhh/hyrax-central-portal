@@ -33,7 +33,8 @@ import NoResult from "../../../../components/crud/noResult/NoResult";
 import OverviewCards from "../../../../components/crud/overviewCards/OverviewCards";
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
-import FiscalYearFilterBar from "../../../../components/fiscalYearFilterBar/FiscalYearFilterBar";
+import PeriodSelector from "../../../../components/periodSelector/PeriodSelector";
+import { formatPeriod, readPeriod } from "../../../../functions/periodRange";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import ExportActions from "../../../../components/exportActions/ExportActions";
 import ScorecardList from "../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard";
@@ -85,9 +86,7 @@ function Reports() {
     data: dashboard,
     filters,
     activeFilters,
-    hasActiveFilters,
     setFilters,
-    resetParams,
     isLoading: dashboardLoading,
     isFetching: dashboardFetching,
     error: dashboardError,
@@ -105,6 +104,20 @@ function Reports() {
   } = useSalesReportsMetadata();
 
   const filterConfig = getFilterConfig({ owners });
+
+  // The period is shown by PeriodSelector itself, so it isn't repeated as
+  // raw startDate/endDate chips, and "Clear All" clears the salesperson
+  // filter without also throwing the reader back to this month.
+  const nonDateFilters = activeFilters.filter(
+    ([key]) => key !== "startDate" && key !== "endDate",
+  );
+  const clearNonDateFilters = () =>
+    setFilters(Object.fromEntries(nonDateFilters.map(([key]) => [key, ""])));
+
+  // Named period + exact dates for the PDF header. Replaces "All Time",
+  // which was wrong: unfiltered, this page shows the current month.
+  const exportPeriod = formatPeriod(readPeriod(filters));
+  const periodSubtitle = `${exportPeriod.title} (${exportPeriod.range})`;
 
   const isLoading = dashboardLoading || metadataLoading;
   const isFetching = dashboardFetching || metadataFetching;
@@ -596,16 +609,19 @@ function Reports() {
               filters={filters}
               onFilterChange={setFilters}
               filterConfig={filterConfig}
-              enableDateRange
               disableSearch={true}
               isLoading={isLoading}
               isError={isError}
             />
 
-            <FiscalYearFilterBar
-              filters={filters}
-              onFilterChange={setFilters}
-            />
+            {/* PERIOD (2026-10-22) -- replaces the date presets, the two
+                date inputs and FiscalYearFilterBar. Writes the same
+                startDate/endDate the RPC already takes; this month is
+                written as empty dates, exactly as the page loads. */}
+            <PeriodSelector filters={filters} onFilterChange={setFilters} />
+            {/* Projections keep their own fiscal-year dropdown below for
+                now -- that section is company-wide and runs off a separate
+                RPC (see the projectionFy comment above). */}
 
             {/* EXPORT */}
             <div
@@ -620,11 +636,7 @@ function Reports() {
                 fileName="Sales_Dashboard_Report"
                 reportTitle="Sales Dashboard"
                 logoUrl="/logos/logo.png"
-                subtitle={
-                  filters.startDate && filters.endDate
-                    ? `${filters.startDate} to ${filters.endDate}`
-                    : "All Time"
-                }
+                subtitle={periodSubtitle}
               />
             </div>
 
@@ -637,12 +649,12 @@ function Reports() {
               }}
             >
               {/* ACTIVE FILTERS */}
-              {hasActiveFilters && (
+              {nonDateFilters.length > 0 && (
                 <ActiveFiltersBar
-                  filters={activeFilters}
+                  filters={nonDateFilters}
                   setFilters={setFilters}
                   filterConfig={filterConfig}
-                  resetParams={resetParams}
+                  resetParams={clearNonDateFilters}
                 />
               )}
 
