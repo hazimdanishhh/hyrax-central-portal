@@ -40,6 +40,10 @@ declare
     -- Length of the effective range: whole MONTHS when it is whole months,
     -- otherwise days. Only used to place the previous period below.
     v_interval integer;
+    -- TREND window (2026-10-22) for the monthly trend charts -- see its
+    -- calculation below.
+    v_trend_start_date date;
+    v_trend_end_date date;
     -- ACTIONABLE family (Sales Order Health, new card) -- true current
     -- backlog when unfiltered, narrows to "originated this period" once a
     -- range is explicitly picked. Same v_has_period pattern as Attendance/
@@ -207,6 +211,49 @@ else
     v_prev_start_date := v_prev_end_date - v_interval;
 end if;
 
+-- Like-for-like while the period is still running (2026-10-22). The
+-- current window covers the whole period but data only exists up to today,
+-- so on 5 October "this month" is 5 days of sales against all 30 of
+-- September's -- every delta read as a collapse early in a period. While
+-- today is inside the period, the previous window is cut to the same number
+-- of days (1-22 Oct compares with 1-22 Sep), capped at that period's own end
+-- (31 Mar compares with all of February, not into March). Completed periods
+-- are unaffected. Returned as `comparisonWindow` so the page says exactly
+-- what each delta compares against.
+if current_date between v_effective_start_date and v_effective_end_date then
+    v_prev_end_date := least(
+        v_prev_end_date,
+        v_prev_start_date + (current_date - v_effective_start_date)
+    );
+end if;
+
+-- TREND window (2026-10-22). The monthly trend charts (pipelineVsTargetData,
+-- bookingsVsInvoicedTrendData, invoicedVsBudgetTrendData) need several
+-- months to show a direction, so they don't use the effective range as-is:
+--   * a period of a year or longer (fiscal year, calendar year, a long
+--     custom range) -> exactly that period;
+--   * anything shorter (the default month, a month, a quarter, a short
+--     custom range) -> the fiscal year(s) containing it, April-March, the
+--     cadence budgets and targets are set on and the same frame as the
+--     Projections section. The page highlights the selected months inside.
+-- Before this, those charts were all-time when unfiltered (10+ years of SAP
+-- invoices) and a single point once a month was picked, and Orders vs
+-- Invoiced ignored the period entirely. Returned as `trendWindow` so the page
+-- labels the chart from the same dates it was built from.
+if v_effective_end_date >= (v_effective_start_date + interval '1 year' - interval '1 day')::date then
+    v_trend_start_date := v_effective_start_date;
+    v_trend_end_date := v_effective_end_date;
+else
+    v_trend_start_date := make_date(
+        extract(year from v_effective_start_date)::int
+            - case when extract(month from v_effective_start_date) >= 4 then 0 else 1 end,
+        4, 1);
+    v_trend_end_date := (make_date(
+        extract(year from v_effective_end_date)::int
+            - case when extract(month from v_effective_end_date) >= 4 then 0 else 1 end,
+        4, 1) + interval '1 year' - interval '1 day')::date;
+end if;
+
 -- ACTIONABLE family (Sales Order Health) -- see this variable's own
 -- declaration comment above.
 v_has_period := (p_start_date is not null and p_end_date is not null);
@@ -222,15 +269,30 @@ v_has_period := (p_start_date is not null and p_end_date is not null);
 -- against this same column.
 if v_has_period then
     select
-        count(*) filter (where not is_fully_delivered and delivery_date::date < current_date),
-        count(*) filter (where not is_fully_delivered and delivery_date::date >= current_date and delivery_date::date <= current_date + interval '7 days'),
+        -- ALIGNED 2026-10-22 with get_fulfillment_overview_rpc.sql, which
+        -- reads the same view and documents why:
+        --   * overdue / due soon only count orders SAP still has OPEN
+        --     (status_code = 'O'): a manually closed order with leftover
+        --     open_qty is a decision to stop, not a late delivery;
+        --   * "not yet invoiced" is now DELIVERED, not invoiced: it counted
+        --     every order with no invoice, including this week's new orders
+        --     that nobody expects to be billed yet, and closed orders from
+        --     years back -- noise, not attention. No status gate, as there:
+        --     a closed, delivered, unbilled order is still a billing gap;
+        --   * nullif(delivery_date, '') before the cast: delivery_date is raw
+        --     SAP text, and an empty string fails the whole RPC (22007).
+        count(*) filter (where status_code = 'O' and not is_fully_delivered
+            and nullif(delivery_date, '')::date < current_date),
+        count(*) filter (where status_code = 'O' and not is_fully_delivered
+            and nullif(delivery_date, '')::date >= current_date
+            and nullif(delivery_date, '')::date <= current_date + interval '7 days'),
         count(*) filter (where has_paid_mismatch),
-        count(*) filter (where matched_invoice_count = 0),
+        count(*) filter (where is_fully_delivered and matched_invoice_count = 0),
         count(*) filter (where
-            (not is_fully_delivered and delivery_date::date < current_date)
-            or (not is_fully_delivered and delivery_date::date >= current_date and delivery_date::date <= current_date + interval '7 days')
+            (status_code = 'O' and not is_fully_delivered
+                and nullif(delivery_date, '')::date <= current_date + interval '7 days')
             or has_paid_mismatch
-            or matched_invoice_count = 0
+            or (is_fully_delivered and matched_invoice_count = 0)
         )
     into
         v_overdue_deliveries_count, v_delivery_due_soon_count,
@@ -243,15 +305,30 @@ if v_has_period then
       and "order_date"::date <= p_end_date;
 else
     select
-        count(*) filter (where not is_fully_delivered and delivery_date::date < current_date),
-        count(*) filter (where not is_fully_delivered and delivery_date::date >= current_date and delivery_date::date <= current_date + interval '7 days'),
+        -- ALIGNED 2026-10-22 with get_fulfillment_overview_rpc.sql, which
+        -- reads the same view and documents why:
+        --   * overdue / due soon only count orders SAP still has OPEN
+        --     (status_code = 'O'): a manually closed order with leftover
+        --     open_qty is a decision to stop, not a late delivery;
+        --   * "not yet invoiced" is now DELIVERED, not invoiced: it counted
+        --     every order with no invoice, including this week's new orders
+        --     that nobody expects to be billed yet, and closed orders from
+        --     years back -- noise, not attention. No status gate, as there:
+        --     a closed, delivered, unbilled order is still a billing gap;
+        --   * nullif(delivery_date, '') before the cast: delivery_date is raw
+        --     SAP text, and an empty string fails the whole RPC (22007).
+        count(*) filter (where status_code = 'O' and not is_fully_delivered
+            and nullif(delivery_date, '')::date < current_date),
+        count(*) filter (where status_code = 'O' and not is_fully_delivered
+            and nullif(delivery_date, '')::date >= current_date
+            and nullif(delivery_date, '')::date <= current_date + interval '7 days'),
         count(*) filter (where has_paid_mismatch),
-        count(*) filter (where matched_invoice_count = 0),
+        count(*) filter (where is_fully_delivered and matched_invoice_count = 0),
         count(*) filter (where
-            (not is_fully_delivered and delivery_date::date < current_date)
-            or (not is_fully_delivered and delivery_date::date >= current_date and delivery_date::date <= current_date + interval '7 days')
+            (status_code = 'O' and not is_fully_delivered
+                and nullif(delivery_date, '')::date <= current_date + interval '7 days')
             or has_paid_mismatch
-            or matched_invoice_count = 0
+            or (is_fully_delivered and matched_invoice_count = 0)
         )
     into
         v_overdue_deliveries_count, v_delivery_due_soon_count,
@@ -340,6 +417,13 @@ base_payment_apps as (
     select
         pa.amount_applied_myr,
         p.payment_date,
+        -- 2026-10-22: the receipt (ORCT) and the invoice it settles. One
+        -- receipt can settle several invoices, so it spans several rows here:
+        -- count payments with count(distinct payment_doc_entry), never
+        -- count(*). invoice_doc_entry is null for cash not applied to an A/R
+        -- invoice (on-account cash, other document types).
+        p.doc_entry as payment_doc_entry,
+        i.doc_entry as invoice_doc_entry,
         i.sales_rep_code as invoice_sales_rep_code,
         i.customer_code as invoice_customer_code
     from sap_payment_applications pa
@@ -653,8 +737,10 @@ collected_kpis as (
 
         -- Payment count (added 2026-08, O2C funnel restructure) -- same
         -- filter as total_collected above, so the funnel stat-strip's
-        -- Payment-stage count and value always tie out.
-        count(*) filter (where
+        -- Payment-stage count and value always tie out. FIXED 2026-10-22:
+        -- distinct receipts -- count(*) counted application lines, so one
+        -- receipt settling five invoices counted as five payments.
+        count(distinct payment_doc_entry) filter (where
             payment_date::date >= v_effective_start_date
             and payment_date::date <= v_effective_end_date
         ) as payment_count,
@@ -664,7 +750,7 @@ collected_kpis as (
             and payment_date::date <= v_effective_end_date
         ) as distinct_customers
     from base_payment_apps
-    where invoice_sales_rep_code is not null
+    where invoice_doc_entry is not null
 ),
 
 -- Prior-period sibling (2026-09-30) -- for totalCollected's own subvalue
@@ -676,7 +762,7 @@ prev_collected_kpis as (
             and payment_date::date <= v_prev_end_date
         ), 0) as total_collected
     from base_payment_apps
-    where invoice_sales_rep_code is not null
+    where invoice_doc_entry is not null
 ),
 
 lead_kpis as (
@@ -819,7 +905,8 @@ prev_lead_kpis as (
 top_invoiced_customers as materialized (
     select
         bi.customer_code,
-        bi.customer_name,
+        -- FIXED 2026-10-22: grouped by code only (see the group by below).
+        max(bi.customer_name) as customer_name,
         count(distinct bi.doc_entry) as invoice_count,
         sum(bi.total_amount_myr) as revenue_myr,
         coalesce(pc.collected_myr, 0) as collected_myr
@@ -827,14 +914,17 @@ top_invoiced_customers as materialized (
     left join (
         select invoice_customer_code, sum(amount_applied_myr) as collected_myr
         from base_payment_apps
-        where invoice_sales_rep_code is not null
+        where invoice_doc_entry is not null
           and payment_date::date >= v_effective_start_date
           and payment_date::date <= v_effective_end_date
         group by invoice_customer_code
     ) pc on pc.invoice_customer_code = bi.customer_code
     where bi."invoice_date"::date >= v_effective_start_date
       and bi."invoice_date"::date <= v_effective_end_date
-    group by bi.customer_code, bi.customer_name, pc.collected_myr
+    -- customer_name is OINV.CardName, which can differ between documents;
+    -- grouping by it split one customer into several rows, each carrying
+    -- the customer's full collected_myr (double-counted Collected).
+    group by bi.customer_code, pc.collected_myr
     order by revenue_myr desc
     limit 10
 ),
@@ -960,7 +1050,7 @@ yoy_collected as (
         sum(bpa.amount_applied_myr) as collected_revenue
     from base_payment_apps bpa
     cross join fy_window fw
-    where bpa.invoice_sales_rep_code is not null
+    where bpa.invoice_doc_entry is not null
       and bpa.payment_date::date >= make_date(fw.current_fy_start_year - 9, 4, 1)
     group by 1
 ),
@@ -986,7 +1076,7 @@ top_payment_customers as materialized (
         sum(bpa.amount_applied_myr) as collected_myr
     from base_payment_apps bpa
     left join sap_customers sc on sc.customer_code = bpa.invoice_customer_code
-    where bpa.invoice_sales_rep_code is not null
+    where bpa.invoice_doc_entry is not null
       and bpa.payment_date::date >= v_effective_start_date
       and bpa.payment_date::date <= v_effective_end_date
     group by bpa.invoice_customer_code, sc.customer_name
@@ -1014,7 +1104,7 @@ top_payment_customers as materialized (
 outstanding_by_customer as materialized (
     select
         customer_code,
-        customer_name,
+        max(customer_name) as customer_name,
         sum(outstanding_balance) as outstanding_myr
     from sap_invoices_with_balance
     where is_cancelled = 'N'
@@ -1023,12 +1113,53 @@ outstanding_by_customer as materialized (
       and (not v_has_period or (
           "invoice_date"::date >= p_start_date and "invoice_date"::date <= p_end_date
       ))
-    group by customer_code, customer_name
+    -- By code only (2026-10-22) -- same CardName split as
+    -- top_invoiced_customers.
+    group by customer_code
     order by outstanding_myr desc
     limit 10
+),
+
+-- Month spine for the three monthly trend charts (2026-10-22): every month
+-- of the TREND window (v_trend_start_date/v_trend_end_date, see its
+-- calculation above), so a month with no activity is a real row rather than
+-- a missing x-axis tick. Flags, read by the page:
+--   is_future  -- after the current month: ACTUAL series are null there (the
+--                 line stops) instead of a false drop to zero; PLAN series
+--                 (target, budget) carry on.
+--   is_partial -- the current month, still in progress ("to date").
+--   in_period  -- inside the page's selected period (highlighted when the
+--                 trend window is wider than the period).
+trend_months as (
+    select
+        m::date as month_start,
+        m::date > date_trunc('month', current_date)::date as is_future,
+        m::date = date_trunc('month', current_date)::date as is_partial,
+        m::date between date_trunc('month', v_effective_start_date)::date
+                    and v_effective_end_date as in_period
+    from generate_series(
+        date_trunc('month', v_trend_start_date),
+        date_trunc('month', v_trend_end_date),
+        interval '1 month'
+    ) m
 )
 
 select json_build_object(
+
+    -- The trend charts' window, as dates (2026-10-22) -- the page names it
+    -- ("FY 2026-2027") from these rather than recomputing the rule.
+    'trendWindow', json_build_object(
+        'startDate', v_trend_start_date,
+        'endDate', v_trend_end_date
+    ),
+
+    -- The window every prev* figure covers (2026-10-22): the previous whole
+    -- period, or its same-days slice while the selected one is in progress.
+    'comparisonWindow', json_build_object(
+        'startDate', v_prev_start_date,
+        'endDate', v_prev_end_date,
+        'isPartial', current_date between v_effective_start_date and v_effective_end_date
+    ),
 
     -- FIXED 2026-09-30: json_build_object has a hard 100-argument limit
     -- (50 key/value pairs) -- this object grew to 52 pairs once the
@@ -1046,9 +1177,12 @@ select json_build_object(
             'prevPipelineWonRevenue', plk.won_revenue,
             'pipelineTargetRevenue', coalesce(pt.prorated_target, 0),
             'prevPipelineTargetRevenue', coalesce(ppt.prorated_target, 0),
+            -- FIXED 2026-10-22: null (not 0) when there is no target, like
+            -- its prev* sibling below. 0 rendered as "0% Critical" for a rep
+            -- who simply has no target set; null renders "—", neutral.
             'pipelineAttainmentPct', case when coalesce(pt.prorated_target, 0) > 0
                 then round((lk.won_revenue / pt.prorated_target) * 100)
-                else 0 end,
+                else null end,
             -- Prior-period sibling (2026-09-30) -- null (not 0) when the
             -- prior period had no target at all, so calcDelta on the
             -- frontend renders "no comparison" rather than a false swing.
@@ -1088,9 +1222,10 @@ select json_build_object(
                 then round(ik.total_invoiced / ik.invoice_count, 2)
                 else 0 end,
             'revenueBudgetTotal', coalesce(bt.total_budget, 0),
+            -- null (not 0) with no budget -- see pipelineAttainmentPct.
             'budgetAttainmentPct', case when coalesce(bt.total_budget, 0) > 0
                 then round((ik.total_invoiced / bt.total_budget) * 100)
-                else 0 end,
+                else null end,
             'prevBudgetAttainmentPct', case when coalesce(pbt.total_budget, 0) > 0
                 then round((pik.total_invoiced / pbt.total_budget) * 100)
                 else null end
@@ -1103,9 +1238,10 @@ select json_build_object(
             'prevTotalCollected', pck.total_collected,
             'paymentCount', ck.payment_count,
             'distinctCustomersPaid', ck.distinct_customers,
+            -- null (not 0) with nothing invoiced -- see pipelineAttainmentPct.
             'collectionRatePct', case when ik.total_invoiced > 0
                 then round((ck.total_collected / ik.total_invoiced) * 100, 1)
-                else 0 end,
+                else null end,
             'prevCollectionRatePct', case when pik.total_invoiced > 0
                 then round((pck.total_collected / pik.total_invoiced) * 100, 1)
                 else null end,
@@ -1158,6 +1294,8 @@ select json_build_object(
             'overdueDeliveriesCount', v_overdue_deliveries_count,
             'deliveryDueSoonCount', v_delivery_due_soon_count,
             'paymentMismatchesCount', v_payment_mismatches_count,
+            -- Name kept for the frontend contract; since 2026-10-22 this is
+            -- DELIVERED, not invoiced (see the Sales Order Health block).
             'notYetInvoicedCount', v_not_yet_invoiced_count,
             'salesOrderNeedsAttentionCount', v_needs_attention_count,
 
@@ -1304,126 +1442,154 @@ select json_build_object(
         ) x
     ),
 
-    -- The two systems of record, side by side, never blended (see the file
-    -- header comment and docs/DASHBOARD-IA-STRATEGY.md §7). Chart, deferred
-    -- -- deliberately LEFT ON raw p_start_date/p_end_date (all-time when
-    -- unset): a monthly trend forced to This Month would collapse to one
-    -- point. Unchanged this pass.
+    -- ── MONTHLY TREND CHARTS (rebuilt 2026-10-22) ─────────────────────────
+    --
+    -- All three now share ONE window and ONE shape, so they can be read side
+    -- by side: every month of trend_months (the fiscal year containing the
+    -- selected period, or the period itself when it is a year or longer --
+    -- see v_trend_start_date), salesperson-scoped like everything else on
+    -- the page. Before this, two were all-time when unfiltered and a single
+    -- point once a month was picked, and Orders vs Invoiced was a fixed
+    -- trailing 12 months that ignored the period entirely.
+    --
+    -- ACTUAL series are null in future months (the line stops) and 0 in a
+    -- past month with no activity (a real zero). PLAN series (target,
+    -- budget) are null where no plan row exists, so "no budget set" is a gap,
+    -- never a fake zero. Each row carries is_partial/in_period for the page.
+
     -- Pipeline vs Target -- Order-to-Cash Overview (2026-10-01, replaces the
     -- old realizedVsPipelineData/"Invoice (SAP) vs Pipeline (CRM) Revenue"
     -- chart, which compared two different O2C STAGES that were never
-    -- expected to equal each other -- a source of real confusion, per direct
-    -- user feedback). This is CRM Forecast 1's own trend: won revenue vs the
-    -- monthly quota it's actually meant to be judged against (sales_targets
-    -- IS already monthly-grained, so no day-overlap proration is needed here
-    -- the way pipeline_target_math needs it for a partial-period total --
-    -- each bucket below is a full calendar month by construction). Monthly,
-    -- respects the page's date filter when one is set, defaults to all
-    -- available months when it isn't (same "needs width" shape as
-    -- invoicedVsBudgetTrendData below).
+    -- expected to equal each other). CRM Forecast 1's own trend: won revenue
+    -- vs the monthly quota it is judged against (sales_targets is
+    -- monthly-grained, so no proration). Won revenue uses the same
+    -- closed_date as the pipelineWonRevenue tile.
     'pipelineVsTargetData', (
-        with pipeline_by_month as (
+        with won_by_month as (
             select
-                to_char(date_trunc('month', closed_date), 'YYYY-MM') as month,
+                date_trunc('month', closed_date)::date as month_start,
                 sum(actual_revenue) as pipeline_revenue
             from base_leads
             where stage = 'WON'
-              and (p_start_date is null or closed_date >= p_start_date)
-              and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
+              and closed_date >= v_trend_start_date
+              and closed_date <  v_trend_end_date + 1
             group by 1
         ),
         target_by_month as (
             select
-                to_char(date_trunc('month', t.target_month), 'YYYY-MM') as month,
+                date_trunc('month', t.target_month)::date as month_start,
                 sum(t.target_revenue) as target_revenue
             from sales_targets t
             where (v_owner_id is null or t.lead_owner_id = v_owner_id)
-              and (p_start_date is null or date_trunc('month', t.target_month) >= date_trunc('month', p_start_date))
-              and (p_end_date is null or date_trunc('month', t.target_month) <= date_trunc('month', p_end_date))
+              and t.target_month >= date_trunc('month', v_trend_start_date)
+              and t.target_month <= v_trend_end_date
             group by 1
         )
         select coalesce(json_agg(json_build_object(
-            'period', coalesce(pm.month, tm.month),
-            'pipeline_revenue_myr', coalesce(pm.pipeline_revenue, 0),
-            'target_revenue_myr', coalesce(tm.target_revenue, 0)
-        ) order by coalesce(pm.month, tm.month)), '[]'::json)
-        from pipeline_by_month pm
-        full outer join target_by_month tm on tm.month = pm.month
+            'period', to_char(m.month_start, 'YYYY-MM'),
+            'is_partial', m.is_partial,
+            'in_period', m.in_period,
+            'pipeline_revenue_myr',
+                case when m.is_future then null else coalesce(w.pipeline_revenue, 0) end,
+            'target_revenue_myr', t.target_revenue
+        ) order by m.month_start), '[]'::json)
+        from trend_months m
+        left join won_by_month w on w.month_start = m.month_start
+        left join target_by_month t on t.month_start = m.month_start
     ),
 
-    -- Bookings vs Invoiced (added 2026-07, Sales Reports redesign) -- SAP-only
-    -- booking-to-billing lag. FIXED-WINDOW family already -- always the
-    -- trailing 12 months, ignores the page's date filter entirely. Unchanged
-    -- this pass (chart, deferred, and this one was already correct).
+    -- Orders vs Invoiced (added 2026-07) -- SAP-only booking-to-billing lag.
+    -- Was FIXED-WINDOW (trailing 12 months); now on the shared trend window
+    -- (2026-10-22), so it answers for the same months as the charts beside
+    -- it.
     'bookingsVsInvoicedTrendData', (
         with booked_by_month as (
             select
-                to_char(date_trunc('month', "order_date"::date), 'YYYY-MM') as month,
+                date_trunc('month', "order_date"::date)::date as month_start,
                 sum(total_amount_myr) as booked_revenue
             from base_orders
-            where "order_date"::date >= (date_trunc('month', current_date) - interval '11 months')::date
-              and "order_date"::date <  (date_trunc('month', current_date) + interval '1 month')::date
+            where "order_date"::date >= v_trend_start_date
+              and "order_date"::date <= v_trend_end_date
             group by 1
         ),
         invoiced_by_month as (
             select
-                to_char(date_trunc('month', "invoice_date"::date), 'YYYY-MM') as month,
+                date_trunc('month', "invoice_date"::date)::date as month_start,
                 sum(total_amount_myr) as invoiced_revenue
             from base_invoices
-            where "invoice_date"::date >= (date_trunc('month', current_date) - interval '11 months')::date
-              and "invoice_date"::date <  (date_trunc('month', current_date) + interval '1 month')::date
+            where "invoice_date"::date >= v_trend_start_date
+              and "invoice_date"::date <= v_trend_end_date
             group by 1
         )
         select coalesce(json_agg(json_build_object(
-            'period', coalesce(bm.month, im.month),
-            'booked_revenue_myr', coalesce(bm.booked_revenue, 0),
-            'invoiced_revenue_myr', coalesce(im.invoiced_revenue, 0)
-        ) order by coalesce(bm.month, im.month)), '[]'::json)
-        from booked_by_month bm
-        full outer join invoiced_by_month im on im.month = bm.month
+            'period', to_char(m.month_start, 'YYYY-MM'),
+            'is_partial', m.is_partial,
+            'in_period', m.in_period,
+            'booked_revenue_myr',
+                case when m.is_future then null else coalesce(b.booked_revenue, 0) end,
+            'invoiced_revenue_myr',
+                case when m.is_future then null else coalesce(i.invoiced_revenue, 0) end
+        ) order by m.month_start), '[]'::json)
+        from trend_months m
+        left join booked_by_month b on b.month_start = m.month_start
+        left join invoiced_by_month i on i.month_start = m.month_start
     ),
 
-    -- Invoiced / Collected / Budget -- monthly trend. Chart, deferred --
-    -- deliberately LEFT ON raw p_start_date/p_end_date (all-time when
-    -- unset), same "a monthly trend needs width" reasoning as
-    -- realizedVsPipelineData above. Unchanged this pass.
+    -- Revenue vs Budget: invoiced / collected / budget per month (added
+    -- 2026-07). Two fixes on 2026-10-22, besides the shared window:
+    --   * BUDGET now follows the salesperson. It read sales_budgets with no
+    --     rep predicate, so with one rep selected the invoice and payment
+    --     lines showed that rep against the whole company's budget.
+    --     Same predicate as budget_math.
+    --   * COLLECTED now uses the same definition as the Payments Collected
+    --     tile (collected_kpis): only cash applied to a real sales invoice
+    --     (invoice_doc_entry is not null). It counted on-account cash
+    --     and other document types too, so the line and the tile could
+    --     disagree for the same month.
     'invoicedVsBudgetTrendData', (
         with invoiced_by_month as (
             select
-                to_char(date_trunc('month', "invoice_date"::date), 'YYYY-MM') as month,
+                date_trunc('month', "invoice_date"::date)::date as month_start,
                 sum(total_amount_myr) as invoiced_revenue
             from base_invoices
-            where (p_start_date is null or "invoice_date"::date >= p_start_date)
-              and (p_end_date   is null or "invoice_date"::date <= p_end_date)
+            where "invoice_date"::date >= v_trend_start_date
+              and "invoice_date"::date <= v_trend_end_date
             group by 1
         ),
         collected_by_month as (
             select
-                to_char(date_trunc('month', payment_date::date), 'YYYY-MM') as month,
+                date_trunc('month', payment_date::date)::date as month_start,
                 sum(amount_applied_myr) as collected_revenue
             from base_payment_apps
-            where (p_start_date is null or payment_date::date >= p_start_date)
-              and (p_end_date   is null or payment_date::date <= p_end_date)
+            where invoice_doc_entry is not null
+              and payment_date::date >= v_trend_start_date
+              and payment_date::date <= v_trend_end_date
             group by 1
         ),
         budget_by_month as (
             select
-                to_char(date_trunc('month', b.budget_month), 'YYYY-MM') as month,
+                date_trunc('month', b.budget_month)::date as month_start,
                 sum(b.budget_revenue) as budget_revenue
             from sales_budgets b
-            where (p_start_date is null or date_trunc('month', b.budget_month) >= date_trunc('month', p_start_date))
-              and (p_end_date   is null or date_trunc('month', b.budget_month) <= date_trunc('month', p_end_date))
+            where (v_sales_rep_code is null or b.sales_rep_code = v_sales_rep_code)
+              and b.budget_month >= date_trunc('month', v_trend_start_date)
+              and b.budget_month <= v_trend_end_date
             group by 1
         )
         select coalesce(json_agg(json_build_object(
-            'period', coalesce(im.month, cm.month, bm.month),
-            'invoiced_revenue_myr', coalesce(im.invoiced_revenue, 0),
-            'collected_revenue_myr', coalesce(cm.collected_revenue, 0),
-            'budget_revenue_myr', coalesce(bm.budget_revenue, 0)
-        ) order by coalesce(im.month, cm.month, bm.month)), '[]'::json)
-        from invoiced_by_month im
-        full outer join collected_by_month cm on cm.month = im.month
-        full outer join budget_by_month bm on bm.month = coalesce(im.month, cm.month)
+            'period', to_char(m.month_start, 'YYYY-MM'),
+            'is_partial', m.is_partial,
+            'in_period', m.in_period,
+            'invoiced_revenue_myr',
+                case when m.is_future then null else coalesce(i.invoiced_revenue, 0) end,
+            'collected_revenue_myr',
+                case when m.is_future then null else coalesce(c.collected_revenue, 0) end,
+            'budget_revenue_myr', bu.budget_revenue
+        ) order by m.month_start), '[]'::json)
+        from trend_months m
+        left join invoiced_by_month i on i.month_start = m.month_start
+        left join collected_by_month c on c.month_start = m.month_start
+        left join budget_by_month bu on bu.month_start = m.month_start
     ),
 
     -- Chart, deferred -- unchanged, still all-time by default.
@@ -1447,7 +1613,9 @@ select json_build_object(
             left join sap_sales_persons sp on sp.sales_rep_code = oi.sales_rep_code
             where (p_start_date is null or oi."invoice_date"::date >= p_start_date)
               and (p_end_date is null or oi."invoice_date"::date <= p_end_date)
-            group by sp.sales_rep_name
+            -- By code (2026-10-22), not display name: two reps sharing a
+            -- name were merged into one bar.
+            group by oi.sales_rep_code, sp.sales_rep_name
             order by revenue_myr desc
             limit 15
         ) x
@@ -1591,6 +1759,17 @@ select json_build_object(
             -- own FISCAL_YEAR_PRESETS labels, so this chart's x-axis reads
             -- identically to the page's own FiscalYearFilterBar options.
             'name', y.fy_start_year::text || '-' || (y.fy_start_year + 1)::text,
+            -- 2026-10-22: the current FY is still in progress (the page
+            -- labels it "to date" so its shorter bar isn't read as a bad
+            -- year), and in_period marks the FY(s) the selected period falls
+            -- in, for highlighting. The window itself stays FIXED.
+            'is_partial', y.fy_start_year = (select current_fy_start_year from fy_window),
+            'in_period', y.fy_start_year between
+                (extract(year from v_effective_start_date)::int
+                    - case when extract(month from v_effective_start_date) >= 4 then 0 else 1 end)
+                and
+                (extract(year from v_effective_end_date)::int
+                    - case when extract(month from v_effective_end_date) >= 4 then 0 else 1 end),
             'pipeline_revenue_myr', coalesce(yp.pipeline_revenue, 0),
             'order_value_myr', coalesce(yo.order_value, 0),
             'invoiced_revenue_myr', coalesce(yi.invoiced_revenue, 0),

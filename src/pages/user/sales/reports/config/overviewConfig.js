@@ -10,7 +10,10 @@ import {
 } from "@phosphor-icons/react";
 import { preciseCurrency } from "../../../../../functions/formatNumber";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
-import { describePeriod } from "../../../../../functions/periodRange";
+import {
+  describePeriod,
+  formatDateRange,
+} from "../../../../../functions/periodRange";
 
 /**
  * KPI-cards restructuring (2026-09-30, see docs/portal/DASHBOARD-CONVENTIONS.md
@@ -91,6 +94,10 @@ export function getSalesReportsOverviewConfig(
   canAccessInvoices = false,
   canAccessPayments = false,
   filters = {},
+  // The RPC's comparisonWindow (2026-10-22): the dates every prev* figure
+  // covers -- the previous whole period, or its same-days slice while the
+  // selected period is still running.
+  comparisonWindow = null,
 ) {
   const calcDelta = (current, previous) => {
     if (previous === null || previous === undefined) return null;
@@ -106,13 +113,24 @@ export function getSalesReportsOverviewConfig(
   // is the previous whole period (see get_sales_reports_dashboard_rpc.sql's
   // v_prev_start_date).
   const period = describePeriod(filters);
+  // While the period is running, deltas are like-for-like against the same
+  // days of the previous one, so say which days ("vs 1 Sep – 22 Sep 2026");
+  // a completed period compares with the whole previous one ("vs last
+  // month").
+  const comparedWith = comparisonWindow?.isPartial
+    ? formatDateRange(comparisonWindow.startDate, comparisonWindow.endDate)
+    : period.previousLabel;
 
   const deltaText = (delta) =>
     delta === null
       ? ""
       : delta > 0
-        ? `↑ ${delta}% vs ${period.previousLabel}`
-        : `↓ ${Math.abs(delta)}% vs ${period.previousLabel}`;
+        ? `↑ ${delta}% vs ${comparedWith}`
+        : `↓ ${Math.abs(delta)}% vs ${comparedWith}`;
+
+  // An attainment/rate the RPC returns as null when it has no denominator
+  // (no target, no budget, nothing invoiced) -- "—", never a fake "0%".
+  const pctText = (pct) => (pct == null ? "—" : `${pct}%`);
 
   // Appends a period-over-period delta into an existing attainment/rate
   // subvalue, rather than replacing it -- see this file's own header comment.
@@ -205,7 +223,7 @@ export function getSalesReportsOverviewConfig(
   // set these from the real distribution (e.g. this page's own historical
   // P75/P90) rather than anyone's a priori guess, including this one.
   const pipelineAttainmentStatus = getStatusVariant(
-    kpis.pipelineAttainmentPct || 0,
+    kpis.pipelineAttainmentPct ?? null,
     { direction: "high-good", thresholds: { warningAt: 60, goodAt: 90 } },
   );
 
@@ -227,7 +245,7 @@ export function getSalesReportsOverviewConfig(
   // than the CRM pipeline band -- this is the audited SAP-side budget
   // variance, the number the business actually holds itself to, so it
   // deserves less slack than a self-reported forecast.
-  const invoiceBudgetStatus = getStatusVariant(kpis.budgetAttainmentPct || 0, {
+  const invoiceBudgetStatus = getStatusVariant(kpis.budgetAttainmentPct ?? null, {
     direction: "high-good",
     thresholds: { warningAt: 70, goodAt: 95 },
   });
@@ -258,7 +276,7 @@ export function getSalesReportsOverviewConfig(
   // Hyrax's own real historical collectionRatePct distribution checked
   // before touching this one, not a guessed number.
   const paymentsCollectedStatus = getStatusVariant(
-    kpis.collectionRatePct || 0,
+    kpis.collectionRatePct ?? null,
     { direction: "high-good", thresholds: { warningAt: 70, goodAt: 90 } },
   );
 
@@ -328,15 +346,22 @@ export function getSalesReportsOverviewConfig(
   // filter keys (fulfillmentOrdersService.js) -- see
   // src/pages/user/sales/orders/filterConfig.js and overviewConfig.js for
   // the reference usage this mirrors.
+  //
+  // ALIGNED 2026-10-22 with the RPC (and get_fulfillment_overview_rpc.sql):
+  // overdue/due soon only count orders still OPEN in SAP (statusCode "O"),
+  // and the last cohort is DELIVERED, not invoiced -- so each link lands on
+  // exactly the orders its count was taken from.
   const overdueDeliveryFilter = {
     ...baseFilterSAP,
     isCancelled: "N",
+    statusCode: "O",
     deliveryOverdueOnly: "true",
     ...actionablePeriodFilter,
   };
   const deliveryDueSoonFilter = {
     ...baseFilterSAP,
     isCancelled: "N",
+    statusCode: "O",
     deliveryDueSoonOnly: "true",
     ...actionablePeriodFilter,
   };
@@ -349,6 +374,7 @@ export function getSalesReportsOverviewConfig(
   const notYetInvoicedFilter = {
     ...baseFilterSAP,
     isCancelled: "N",
+    deliveryStatus: "delivered",
     invoicedOnly: "none",
     ...actionablePeriodFilter,
   };
@@ -376,7 +402,7 @@ export function getSalesReportsOverviewConfig(
       label: "Pipeline Leads Won",
       sublabel: periodLabel,
       value: preciseCurrency(kpis.pipelineWonRevenue),
-      delta: `${kpis.pipelineAttainmentPct || 0}%`,
+      delta: pctText(kpis.pipelineAttainmentPct),
       subvalue: deltaText(pipelineAttainmentDelta),
       variant: pipelineAttainmentStatus.variant,
       status: {
@@ -477,7 +503,7 @@ export function getSalesReportsOverviewConfig(
       label: "Invoiced Revenue vs Budget",
       sublabel: periodLabel,
       value: preciseCurrency(kpis.totalInvoiced),
-      delta: `${kpis.budgetAttainmentPct || 0}%`,
+      delta: pctText(kpis.budgetAttainmentPct),
       subvalue: deltaText(budgetAttainmentDelta),
       variant: invoiceBudgetStatus.variant,
       status: {
@@ -543,7 +569,7 @@ export function getSalesReportsOverviewConfig(
       label: "Payments Collected",
       sublabel: periodLabel,
       value: preciseCurrency(kpis.totalCollected),
-      delta: `${kpis.collectionRatePct || 0}%`,
+      delta: pctText(kpis.collectionRatePct),
       subvalue: deltaText(collectionRateDelta),
       variant: paymentsCollectedStatus.variant,
       status: {
@@ -744,14 +770,14 @@ export function getSalesReportsOverviewConfig(
           filter: paymentMismatchFilter,
         },
         {
-          label: "Not Yet Invoiced",
+          label: "Delivered, Not Invoiced",
           value: kpis.notYetInvoicedCount || 0,
           to: canAccessOrders ? "../orders/all" : null,
           filter: notYetInvoicedFilter,
         },
       ],
       title:
-        "Open, uncancelled Sales Orders needing attention: delivery overdue, delivery due within 7 days, a paid-vs-applied payment mismatch, or zero matched invoices. The sub-counts can overlap (one order can match more than one reason), so they don't need to sum to the headline count. Defaults to the full current backlog; narrows to orders placed in the selected period once a date range is picked. Color: Good when none of these apply, Warning when Delivery Due Soon, Payment Mismatches, or Not Yet Invoiced is nonzero, Critical when any order has an Overdue Delivery.",
+        "Uncancelled Sales Orders needing attention: an order still open in SAP whose delivery is overdue or due within 7 days, a paid-vs-applied payment mismatch, or an order fully delivered but not invoiced. The sub-counts can overlap (one order can match more than one reason), so they don't need to sum to the headline count. Defaults to the full current backlog; narrows to orders placed in the selected period once one is picked. Color: Good when none of these apply, Warning when Delivery Due Soon, Payment Mismatches, or Delivered, Not Invoiced is nonzero, Critical when any order has an Overdue Delivery.",
     },
   ];
 }

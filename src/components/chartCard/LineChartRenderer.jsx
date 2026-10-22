@@ -9,6 +9,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceArea,
+  ReferenceLine,
 } from "recharts";
 
 import { useTheme } from "../../context/ThemeContext";
@@ -36,8 +38,17 @@ export default function LineChartRenderer({
   // period key the data was built with) into a startDate/endDate filter
   // sized to that bucket, not reuse the bar/pie filter shape as-is.
   onPointClick,
+  // Shades the selected period inside a wider trend window (2026-10-22):
+  // { from, to } as X-axis category names, or null. This axis is
+  // point-scaled, so one category gets a thick translucent ReferenceLine
+  // (same compromise as FanChartRenderer) and a span gets a ReferenceArea
+  // from the first point to the last.
+  highlight = null,
 }) {
   const { darkMode } = useTheme();
+  const highlightFill = darkMode
+    ? "rgba(255,255,255,0.10)"
+    : "rgba(0,0,0,0.06)";
 
   const axisColor = darkMode ? "#555" : "#ccc";
   const textColor = darkMode ? "#ececec" : "#666";
@@ -92,6 +103,23 @@ export default function LineChartRenderer({
             }}
           />
         )}
+
+        {highlight &&
+          (highlight.from === highlight.to ? (
+            <ReferenceLine
+              x={highlight.from}
+              stroke={highlightFill}
+              strokeWidth={22}
+              ifOverflow="hidden"
+            />
+          ) : (
+            <ReferenceArea
+              x1={highlight.from}
+              x2={highlight.to}
+              fill={highlightFill}
+              ifOverflow="hidden"
+            />
+          ))}
 
         {lines.map((line) => (
           <Line

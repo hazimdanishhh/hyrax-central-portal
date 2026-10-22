@@ -34,7 +34,13 @@ import OverviewCards from "../../../../components/crud/overviewCards/OverviewCar
 import LoadingIcon from "../../../../components/loadingIcon/LoadingIcon";
 import SearchFilterBar from "../../../../components/searchFilterBar/SearchFilterBar";
 import PeriodSelector from "../../../../components/periodSelector/PeriodSelector";
-import { describePeriod } from "../../../../functions/periodRange";
+import {
+  classifyRange,
+  describePeriod,
+  formatMonthTick,
+  formatPeriod,
+  shapeTrendRows,
+} from "../../../../functions/periodRange";
 import Breadcrumbs from "../../../../components/breadcrumbs/Breadcrumbs";
 import ScorecardList from "../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard";
 import useDashboardQuery from "../../../../hooks/useDashboardQuery";
@@ -136,7 +142,10 @@ function Reports() {
   // that employee has no employee_sales_rep_mapping row, so every SAP-side
   // figure on this page is correctly showing zero, not "unfiltered by
   // accident." Surfaced as a note rather than a silent empty page.
-  const ownerSapMappingMissing = dashboard?.ownerSapMappingMissing ?? false;
+  // FIXED 2026-10-22: the RPC returns this inside `kpis`, not at the top
+  // level -- read from the top level, it was always undefined and the note
+  // below could never appear.
+  const ownerSapMappingMissing = kpis.ownerSapMappingMissing ?? false;
   const invoiceBudgetScorecardData =
     dashboard?.invoiceBudgetScorecardData ?? [];
   // Raw (unmapped) topClientsData -- feeds ONLY the CRM-side "Top Clients"
@@ -219,7 +228,8 @@ function Reports() {
 
   const selectedProjectionYear =
     projectionYearOptions.find(
-      (o) => o.value === (projectionFy ?? projectionKpis?.year?.fiscalYearStart),
+      (o) =>
+        o.value === (projectionFy ?? projectionKpis?.year?.fiscalYearStart),
     ) || null;
 
   // Changing the year must clear the month, or a month from the old year stays
@@ -248,6 +258,7 @@ function Reports() {
     canAccessInvoices,
     canAccessPayments,
     filters,
+    dashboard?.comparisonWindow,
   );
 
   // Same baseFilterCRM/periodFilter/closedPeriodFilter shape overviewConfig.js
@@ -277,17 +288,27 @@ function Reports() {
   // declaration comment): unfiltered they show ALL history, not this month.
   // They used to be subtitled "This Month" regardless, which was false.
   const rawPeriodLabel = chartIsPeriodFiltered ? period.title : "All Time";
-  // For the two trend charts (Realized vs Pipeline, Invoiced/Collected/
-  // Budget) that respect the date filter when one is set but default to
-  // showing ALL historical months when it isn't -- same "needs width" shape
-  // as Employee Overview's own Headcount Trend. Deliberately NOT worded
-  // "This Month" when unfiltered (that would be false -- the chart shows many
-  // months' worth of data by default, not one), and deliberately NOT claiming
-  // "Not Affected by the Date Filter" either (unlike a true FIXED-WINDOW
-  // chart, this one DOES narrow once a range is picked).
-  const trendSubtitle = chartIsPeriodFiltered
-    ? `Monthly, ${period.title}`
-    : "Monthly, All Time";
+  // Monthly trend charts (rebuilt 2026-10-22): Pipeline vs Target, Orders vs
+  // Invoiced and Revenue vs Budget share the RPC's TREND window -- the
+  // fiscal year containing the selected period, or the period itself when
+  // it is a year or longer (see v_trend_start_date in the RPC). Named from
+  // the dates the RPC returns, never recomputed here; the selected period is
+  // shaded inside it and the month in progress is marked "*".
+  const trendWindow = dashboard?.trendWindow;
+  const trendWindowTitle = trendWindow
+    ? formatPeriod({
+        mode: classifyRange(trendWindow.startDate, trendWindow.endDate),
+        ...trendWindow,
+      }).title
+    : period.title;
+  const trendSubtitle = (shaped) =>
+    [
+      `Monthly, ${trendWindowTitle}`,
+      shaped.highlight && `${period.title} shaded`,
+      shaped.hasPartial && "* month to date",
+    ]
+      .filter(Boolean)
+      .join(" · ");
   // ACTIONABLE family's subtitle vocabulary (2026-10-01, Outstanding by
   // Customer) -- mirrors overviewConfig.js's own actionableLabel exactly:
   // "current backlog" when unfiltered, narrows to the named period once one
@@ -429,13 +450,16 @@ function Reports() {
   // vs Pipeline" -- see the RPC's own comment on pipelineVsTargetData for
   // why: that chart compared two different O2C stages that were never
   // expected to match, a real source of confusion). CRM Forecast 1's own
-  // trend -- won revenue vs its monthly quota.
-  const pipelineVsTargetData =
-    dashboard?.pipelineVsTargetData?.map((d) => ({
-      name: d.period,
+  // trend -- won revenue vs its monthly quota. On the shared trend window
+  // (see trendSubtitle above).
+  const pipelineVsTarget = shapeTrendRows(
+    dashboard?.pipelineVsTargetData ?? [],
+    (d) => formatMonthTick(d.period),
+    (d) => ({
       "Pipeline (Won)": d.pipeline_revenue_myr,
       Target: d.target_revenue_myr,
-    })) ?? [];
+    }),
+  );
 
   const orderBookData =
     dashboard?.orderBookData?.map((d) => ({
@@ -504,10 +528,29 @@ function Reports() {
 
   // Order-to-Cash -- Year over Year (new, 2026-10-01, updated same day to
   // fiscal year) -- FIXED-WINDOW, always the trailing 10 fiscal years
-  // (April-March), never affected by the page's date filter. The RPC's own
-  // field names already match VerticalMultiBarRenderer's `bars` dataKey shape
-  // 1:1, so no reshape beyond the usual `?? []` default.
-  const orderToCashYoYData = dashboard?.orderToCashYoYData ?? [];
+  // (April-March), never affected by the page's period. The RPC's own
+  // field names already match VerticalMultiBarRenderer's `bars` dataKey
+  // shape 1:1. Since 2026-10-22 the current FY is marked "*" (still in
+  // progress, so its shorter bar isn't read as a bad year) and the FY(s) the
+  // selected period falls in are shaded.
+  const orderToCashYoY = shapeTrendRows(
+    dashboard?.orderToCashYoYData ?? [],
+    (d) => d.name,
+    // eslint-disable-next-line no-unused-vars
+    ({ name, is_partial, in_period, ...values }) => values,
+  );
+  const orderToCashYoYSubtitle = [
+    "Trailing 10 Fiscal Years — Not Affected by the Period",
+    orderToCashYoY.highlight &&
+      `FY ${orderToCashYoY.highlight.from.replace("*", "")}${
+        orderToCashYoY.highlight.to !== orderToCashYoY.highlight.from
+          ? ` – ${orderToCashYoY.highlight.to.replace("*", "")}`
+          : ""
+      } shaded`,
+    orderToCashYoY.hasPartial && "* year to date",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   // Top Customers by Payments Collected (new, 2026-10-01, Payment-Stage
   // Detail) -- same shape as topInvoicedCustomersData's own Invoiced series,
@@ -538,17 +581,19 @@ function Reports() {
     })) ?? [];
 
   // Invoiced / Collected / Budget (added 2026-07, invoice/budget/collected
-  // rebalance) -- monthly, respects the page's own date filter (all-time if
-  // unset), unlike the fixed trailing-12-month bookingsVsInvoicedTrendData
-  // below. The dept-wide, over-time counterpart to the per-rep
-  // invoiceBudgetScorecard above.
-  const invoicedVsBudgetTrendData =
-    dashboard?.invoicedVsBudgetTrendData?.map((d) => ({
-      name: d.period,
+  // rebalance) -- monthly, on the shared trend window. The dept-wide,
+  // over-time counterpart to the per-rep invoiceBudgetScorecard above.
+  // Budget follows the salesperson and Payment matches the Payments
+  // Collected tile's definition since 2026-10-22 (see the RPC).
+  const invoicedVsBudgetTrend = shapeTrendRows(
+    dashboard?.invoicedVsBudgetTrendData ?? [],
+    (d) => formatMonthTick(d.period),
+    (d) => ({
       Invoice: d.invoiced_revenue_myr,
       Payment: d.collected_revenue_myr,
       Budget: d.budget_revenue_myr,
-    })) ?? [];
+    }),
+  );
 
   // Pipeline stage funnel (added 2026-07) -- ordered DISCOVERY -> LOST by the
   // RPC's own stage_order, so no client-side sort needed. Charting count
@@ -566,16 +611,17 @@ function Reports() {
       value: d.total_value,
     })) ?? [];
 
-  // Bookings vs Invoiced (added 2026-07) -- SAP-only booking-to-billing lag,
-  // always trailing 12 months and NOT affected by the page's own date filter
-  // (see the RPC comment). Distinct from realizedVsPipelineData above, which
-  // is the CRM-vs-SAP comparison.
-  const bookingsVsInvoicedTrendData =
-    dashboard?.bookingsVsInvoicedTrendData?.map((d) => ({
-      name: d.period,
+  // Bookings vs Invoiced (added 2026-07) -- SAP-only booking-to-billing lag.
+  // Was a fixed trailing 12 months that ignored the period; on the shared
+  // trend window since 2026-10-22.
+  const bookingsVsInvoicedTrend = shapeTrendRows(
+    dashboard?.bookingsVsInvoicedTrendData ?? [],
+    (d) => formatMonthTick(d.period),
+    (d) => ({
       "Sales Order (Booked)": d.booked_revenue_myr,
       "Invoice (Billed)": d.invoiced_revenue_myr,
-    })) ?? [];
+    }),
+  );
 
   // The O2C Funnel (added 2026-08) -- one bar per funnel stage, all four
   // values already exist in kpis, zero new data beyond the two small
@@ -617,6 +663,15 @@ function Reports() {
               </p>
             )}
 
+            {/* PERIOD (2026-10-22) -- replaces the date presets, the two
+                date inputs and FiscalYearFilterBar. Writes the same
+                startDate/endDate the RPC already takes; this month is
+                written as empty dates, exactly as the page loads. */}
+            <PeriodSelector filters={filters} onFilterChange={setFilters} />
+            {/* Projections keep their own fiscal-year dropdown below for
+                now -- that section is company-wide and runs off a separate
+                RPC (see the projectionFy comment above). */}
+
             {/* SEARCH AND FILTER BAR */}
             <SearchFilterBar
               filters={filters}
@@ -634,15 +689,6 @@ function Reports() {
                 subtitle: periodSubtitle,
               }}
             />
-
-            {/* PERIOD (2026-10-22) -- replaces the date presets, the two
-                date inputs and FiscalYearFilterBar. Writes the same
-                startDate/endDate the RPC already takes; this month is
-                written as empty dates, exactly as the page loads. */}
-            <PeriodSelector filters={filters} onFilterChange={setFilters} />
-            {/* Projections keep their own fiscal-year dropdown below for
-                now -- that section is company-wide and runs off a separate
-                RPC (see the projectionFy comment above). */}
 
             <div
               ref={dashboardRef}
@@ -949,11 +995,12 @@ function Reports() {
                       <CardLayout>
                         <ChartCard
                           title="Order-to-Cash — Year over Year (RM)"
-                          subtitle="Trailing 10 Fiscal Years — Not Affected by the Date Filter"
+                          subtitle={orderToCashYoYSubtitle}
                           style="cardGapSmall"
                         >
                           <VerticalMultiBarRenderer
-                            data={orderToCashYoYData}
+                            data={orderToCashYoY.data}
+                            highlight={orderToCashYoY.highlight}
                             bars={[
                               {
                                 dataKey: "pipeline_revenue_myr",
@@ -1150,11 +1197,12 @@ function Reports() {
                               against. */}
                         <ChartCard
                           title="Pipeline vs Target (RM)"
-                          subtitle={trendSubtitle}
+                          subtitle={trendSubtitle(pipelineVsTarget)}
                           style="cardGapSmall"
                         >
                           <LineChartRenderer
-                            data={pipelineVsTargetData}
+                            data={pipelineVsTarget.data}
+                            highlight={pipelineVsTarget.highlight}
                             lines={[
                               {
                                 dataKey: "Pipeline (Won)",
@@ -1200,11 +1248,12 @@ function Reports() {
                               not a big-picture overview chart. */}
                         <ChartCard
                           title="Orders vs Invoiced Revenue (RM)"
-                          subtitle="Trailing 12 Months — Not Affected by the Date Filter"
+                          subtitle={trendSubtitle(bookingsVsInvoicedTrend)}
                           style="cardGapSmall"
                         >
                           <LineChartRenderer
-                            data={bookingsVsInvoicedTrendData}
+                            data={bookingsVsInvoicedTrend.data}
+                            highlight={bookingsVsInvoicedTrend.highlight}
                             lines={[
                               {
                                 dataKey: "Sales Order (Booked)",
@@ -1352,11 +1401,12 @@ function Reports() {
                               see docs/DASHBOARD-ROADMAP.md §1.2). */}
                         <ChartCard
                           title="Revenue vs Budget (RM)"
-                          subtitle={trendSubtitle}
+                          subtitle={trendSubtitle(invoicedVsBudgetTrend)}
                           style="cardGapSmall"
                         >
                           <LineChartRenderer
-                            data={invoicedVsBudgetTrendData}
+                            data={invoicedVsBudgetTrend.data}
+                            highlight={invoicedVsBudgetTrend.highlight}
                             lines={[
                               { dataKey: "Invoice", color: BLUE_COLOR },
                               { dataKey: "Payment", color: GREEN_COLOR },

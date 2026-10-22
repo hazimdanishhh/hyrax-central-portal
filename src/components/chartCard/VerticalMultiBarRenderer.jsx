@@ -6,6 +6,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceArea,
 } from "recharts";
 import CustomTooltip from "./customTooltip/CustomTooltip";
 import { useTheme } from "../../context/ThemeContext";
@@ -19,8 +20,19 @@ import { compactNumber } from "../../functions/formatNumber";
  * fiscal-year categories reads better as grouped vertical bars than as a
  * many-point line.
  */
-export default function VerticalMultiBarRenderer({ data, bars = [], onBarClick }) {
+export default function VerticalMultiBarRenderer({
+  data,
+  bars = [],
+  onBarClick,
+  // Shades the selected period's categories (2026-10-22): { from, to } as
+  // X-axis category names, or null. This axis is band-scaled, so a
+  // ReferenceArea covers whole bands, a single category included.
+  highlight = null,
+}) {
   const { darkMode } = useTheme();
+  const highlightFill = darkMode
+    ? "rgba(255,255,255,0.10)"
+    : "rgba(0,0,0,0.06)";
 
   const axisColor = darkMode ? "#555" : "#ccc";
   const textColor = darkMode ? "#ececec" : "#666";
@@ -47,6 +59,15 @@ export default function VerticalMultiBarRenderer({ data, bars = [], onBarClick }
           content={<CustomTooltip darkMode={darkMode} multiBar />}
         />
         <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }} />
+
+        {highlight && (
+          <ReferenceArea
+            x1={highlight.from}
+            x2={highlight.to}
+            fill={highlightFill}
+            ifOverflow="hidden"
+          />
+        )}
 
         {bars.map((bar, index) => (
           <Bar

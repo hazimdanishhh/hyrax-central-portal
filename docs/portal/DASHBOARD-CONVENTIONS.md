@@ -225,6 +225,10 @@ Both families respect every non-date filter (department, employee, entity, locat
 
 Whichever period is chosen, it must be a **full, complete period** (full month/quarter/year), never a to-date partial one — a to-date default also silently truncates its own previous-period comparison window (an 8-day September isn't a fair comparison against a full August). "Year to Date" stays available as its own explicit, separately-labeled option where it's genuinely the question being asked, never silently substituted for "This Year."
 
+**Previous-period comparison (added 2026-10-22, Sales Reports first).** The selected period stays full, but a period that contains today only *has* data up to today, so comparing it with the whole previous period makes every delta look like a collapse early in the period (5 days of October against all 30 of September). While today is inside the selected period, compare like-for-like: the same number of days of the previous period (1–22 Oct vs 1–22 Sep), capped at that period's own end, and say so on the tile ("vs 1 Sep – 22 Sep 2026"). A completed period compares with the whole previous period ("vs last month"). A whole-month range steps back by whole months, never by day count. Reference: `get_sales_reports_dashboard_rpc.sql`'s `comparisonWindow`.
+
+**Trend charts (added 2026-10-22).** A monthly trend chart shows the selected period itself when it is a year or longer, otherwise the fiscal year containing it, with the selected months shaded and the month in progress marked "*". Actual series stop after the current month (null, not zero); plan series (target, budget) continue. Never "all time" by default and never a single point. Reference: `trendWindow`/`trend_months` in the same RPC.
+
 ### When to skip the previous-period delta entirely
 
 Not every number can honestly get one — showing a fabricated or misleading delta is worse than showing none:

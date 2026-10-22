@@ -257,15 +257,14 @@ const MONTH_LONG = new Intl.DateTimeFormat("en-GB", {
   month: "long",
   year: "numeric",
 });
-const DAY_MONTH = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-});
-const DAY_MONTH_YEAR = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
+// A fixed list, not Intl's "short" month: newer ICU data renders September
+// as "Sept" in en-GB, so the same label would differ between browsers.
+const MONTH_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+const dayMonth = (d) => `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
 
 /** "1 Oct – 31 Dec 2026", or "1 Apr 2026 – 31 Mar 2027" across a year end. */
 export function formatDateRange(startDate, endDate) {
@@ -276,9 +275,43 @@ export function formatDateRange(startDate, endDate) {
   const end = parseDateString(endDate);
   const startText =
     start.getFullYear() === end.getFullYear()
-      ? DAY_MONTH.format(start)
-      : DAY_MONTH_YEAR.format(start);
-  return `${startText} – ${DAY_MONTH_YEAR.format(end)}`;
+      ? dayMonth(start)
+      : `${dayMonth(start)} ${start.getFullYear()}`;
+  return `${startText} – ${dayMonth(end)} ${end.getFullYear()}`;
+}
+
+/** "2026-10" -> "Oct '26", a compact month tick for trend charts. */
+export function formatMonthTick(monthKey) {
+  const [year, month] = String(monthKey).split("-").map(Number);
+  if (!year || !month) return String(monthKey);
+  return `${MONTH_SHORT[month - 1]} '${String(year).slice(2)}`;
+}
+
+/**
+ * Shapes an RPC trend dataset for a chart (2026-10-22). Each row carries
+ * `is_partial` (period still in progress) and `in_period` (inside the page's
+ * selected period) from the RPC.
+ *
+ *   rows      -- the RPC rows
+ *   nameOf    -- row -> X-axis category name
+ *   valuesOf  -- row -> the chart's series values
+ *
+ * Returns `data` (the in-progress category suffixed "*", explained in the
+ * chart subtitle), `highlight` ({ from, to } category names of the selected
+ * period, or null when every row is selected -- nothing to pick out), and
+ * `hasPartial`.
+ */
+export function shapeTrendRows(rows = [], nameOf, valuesOf) {
+  const data = rows.map((row) => ({
+    name: `${nameOf(row)}${row.is_partial ? "*" : ""}`,
+    ...valuesOf(row),
+  }));
+  const selected = data.filter((_, i) => rows[i].in_period);
+  const highlight =
+    selected.length > 0 && selected.length < data.length
+      ? { from: selected[0].name, to: selected[selected.length - 1].name }
+      : null;
+  return { data, highlight, hasPartial: rows.some((row) => row.is_partial) };
 }
 
 function fiscalYearLabel(startYear) {
