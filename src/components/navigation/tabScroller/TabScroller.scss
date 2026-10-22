@@ -1,0 +1,76 @@
+// TabScroller (2026-10-22): the pill border moves from .pageTabContainer to
+// this wrapper, so the ‹ › buttons sit inside the pill beside the tabs. The
+// inner .pageTabContainer keeps every tab style from styles/index.scss.
+.tabScroller {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid $neutral500;
+  border-radius: 2rem;
+
+  > .pageTabContainer {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    // proximity, not mandatory: mandatory snap fought the arrows and the
+    // active-tab centring by yanking the strip back to a tab's start.
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 0.5rem;
+    // The arrows and faded edges show there is more; no scrollbar needed.
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    // Faded edge on whichever side has tabs out of view.
+    &.fadeLeft {
+      mask-image: linear-gradient(to right, transparent 0, #000 2rem);
+    }
+
+    &.fadeRight {
+      mask-image: linear-gradient(to left, transparent 0, #000 2rem);
+    }
+
+    &.fadeLeft.fadeRight {
+      mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        #000 2rem,
+        #000 calc(100% - 2rem),
+        transparent 100%
+      );
+    }
+  }
+
+  .tabScrollerArrow {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: 0.2s;
+
+    &:hover:not(:disabled) {
+      color: $light;
+      background-color: $primary;
+    }
+
+    &:disabled {
+      opacity: 0.25;
+      cursor: default;
+    }
+  }
+}

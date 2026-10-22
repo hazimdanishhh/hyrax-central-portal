@@ -5,6 +5,7 @@ import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { NavLink, Outlet } from "react-router";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import { ordersPageTabs } from "./ordersPageTabs";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 export default function OrdersPageLayout() {
   const { darkMode } = useTheme();
@@ -23,7 +24,7 @@ export default function OrdersPageLayout() {
           <Breadcrumbs icon={ReceiptIcon} current="Sales Orders" />
 
           <CardWrapper>
-            <div className="pageTabContainer">
+            <TabScroller ariaLabel="Orders sections">
               {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
                 return (
@@ -43,7 +44,7 @@ export default function OrdersPageLayout() {
                   </NavLink>
                 );
               })}
-            </div>
+            </TabScroller>
             <Outlet />
           </CardWrapper>
         </div>

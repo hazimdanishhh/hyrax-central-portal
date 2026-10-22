@@ -9,6 +9,7 @@ import HelpSearchBar from "@/components/help/helpSearchBar/HelpSearchBar";
 import { helpCategories, allHelpItems } from "@/data/help";
 import { filterHelpItems, getHelpTabPathForType } from "@/functions/helpSearch";
 import "./HelpPageLayout.scss";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 // Route stays fully universal (R2 -- no AccessRoute wrapper anywhere in
 // HelpRoutes.jsx) -- don't add role/department gating here.
@@ -61,7 +62,7 @@ export default function HelpPageLayout() {
               )
             ) : (
               <>
-                <div className="pageTabContainer">
+                <TabScroller ariaLabel="Help topics">
                   {helpCategories.map((category) => {
                     const Icon = category.icon;
 
@@ -82,7 +83,7 @@ export default function HelpPageLayout() {
                       </NavLink>
                     );
                   })}
-                </div>
+                </TabScroller>
                 <Outlet />
               </>
             )}

@@ -504,18 +504,29 @@ li {
 //
 // scroll-snap-type + scroll-snap-align turn the natural horizontal
 // scroll/swipe (already required once tabs overflow on small screens) into a
-// swipe-and-lock-to-the-next-tab interaction, with no JS needed.
+// swipe-and-lock-to-the-next-tab interaction.
+//
+// 2026-10-22: every page now renders its strip through
+// components/navigation/tabScroller/TabScroller, which keeps this class on
+// the scrolling element and adds ‹ › buttons, faded edges and centring of
+// the active tab. TabScroller.scss moves the pill border to its wrapper and
+// relaxes snapping to `proximity` there (mandatory snapping fought the
+// buttons). Use <TabScroller> for new tab strips, not a bare div with this
+// class.
 .pageTabContainer {
   display: flex;
   width: 100%;
+  max-width: fit-content;
   justify-content: start;
   flex-wrap: nowrap;
   overflow-x: auto;
   flex-shrink: 0;
   gap: 0.5rem;
-  padding-bottom: 0.4rem;
+  padding: 0.3rem 0.4rem;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
+  border: 1px solid $neutral500;
+  border-radius: 2rem;
 
   .button {
     text-wrap: nowrap;

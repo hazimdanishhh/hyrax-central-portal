@@ -47,6 +47,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AISummary from "../../../../../components/aiSummary/AISummary";
 import GenerateAiButton from "../../../../../components/aiSummary/generateAIButton/GenerateAIButton";
 import "./LeadsOverview.scss";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 export default function LeadsOverview() {
   const queryClient = useQueryClient();
@@ -499,7 +500,7 @@ export default function LeadsOverview() {
                     performance.
                   </p>
                 </div>
-                <div className="pageTabContainer">
+                <TabScroller ariaLabel="Leaderboard lens">
                   <Button
                     onClick={() => setLeaderboardView("productivity")}
                     name="Productivity (Input/Output)"
@@ -536,7 +537,7 @@ export default function LeadsOverview() {
                     }
                     className="textXXS"
                   />
-                </div>
+                </TabScroller>
               </div>
 
               {/* LEADERBOARDS: 2-column grid dynamically controlled by the toggle */}

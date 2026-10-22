@@ -5,6 +5,7 @@ import CardWrapper from "@/components/cardWrapper/CardWrapper";
 import { NavLink, Outlet } from "react-router";
 import { useAccessControl } from "@/context/AccessControlContext";
 import { attendancePageTabs } from "./attendancePageTabs";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 export default function AttendancePageLayout() {
   const { darkMode } = useTheme();
@@ -23,7 +24,7 @@ export default function AttendancePageLayout() {
           <Breadcrumbs icon={ClockUserIcon} current="My Attendance" />
 
           <CardWrapper>
-            <div className="pageTabContainer">
+            <TabScroller ariaLabel="My attendance sections">
               {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
                 return (
@@ -43,7 +44,7 @@ export default function AttendancePageLayout() {
                   </NavLink>
                 );
               })}
-            </div>
+            </TabScroller>
             <Outlet />
           </CardWrapper>
         </div>

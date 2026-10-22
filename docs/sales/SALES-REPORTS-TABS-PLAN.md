@@ -1,6 +1,7 @@
 # Sales Reports: tabs and metric layer, plan
 
-Status: **PLAN, not built** (drafted 2026-10-22, branch `feat/period-selector`).
+Status: **steps 1-4 BUILT, step 5 pending reconciliation** (2026-10-22, branch
+`feat/sales-reports-tabs`). See §8 for what was built and what is left.
 Supersedes the single-page layout of `Reports.jsx` and the single
 `get_sales_reports_dashboard` RPC once every step below is done.
 
@@ -62,7 +63,9 @@ The full reasoning for each tab is in the conversation draft. What each tab show
 | Tab | Tiles | Charts / tables |
 |---|---|---|
 | **Summary** | Invoiced Revenue (vs budget) · Orders Booked · Payments Collected · Won (vs target) · *FY Outlook (own row, company-wide)* | Revenue vs Budget (monthly) · Budget gap bridge · Order-to-Cash YoY |
-| **Revenue** | Orders Booked · Invoiced Revenue · Customer Concentration · Product Concentration (incl. top group) | Orders vs Invoiced (monthly) · Top Customers (invoiced + collected) · Top Products · Product Groups · Export vs Local |
+| **Pipeline** *(added 2026-10-22)* | Won vs Target · Win Rate · Lost · Open Pipeline (today) | Won vs Target (monthly) · Won by Product Type · Won by Lead Source · Top Clients · Lost by Reason · Open Pipeline by Stage (today) |
+| **Orders** *(split from Revenue)* | Orders Booked · Book-to-Bill · Order Book (open, overdue, delivered not invoiced) | Orders Booked vs Invoiced (monthly) · Top Customers by Orders |
+| **Invoicing** *(split from Revenue)* | Invoiced Revenue (vs budget) · Customer Concentration · Product Concentration (incl. top group) | Invoiced vs Budget (monthly) · Top Customers (invoiced + collected) · Top Products · Product Groups · Export vs Local |
 | **Collections** | Payments Collected · Outstanding Receivables *(D2)* · Collection Rate *(D3)* | Invoiced vs Collected (monthly) · Top Payers · Top Outstanding |
 | **Team** | — | Rep Funnel Scorecard (with flags on reps who need a check-in) · Revenue & GP by Rep · Collection Rate by Rep *(D3)* |
 | **Forecast** | 4 projection tiles (unchanged) | 3 projection charts (unchanged) |
@@ -110,8 +113,6 @@ convention someone has to remember.
 | `sales_collection_facts` | payment applied to an A/R invoice | receipt not cancelled · applied to a non-cancelled A/R invoice (`inv_type = 13`) · on-account cash excluded **by inner join** | `payment_doc_entry, payment_date, invoice_doc_entry, customer_code, sales_rep_code` (the invoice's) `, applied_myr` |
 | `sales_receivable_facts` | open A/R invoice, now | outstanding > 0.01 | `doc_entry, invoice_date, customer_code, sales_rep_code, outstanding_myr` |
 | `sales_won_lead_facts` | WON lead | stage WON · cancelled rule *(D5)* | `lead_id, closed_on`³, `owner_employee_id, account_key, account_name, product_type, lead_source, won_myr` |
-| `sales_budget_months` | rep × month | — | `sales_rep_code, budget_month, budget_myr` |
-| `sales_target_months` | owner × month | — | `owner_employee_id, target_month, target_myr` |
 
 ¹ Customer name comes from `sap_customers`, falling back to the invoice's CardName,
 so a customer can never split into two rows by spelling (audit D6).
@@ -189,7 +190,9 @@ Each is `security invoker` and calls `sales_report_scope` first. Each returns:
 | RPC | `kpis` | Datasets |
 |---|---|---|
 | `get_sales_summary` | invoiced, prevInvoiced, budget, budgetAttainmentPct · booked, prevBooked, orderCount · collected, prevCollected, paymentCount · won, prevWon, target, targetAttainmentPct | `revenueVsBudget` (series), `budgetBridge` (rep totals), `orderToCashYoY` |
-| `get_sales_revenue` | booked, prevBooked, orderCount, avgOrderValue, orderingCustomers · invoiced, prevInvoiced, invoiceCount, avgInvoiceValue, budget · customerTop5Pct, topCustomer · productTop5Pct, topProduct, topGroup | `ordersVsInvoiced` (series), `topCustomers`, `topProducts`, `productGroups`, `exportLocal` |
+| `get_sales_pipeline` | won, prevWon, avgDeal, target, targetAttainmentPct · lost, winRatePct · openValue, weightedValue (today) | `wonVsTarget` (series), `wonByProductType`, `wonBySource`, `topClients`, `lostByReason`, `openByStage` |
+| `get_sales_orders` | booked, prevBooked, orderCount, avgOrderValue, orderingCustomers · bookToBill · order book (open, overdue, delivered not invoiced) | `ordersVsInvoiced` (series), `topCustomers` (by booked) |
+| `get_sales_invoicing` | invoiced, prevInvoiced, invoiceCount, avgInvoiceValue, budget, budgetAttainmentPct · customerTop5Pct, topCustomer · productTop5Pct, topProduct, topGroup | `invoicedVsBudget` (series), `topCustomers`, `topProducts`, `productGroups`, `exportLocal` |
 | `get_sales_collections` | collected, prevCollected, paymentCount, payingCustomers · outstanding *(D2)* · collectionRatePct *(D3)* | `invoicedVsCollected` (series), `topPayers`, `topOutstanding` |
 | `get_sales_team` | — | `scorecard` (rep totals + flags), `grossProfitByRep`, `collectionRateByRep` *(D3)* |
 | `get_sales_projections` | unchanged | unchanged |
@@ -270,3 +273,27 @@ the starting point.
 | D5 | Is a WON lead later cancelled still won revenue? | Exclude (and change Leads Overview to match) after the check query |
 | D6 | Forecast tab follows the page's fiscal year, dropping its own dropdown? | Yes |
 | D7 | CRM close dates in Malaysia time? | Yes |
+
+## 8. Build status (2026-10-22)
+
+**Built (steps 1-4).**
+
+| What | Where |
+|---|---|
+| Fact views (8: invoices, invoice lines, orders, order book, collections, receivables, leads, and won deals as the leads view's won rows). The planned budget/target views were dropped: they only renamed columns, so the functions read `sales_budgets` / `sales_targets` directly | `supabase/sql_editor/sales_metric_facts_views.sql` |
+| Shared logic: `fiscal_year_start`, `report_period`, `prorate_months`, `sales_report_scope`, `sales_totals`, `sales_monthly_series`, `sales_rep_totals`, `sales_pipeline_totals`, `sales_order_book_totals`, `sales_report_meta` | `supabase/sql_editor/sales_metric_functions.sql` |
+| Tab RPCs | `get_sales_summary_rpc.sql`, `get_sales_pipeline_rpc.sql`, `get_sales_orders_rpc.sql`, `get_sales_invoicing_rpc.sql`, `get_sales_collections_rpc.sql`, `get_sales_team_rpc.sql` |
+| Reconciliation against the old RPC (read-only) | `supabase/diagnostics/sales_reports_tabs_reconciliation.sql` |
+| Tests (Vitest + PGlite): definitions, cross-tab consistency, scoping, period rules | `tests/sql/sales_metrics.test.js`, `tests/unit/periodRange.test.js` |
+| Layout + 7 tabs (Summary · Pipeline · Orders · Invoicing · Collections · Team · Forecast). Reports are for meetings (the story of a period); Leads Overview and the Orders page are for daily work and are unchanged | `src/pages/user/sales/reports/SalesReportsLayout.jsx`, `tabs/*` |
+| Routes: `/sales/reports/{summary,revenue,collections,team,forecast}`; the old page at `/sales/reports-legacy` | `src/routes/SalesRoutes.jsx` |
+
+**Left for step 5**, after the reconciliation shows only the expected differences:
+
+- Delete `/sales/reports-legacy`, `Reports.jsx`, `config/overviewConfig.js` and `supabase/sql_editor/get_sales_reports_dashboard_rpc.sql` (drop the function in Supabase).
+- Leads Overview:
+  - add a target line to its revenue trend (replacing Pipeline vs Target);
+  - adopt D5 (cancelled WON leads aren't won) by reading `sales_won_lead_facts`.
+- Update `RPC-REFERENCE.md` (replace the `get_sales_reports_dashboard` section) and `table_access_matrix.csv`.
+- Later: Finance's invoice and collection figures read the same fact views.
+

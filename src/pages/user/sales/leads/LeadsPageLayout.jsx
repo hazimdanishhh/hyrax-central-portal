@@ -7,6 +7,7 @@ import { Link, NavLink, Outlet } from "react-router";
 import { useEmployee } from "../../../../context/EmployeeContext";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import { leadsPageTabs } from "./leadsPageTabs";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 export default function LeadsPageLayout() {
   const { darkMode } = useTheme();
@@ -27,7 +28,7 @@ export default function LeadsPageLayout() {
             <Breadcrumbs icon={HandshakeIcon} current="Leads Pipeline" />
 
             <CardWrapper>
-              <div className="pageTabContainer">
+              <TabScroller ariaLabel="Leads sections">
                 {visibleTabs.map((tab) => {
                   const TabIcon = tab.icon;
                   return (
@@ -47,7 +48,7 @@ export default function LeadsPageLayout() {
                     </NavLink>
                   );
                 })}
-              </div>
+              </TabScroller>
               <Outlet />
             </CardWrapper>
           </div>

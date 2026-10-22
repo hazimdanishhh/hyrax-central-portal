@@ -3,7 +3,14 @@
   <head>
     <!-- Character Set & Viewport -->
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: without it iOS reports every safe-area inset as
+         0, so BottomTabBar's env(safe-area-inset-bottom) padding never
+         applies and the home indicator sits on top of the bar (same tag as
+         echoes-hub). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <meta name="robots" content="noindex, nofollow" />
 
     <!-- Favicons & Manifest -->

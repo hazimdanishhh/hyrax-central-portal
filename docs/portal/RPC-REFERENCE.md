@@ -198,6 +198,42 @@ No new parameter was needed for Phase 2 — P&L is scoped by the existing `p_sta
 
 ---
 
+## Sales Reports tabs: `get_sales_summary` / `get_sales_pipeline` / `get_sales_orders` / `get_sales_invoicing` / `get_sales_collections` / `get_sales_team` (added 2026-10-22)
+
+These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and replace `get_sales_reports_dashboard` below once reconciled (`supabase/diagnostics/sales_reports_tabs_reconciliation.sql`). Plan: `docs/sales/SALES-REPORTS-TABS-PLAN.md`.
+
+**Signature (all six):** `(p_start_date date default null, p_end_date date default null, p_owner_id uuid default null) returns json`, `security invoker`. Each starts with `sales_report_scope(p_owner_id)`, the access guard + salesperson resolution (SAL/MGM/superadmin only; staff forced to themselves; unmapped owner → rep −1 + `mappingMissing`).
+
+**No measure is defined in these RPCs.**
+- Every figure comes from the metric layer:
+  - **fact views:** `sales_metric_facts_views.sql`: `sales_invoice_facts`, `sales_invoice_line_facts`, `sales_order_facts`, `sales_order_book_facts`, `sales_collection_facts`, `sales_receivable_facts`, `sales_lead_facts` (`sales_won_lead_facts` is its won rows);
+  - **shared functions:** `sales_metric_functions.sql`: `report_period`, `sales_totals`, `sales_monthly_series`, `sales_rep_totals`, `sales_pipeline_totals`, `sales_order_book_totals`, `prorate_months`, `sales_report_meta`.
+- Previous-period figures are the same `sales_totals` call with the comparison window's dates.
+- `tests/sql/sales_metrics.test.js` checks that the same measure is equal across all six RPCs and adds up across months and reps.
+
+**Every response carries `meta`:**
+- `period` `{startDate, endDate, hasPeriod}`
+- `comparisonWindow` `{startDate, endDate, isPartial}`
+- `trendWindow` `{startDate, endDate}`
+- `mappingMissing`
+- `salesRepCode`
+
+| RPC | `kpis` | Datasets |
+|---|---|---|
+| `get_sales_summary` | invoiced/prev, invoiceCount, budget, budgetAttainmentPct · booked/prev, orderCount · collected/prev, paymentCount · won/prev, wonCount, target, targetAttainmentPct | `revenueVsBudget`, `budgetBridge` (per rep), `orderToCashYoY` (10 FYs, summed from the monthly series) |
+| `get_sales_pipeline` | won/prev, wonCount, avgDeal, target, targetAttainmentPct · lost/prev, lostCount · winRatePct/prev (won ÷ won+lost, by count; cancelled counts as lost) · openValue, weightedValue, openCount (snapshot of today) | `wonVsTarget`, `wonByProductType`, `wonBySource`, `topClients`, `lostByReason`, `openByStage` (today) |
+| `get_sales_orders` | booked/prev, orderCount, orderingCustomers, avgOrderValue · invoiced, bookToBill/prev · orderBookValue/Orders, overdueValue/Orders, unbilledValue/Orders (ACTIONABLE; the Orders page's own rules) | `ordersVsInvoiced`, `topCustomers` (by booked) |
+| `get_sales_invoicing` | invoiced/prev, invoiceCount, avgInvoiceValue, budget, budgetAttainmentPct · customerTop5Pct, topCustomer* · productSales, productTop5Pct, topProduct*, topGroup* (product shares are before tax on both sides) | `invoicedVsBudget`, `topCustomers` (with same-period collected), `topProducts`, `productGroups`, `exportLocal` |
+| `get_sales_collections` | collected/prev, paymentCount, payingCustomers, invoiced, collectionRatePct · outstanding, outstandingInvoices, outstandingCustomers (ACTIONABLE: whole backlog unless a period is picked) | `invoicedVsCollected`, `topPayers`, `topOutstanding` |
+| `get_sales_team` | — | `scorecard` (per rep incl. "Unassigned"; attainment/collection rate null without a denominator), `grossProfitByRep` (period-bound) |
+
+**Rules:**
+- Ratios are `null`, never 0, without a denominator.
+- Actual series are `null` after the current month; plan series are `null` where no plan row exists.
+- Customer names come from `sap_customers`.
+- Won deals exclude cancelled leads and are dated in Malaysia time (decisions D5/D7).
+- Invoiced Revenue includes tax; product figures are before tax and named that way (decision D4 still open).
+
 ## `get_sales_reports_dashboard`
 
 Backs Sales Reports (`Reports.jsx`). Surfaces two forecasts side by side, deliberately never blended: Forecast 1 "Pipeline Target" (CRM self-reported, `sales_targets`/`sales_leads`) and Forecast 2 "Invoice Budget" (a manually-set revenue budget, `sales_budgets` — not an SAP extract itself — compared against SAP-invoiced actuals, `sap_invoices`) — plus, as of 2026-07, the company's actual sales-side review: **PO (sales order) vs Invoice vs Budget variance, per rep.** See `DASHBOARD-CONVENTIONS.md`'s "Source-labeling convention" for the full tag vocabulary (Target/Budget/Sales Order/Invoice) this RPC's consumers use.

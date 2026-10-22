@@ -41,6 +41,7 @@ import {
   IdentificationBadgeIcon,
 } from "@phosphor-icons/react";
 import { leadsPageTabs } from "../pages/user/sales/leads/leadsPageTabs";
+import { salesReportsTabs } from "../pages/user/sales/reports/salesReportsTabs";
 import { ordersPageTabs } from "../pages/user/sales/orders/ordersPageTabs";
 import { clientsPageTabs } from "../pages/user/sales/clients/clientsPageTabs";
 import { invoicesPageTabs } from "../pages/user/finance/invoices/invoicesPageTabs";
@@ -213,6 +214,7 @@ export const sideNavLinkData = [
         label: "Reports",
         icon: ChartBarIcon,
         path: "sales/reports",
+        tabs: salesReportsTabs,
 
         departments: ["SAL", "MGM"],
         roles: ["manager"],

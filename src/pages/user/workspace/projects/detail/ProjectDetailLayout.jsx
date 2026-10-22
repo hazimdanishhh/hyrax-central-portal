@@ -41,6 +41,7 @@ import IconCard from "../../../../../components/iconCard/IconCard";
 import { getDueDateStatus } from "../../../../../functions/dueDateStatus";
 import { formatDate } from "../../../../../functions/formatDate";
 import StatusBadge from "../../../../../components/status/statusBadge/StatusBadge";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 /**
  * A "smart" per-record tab shell -- unlike the existing static
@@ -265,7 +266,7 @@ export default function ProjectDetailLayout() {
                 />
               </div>
 
-              <div className="pageTabContainer">
+              <TabScroller ariaLabel="Project sections">
                 <NavLink
                   to={`/app/workspace/projects/${projectId}/tasks`}
                   className={({ isActive }) =>
@@ -313,7 +314,7 @@ export default function ProjectDetailLayout() {
                   </div>
                   Overview
                 </NavLink>
-              </div>
+              </TabScroller>
 
               <Outlet />
             </CardWrapper>

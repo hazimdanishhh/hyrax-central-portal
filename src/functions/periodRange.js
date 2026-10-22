@@ -302,16 +302,31 @@ export function formatMonthTick(monthKey) {
  * `hasPartial`.
  */
 export function shapeTrendRows(rows = [], nameOf, valuesOf) {
+  // The tab RPCs (get_sales_summary etc.) send isPartial/inPeriod; the old
+  // single-page RPC sends is_partial/in_period. Both are accepted.
+  const isPartial = (row) => Boolean(row.isPartial ?? row.is_partial);
+  const inPeriod = (row) => Boolean(row.inPeriod ?? row.in_period);
   const data = rows.map((row) => ({
-    name: `${nameOf(row)}${row.is_partial ? "*" : ""}`,
+    name: `${nameOf(row)}${isPartial(row) ? "*" : ""}`,
     ...valuesOf(row),
   }));
-  const selected = data.filter((_, i) => rows[i].in_period);
+  const selected = data.filter((_, i) => inPeriod(rows[i]));
   const highlight =
     selected.length > 0 && selected.length < data.length
       ? { from: selected[0].name, to: selected[selected.length - 1].name }
       : null;
-  return { data, highlight, hasPartial: rows.some((row) => row.is_partial) };
+  return { data, highlight, hasPartial: rows.some(isPartial) };
+}
+
+/**
+ * Start year of the fiscal year (April-March) containing a 'YYYY-MM-DD'
+ * date: "2026-10-01" -> 2026, "2027-02-01" -> 2026. The year
+ * get_sales_projections takes.
+ */
+export function fiscalYearStartYear(dateString) {
+  const [year, month] = String(dateString).split("-").map(Number);
+  if (!year || !month) return null;
+  return month - 1 >= FY_START_MONTH0 ? year : year - 1;
 }
 
 function fiscalYearLabel(startYear) {

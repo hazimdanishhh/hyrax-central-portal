@@ -1,6 +1,16 @@
 import { Navigate, Route } from "react-router-dom";
 import Quotations from "../pages/user/sales/quotations/Quotations";
 import Reports from "../pages/user/sales/reports/Reports";
+import SalesReportsLayout, {
+  SalesReportsIndexRedirect,
+} from "../pages/user/sales/reports/SalesReportsLayout";
+import SummaryTab from "../pages/user/sales/reports/tabs/SummaryTab";
+import PipelineTab from "../pages/user/sales/reports/tabs/PipelineTab";
+import OrdersTab from "../pages/user/sales/reports/tabs/OrdersTab";
+import InvoicingTab from "../pages/user/sales/reports/tabs/InvoicingTab";
+import CollectionsTab from "../pages/user/sales/reports/tabs/CollectionsTab";
+import TeamTab from "../pages/user/sales/reports/tabs/TeamTab";
+import ForecastTab from "../pages/user/sales/reports/tabs/ForecastTab";
 import AccessRoute from "./AccessRoute";
 import LeadsManagement from "../pages/user/sales/leads/list/LeadsManagement";
 import LeadsPageLayout from "../pages/user/sales/leads/LeadsPageLayout";
@@ -21,9 +31,33 @@ export default (
     {/* INDEX */}
     <Route index element={<Navigate to="reports" replace />} />
 
-    {/* REPORTS */}
+    {/* REPORTS -- tabbed (2026-10-22, docs/sales/SALES-REPORTS-TABS-PLAN.md).
+        Filters live in SalesReportsLayout's URL query and carry across tabs;
+        /reports goes to summary keeping the query. */}
     <Route
       path="reports"
+      element={
+        <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
+          <SalesReportsLayout />
+        </AccessRoute>
+      }
+    >
+      <Route index element={<SalesReportsIndexRedirect />} />
+      <Route path="summary" element={<SummaryTab />} />
+      <Route path="pipeline" element={<PipelineTab />} />
+      <Route path="orders" element={<OrdersTab />} />
+      <Route path="invoicing" element={<InvoicingTab />} />
+      <Route path="collections" element={<CollectionsTab />} />
+      <Route path="team" element={<TeamTab />} />
+      <Route path="forecast" element={<ForecastTab />} />
+    </Route>
+
+    {/* REPORTS (LEGACY) -- the single-page report, kept ONLY until the new
+        tabs are reconciled against it (plan §6 step 2,
+        supabase/diagnostics/sales_reports_tabs_reconciliation.sql). Not in
+        the sidenav. Delete with get_sales_reports_dashboard in step 5. */}
+    <Route
+      path="reports-legacy"
       element={
         <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
           <Reports />

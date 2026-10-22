@@ -10,6 +10,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"), // alias for "@/styles/variables"
     },
   },
+  // Vitest (2026-10-22): SQL tests that run supabase/sql_editor files against
+  // an in-process Postgres (PGlite), same setup as echoes-hub. `npm test`.
+  test: {
+    environment: "node",
+    include: ["tests/**/*.test.js"],
+    testTimeout: 120000,
+    hookTimeout: 120000,
+  },
   css: {
     preprocessorOptions: {
       scss: {

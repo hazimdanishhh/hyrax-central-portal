@@ -7,6 +7,7 @@ import { Link, NavLink, Outlet } from "react-router";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import { itAssetsPageTabs } from "./itAssetsPageTabs";
 import "./ITAssetsPageLayout.scss";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 export default function ITAssetsPageLayout() {
   const { darkMode } = useTheme();
@@ -26,7 +27,7 @@ export default function ITAssetsPageLayout() {
             <Breadcrumbs icon={DesktopIcon} current="IT Assets" />
 
             <CardWrapper>
-              <div className="pageTabContainer">
+              <TabScroller ariaLabel="IT assets sections">
                 {visibleTabs.map((tab) => {
                   const TabIcon = tab.icon;
                   return (
@@ -46,7 +47,7 @@ export default function ITAssetsPageLayout() {
                     </NavLink>
                   );
                 })}
-              </div>
+              </TabScroller>
               <Outlet />
             </CardWrapper>
           </div>

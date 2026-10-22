@@ -45,3 +45,20 @@
     text-align: right;
   }
 }
+
+// Check-in badges (row.flags, 2026-10-22) -- Sales Reports' Team tab marks
+// reps worth a one-to-one (below budget, unbilled backlog, slow collection).
+.scorecardFlags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+
+  .scorecardFlag {
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid $warning600;
+    background-color: rgba($warning600, 0.12);
+    color: $warning600;
+  }
+}

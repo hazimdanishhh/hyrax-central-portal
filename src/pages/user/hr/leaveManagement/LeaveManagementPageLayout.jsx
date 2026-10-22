@@ -6,6 +6,7 @@ import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { NavLink, Outlet } from "react-router";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import { leaveManagementPageTabs } from "./leaveManagementPageTabs";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 /**
  * Tab shell for Leave Management, mirroring AttendancePageLayout.jsx exactly.
@@ -33,7 +34,7 @@ export default function LeaveManagementPageLayout() {
             <Breadcrumbs icon={CalendarIcon} current="Leave Management" />
 
             <CardWrapper>
-              <div className="pageTabContainer">
+              <TabScroller ariaLabel="Leave management sections">
                 {visibleTabs.map((tab) => {
                   const TabIcon = tab.icon;
                   return (
@@ -53,7 +54,7 @@ export default function LeaveManagementPageLayout() {
                     </NavLink>
                   );
                 })}
-              </div>
+              </TabScroller>
               <Outlet />
             </CardWrapper>
           </div>

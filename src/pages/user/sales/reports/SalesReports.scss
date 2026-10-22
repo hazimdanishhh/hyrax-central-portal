@@ -1,0 +1,25 @@
+// Sales Reports tabbed layout (SalesReportsLayout.jsx, 2026-10-22).
+
+// Forecast tab: the salesperson filter is replaced by this note + Export.
+.salesReportsForecastNote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0 1rem;
+
+  p {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-align: start;
+  }
+}
+
+// The active tab's content (and what Export captures to PDF).
+.salesReportsContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}

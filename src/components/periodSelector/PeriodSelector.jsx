@@ -78,7 +78,11 @@ export default function PeriodSelector({
               key={mode}
               type="button"
               aria-pressed={active}
-              title={mode === "fiscalYear" ? "Fiscal year, April to March" : undefined}
+              title={
+                mode === "fiscalYear"
+                  ? "Fiscal year, April to March"
+                  : undefined
+              }
               className={`periodToggleButton textXXS ${active ? "active" : ""}`}
               onClick={() => switchTo(mode)}
             >
@@ -108,9 +112,13 @@ export default function PeriodSelector({
           <p className="textXXXS textLight">{range}</p>
           <div className="periodSwitcherLinks textXXXS">
             {isCurrent ? (
-              <span className="textLight">This {unit}</span>
+              <span className="textLight textS">This {unit}</span>
             ) : (
-              <button type="button" className="periodLinkButton" onClick={backToCurrent}>
+              <button
+                type="button"
+                className="periodLinkButton"
+                onClick={backToCurrent}
+              >
                 Back to this {modeDef ? unit : getPeriodMode(defaultMode).noun}
               </button>
             )}

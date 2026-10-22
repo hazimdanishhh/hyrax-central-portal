@@ -6,6 +6,7 @@ import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { Link, NavLink, Outlet } from "react-router";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import { clientsPageTabs } from "./clientsPageTabs";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 export default function ClientsPageLayout() {
   const { darkMode } = useTheme();
@@ -25,7 +26,7 @@ export default function ClientsPageLayout() {
             <Breadcrumbs icon={UsersIcon} current="Clients" />
 
             <CardWrapper>
-              <div className="pageTabContainer">
+              <TabScroller ariaLabel="Clients sections">
                 {visibleTabs.map((tab) => {
                   const TabIcon = tab.icon;
                   return (
@@ -45,7 +46,7 @@ export default function ClientsPageLayout() {
                     </NavLink>
                   );
                 })}
-              </div>
+              </TabScroller>
               <Outlet />
             </CardWrapper>
           </div>

@@ -5,6 +5,7 @@ import CardWrapper from "../../../../components/cardWrapper/CardWrapper";
 import { NavLink, Outlet } from "react-router";
 import { useAccessControl } from "../../../../context/AccessControlContext";
 import { chartOfAccountsPageTabs } from "./chartOfAccountsPageTabs";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 /**
  * Page-tab shell for Chart of Accounts -- "List" (the existing
@@ -27,7 +28,7 @@ export default function ChartOfAccountsPageLayout() {
           <Breadcrumbs icon={TreeStructureIcon} current="Chart of Accounts" />
 
           <CardWrapper>
-            <div className="pageTabContainer">
+            <TabScroller ariaLabel="Chart of accounts sections">
               {visibleTabs.map((tab) => {
                 const TabIcon = tab.icon;
                 return (
@@ -47,7 +48,7 @@ export default function ChartOfAccountsPageLayout() {
                   </NavLink>
                 );
               })}
-            </div>
+            </TabScroller>
             <Outlet />
           </CardWrapper>
         </div>

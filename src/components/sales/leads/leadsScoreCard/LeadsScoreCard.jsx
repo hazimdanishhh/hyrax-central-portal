@@ -8,11 +8,23 @@ import EmployeeImage from "../../../employees/employeeImage/EmployeeImage";
 import "./LeadsScoreCard.scss";
 import CardLayout from "../../../cardLayout/CardLayout";
 
-export default function ScorecardList({ data = [] }) {
+// actualLabel / targetLabel (2026-10-22): Leads Overview's CRM scorecard
+// shows won revenue against a target (the defaults); Sales Reports' Team tab
+// shows INVOICED revenue against a BUDGET and passes its own labels.
+// row.flags (optional string[]) renders as check-in badges under the bar.
+export default function ScorecardList({
+  data = [],
+  actualLabel = "Actual Won",
+  targetLabel = "Target",
+}) {
   const [hoveredUser, setHoveredUser] = useState(null);
   if (!data || data.length === 0) return null;
 
-  const formatRM = (val) => `RM ${Math.round(val).toLocaleString()}`;
+  // null = not applicable (e.g. no budget set) -> "—", never "RM 0".
+  const formatRM = (val) =>
+    val === null || val === undefined
+      ? "—"
+      : `RM ${Math.round(val).toLocaleString()}`;
 
   // Helper to get initials for the modern avatar
   const getInitials = (name) => {
@@ -76,8 +88,15 @@ export default function ScorecardList({ data = [] }) {
               {/* 2. QUOTA PROGRESS BAR */}
               <div className="quotaSegment">
                 <div className="quotaText textXXXS">
-                  <span>{attainment_percentage}% Attainment</span>
-                  <span>Target: {formatRM(target_revenue)}</span>
+                  <span>
+                    {attainment_percentage == null
+                      ? `No ${targetLabel.toLowerCase()} set`
+                      : `${attainment_percentage}% Attainment`}
+                  </span>
+                  <span>
+                    {targetLabel}:{" "}
+                    {target_revenue == null ? "—" : formatRM(target_revenue)}
+                  </span>
                 </div>
 
                 {/* The Track */}
@@ -91,13 +110,23 @@ export default function ScorecardList({ data = [] }) {
                     }}
                   />
                 </div>
+
+                {row.flags?.length > 0 && (
+                  <div className="scorecardFlags">
+                    {row.flags.map((flag) => (
+                      <span key={flag} className="scorecardFlag textXXXS">
+                        {flag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardLayout>
 
             <CardLayout style="cardLayout3">
               {/* 3. ACTUAL WON NUMBER */}
               <div className="actualWonSegment">
-                <span className="textXS textLight">Actual Won</span>
+                <span className="textXS textLight">{actualLabel}</span>
                 <span
                   className="textL textBold"
                   style={{ color: isTargetMet ? GREEN_COLOR : "inherit" }}
@@ -112,18 +141,20 @@ export default function ScorecardList({ data = [] }) {
                   <span className="textXXXS textLight">
                     Order Value (PO): {formatRM(order_value_myr)}
                   </span>
-                  <span
-                    className="textXXXS"
-                    style={{
-                      color:
-                        po_vs_budget_variance_myr >= 0
-                          ? GREEN_COLOR
-                          : RED_COLOR,
-                    }}
-                  >
-                    PO vs Budget: {po_vs_budget_variance_myr >= 0 ? "+" : ""}
-                    {formatRM(po_vs_budget_variance_myr)}
-                  </span>
+                  {po_vs_budget_variance_myr !== null && (
+                    <span
+                      className="textXXXS"
+                      style={{
+                        color:
+                          po_vs_budget_variance_myr >= 0
+                            ? GREEN_COLOR
+                            : RED_COLOR,
+                      }}
+                    >
+                      PO vs Budget: {po_vs_budget_variance_myr >= 0 ? "+" : ""}
+                      {formatRM(po_vs_budget_variance_myr)}
+                    </span>
+                  )}
                   <span
                     className="textXXXS"
                     style={{
@@ -145,7 +176,7 @@ export default function ScorecardList({ data = [] }) {
                 <div className="varianceSegment">
                   <span className="textXXXS textLight">
                     Collected: {formatRM(collected_myr)} (
-                    {collection_rate_pct ?? 0}%)
+                    {collection_rate_pct == null ? "—" : `${collection_rate_pct}%`})
                   </span>
                   <span
                     className="textXXXS"

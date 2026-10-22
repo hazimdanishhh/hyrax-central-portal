@@ -1,10 +1,10 @@
-import { useState } from "react";
 import "./PageTab.scss";
 import Button from "../../buttons/button/Button";
+import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 
 function PageTab({ tabs = [], style, currentTab, onTabChange }) {
   return (
-    <div className="pageTabContainer">
+    <TabScroller ariaLabel="Page sections">
       {tabs.map((tab, index) => (
         <Button
           key={index}
@@ -15,7 +15,7 @@ function PageTab({ tabs = [], style, currentTab, onTabChange }) {
           }`}
         />
       ))}
-    </div>
+    </TabScroller>
   );
 }
 
