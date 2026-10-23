@@ -1,20 +1,27 @@
 -- ############################################################################
 -- get_sales_collections -- Sales Reports, COLLECTIONS tab
 -- (src/pages/user/sales/reports/tabs/CollectionsTab.jsx). Plan:
--- docs/sales/SALES-REPORTS-TABS-PLAN.md §3-§4.
+-- docs/sales/SALES-REPORTS-TABS-PLAN.md; rules: DASHBOARD-CONVENTIONS §8.
+--
+-- For meetings: is the cash coming in, how much is owed, and how late is it.
 --
 --   kpis.collected ...      sales_totals (Payments Collected's one definition)
---   kpis.outstanding ...    open receivables -- ACTIONABLE (DASHBOARD-
---                           CONVENTIONS §4b): the true current backlog when no
---                           period is picked; invoices raised in the period
---                           once one is
---   kpis.collectionRatePct  collected / invoiced in the SAME period (decision
---                           D3: kept, with its caveat -- customers on 30-60
---                           day terms pay later invoices, so a healthy month
---                           can sit below 70%). null when nothing was invoiced
+--                           for the period, comparison window, last year
+--   kpis.outstanding ...    sales_receivable_totals -- TODAY (R3), whatever
+--   kpis.overdue* / critical*   period is picked, on FINANCE's open-invoice
+--   kpis.dso                    rule, so it matches Finance -> Invoices for
+--                           the same rep. dso is Finance's formula (ar_dso)
+--                           over the trailing 90 days
 --   invoicedVsCollected     monthly, trend window
+--   overdueByAge            today's Outstanding by days past due: Not Yet Due,
+--                           1-30, 31-60, 61-90, 90+ (adds up to outstanding)
+--   topOverdue              top 10 customers by overdue balance, today
 --   topPayers               top 10 customers by cash collected in the period
---   topOutstanding          top 10 customers by open balance (ACTIONABLE)
+--
+-- Removed 2026-10-23: collectionRatePct (this period's cash / this period's
+-- invoices -- customers on 30-60 day terms pay EARLIER invoices, so it was
+-- not a standard measure; aging + overdue + DSO replace it), and
+-- topOutstanding (replaced by topOverdue: what is late, not just owed).
 --
 -- Run after sales_metric_facts_views.sql and sales_metric_functions.sql.
 -- ############################################################################
@@ -36,7 +43,7 @@ declare
     prv record;
     ly  record;
     lyt record;
-    v_ar record;
+    ar  record;
 begin
     select * into sc from public.sales_report_scope(p_owner_id);
     select * into per from public.report_period(p_start_date, p_end_date);
@@ -45,15 +52,7 @@ begin
     select * into prv from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.prev_start, per.prev_end);
     select * into ly from public.report_last_year(p_start_date, p_end_date);
     select * into lyt from public.sales_totals(sc.sales_rep_code, sc.owner_id, ly.ly_start, ly.ly_end);
-
-    select
-        coalesce(sum(outstanding_myr), 0) as outstanding,
-        count(*) as invoices,
-        count(distinct customer_code) as customers
-    into v_ar
-    from public.sales_receivable_facts
-    where (sc.sales_rep_code is null or sales_rep_code = sc.sales_rep_code)
-      and (not per.has_period or invoice_date between per.start_date and per.end_date);
+    select * into ar from public.sales_receivable_totals(sc.sales_rep_code, sc.owner_id);
 
     return json_build_object(
         'meta', public.sales_report_meta(p_start_date, p_end_date, sc.sales_rep_code, sc.mapping_missing),
@@ -64,12 +63,15 @@ begin
             'lastYearCollected', lyt.collected,
             'paymentCount', cur.payment_count,
             'payingCustomers', cur.paying_customers,
-            'invoiced', cur.invoiced,
-            'collectionRatePct',
-                case when cur.invoiced > 0 then round(cur.collected / cur.invoiced * 100, 1) end,
-            'outstanding', v_ar.outstanding,
-            'outstandingInvoices', v_ar.invoices,
-            'outstandingCustomers', v_ar.customers
+            'outstanding', ar.outstanding,
+            'outstandingInvoices', ar.invoices,
+            'outstandingCustomers', ar.customers,
+            'overdueValue', ar.overdue_value,
+            'overdueCount', ar.overdue_count,
+            'overduePct', case when ar.outstanding > 0 then round(ar.overdue_value / ar.outstanding * 100, 1) end,
+            'criticalValue', ar.critical_value,
+            'criticalCount', ar.critical_count,
+            'dso', ar.dso
         ),
 
         'invoicedVsCollected', (
@@ -86,6 +88,35 @@ begin
                 per.start_date, per.end_date) s
         ),
 
+        'overdueByAge', json_build_array(
+            json_build_object('name', 'Not Yet Due', 'value', ar.not_due),
+            json_build_object('name', '1–30 days', 'value', ar.d1_30),
+            json_build_object('name', '31–60 days', 'value', ar.d31_60),
+            json_build_object('name', '61–90 days', 'value', ar.d61_90),
+            json_build_object('name', '90+ days', 'value', ar.d90_plus)
+        ),
+
+        'topOverdue', (
+            select coalesce(json_agg(json_build_object(
+                'customerCode', x.customer_code,
+                'name', x.name,
+                'value', x.overdue,
+                'critical', x.critical
+            ) order by x.overdue desc), '[]'::json)
+            from (
+                select customer_code,
+                       max(customer_name) as name,
+                       sum(outstanding_myr) as overdue,
+                       coalesce(sum(outstanding_myr) filter (where days_past_due > 90), 0) as critical
+                from public.sales_receivable_facts
+                where days_past_due > 0
+                  and (sc.sales_rep_code is null or sales_rep_code = sc.sales_rep_code)
+                group by customer_code
+                order by overdue desc, customer_code
+                limit 10
+            ) x
+        ),
+
         'topPayers', (
             select coalesce(json_agg(json_build_object(
                 'customerCode', x.customer_code,
@@ -99,23 +130,6 @@ begin
                   and (sc.sales_rep_code is null or sales_rep_code = sc.sales_rep_code)
                 group by customer_code
                 order by collected desc, customer_code
-                limit 10
-            ) x
-        ),
-
-        'topOutstanding', (
-            select coalesce(json_agg(json_build_object(
-                'customerCode', x.customer_code,
-                'name', x.name,
-                'value', x.outstanding
-            ) order by x.outstanding desc), '[]'::json)
-            from (
-                select customer_code, max(customer_name) as name, sum(outstanding_myr) as outstanding
-                from public.sales_receivable_facts
-                where (sc.sales_rep_code is null or sales_rep_code = sc.sales_rep_code)
-                  and (not per.has_period or invoice_date between per.start_date and per.end_date)
-                group by customer_code
-                order by outstanding desc, customer_code
                 limit 10
             ) x
         )

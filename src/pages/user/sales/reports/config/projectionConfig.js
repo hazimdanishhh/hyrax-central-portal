@@ -78,17 +78,37 @@ const range = (lo, hi) =>
     ? null
     : `${compactCurrency(lo)} – ${compactCurrency(hi)}`;
 
+// ── ONE BUILDER PER TILE (2026-10-23) ─────────────────────────────────────
+//
+// The Forecast tab shows the composed set below; Summary's Fiscal Year
+// Progress row picks single tiles (the year, and either the selected month
+// or -- for the month in progress -- This Month) through the same builders,
+// so the two tabs can never show different numbers under the same name.
+// The composition, and so the Forecast tab, is unchanged.
 export function getSalesProjectionsConfig(kpis, selectedRow) {
   if (!kpis?.year) return [];
+  return [
+    buildYearTile(kpis),
+    buildSelectedMonthTile(kpis, selectedRow),
+    buildThisMonthTile(kpis) ?? buildBiggestMissTile(kpis),
+    buildReliabilityTile(kpis),
+  ].filter(Boolean);
+}
 
+// Summary's compact year tile keeps only what its neighbours don't already
+// show (the FY to Date tile carries the budget and invoiced so far).
+const COMPACT_YEAR_METRICS = new Set([
+  "Not yet closed",
+  "80% range",
+  "Forecast said",
+  "Year total vs actual",
+]);
+
+// ══ 1. How much this fiscal year, and is it enough? ═══════════════════════
+export function buildYearTile(kpis, { compact = false } = {}) {
+  if (!kpis?.year) return null;
   const y = kpis.year;
-  const m = kpis.month || {};
-  const r = kpis.reliability || {};
-  const h = kpis.health || {};
 
-  const tiles = [];
-
-  // ══ 1. How much this fiscal year, and is it enough? ═════════════════════
   //
   // Thresholds match this page's own "Invoiced Revenue vs Budget" tile
   // (warningAt 70, goodAt 95) on purpose: same question, same bar, so a
@@ -151,7 +171,7 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
     );
   }
 
-  tiles.push({
+  return {
     icon: TrendUpIcon,
     label: yearLabel,
     // Derived, not hardcoded -- fiscalYearLabel is "2026-2027".
@@ -168,7 +188,9 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
       ? { icon: budgetStatus.statusIcon, label: budgetStatus.statusLabel }
       : undefined,
     to: null,
-    metrics: yearMetrics,
+    metrics: compact
+      ? yearMetrics.filter((x) => COMPACT_YEAR_METRICS.has(x.label))
+      : yearMetrics,
     title: y.isPastFiscalYear
       ? "Invoiced revenue for a closed fiscal year (sap_invoices), against the budget. " +
         "Every month is actual — nothing here is forecast. " +
@@ -181,16 +203,20 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
         "This forecasts ATTAINMENT, it is not attainment achieved. " +
         "Colour: Critical below 70% of budget, Watch 70–94%, On track at 95%+. Blue if no " +
         "budget is set.",
-  });
+  };
+}
 
-  // ══ 2. The selected month ═══════════════════════════════════════════════
-  //
-  // Follows the chart. Clicking any month re-points this tile and both exhibit
-  // charts together, so the three always describe the same month.
-  //
-  // A CLOSED month is a scored result and a FUTURE one is a forecast. They are
-  // different claims and the tile says which -- per §3, never silently pick
-  // one shape for both.
+// ══ 2. The selected month ═════════════════════════════════════════════════
+//
+// Follows the chart. Clicking any month re-points this tile and both exhibit
+// charts together, so the three always describe the same month.
+//
+// A CLOSED month is a scored result and a FUTURE one is a forecast. They are
+// different claims and the tile says which -- per §3, never silently pick
+// one shape for both.
+export function buildSelectedMonthTile(kpis, selectedRow) {
+  if (!kpis?.year) return null;
+  const m = kpis.month || {};
   const sel = selectedRow || null;
   const isScored = sel?.segment === "past";
   const isNextMonth =
@@ -244,7 +270,7 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
     );
   }
 
-  tiles.push({
+  return {
     icon: CalendarBlankIcon,
     label: isScored
       ? `Forecast vs Actual — ${sel.name}`
@@ -288,11 +314,17 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
         "'80% likely' means four months in five land inside that range; Forecast " +
         "Reliability reports how often that has held. " +
         "Blue: a forecast has no good direction.",
-  });
+  };
+}
 
-  // ══ 3a. This month, live — only in the year that contains today ═════════
+// ══ 3a. This month, live — only in the year that contains today ═══════════
+// null in any other year.
+export function buildThisMonthTile(kpis) {
+  if (!kpis?.year) return null;
+  const y = kpis.year;
+  const m = kpis.month || {};
   if (y.isCurrentFiscalYear && m.currentLabel) {
-    tiles.push({
+    return {
       icon: GaugeIcon,
       label: `This Month — ${m.currentLabel}`,
       sublabel:
@@ -331,15 +363,22 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
         "It is blank until the first snapshot's target month arrives and cannot be " +
         "backfilled. " +
         "Blue: being above or below a forecast is not itself good or bad.",
-    });
+    };
   }
+  return null;
+}
 
-  // ══ 3b. The year's biggest miss — a closed year only ════════════════════
-  //
-  // Ranked on the miss in RINGGIT, not percent: a 60% miss on a RM200k month
-  // is noise, a 25% miss on a RM6M month is the one that moved the year.
-  else if (m.biggestMissLabel) {
-    tiles.push({
+// ══ 3b. The year's biggest miss — a closed year only ══════════════════════
+//
+// Ranked on the miss in RINGGIT, not percent: a 60% miss on a RM200k month
+// is noise, a 25% miss on a RM6M month is the one that moved the year.
+// The Forecast tab shows it only when there is no This Month tile.
+export function buildBiggestMissTile(kpis) {
+  if (!kpis?.year) return null;
+  const y = kpis.year;
+  const m = kpis.month || {};
+  if (m.biggestMissLabel) {
+    return {
       icon: WarningIcon,
       label: `Biggest Miss — FY ${y.fiscalYearLabel}`,
       sublabel: `${m.biggestMissLabel} · closed months`,
@@ -375,10 +414,18 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
         "A positive figure means the forecast was too high. " +
         "Blue: one month is an observation, not a verdict; Forecast Reliability is the " +
         "verdict.",
-    });
+    };
   }
+  return null;
+}
 
-  // ══ 4. How much should I trust any of this? ═════════════════════════════
+// ══ 4. How much should I trust any of this? ═══════════════════════════════
+export function buildReliabilityTile(kpis) {
+  if (!kpis?.year) return null;
+  const y = kpis.year;
+  const r = kpis.reliability || {};
+  const h = kpis.health || {};
+
   //
   // FIXED 2026-10-14. This read `{ warningAt: 50, goodAt: 35 }` -- but
   // `goodAt` is a high-good key and low-good reads `criticalAt`. criticalAt
@@ -405,7 +452,7 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
         ? `${r.recordedMonths} recorded · ${r.reconstructedMonths} rebuilt afterwards`
         : `${r.reconstructedMonths} months, all rebuilt afterwards`;
 
-  tiles.push({
+  return {
     icon: TargetIcon,
     label: "Forecast Reliability",
     sublabel: `FY ${y.fiscalYearLabel} · closed months`,
@@ -451,7 +498,5 @@ export function getSalesProjectionsConfig(kpis, selectedRow) {
       "knowing how those months turned out. " +
       "Colour: Critical at 50%+ miss (no better than assuming last year repeats), " +
       "Watch 35–49%, On track below 35%.",
-  });
-
-  return tiles;
+  };
 }

@@ -31,6 +31,7 @@ const SQL_FILES = [
   "get_sales_invoicing_rpc.sql",
   "get_sales_collections_rpc.sql",
   "get_sales_team_rpc.sql",
+  "sales_report_briefs.sql",
 ];
 
 // Employees / profiles
@@ -75,7 +76,8 @@ beforeAll(async () => {
     create table departments (id int primary key, sub text);
     create table roles (id int primary key, name text);
     create table profiles (id uuid primary key, role_id int, department_id int, avatar_url text);
-    create table employees (id uuid primary key, profile_id uuid);
+    create table employees (id uuid primary key, profile_id uuid, full_name text);
+    create view employees_public as select id, profile_id, full_name from employees;
 
     create table sap_customers (customer_code text primary key, customer_name text, local_export_flag text);
     create table sap_sales_persons (sales_rep_code bigint primary key, sales_rep_name text);
@@ -83,7 +85,8 @@ beforeAll(async () => {
     create table sap_invoices (
       doc_entry bigint primary key, invoice_date text, is_cancelled text,
       customer_code text, customer_name text, sales_rep_code bigint,
-      total_amount numeric, total_amount_myr numeric, gross_profit numeric, paid_to_date numeric);
+      total_amount numeric, total_amount_myr numeric, gross_profit numeric, paid_to_date numeric,
+      tax_amount numeric default 0, due_date text, status_code text default 'O');
     create view sap_invoices_with_balance as
       select i.*, (i.total_amount_myr - i.paid_to_date) as outstanding_balance from sap_invoices i;
     create table sap_items (item_code text primary key, item_name text, item_group_code bigint, sales_uom text, inventory_uom text);
@@ -91,7 +94,7 @@ beforeAll(async () => {
     create table sap_invoice_lines (doc_entry bigint, line_num bigint, item_code text, quantity numeric, line_total numeric);
     create table sap_sales_orders (
       doc_entry bigint primary key, order_date text, is_cancelled text,
-      customer_code text, sales_rep_code bigint, total_amount_myr numeric);
+      customer_code text, sales_rep_code bigint, total_amount_myr numeric, customer_ref text);
     create table sap_payments (doc_entry bigint primary key, payment_date text, is_cancelled text);
     create table sap_payment_applications (doc_entry bigint, payment_ref bigint, inv_type bigint, amount_applied_myr numeric);
     create table clients (id uuid primary key, name text);
@@ -100,7 +103,7 @@ beforeAll(async () => {
       lead_owner_id uuid, client_id uuid, sap_customer_code text, product_type text,
       lead_source_type_id bigint, actual_revenue numeric,
       is_on_hold boolean default false, close_probability numeric, expected_revenue numeric,
-      created_at timestamptz default '2025-01-01', lose_reason_id bigint);
+      created_at timestamptz default '2025-01-01', lose_reason_id bigint, po_number text);
     create table lead_source_types (id bigint primary key, name text);
     create table sales_leads_lose_reasons (id bigint primary key, name text);
     create table sap_sales_orders_with_fulfillment (
@@ -215,6 +218,70 @@ beforeAll(async () => {
       (34, '2025-04-02', '2025-04-10', 'N', 'C', true,  0, 'C2', 2,  500),  -- delivered, not invoiced
       (35, '2025-05-07', '2025-05-20', 'Y', 'O', false, 0, 'C1', 1, 9999),  -- cancelled
       (36, '',           '',           'N', 'O', false, 0, 'C3', 1,  300);  -- open, no dates
+
+    -- ── Added 2026-10-23 (final build) ──────────────────────────────────
+    update employees set full_name = case id
+      when '${E1}' then 'Ali' when '${E2}' then 'Bob' when '${E3}' then 'Cara' else 'Dan' end;
+
+    -- RECEIVABLES, Finance's rule (status O, balance > 0.01), aged from
+    -- TODAY. Open balances: 1 = 600 due 10 days ago (1-30), 4 = 300 due 100
+    -- days ago (90+, critical), 5 = 600 due in 5 days (not yet due), 6 = 50
+    -- with no due date (not yet due), 7 = 100 due 45 days ago (31-60).
+    --   Outstanding 1650, overdue 1000 (3 invoices), critical 300 (1).
+    -- Invoice 200 still owes 400 but is CLOSED in SAP: Finance does not
+    -- count it, so neither does Sales.
+    update sap_invoices set due_date = to_char(current_date - 10,  'YYYY-MM-DD') where doc_entry = 1;
+    update sap_invoices set due_date = to_char(current_date - 100, 'YYYY-MM-DD') where doc_entry = 4;
+    update sap_invoices set due_date = to_char(current_date + 5,   'YYYY-MM-DD') where doc_entry = 5;
+    update sap_invoices set due_date = to_char(current_date - 45,  'YYYY-MM-DD') where doc_entry = 7;
+    insert into sap_invoices values
+      (200, '2025-03-15', 'N', 'C2', 'Beta Ltd', 1, 400, 400, 40, 0, 0, '2025-04-15', 'C');
+    -- Aging boundaries, on rep 9 (dated 2023 so no tested window sees them):
+    --   201 due today = 0 days (not due), 202 = 1 day (1-30),
+    --   203 = 90 days (61-90, overdue but NOT critical), 204 = 91 (90+, critical).
+    insert into sap_invoices values
+      (201, '2023-06-01', 'N', 'C3', 'Cosmo', 9, 10, 10, 1, 0, 0, to_char(current_date,      'YYYY-MM-DD'), 'O'),
+      (202, '2023-06-01', 'N', 'C3', 'Cosmo', 9, 10, 10, 1, 0, 0, to_char(current_date - 1,  'YYYY-MM-DD'), 'O'),
+      (203, '2023-06-01', 'N', 'C3', 'Cosmo', 9, 10, 10, 1, 0, 0, to_char(current_date - 90, 'YYYY-MM-DD'), 'O'),
+      (204, '2023-06-01', 'N', 'C3', 'Cosmo', 9, 10, 10, 1, 0, 0, to_char(current_date - 91, 'YYYY-MM-DD'), 'O');
+
+    -- GROSS MARGIN, May: invoice 1 carries RM100 tax (900 before tax).
+    --   Known GP 200 + 50 + 30 = 280 on 900 + 500 + 300 = 1700 before tax
+    --   -> 16.5%. Invoice 7's GP is an outlier (unknown): coverage =
+    --   1800 / 1900 of Invoiced Revenue = 94.7%.
+    update sap_invoices set tax_amount = 100 where doc_entry = 1;
+
+    -- RUN RATE ORDERS: 1650 booked in each of the 3 complete months before
+    --   this one (4950) against 3300 invoiced -> Order-to-Invoice 1.5.
+    insert into sap_sales_orders
+      select 110 + k,
+             to_char(date_trunc('month', current_date) - (k || ' months')::interval + interval '9 days', 'YYYY-MM-DD'),
+             'N', 'C1', 1, 1650, null
+      from generate_series(1, 3) k;
+
+    -- PENDING SAP ORDER ENTRY: L2 (won, PO-2) has its SAP order (order 11);
+    --   L5 (won, PO-5) has none -> pending, RM1000; L3 (PO-3, no order) is
+    --   cancelled, so it is not a won lead and not pending.
+    update sales_leads set po_number = 'PO-2' where id = 'a0000000-0000-0000-0000-000000000002';
+    update sales_leads set po_number = 'PO-5' where id = 'a0000000-0000-0000-0000-000000000005';
+    update sales_leads set po_number = 'PO-3' where id = 'a0000000-0000-0000-0000-000000000003';
+    update sap_sales_orders set customer_ref = 'PO-2' where doc_entry = 11;
+
+    -- PIPELINE GENERATED, May: L6 was created on 5 May (Malaysia time),
+    --   expected 10000. Every other lead was created on 1 Jan 2025.
+    update sales_leads set created_at = '2025-05-05 02:00+00' where id = 'a0000000-0000-0000-0000-000000000006';
+
+    -- UNMAPPED OWNER: Cara (E3, no SAP rep) won L8, RM700, on 10 June 2025.
+    insert into sales_leads (id, stage, is_cancelled, updated_at, lead_owner_id, client_id, product_type, lead_source_type_id, actual_revenue) values
+      ('a0000000-0000-0000-0000-000000000008', 'WON', false, '2025-06-10 03:00+00', '${E3}', '${CLIENT}', 'OIL', 1, 700);
+
+    -- PIPELINE COVERAGE: Ali has a 1000 target in every month from this one
+    --   to the end of this fiscal year.
+    insert into sales_targets
+      select '${E1}', m::date, 1000
+      from generate_series(date_trunc('month', current_date),
+                           fiscal_year_start(current_date) + interval '11 months',
+                           interval '1 month') m;
   `);
 });
 
@@ -249,25 +316,32 @@ describe("1. definitions (fact views)", () => {
     ]);
   });
 
-  it("receivables: open balances only, canonical names", async () => {
-    const rows = await q("select doc_entry, outstanding_myr from sales_receivable_facts order by doc_entry");
-    // 1: 1000-400, 4: 300, 5: 700-100, 6: 50, 7: 100. Invoice 2 is fully paid; 3 cancelled.
-    expect(rows.map((r) => [Number(r.doc_entry), n(r.outstanding_myr)])).toEqual([
-      [1, 600],
-      [4, 300],
-      [5, 600],
-      [6, 50],
-      [7, 100],
+  it("receivables: Finance's open-invoice rule, aged from today", async () => {
+    const rows = await q("select doc_entry, outstanding_myr, days_past_due from sales_receivable_facts where doc_entry < 200 order by doc_entry");
+    // 1: 1000-400, 4: 300, 5: 700-100, 6: 50, 7: 100. Invoice 2 is fully paid;
+    // 3 cancelled; 200 still owes 400 but is CLOSED in SAP (Finance's rule).
+    expect(rows.map((r) => [Number(r.doc_entry), n(r.outstanding_myr), r.days_past_due])).toEqual([
+      [1, 600, 10],
+      [4, 300, 100],
+      [5, 600, -5],
+      [6, 50, null], // no due date: not known to be late
+      [7, 100, 45],
     ]);
   });
 
   it("won deals: cancelled excluded, close date taken in Malaysia time", async () => {
     const rows = await q("select won_myr, closed_on::text from sales_won_lead_facts order by won_myr");
     expect(rows.map((r) => [n(r.won_myr), r.closed_on])).toEqual([
+      [700, "2025-06-10"], // Cara's (unmapped owner)
       [1000, "2025-05-20"], // no history row: falls back to updated_at
       [2000, "2025-05-10"],
       [5000, "2025-06-01"], // 2025-05-31 20:00 UTC is 1 June in Malaysia
     ]);
+  });
+
+  it("invoices: revenue before tax subtracts SAP's tax (both MYR)", async () => {
+    const [r] = await q("select invoiced_myr, invoiced_before_tax_myr from sales_invoice_facts where doc_entry = 1");
+    expect([n(r.invoiced_myr), n(r.invoiced_before_tax_myr)]).toEqual([1000, 900]);
   });
 });
 
@@ -282,10 +356,20 @@ describe("1b. definitions (pipeline and order book)", () => {
       ["5", "won", "2025-05-20", null],
       ["6", "open", null, null],
       ["7", "open", null, null],
+      ["8", "won", "2025-06-10", null],
     ]);
     // sales_won_lead_facts is exactly the 'won' rows.
     const [{ k }] = await q("select count(*)::int as k from sales_won_lead_facts");
-    expect(k).toBe(3);
+    expect(k).toBe(4);
+  });
+
+  it("leads: Pending SAP Order Entry = won (not cancelled), PO with no SAP order", async () => {
+    const rows = await q("select right(lead_id::text, 1) as l, pending_sap_order from sales_lead_facts where po_number is not null order by lead_id");
+    expect(rows.map((r) => [r.l, r.pending_sap_order])).toEqual([
+      ["2", false], // SAP order 11 carries PO-2
+      ["3", false], // cancelled: not a won lead
+      ["5", true],
+    ]);
   });
 
   it("order book: open / overdue / delivered-not-invoiced, cancelled excluded", async () => {
@@ -309,6 +393,57 @@ describe("1b. definitions (pipeline and order book)", () => {
     // Same "Won" as sales_totals, by construction.
     const t = await totals(null, null, MAY);
     expect(n(all.won)).toBe(t.won);
+    // Generated in May: L6 only. Pending SAP Order Entry is today: L5.
+    expect([n(all.generated_value), n(all.generated_count)]).toEqual([10000, 1]);
+    expect([n(all.pending_sap_value), n(all.pending_sap_count)]).toEqual([1000, 1]);
+  });
+
+  it("Pipeline Coverage: Active Pipeline / Pipeline Target left this FY", async () => {
+    const [c] = await q("select * from sales_pipeline_coverage($1)", [E1]);
+    const [{ left }] = await q(`select months_spanned(current_date + 1,
+      (fiscal_year_start(current_date) + interval '1 year' - interval '1 day')::date) * 1000 as left`);
+    expect(n(c.active_value)).toBe(10000);
+    expect(n(c.target_remaining)).toBeCloseTo(n(left), 6);
+    expect(n(c.coverage)).toBe(Math.round((10000 / n(left)) * 10) / 10);
+    // No target left (Bob has none): null, never infinite.
+    const [b] = await q("select * from sales_pipeline_coverage($1)", [E2]);
+    expect(b.coverage).toBeNull();
+  });
+
+  it("order book: TODAY, whatever window -- with Open Backlog (Months)", async () => {
+    const [b] = await q("select * from sales_order_book_totals(null)");
+    expect([n(b.open_value), n(b.open_orders), n(b.overdue_value), n(b.unbilled_value)]).toEqual([3300, 3, 2000, 500]);
+    expect([n(b.recent_monthly_invoiced), n(b.backlog_months)]).toEqual([1100, 3]);
+  });
+
+  it("receivables: outstanding, overdue, critical and aging add up", async () => {
+    const [all] = await q("select * from sales_receivable_totals(null, null)");
+    // 1650 from section 1 + rep 9's four RM10 invoices.
+    expect([n(all.outstanding), n(all.invoices), n(all.customers)]).toEqual([1690, 9, 3]);
+    // Overdue: 1 (600) + 4 (300) + 7 (100) + 202, 203, 204 (30).
+    expect([n(all.overdue_value), n(all.overdue_count)]).toEqual([1030, 6]);
+    // Critical (> 90 days): 4 (300) + 204 (10). 203 at exactly 90 is not.
+    expect([n(all.critical_value), n(all.critical_count)]).toEqual([310, 2]);
+    const buckets = [all.not_due, all.d1_30, all.d31_60, all.d61_90, all.d90_plus].map(n);
+    expect(buckets).toEqual([660, 610, 100, 10, 310]);
+    expect(buckets.reduce((a, b) => a + b, 0)).toBe(n(all.outstanding));
+    const [r9] = await q("select * from sales_receivable_totals(9, null)");
+    expect([n(r9.not_due), n(r9.d1_30), n(r9.d61_90), n(r9.d90_plus)]).toEqual([10, 10, 10, 10]);
+  });
+
+  it("ar_dso is Finance's formula", async () => {
+    const [r] = await q(`select ar_dso(1000, 600, 300, 90) as a,
+                                ar_dso(100, 600, 0, 90) as clamped,
+                                ar_dso(100, 0, 0, 90) as none`);
+    // ((max(1000 - 600 + 300, 0) + 1000) / 2) / 600 * 90 = 127.5
+    expect(n(r.a)).toBe(127.5);
+    expect(n(r.clamped)).toBe(7.5); // beginning AR clamps to 0
+    expect(r.none).toBeNull();
+  });
+
+  it("gross margin: known GP only, before tax, with its coverage", async () => {
+    const [g] = await q("select * from sales_gross_margin(null, $1, $2)", MAY);
+    expect([n(g.gross_profit), n(g.margin_pct), n(g.coverage_pct)]).toEqual([280, 16.5, 94.7]);
   });
 });
 
@@ -521,7 +656,6 @@ describe("4. tab RPCs (one number, every tab)", () => {
     expect(n(summary.kpis.invoiced)).toBe(1900);
     expect(n(invoicing.kpis.invoiced)).toBe(1900);
     expect(n(orders.kpis.invoiced)).toBe(1900);
-    expect(n(collections.kpis.invoiced)).toBe(1900);
     expect(n(summary.kpis.booked)).toBe(n(orders.kpis.booked));
     expect(n(summary.kpis.won)).toBe(n(pipeline.kpis.won));
     expect(n(summary.kpis.collected)).toBe(n(collections.kpis.collected));
@@ -532,6 +666,38 @@ describe("4. tab RPCs (one number, every tab)", () => {
     expect(teamSum("budget")).toBe(3720);
     const bridgeSum = summary.budgetBridge.reduce((s, r) => s + n(r.invoiced), 0);
     expect(bridgeSum).toBe(1900);
+    // The CRM side of the scorecard adds up to Pipeline's totals.
+    expect(teamSum("won")).toBe(n(pipeline.kpis.won));
+    expect(teamSum("target")).toBe(n(pipeline.kpis.target));
+  });
+
+  it("summary: Open Position is each tab's own TODAY figure", () => {
+    const o = summary.openPosition;
+    expect(n(o.activePipeline)).toBe(n(pipeline.kpis.openValue));
+    expect(n(o.weightedPipeline)).toBe(n(pipeline.kpis.weightedValue));
+    expect(n(o.pipelineCoverage)).toBe(n(pipeline.kpis.pipelineCoverage));
+    expect(n(o.openBacklog)).toBe(n(orders.kpis.orderBookValue));
+    expect(n(o.openBacklogMonths)).toBe(n(orders.kpis.openBacklogMonths));
+    expect(n(o.outstanding)).toBe(n(collections.kpis.outstanding));
+    expect(n(o.overdue)).toBe(n(collections.kpis.overdueValue));
+    expect(n(o.criticallyOverdue)).toBe(n(collections.kpis.criticalValue));
+    expect([n(o.openBacklog), n(o.outstanding)]).toEqual([3300, 1690]);
+  });
+
+  it("summary: cumulative FY to date, ending at FY to date", () => {
+    const c = summary.fyCumulative;
+    expect(c).toHaveLength(12);
+    expect([c[0].period, n(c[0].invoiced), n(c[0].budget)]).toEqual(["2025-04", 700, 3000]);
+    expect([c[1].period, n(c[1].invoiced), n(c[1].budget), c[1].inPeriod]).toEqual(["2025-05", 2600, 6720, true]);
+    expect(n(c[1].invoiced)).toBe(n(summary.fyProgress.fytdInvoiced)); // as of 31 May
+    expect(n(c[11].budget)).toBe(n(summary.fyProgress.fyBudget));
+  });
+
+  it("summary: Pipeline Won is null for fiscal years before the CRM existed", () => {
+    // First lead created 1 Jan 2025 -> FY 2024-2025.
+    const byName = Object.fromEntries(summary.orderToCashYoY.map((y) => [y.name, y]));
+    expect(byName["2023-2024"].won).toBeNull();
+    expect(n(byName["2024-2025"].won)).toBe(0);
   });
 
   it("summary: period, comparison (April) and attainment", () => {
@@ -541,13 +707,13 @@ describe("4. tab RPCs (one number, every tab)", () => {
     expect(n(summary.kpis.prevInvoiced)).toBe(700);
     expect(n(summary.kpis.budgetAttainmentPct)).toBe(51); // 1900 / 3720
     expect(n(summary.kpis.targetAttainmentPct)).toBe(60); // 3000 / 5000
-    expect(summary.revenueVsBudget).toHaveLength(12);
   });
 
   it("summary: Order-to-Cash YoY sums the same monthly series per fiscal year", () => {
     expect(summary.orderToCashYoY).toHaveLength(10);
     const fy25 = summary.orderToCashYoY.find((y) => y.name === "2025-2026");
-    expect([n(fy25.invoiced), n(fy25.booked), n(fy25.collected), n(fy25.won)]).toEqual([2600, 3800, 1000, 8000]);
+    // won: May 3000 + L1 5000 (1 June) + Cara's L8 700 (10 June)
+    expect([n(fy25.invoiced), n(fy25.booked), n(fy25.collected), n(fy25.won)]).toEqual([2600, 3800, 1000, 8700]);
     expect(fy25.inPeriod).toBe(true);
   });
 
@@ -562,11 +728,12 @@ describe("4. tab RPCs (one number, every tab)", () => {
     expect(k.topProductName).toBe("Oil A - (L)");
     expect(n(k.topProductPct)).toBe(73.9); // 850 / 1150, both before tax
     expect([k.topGroupName, n(k.topGroupPct)]).toEqual(["Transformer Oil", 73.9]);
-    expect(invoicing.topCustomers.map((c) => [c.customerCode, n(c.invoiced), n(c.collected)])).toEqual([
-      ["C1", 1500, 900],
-      ["C2", 300, 100],
-      ["C3", 100, 0],
+    expect(invoicing.topCustomers.map((c) => [c.customerCode, n(c.invoiced)])).toEqual([
+      ["C1", 1500],
+      ["C2", 300],
+      ["C3", 100],
     ]);
+    expect([n(k.grossProfit), n(k.grossMarginPct), n(k.gpCoveragePct)]).toEqual([280, 16.5, 94.7]);
     expect(invoicing.exportLocal.map((x) => [x.name, n(x.value)])).toEqual([
       ["Local", 1500],
       ["Export", 300],
@@ -583,30 +750,51 @@ describe("4. tab RPCs (one number, every tab)", () => {
     expect(pipeline.topClients.map((x) => [x.name, n(x.value)])).toEqual([["Acme (CRM)", 2000], ["Beta Ltd", 1000]]);
     expect(pipeline.lostByReason.map((x) => [x.name, n(x.value), n(x.count)])).toEqual([["Cancelled", 9000, 1], ["Price", 3000, 1]]);
     expect(pipeline.openByStage.map((x) => [x.name, n(x.value), n(x.weighted)])).toEqual([["DISCOVERY", 4000, 400], ["NEGOTIATION", 10000, 5000]]);
+    expect([n(k.generated), n(k.generatedCount), n(k.pendingSapValue), n(k.pendingSapCount)]).toEqual([10000, 1, 1000, 1]);
   });
 
-  it("orders: bookings, book-to-bill and the order book rule", async () => {
+  it("orders: bookings, ratios, and the order book is TODAY whatever the period", async () => {
     const k = orders.kpis;
     expect([n(k.booked), n(k.orderCount), n(k.bookToBill), n(k.prevBookToBill)]).toEqual([3800, 3, 2, 0]);
-    // A period picked: orders placed in May.
-    expect([n(k.orderBookValue), n(k.orderBookOrders), n(k.overdueValue), n(k.unbilledValue)]).toEqual([3000, 2, 2000, 0]);
+    // Last 3 complete months: 4950 booked / 3300 invoiced.
+    expect(n(k.recentBookToBill)).toBe(1.5);
+    expect([n(k.orderBookValue), n(k.orderBookOrders), n(k.overdueValue), n(k.unbilledValue)]).toEqual([3300, 3, 2000, 500]);
     expect(orders.topCustomers.map((c) => [c.customerCode, n(c.value)])).toEqual([["C1", 2800], ["C2", 1000]]);
-    // No period: the whole current backlog.
+    // No period: the same book.
     const all = await rpc("get_sales_orders", E1, null, null);
-    expect([n(all.kpis.orderBookValue), n(all.kpis.orderBookOrders), n(all.kpis.overdueOrders), n(all.kpis.unbilledValue)]).toEqual([3300, 3, 1, 500]);
+    expect([n(all.kpis.orderBookValue), n(all.kpis.overdueOrders), n(all.kpis.unbilledValue), n(all.kpis.openBacklogMonths)])
+      .toEqual([3300, 1, 500, 3]);
   });
 
-  it("collections: rate, payers, and the backlog rule for receivables", async () => {
-    expect(n(collections.kpis.collectionRatePct)).toBe(52.6); // 1000 / 1900
+  it("collections: payers, and receivables are TODAY on Finance's rule", async () => {
+    const k = collections.kpis;
     expect(collections.topPayers.map((p) => [p.customerCode, n(p.value)])).toEqual([
       ["C1", 900],
       ["C2", 100],
     ]);
-    // A period picked: invoices raised in May that are still open.
-    expect(n(collections.kpis.outstanding)).toBe(1000); // 600 + 300 + 100
-    // No period: the whole current backlog, whatever month it was raised in.
+    expect([n(k.outstanding), n(k.overdueValue), n(k.overdueCount), n(k.criticalValue), n(k.overduePct)])
+      .toEqual([1690, 1030, 6, 310, 60.9]);
+    expect(k.collectionRatePct).toBeUndefined(); // retired
+    const ages = collections.overdueByAge.map((a) => [a.name, n(a.value)]);
+    expect(ages).toEqual([
+      ["Not Yet Due", 660],
+      ["1–30 days", 610],
+      ["31–60 days", 100],
+      ["61–90 days", 10],
+      ["90+ days", 310],
+    ]);
+    expect(collections.topOverdue.map((c) => [c.customerCode, n(c.value), n(c.critical)])).toEqual([
+      ["C1", 600, 0],
+      ["C2", 300, 300],
+      ["C3", 130, 10],
+    ]);
+    // DSO wiring: Finance's formula on today's receivables and the last 90 days.
+    const [{ dso }] = await q(`select ar_dso(1690, t.invoiced, t.collected, 90) as dso
+      from sales_totals(null, null, current_date - 89, current_date) t`);
+    expect(n(k.dso)).toBe(n(dso));
+    // No period: identical.
     const all = await rpc("get_sales_collections", E1, null, null);
-    expect(n(all.kpis.outstanding)).toBe(1650);
+    expect(n(all.kpis.outstanding)).toBe(1690);
     expect(all.meta.period.hasPeriod).toBe(false);
   });
 
@@ -616,11 +804,31 @@ describe("4. tab RPCs (one number, every tab)", () => {
     expect(rows.Ali.avatarUrl).toBe("ali.png");
     expect(rows.Unassigned.attainmentPct).toBeNull(); // no budget
     expect(n(rows.Unassigned.invoiced)).toBe(300);
+    // CRM line: Ali won 2000 of 4000 (L2 won, L3 cancelled -> lost), Bob 1000 of 1000.
+    expect([n(rows.Ali.won), n(rows.Ali.targetAttainmentPct), n(rows.Ali.winRatePct)]).toEqual([2000, 50, 50]);
+    expect([n(rows.Bob.won), n(rows.Bob.targetAttainmentPct), n(rows.Bob.winRatePct)]).toEqual([1000, 100, 50]);
+    // TODAY: Ali has 2000 overdue delivery and 700 overdue receivables; Bob 500
+    // delivered-not-invoiced; the 300 critical invoice has no rep.
+    expect([n(rows.Ali.overdueDeliveryValue), n(rows.Ali.overdueValue), n(rows.Ali.criticalValue)]).toEqual([2000, 700, 0]);
+    expect(n(rows.Bob.unbilledValue)).toBe(500);
+    expect(n(rows.Unassigned.criticalValue)).toBe(300);
     expect(team.grossProfitByRep.map((r) => [r.name, n(r.invoiced), n(r.grossProfit)])).toEqual([
       ["Ali", 1100, 200], // invoice 7's outlier GP is unknown, not summed
       ["Bob", 500, 50],
       ["Unassigned", 300, 30],
     ]);
+    // Overdue by Rep adds up to the Collections tile.
+    const overdueSum = team.overdueByRep.reduce((s, r) => s + n(r.overdue), 0);
+    expect(overdueSum).toBe(n(collections.kpis.overdueValue));
+  });
+
+  it("team: a salesperson with no SAP rep still gets a row, and won adds up", async () => {
+    const june = await rpc("get_sales_team", E1, "2025-06-01", "2025-06-30");
+    const cara = june.scorecard.find((r) => r.name === "Cara");
+    expect([n(cara.won), cara.invoiced, cara.salesRepCode]).toEqual([700, null, null]);
+    const [all] = await q("select won from sales_pipeline_totals(null, '2025-06-01', '2025-06-30')");
+    const wonSum = june.scorecard.reduce((s, r) => s + (n(r.won) ?? 0), 0);
+    expect(wonSum).toBe(n(all.won)); // 5000 + 700
   });
 
   it("an empty period returns zeros and nulls, never an error", async () => {
@@ -680,5 +888,55 @@ describe("4. tab RPCs (one number, every tab)", () => {
     const s = await rpc("get_sales_summary", E1, ...MAY, E3);
     expect(s.meta.mappingMissing).toBe(true);
     expect(n(s.kpis.invoiced)).toBe(0);
+  });
+});
+
+describe("5. Meeting Brief storage is exactly as private as the report", () => {
+  // Run as the `authenticated` role so RLS applies (the test superuser
+  // bypasses it), with the stub tables readable as they are in Supabase.
+  const asUser = async (who, sql, params) => {
+    await db.exec(`
+      grant usage on schema public, auth to authenticated;
+      grant select on all tables in schema public to authenticated;
+      grant execute on all functions in schema auth to authenticated;`);
+    return as(who, async () => {
+      await db.exec("set role authenticated");
+      try {
+        return await q(sql, params);
+      } finally {
+        await db.exec("reset role");
+      }
+    });
+  };
+  const insert = (who, owner) =>
+    asUser(
+      who,
+      `insert into sales_report_briefs (period_start, period_end, owner_id, figures, brief_text)
+       values ('2025-05-01', '2025-05-31', $1, '{}', 'brief') returning id`,
+      [owner],
+    );
+
+  it("a manager can write briefs for everyone and for any salesperson", async () => {
+    await insert(E1, null);
+    await insert(E1, E2);
+    await insert(E1, E1);
+    const rows = await asUser(E1, "select owner_id from sales_report_briefs order by owner_id nulls first");
+    expect(rows.map((r) => r.owner_id)).toEqual([null, E1, E2]);
+  });
+
+  it("staff see and write only their own brief", async () => {
+    const rows = await asUser(E2, "select owner_id from sales_report_briefs");
+    expect(rows.map((r) => r.owner_id)).toEqual([E2]);
+    await expect(insert(E2, E1)).rejects.toThrow(/row-level security/);
+    await expect(insert(E2, null)).rejects.toThrow(/row-level security/);
+  });
+
+  it("outside Sales / Management: nothing to read, nothing to write", async () => {
+    expect(await asUser(E4, "select * from sales_report_briefs")).toEqual([]);
+    await expect(insert(E4, null)).rejects.toThrow(/row-level security/);
+  });
+
+  it("one brief per period and salesperson", async () => {
+    await expect(insert(E1, null)).rejects.toThrow(/sales_report_briefs_key/);
   });
 });

@@ -10,16 +10,17 @@
 -- (sales_order_book_facts).
 --
 --   kpis.booked ...     sales_totals (Orders Booked, same as on Summary)
---   kpis.bookToBill     booked / invoiced in the same period: above 1 the
---                       order book is growing, below 1 it is being worked
---                       down. null when nothing was invoiced
---   kpis.orderBook*     sales_order_book_totals -- ACTIONABLE: the whole
---                       current backlog unless a period is picked, then
---                       orders placed in that period
+--   kpis.bookToBill     Order-to-Invoice Ratio: booked / invoiced in the same
+--                       period. Above 1 the order book is growing, below 1 it
+--                       is being worked down. null when nothing was invoiced
+--   kpis.recentBookToBill  the same ratio over the last 3 complete months
+--                       (sales_run_rate) -- IPC's convention, since one
+--                       month of orders is too volatile to read alone
+--   kpis.orderBook*     sales_order_book_totals -- TODAY (R3): the whole open
+--                       backlog, whatever period is picked
 --   kpis.openBacklogMonths  open backlog / average monthly invoiced revenue
---                       over the last 3 COMPLETE months (a recent run rate,
---                       independent of the period picked): how many months
---                       of invoicing the backlog already represents
+--                       over the last 3 complete months: how many months of
+--                       invoicing the backlog already represents
 --   ordersVsInvoiced    monthly booked vs invoiced, trend window
 --   topCustomers        top 10 customers by orders booked in the period
 --
@@ -51,14 +52,10 @@ begin
 
     select * into cur from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.start_date, per.end_date);
     select * into prv from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.prev_start, per.prev_end);
-    select * into ob from public.sales_order_book_totals(sc.sales_rep_code, per.has_period, per.start_date, per.end_date);
+    select * into ob from public.sales_order_book_totals(sc.sales_rep_code);
     select * into ly from public.report_last_year(p_start_date, p_end_date);
     select * into lyt from public.sales_totals(sc.sales_rep_code, sc.owner_id, ly.ly_start, ly.ly_end);
-    -- Recent run rate: the 3 complete months before this one.
-    select * into rr from public.sales_totals(
-        sc.sales_rep_code, sc.owner_id,
-        (date_trunc('month', current_date) - interval '3 months')::date,
-        (date_trunc('month', current_date) - interval '1 day')::date);
+    select * into rr from public.sales_run_rate(sc.sales_rep_code, sc.owner_id);
 
     return json_build_object(
         'meta', public.sales_report_meta(p_start_date, p_end_date, sc.sales_rep_code, sc.mapping_missing),
@@ -79,9 +76,10 @@ begin
             'unbilledValue', ob.unbilled_value,
             'unbilledOrders', ob.unbilled_orders,
             'lastYearBooked', lyt.booked,
-            'recentMonthlyInvoiced', round(rr.invoiced / 3, 2),
-            'openBacklogMonths',
-                case when rr.invoiced > 0 then round(ob.open_value / (rr.invoiced / 3), 1) end
+            'recentBookToBill', case when rr.invoiced > 0 then round(rr.booked / rr.invoiced, 2) end,
+            'recentWindow', json_build_object('startDate', rr.window_start, 'endDate', rr.window_end),
+            'recentMonthlyInvoiced', ob.recent_monthly_invoiced,
+            'openBacklogMonths', ob.backlog_months
         ),
 
         'ordersVsInvoiced', (

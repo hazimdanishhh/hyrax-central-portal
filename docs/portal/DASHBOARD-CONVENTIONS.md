@@ -33,6 +33,25 @@ BI/SaaS products almost universally separate reporting surfaces into four altitu
 
 **A 5th shape sits outside this ladder on purpose: the Statement page** (Finance's Cash Flow, Balance Sheet, Income Statement). These are single-page financial statements, not an entity with a List — there's no row-level record to page through, so forcing a List/Overview split onto them would invent a tab with nothing to show. Don't try to retrofit one; a Statement page is a recognized, self-contained shape.
 
+### 1a. Overview or Reports tab? One home per figure (added 2026-10-23)
+
+Splitting a Reports page into tabs (Sales Reports was first) makes some tabs look like a submodule's Overview. They are not the same page, and neither replaces the other. They differ in audience (the team daily vs the manager monthly), in time rule (an Overview's ACTIONABLE backlog narrows to the period; a Reports tab's open balances are always Today, §8 R3), and often in access (Reports may be manager-only while the Overview is what staff see).
+
+Give every figure ONE home, chosen by the question it answers:
+
+- "What do I need to deal with today?" — items to chase, aging, on hold, unassigned → the **Overview** (or the List's KPI strip, §2a).
+- "How did we do in the period, and what is open in total?" → the **Reports tab**. A Reports tab shows an open-balance TOTAL (and links to the list); it never carries the queue itself.
+- A figure on both (e.g. Active Pipeline, Open Backlog, Outstanding) comes from **one shared SQL function**, so the two pages cannot disagree.
+
+**When reviewing an existing Overview** (do it as part of building that department's Reports page, not as a separate cleanup):
+
+| Question | If yes |
+| --- | --- |
+| Does it hold content people **act on** daily or weekly (overdue, on hold, unassigned, aging)? | Keep it |
+| Do people who cannot open Reports depend on it? | Keep it |
+| Is everything on it also on a Reports tab, at the same detail? | Remove it; link to the tab |
+| Does it fail §2's test (no recurring KPIs of its own, or a stub list)? | Remove it; keep only the List's strip (§2a) |
+
 ---
 
 ## 2. When a submodule earns its own Overview + List
@@ -213,6 +232,8 @@ Every KPI belongs to exactly one family; a single tile's sub-metrics can legally
 
 Both families respect every non-date filter (department, employee, entity, location, etc.) with no exception; only the date dimension differs between them.
 
+**On a Tier-3 Reports page the ACTIONABLE family is always Today (added 2026-10-23, §8 R3).** "Originated within the selected period" answers a different question from "what is open", and on a report that always has a period it silently replaced the total (Sales' Open Backlog (Months) shrank to nonsense the moment a past month was picked). Reports show open balances as of today, labelled "Today", with no comparison; Overviews and Lists keep the rule above.
+
 **Deciding which family a metric belongs to:** ask whether the number describes something that already happened in a period ("60 absences in August" — REGULAR), or something still open right now regardless of when it originated ("14 approvals still pending" — ACTIONABLE). A metric that could be framed either way is ACTIONABLE if the practical daily question is "what do I need to clear today" — the common case for anything HR/ops needs to action.
 
 ### Picking the REGULAR family's default period
@@ -333,6 +354,42 @@ Distinct from §4's KPI-tile `getStatusVariant` (which colors `OverviewCards` ti
 - **`getBalanceTone(balance)`** — green at zero, red otherwise. For figures that should simply be zero (Outstanding, Unallocated) — no meaningful partial state, so binary is correct here, not a missing tier.
 - **`getMarginTone(profit, total)`** — for Gross Profit specifically. `blue` when the figure is null or fails the existing "implausible GP" guard (`abs(gp) > abs(total) * 5`, the same SAP master-data-defect guard used everywhere else GP is shown/summed — see §3's watch-outs) — a "no reliable figure" state must never render as if it were evaluated. Otherwise: `green` at/above a **15% gross-margin threshold**, `yellow` for a thin-but-positive margin, `red` for a loss. **15% is deliberately below the ~50%+ "healthy margin" figure often quoted as a general rule of thumb** — oil & gas trading/distribution (this company's actual business) is a structurally thin-margin industry (commodity pricing, pass-through costs, heavy competition), commonly benchmarked in the 10-20% gross-margin range, not retail/software/manufacturing's much higher bands. Like §4's own documented thresholds, this is a documented estimate, tunable in `documentFigureTone.js` if Finance sets a different internal target.
 - A figure with no natural "good/bad" reading (Total/Order, Expected Revenue) stays uncolored — coloring every number regardless of whether it has a real polarity would dilute the ones that do.
+
+## 8. Reports storyline rules R1–R12 (added 2026-10-23)
+
+The standard every Tier-3 Reports page is built and reviewed against. Written after Sales Reports was restructured several times, each pass argued from a code review instead of a fixed standard — so a change to a report now has to cite a rule here, and a rule changes only with new evidence (sources: `DASHBOARD-DESIGN-RESEARCH.md` §11). Reference implementation: Sales Reports (`src/pages/user/sales/reports/tabs/`, `reportFormat.js`), frozen as the end state in `docs/sales/SALES-REPORTS-TABS-PLAN.md`.
+
+| # | Rule | Source |
+| --- | --- | --- |
+| R1 | **Answer first.** The first tab (Summary) is the overview layer; every tab opens with its headline tiles; detail and list pages come last. | Shneiderman; Minto |
+| R2 | **Same four sections on every stage tab, in this order:** KPIs → Trend → Open Position (Today) → Breakdown. In the KPI row, period figures sit left and the Today tile sits rightmost. A stage that holds no open stock skips Open Position. | IBCS (same content, same place); monthly-review structure |
+| R3 | **Period figures vs open balances.** A period figure (orders, invoices, payments, won deals) follows the period. An open balance (pipeline, backlog, receivables) is always Today — labelled "Today" (`todayTile()`), never narrowed to the period, with no previous-period or last-year comparison. | Kimball (snapshots are not additive over time); §4b |
+| R4 | **Every headline period amount** (the money measures of the flow — Sales: Pipeline Generated, Pipeline Won, Sales Orders, Invoiced Revenue, Payments Collected, Gross Margin) shows vs plan (% + colour, when a plan exists), vs the previous period (arrow), and Same Period Last Year (sub-metric). Ratio tiles (win rate, order-to-invoice) show the previous period, in points or ×, not %. Share-of-total tiles (concentration) need none. | IBCS actual / plan / previous year; management pack |
+| R5 | **Colour.** One fixed colour per measure on every tab (`MEASURE_COLORS` in `chartColors.js`); plans are dashed grey lines; green/amber/red only as a status or variance verdict; red as money colour only for lost / overdue. | IBCS (patterns for scenarios, colour to highlight) |
+| R6 | **Chart types.** Time on the horizontal axis (lines/columns); categories as horizontal bars, largest first (ordinal scales like aging keep their order); a pie only for 2–5 parts of a whole, labelled with %. | IBCS time vs structure; pie guidance |
+| R7 | **A variance gets a bridge** (waterfall: plan → drivers → actual, `BridgeChartRenderer`). | IBCS; executive-dashboard practice |
+| R8 | **Year view:** fiscal year to date vs budget, plus the full-year outlook (actual + forecast) vs budget. | Management pack columns |
+| R9 | **Every tile and chart states its window** (§4b/§4c) — the period, "Today", "FY to date", "Company-wide", "last 10 fiscal years". | §4b, §4c |
+| R10 | **Never put figures side by side that follow different filters.** A company-wide figure is hidden (with a note) when a narrower filter is picked. | Research doc §3 |
+| R11 | **Tile limits:** 4 per row (the grid width), at most 4 sub-metrics each, no figure shown twice in one row (§4a). | KPI-count studies; §4a |
+| R12 | **Order follows the business flow**, leading indicators before lagging (Sales: Pipeline → Orders → Invoicing → Collections). | Leading / lagging indicator practice |
+
+**Also binding on every Reports page:**
+
+- **One definition per measure** in SQL — facts views (Layer 1) → shared functions (Layer 2) → thin tab RPCs (Layer 3), with a PGlite test that the same figure is identical on every tab (`tests/sql/sales_metrics.test.js` is the template).
+- **Status thresholds live once** (`reportFormat.js`'s `*_THRESHOLDS`) and drive tile colours, scorecard colours and check-in flags alike: a person is flagged exactly when the same figure on a tile would read Critical.
+- **A gated measure ships only after its data check** (Sales' Gross Margin: `GROSS_MARGIN_RELEASED` + `supabase/diagnostics/sales_gross_profit_coverage.sql`).
+- **AI text is labelled, dated, kept with the figures it was written from, and exactly as private as the report** (design: Sales' Meeting Brief — `sales_report_briefs`, RLS on `can_view_sales_reports()`, caller's token, no service role; built but parked, to become a reusable `report_briefs`, see `DASHBOARD-ROADMAP.md` §2.1).
+
+**Review checklist** (walk it per tab before calling a report done):
+
+1. Does the tab open with its headline tiles, in R2's section order?
+2. Is every tile's window stated, and every open balance a `todayTile`?
+3. Does every headline period amount have plan / previous / last year, and every ratio its previous period (R4)?
+4. Does each measure use its `MEASURE_COLORS` colour, plans dashed grey?
+5. Is any figure in a row a duplicate of a neighbour, or filtered differently from it?
+6. Does every tile and chart link to the list page with the same filters?
+7. Does the SQL test prove the tab's figures equal the same figures elsewhere?
 
 ---
 

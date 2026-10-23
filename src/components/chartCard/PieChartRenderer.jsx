@@ -22,20 +22,6 @@ function getColorByKey(key, colors) {
   return colors[Math.abs(hash % colors.length)];
 }
 
-function getPieColor(entry, mode, colorMap, colors) {
-  if (mode === "semantic") {
-    return colorMap[entry.name] || "#696969";
-  }
-
-  let hash = 0;
-
-  for (let i = 0; i < entry.name.length; i++) {
-    hash = entry.name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  return colors[Math.abs(hash % colors.length)];
-}
-
 // Opens a chart click-through in a new tab (2026-09-25) -- see the identical
 // helper in HorizontalBarChartRenderer.jsx for the full rationale (one
 // change here/there/LineChartRenderer.jsx updates every chart using these

@@ -1,9 +1,11 @@
 # Sales Reports: tabs and metric layer, plan
 
-Status: **steps 1-4 BUILT, step 5 pending reconciliation** (2026-10-22, branch
-`feat/sales-reports-tabs`). See §8 for what was built and what is left.
+Status: **FINAL END STATE BUILT** (2026-10-23, branch
+`feat/sales-reports-final`) — see **§9, the frozen spec**. Changes to Sales
+Reports from here must cite a rule in `docs/portal/DASHBOARD-CONVENTIONS.md`
+§8. Step 5 (removing the legacy page) is still deferred, by decision.
 Supersedes the single-page layout of `Reports.jsx` and the single
-`get_sales_reports_dashboard` RPC once every step below is done.
+`get_sales_reports_dashboard` RPC.
 
 ## 1. Goals
 
@@ -296,4 +298,72 @@ the starting point.
   - adopt D5 (cancelled WON leads aren't won) by reading `sales_won_lead_facts`.
 - Update `RPC-REFERENCE.md` (replace the `get_sales_reports_dashboard` section) and `table_access_matrix.csv`.
 - Later: Finance's invoice and collection figures read the same fact views.
+
+## 9. Final end state — frozen 2026-10-23
+
+Built against the rules in `docs/portal/DASHBOARD-CONVENTIONS.md` §8 (R1–R12;
+sources in `DASHBOARD-DESIGN-RESEARCH.md` §11). This is the layout Sales
+Reports keeps; the next pages to get this treatment are the other
+departments' reports. Decisions taken for this build:
+
+- **Open balances are Today** (R3): Open Backlog, Outstanding, Overdue,
+  Active Pipeline, Pending SAP Order Entry. Never narrowed to the period, no
+  comparison. Before this, a picked period narrowed Open Backlog and
+  Outstanding, and Open Backlog (Months) became meaningless.
+- **Outstanding / Overdue use Finance's rule** (open in SAP, balance over
+  RM0.01; overdue past due date; critical 90+ days): Sales' Outstanding now
+  equals Finance → Invoices for the same rep. Sales' figure drops by the
+  invoices that are closed in SAP but still show a balance.
+- **Collection Rate retired** (D3 closed): aging, Overdue and DSO
+  (Finance's formula, shared as `ar_dso`, trailing 90 days) replace it, and
+  Top Customers on Invoicing no longer shows same-period payments.
+- **Gross Margin is gated** on `supabase/diagnostics/sales_gross_profit_coverage.sql`
+  (95%+ of Invoiced Revenue with a known GP over 12 months). Until it passes,
+  `GROSS_MARGIN_RELEASED` in `reportFormat.js` stays `false` and Gross Margin
+  and Gross Profit by Rep stay hidden. Basis: GP ÷ revenue before tax
+  (VatSum and GrosProfit are both MYR at Hyrax).
+- **AI Meeting Brief: built, then PARKED (not deployed, not rendered).**
+  Code kept: `sales_report_briefs.sql` (not run), the
+  `generate-sales-meeting-brief` edge function (not deployed),
+  `MeetingBrief.jsx` + `fetchMeetingBrief.js` / `useMeetingBrief.js`
+  (commented out of Summary). Before turning it on: make it reusable for
+  every report (one `report_briefs` table keyed by report type; per report,
+  the RPCs it reads, a figures builder and an access check) and feed it all
+  six tabs' figures, not just the four headline RPCs. The secure design
+  carries over: caller's token, RLS, figures stored with the brief. The old
+  `generate-ai-summary` / `ai_dashboard_summaries` (Leads Overview) is
+  untouched; its problems are logged in DASHBOARD-ROADMAP.
+- **The legacy page stays** for now (step 5 still deferred).
+
+| Tab | Sections, top to bottom (tiles [sub-metrics] · charts) |
+| --- | --- |
+| **Summary** | (**Meeting Brief** — parked, see above) · **Sales KPIs**: Pipeline Won · Sales Orders · Invoiced Revenue · Payments Collected · **Fiscal Year Progress**: Invoiced Revenue — FY to Date · Monthly Invoicing Needed · Projected Invoiced Revenue — FY [Not yet closed · 80% range] · This Month / selected month (both projections company-wide, hidden with a salesperson) · chart Cumulative Invoiced Revenue vs Budget · **Budget Variance**: Where the Budget Gap Came From (waterfall; hidden with a salesperson) · **Open Position (Today)**: Active Pipeline [Weighted · Pipeline Coverage] · Open Backlog [Orders · Open Backlog (Months)] · Outstanding Invoices [Overdue · Critically Overdue] · **Order-to-Cash — Year over Year** (Pipeline Won from the CRM's first FY) |
+| **Pipeline** | **KPIs**: Pipeline Generated [Leads Created · SPLY] · Pipeline Won [Target · Avg. Deal Size · SPLY] · Win Rate [Won Leads · Total Lost Deals · Lost Revenue · Pipeline Cycle] · Active Pipeline — Today [Weighted · Active Leads · Pipeline Coverage] · **Trend**: Pipeline Won vs Target · **Active Pipeline (Today)**: Pending SAP Order Entry · Active Pipeline by Stage · **Breakdown**: by Product Type · by Lead Source · Top Clients · Lost Revenue by Reason |
+| **Orders** | **KPIs**: Sales Orders [Order Count · Avg Order Value · Customers Ordering · SPLY] · Order-to-Invoice Ratio [Invoiced Revenue · Last 3 Months] · Open Backlog — Today [Orders · Open Backlog (Months)] · **Trend**: Sales Orders vs Invoiced Revenue · **Open Backlog (Today)**: Overdue Delivery · Delivered, Not Invoiced · **Breakdown**: Top Customers by Sales Orders |
+| **Invoicing** | **KPIs**: Invoiced Revenue [Budget · Count · Avg · SPLY] · Gross Margin [Gross Profit · known-for % · SPLY] (gated) · Customer Concentration · Product Concentration · **Trend**: Invoiced Revenue vs Budget · **Breakdown**: Top Customers · Export / Local · Top Products · Product Groups (no Open Position: invoicing holds no stock) |
+| **Collections** | **KPIs**: Payments Collected [Payments · Customers Paying · SPLY] · Outstanding Invoices — Today [Invoices · Customers · DSO] · Overdue — Today [Overdue Invoices · Critically Overdue] · **Trend**: Invoiced Revenue vs Payments Collected · **Receivables (Today)**: Overdue by Age · Top Overdue Invoices by Customer · **Breakdown**: Top Customers by Payments Collected |
+| **Team** | **Rep Funnel Scorecard** (`RepFunnelScorecard.jsx`): per salesperson Pipeline Won vs Target + Win Rate → Sales Orders → Invoiced Revenue vs Budget → Payments Collected, today's open balances, flags (Below Pipeline Target, Below Budget, Delivered Not Invoiced, Critically Overdue) · **Rep Breakdown**: Invoiced Revenue & Gross Profit by Rep (gated) · Overdue by Rep |
+| **Forecast** | unchanged: Projected Invoiced Revenue (tiles + fan chart) · Forecast Model Detail |
+
+**New in the metric layer**: facts — `sales_receivable_facts` (Finance rule,
+`due_date`, `days_past_due`), `sales_lead_facts` (`po_number`,
+`pending_sap_order`), `sales_invoice_facts.invoiced_before_tax_myr`;
+functions — `can_view_sales_reports`, `sales_owner_totals`,
+`sales_pipeline_coverage`, `sales_run_rate`, `ar_dso`,
+`sales_receivable_totals`, `sales_gross_margin`; changed —
+`sales_pipeline_totals` (+ generated, pending SAP), `sales_order_book_totals`
+(Today only, + backlog months). Tests: 66 SQL (incl. the briefs' RLS), 29 unit.
+
+**R1–R12 walked per tab, 2026-10-23:** all pass. Fixed during the walk:
+two R11 duplicates (Won Leads on both Pipeline Won and Win Rate; Sales
+Orders repeated on the Order-to-Invoice tile). R4 clarified to "headline
+period amounts" (ratios compare with the previous period only, in points or
+×; shares need no comparison). Not a stage tab, so R2 doesn't apply to Team
+or Forecast; Invoicing has no Open Position by R2's own exception.
+
+**Supabase run order for this build**: `sales_metric_facts_views.sql` →
+`sales_metric_functions.sql` → the six `get_sales_*_rpc.sql` → run the
+gross-profit diagnostic and set `GROSS_MARGIN_RELEASED`. (Not now:
+`sales_report_briefs.sql` and the `generate-sales-meeting-brief` deploy —
+parked with the Meeting Brief.)
 

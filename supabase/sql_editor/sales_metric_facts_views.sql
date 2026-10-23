@@ -62,7 +62,14 @@ select
     case
         when i.total_amount <> 0 then i.total_amount_myr / i.total_amount
         else 1
-    end as doc_myr_ratio
+    end as doc_myr_ratio,
+    -- Invoiced revenue BEFORE tax: the base Gross Margin divides by, since
+    -- SAP's GrosProfit is net of tax. VatSum (tax_amount) and GrosProfit are
+    -- both in SAP's local currency, which at Hyrax IS MYR (local = system
+    -- currency, confirmed in hyrax-data-platform/docs/data-dictionary.md), so
+    -- the subtraction mixes no currencies. Appended last: CREATE OR REPLACE
+    -- VIEW can only add columns at the end.
+    i.total_amount_myr - coalesce(i.tax_amount, 0) as invoiced_before_tax_myr
 from public.sap_invoices i
 left join public.sap_customers sc on sc.customer_code = i.customer_code
 where i.is_cancelled = 'N';
@@ -148,10 +155,18 @@ where p.is_cancelled = 'N'
   and i.is_cancelled = 'N';
 
 
--- ─── Receivables (current backlog, not period-bound) ────────────────────────
--- One row per non-cancelled invoice still owing more than RM0.01 right now.
+-- ─── Receivables (open balances, as of TODAY) ───────────────────────────────
+-- One row per invoice still owed right now, by FINANCE's rule
+-- (get_invoices_overview_rpc.sql, the Finance -> Invoices page): not
+-- cancelled, still open in SAP (status O), and owing more than RM0.01. Until
+-- 2026-10-23 Sales dropped the status check, so its Outstanding could
+-- disagree with Finance's for the same rep; one rule now.
 -- outstanding_balance comes from sap_invoices_with_balance, which accounts for
 -- payments applied at any time since the invoice was raised.
+--
+-- days_past_due  today - due date (<= 0 not yet due; null with no due date).
+--                Finance's thresholds read it: overdue > 0, critically
+--                overdue > 90, aging buckets 1-30 / 31-60 / 61-90 / 90+.
 create or replace view public.sales_receivable_facts
 with (security_invoker = on) as
 select
@@ -160,10 +175,13 @@ select
     b.customer_code,
     coalesce(sc.customer_name, b.customer_name) as customer_name,
     b.sales_rep_code,
-    b.outstanding_balance as outstanding_myr
+    b.outstanding_balance as outstanding_myr,
+    nullif(b.due_date, '')::date as due_date,
+    current_date - nullif(b.due_date, '')::date as days_past_due
 from public.sap_invoices_with_balance b
 left join public.sap_customers sc on sc.customer_code = b.customer_code
 where b.is_cancelled = 'N'
+  and b.status_code = 'O'
   and b.outstanding_balance > 0.01;
 
 
@@ -191,6 +209,16 @@ where b.is_cancelled = 'N'
 -- expected_myr / close_probability: what an OPEN deal is expected to bring
 -- and how likely (the open pipeline and its weighted value). won_myr: what a
 -- won deal actually brought (null unless won).
+--
+-- pending_sap_order (2026-10-23): a won lead whose PO number no SAP sales
+-- order carries yet (sap_sales_orders.customer_ref = po_number) -- the
+-- sales admin still has to enter it. The SAME test as
+-- sales_leads_with_closed_date.pending_sap_order (Leads list / Leads
+-- Overview), restated rather than read from that view: hyrax-data-platform
+-- drops and recreates that view, which a dependent view would block. One
+-- difference, on purpose: only WON-and-not-cancelled leads count, matching
+-- this layer's Won; the report links to the list with cancelled=false so
+-- the list shows the same leads.
 create or replace view public.sales_lead_facts
 with (security_invoker = on) as
 with closing as (
@@ -229,7 +257,17 @@ select
     end as lost_reason,
     sl.expected_revenue as expected_myr,
     sl.close_probability,
-    case when sl.outcome = 'won' then sl.actual_revenue end as won_myr
+    case when sl.outcome = 'won' then sl.actual_revenue end as won_myr,
+    -- appended last (CREATE OR REPLACE VIEW adds columns only at the end)
+    sl.po_number,
+    coalesce(
+        sl.outcome = 'won'
+        and sl.po_number is not null
+        and not exists (
+            select 1 from public.sap_sales_orders sso
+            where sso.customer_ref = sl.po_number
+        ),
+        false) as pending_sap_order
 from classified sl
 left join closing c on c.lead_id = sl.id
 left join public.clients cl on cl.id = sl.client_id

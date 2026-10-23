@@ -1,11 +1,15 @@
 // src/pages/user/sales/reports/tabs/SummaryTab.jsx
 
-import { useOutletContext } from "react-router-dom";
+import { Link, useLocation, useOutletContext } from "react-router-dom";
 import {
   CalendarCheckIcon,
   ChartLineUpIcon,
   FileTextIcon,
+  FunnelIcon,
   GaugeIcon,
+  GlobeHemisphereEastIcon,
+  HourglassMediumIcon,
+  PackageIcon,
   ReceiptIcon,
   ScalesIcon,
   SpeedometerIcon,
@@ -16,14 +20,9 @@ import OverviewCards from "../../../../../components/crud/overviewCards/Overview
 import ChartCard from "../../../../../components/chartCard/ChartCard";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import LineChartRenderer from "../../../../../components/chartCard/LineChartRenderer";
-import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
+import BridgeChartRenderer from "../../../../../components/chartCard/BridgeChartRenderer";
 import VerticalMultiBarRenderer from "../../../../../components/chartCard/VerticalMultiBarRenderer";
-import {
-  BLUE_COLOR,
-  GREEN_COLOR,
-  PURPLE_COLOR,
-  YELLOW_COLOR,
-} from "../../../../../components/chartCard/chartColors";
+import { MEASURE_COLORS } from "../../../../../components/chartCard/chartColors";
 import { preciseCurrency } from "../../../../../functions/formatNumber";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
 import {
@@ -34,75 +33,103 @@ import {
 } from "../../../../../functions/periodRange";
 import { useSalesReportTab } from "../../../../../features/sales/reports/private/hooks/useSalesReportTab";
 import { useSalesProjections } from "../../../../../features/sales/reports/private/hooks/useSalesProjections";
-import { getSalesProjectionsConfig } from "../config/projectionConfig";
+import {
+  buildSelectedMonthTile,
+  buildThisMonthTile,
+  buildYearTile,
+} from "../config/projectionConfig";
+// PARKED 2026-10-23 -- the AI Meeting Brief is built but NOT deployed or
+// used (see MeetingBrief.jsx). Re-enable this import and the section below
+// together.
+// import MeetingBrief from "./MeetingBrief";
 import ReportSection from "./ReportSection";
 import TabState from "./TabState";
 import {
+  BUDGET_THRESHOLDS,
+  TARGET_THRESHOLDS,
+  buildBudgetBridge,
   calcDelta,
   comparedWith,
   deltaText,
+  filtersForLink,
   lastYearMetric,
   pctText,
   repLinkFilter,
-  trendSubtitle,
+  todayTile,
 } from "./reportFormat";
 
 /**
- * SUMMARY -- the meeting's opening page. Data: get_sales_summary (+
- * get_sales_projections for the projected FY tile). Plan:
- * ~/.claude/plans/indexed-riding-pearl.md (storyline order, 2026-10-23).
+ * SUMMARY -- the meeting's opening page (layer 1: answer first). Data:
+ * get_sales_summary, plus get_sales_projections for the projection tiles.
+ * Rules: DASHBOARD-CONVENTIONS §8. Top to bottom:
  *
- *   Sales KPIs               the funnel left to right -- Pipeline Won ->
+ *   (Meeting Brief           the AI summary for this period and salesperson
+ *                            -- PARKED 2026-10-23, built but not deployed or
+ *                            rendered; see MeetingBrief.jsx)
+ *   Sales KPIs               the funnel for the period -- Pipeline Won ->
  *                            Sales Orders -> Invoiced Revenue -> Payments
- *                            Collected -- each opening its own tab, each
- *                            with vs last period and Same Period Last Year
- *   Fiscal Year Progress     where the FY stands and what is still needed;
- *                            the projected FY tile sits in its own row
- *                            because it is company-wide (DASHBOARD-
- *                            CONVENTIONS: a figure that ignores a filter its
- *                            neighbours follow is not their peer)
- *   Budget Variance          the monthly trend vs budget, and the gap by rep
+ *                            Collected -- each opening its own tab
+ *   Fiscal Year Progress     FY to date vs budget, the monthly pace still
+ *                            needed, the full-year outlook (R8), and the
+ *                            cumulative FY-to-date line
+ *   Budget Variance          where the gap to budget came from, by rep (R7)
+ *   Open Position            what is open TODAY: Active Pipeline, Open
+ *                            Backlog, Outstanding Invoices -- each its own
+ *                            tab's figure (R3)
  *   Order-to-Cash YoY        the long view
+ *
+ * Company-wide figures never sit beside a salesperson's (R10): with a
+ * salesperson picked, the projection tiles and the budget bridge (one bar
+ * is no bridge) are replaced by a note.
  */
 export default function SummaryTab() {
   const { filters, period, MappingMissingNote } = useOutletContext();
+  const { search } = useLocation();
   const { data, meta, kpis, isLoading, error } = useSalesReportTab(
     "summary",
     filters,
   );
+  const repPicked = Boolean(filters.owner);
 
-  // The projection tiles follow the fiscal year of the selected period, and
-  // are the Forecast tab's own tiles (projectionConfig.js), so the two tabs
-  // can't disagree. The month tile is the selected month when the period is
-  // a single month; otherwise the forecast's own default month (next month
-  // in the current FY, the last month with data in a closed one) -- the same
-  // month the Forecast tab opens on.
+  // The projection tiles follow the fiscal year of the selected period and
+  // are the Forecast tab's own builders (projectionConfig.js), so the two
+  // tabs can't disagree. Month tile: the month in progress gets This Month
+  // (invoiced so far + the run rate for the days left); any other selected
+  // month gets its own tile; a longer period gets the forecast's default
+  // month -- This Month again while that FY is running.
   const fyStartYear = fiscalYearStartYear(period.startDate);
   const {
     kpis: projectionKpis,
     monthlyData: projectionMonthly,
     defaultExhibitMonth,
   } = useSalesProjections(fyStartYear);
-  const projectionMonthKey =
-    period.mode === "month" ? period.startDate : defaultExhibitMonth;
+  const now = new Date(); // local time: the month in progress here
+  const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const monthKey =
+    period.mode === "month" ? String(period.startDate).slice(0, 7) : null;
   const projectionMonthRow =
     (projectionMonthly ?? []).find(
       (r) =>
-        String(r.periodMonth).slice(0, 7) === String(projectionMonthKey).slice(0, 7),
+        String(r.periodMonth).slice(0, 7) ===
+        String(monthKey ?? defaultExhibitMonth).slice(0, 7),
     ) || null;
-  const [projectionYearTile, projectionMonthTile] = getSalesProjectionsConfig(
-    projectionKpis,
-    projectionMonthRow,
-  );
-  // Company-wide tiles: say so on the tile itself, and open the Forecast tab.
-  const asCompanyWide = (tile, maxMetrics) =>
-    tile && {
-      ...tile,
-      sublabel: [tile.sublabel, "Company-wide"].filter(Boolean).join(" · "),
-      metrics: maxMetrics ? (tile.metrics ?? []).slice(0, maxMetrics) : tile.metrics,
-      to: "../forecast",
-      filter: filtersForLink(filters),
-    };
+  const thisMonthTile =
+    monthKey === null || monthKey === thisMonthKey
+      ? buildThisMonthTile(projectionKpis)
+      : null;
+  const projectionTiles = repPicked
+    ? []
+    : [
+        buildYearTile(projectionKpis, { compact: true }),
+        thisMonthTile ?? buildSelectedMonthTile(projectionKpis, projectionMonthRow),
+      ]
+        .filter(Boolean)
+        .map((tile) => ({
+          ...tile,
+          sublabel: [tile.sublabel, "Company-wide"].filter(Boolean).join(" · "),
+          to: "../forecast",
+          filter: filtersForLink(filters),
+        }));
 
   const against = comparedWith(meta, period);
   // Each tile opens its stage's tab, keeping the period and salesperson; the
@@ -113,11 +140,11 @@ export default function SummaryTab() {
 
   const budgetStatus = getStatusVariant(kpis.budgetAttainmentPct ?? null, {
     direction: "high-good",
-    thresholds: { warningAt: 70, goodAt: 95 },
+    thresholds: BUDGET_THRESHOLDS,
   });
   const targetStatus = getStatusVariant(kpis.targetAttainmentPct ?? null, {
     direction: "high-good",
-    thresholds: { warningAt: 60, goodAt: 90 },
+    thresholds: TARGET_THRESHOLDS,
   });
 
   const salesKpis = [
@@ -216,7 +243,7 @@ export default function SummaryTab() {
     : "";
   const fytdStatus = getStatusVariant(fy.fytdAttainmentPct ?? null, {
     direction: "high-good",
-    thresholds: { warningAt: 70, goodAt: 95 },
+    thresholds: BUDGET_THRESHOLDS,
   });
   // On pace when the monthly average so far already covers what is needed.
   // No red tier: needing more than the average is a pace to pick up, not a
@@ -284,18 +311,70 @@ export default function SummaryTab() {
         "Green when the monthly average so far already covers it, amber when it " +
         "needs a faster pace.",
     },
-    // The forecast's full-year tile, trimmed to its first four sub-metrics
-    // (budget, invoiced so far, not yet closed, 80% range), and its
-    // selected-month tile -- both company-wide.
-    asCompanyWide(projectionYearTile, 4),
-    asCompanyWide(projectionMonthTile),
-  ].filter(Boolean);
+    ...projectionTiles,
+  ];
 
-  const revenueVsBudget = shapeTrendRows(
-    data?.revenueVsBudget ?? [],
+  const fyCumulative = shapeTrendRows(
+    data?.fyCumulative ?? [],
     (d) => formatMonthTick(d.period),
     (d) => ({ "Invoiced Revenue": d.invoiced, "Revenue Budget": d.budget }),
   );
+
+  // ── Open Position (today) ───────────────────────────────────────────────
+  const op = data?.openPosition ?? {};
+  const openPositionKpis = [
+    todayTile({
+      icon: FunnelIcon,
+      label: "Active Pipeline",
+      value: preciseCurrency(op.activePipeline),
+      variant: "blueCard",
+      to: "../pipeline",
+      filter: tabFilter,
+      metrics: [
+        { label: "Weighted", value: preciseCurrency(op.weightedPipeline) },
+        {
+          label: "Pipeline Coverage",
+          value: op.pipelineCoverage == null ? "—" : `${op.pipelineCoverage}×`,
+        },
+      ],
+      title:
+        "Expected revenue of every open lead right now; Pipeline Coverage compares it " +
+        "with the Pipeline Target left this fiscal year. Same figures as on Pipeline.",
+    }),
+    todayTile({
+      icon: PackageIcon,
+      label: "Open Backlog",
+      value: preciseCurrency(op.openBacklog),
+      variant: "blueCard",
+      to: "../orders",
+      filter: tabFilter,
+      metrics: [
+        { label: "Orders", value: op.openBacklogOrders ?? 0 },
+        {
+          label: "Open Backlog (Months)",
+          value: op.openBacklogMonths == null ? "—" : `${op.openBacklogMonths}`,
+        },
+      ],
+      title:
+        "Sales orders open in SAP and not fully delivered, right now, and how many " +
+        "months of invoicing that is at the recent pace. Same figures as on Orders.",
+    }),
+    todayTile({
+      icon: HourglassMediumIcon,
+      label: "Outstanding Invoices",
+      value: preciseCurrency(op.outstanding),
+      variant: "blueCard",
+      to: "../collections",
+      filter: tabFilter,
+      metrics: [
+        { label: "Overdue", value: preciseCurrency(op.overdue) },
+        { label: "Critically Overdue (90+ days)", value: preciseCurrency(op.criticallyOverdue) },
+      ],
+      title:
+        "What customers owe right now on invoices open in SAP (Finance's rule), and how " +
+        "much of it is past due. Same figures as on Collections.",
+    }),
+  ];
 
   const yoy = shapeTrendRows(
     data?.orderToCashYoY ?? [],
@@ -310,9 +389,20 @@ export default function SummaryTab() {
 
   const bridge = buildBudgetBridge(data?.budgetBridge ?? []);
 
+  const projectionNote = (
+    <p className="textXXS textLight">
+      <GlobeHemisphereEastIcon size={14} /> The projections are company-wide, so
+      they are hidden while a salesperson is picked —{" "}
+      <Link to={{ pathname: "../forecast", search }}>see Forecast</Link>.
+    </p>
+  );
+
   return (
     <TabState isLoading={isLoading} error={error}>
       <MappingMissingNote meta={meta} />
+
+      {/* PARKED 2026-10-23: AI Meeting Brief, not deployed (see the import above).
+      <MeetingBrief filters={filters} period={period} /> */}
 
       <ReportSection
         icon={ChartLineUpIcon}
@@ -325,44 +415,72 @@ export default function SummaryTab() {
       <ReportSection
         icon={CalendarCheckIcon}
         title="Fiscal Year Progress"
-        description={`${fyLabel} to date against the Revenue Budget, what is still needed, and the projection. Projections are company-wide, not filtered by salesperson.`}
+        description={
+          repPicked
+            ? `${fyLabel} to date against the Revenue Budget, and what is still needed.`
+            : `${fyLabel} to date against the Revenue Budget, what is still needed, and the company-wide projection.`
+        }
       >
         <OverviewCards items={fyProgressKpis} />
+        {repPicked && projectionNote}
+
+        <CardLayout>
+          <ChartCard
+            title="Cumulative Invoiced Revenue vs Budget (RM)"
+            subtitle={[
+              `${fyLabel}, running total by month`,
+              fyCumulative.highlight && `${period.title} shaded`,
+              fyCumulative.hasPartial && "* month to date",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            style="cardGapSmall"
+          >
+            <LineChartRenderer
+              data={fyCumulative.data}
+              highlight={fyCumulative.highlight}
+              lines={[
+                { dataKey: "Invoiced Revenue", color: MEASURE_COLORS.invoicedRevenue },
+                { dataKey: "Revenue Budget", color: MEASURE_COLORS.plan, dashed: true },
+              ]}
+            />
+          </ChartCard>
+        </CardLayout>
       </ReportSection>
 
       <ReportSection
         icon={ScalesIcon}
         title="Budget Variance"
-        description="Invoiced Revenue against Revenue Budget by month, and the gap by rep."
+        description={`${period.title}, from Revenue Budget to Invoiced Revenue: each rep's shortfall, the reps at or above budget, and invoicing with no budget set.`}
       >
-        <CardLayout style="cardLayout2">
-          <ChartCard
-            title="Invoiced Revenue vs Budget (RM)"
-            subtitle={trendSubtitle(meta, period, revenueVsBudget)}
-            style="cardGapSmall"
-          >
-            <LineChartRenderer
-              data={revenueVsBudget.data}
-              highlight={revenueVsBudget.highlight}
-              lines={[
-                { dataKey: "Invoiced Revenue", color: BLUE_COLOR },
-                { dataKey: "Revenue Budget", color: YELLOW_COLOR },
-              ]}
-            />
-          </ChartCard>
+        {repPicked ? (
+          <p className="textXXS textLight">
+            The budget bridge compares reps, so it is hidden while one salesperson is
+            picked. Their budget gap is on the Invoiced Revenue tile above.
+          </p>
+        ) : (
+          <CardLayout>
+            <ChartCard
+              title="Where the Budget Gap Came From (RM)"
+              subtitle={`Revenue Budget → each rep's shortfall → Invoiced Revenue, ${period.title}`}
+              style="cardGapSmall"
+            >
+              {bridge.length > 0 ? (
+                <BridgeChartRenderer data={bridge} endColor={MEASURE_COLORS.invoicedRevenue} />
+              ) : (
+                <NoResult title="No budget or invoicing for this period." />
+              )}
+            </ChartCard>
+          </CardLayout>
+        )}
+      </ReportSection>
 
-          <ChartCard
-            title="Where the Budget Gap Came From (RM)"
-            subtitle={`Revenue Budget → each rep's shortfall → Invoiced Revenue, ${period.title}`}
-            style="cardGapSmall"
-          >
-            {bridge.length > 0 ? (
-              <HorizontalBarChartRenderer data={bridge} colorMap={BLUE_COLOR} />
-            ) : (
-              <NoResult title="No budget or invoicing for this period." />
-            )}
-          </ChartCard>
-        </CardLayout>
+      <ReportSection
+        icon={HourglassMediumIcon}
+        title="Open Position"
+        description="Today, whatever period is picked: the open pipeline, the open order backlog, and what customers still owe. Each tile opens its tab."
+      >
+        <OverviewCards items={openPositionKpis} />
       </ReportSection>
 
       <ReportSection
@@ -375,6 +493,7 @@ export default function SummaryTab() {
             title="Order-to-Cash — Year over Year (RM)"
             subtitle={[
               "Last 10 fiscal years, not affected by the period",
+              "Pipeline Won from the year the CRM started",
               yoy.highlight && "selected fiscal year shaded",
               yoy.hasPartial && "* year to date",
             ]
@@ -386,14 +505,10 @@ export default function SummaryTab() {
               data={yoy.data}
               highlight={yoy.highlight}
               bars={[
-                { dataKey: "won", name: "Pipeline Won", color: BLUE_COLOR },
-                { dataKey: "booked", name: "Sales Orders", color: YELLOW_COLOR },
-                { dataKey: "invoiced", name: "Invoiced Revenue", color: GREEN_COLOR },
-                {
-                  dataKey: "collected",
-                  name: "Payments Collected",
-                  color: PURPLE_COLOR,
-                },
+                { dataKey: "won", name: "Pipeline Won", color: MEASURE_COLORS.pipelineWon },
+                { dataKey: "booked", name: "Sales Orders", color: MEASURE_COLORS.salesOrders },
+                { dataKey: "invoiced", name: "Invoiced Revenue", color: MEASURE_COLORS.invoicedRevenue },
+                { dataKey: "collected", name: "Payments Collected", color: MEASURE_COLORS.paymentsCollected },
               ]}
             />
           </ChartCard>
@@ -401,55 +516,4 @@ export default function SummaryTab() {
       </ReportSection>
     </TabState>
   );
-}
-
-function filtersForLink(filters) {
-  return Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
-}
-
-/**
- * The budget bridge: Revenue Budget -> each rep's shortfall (worst first) ->
- * reps at or above budget -> invoiced with no budget set -> Invoiced Revenue.
- * Reps without a budget row are kept OUT of the variances: their whole
- * invoiced amount would otherwise read as overperformance -- they are a
- * missing-budget problem, shown on their own bar. Rows come from
- * sales_rep_totals, so the end bar equals the Invoiced Revenue tile.
- */
-function buildBudgetBridge(rows) {
-  const budgeted = rows.filter((r) => (r.budget ?? 0) > 0);
-  const unbudgeted = rows.filter((r) => !((r.budget ?? 0) > 0));
-  if (!budgeted.length && !unbudgeted.length) return [];
-
-  const totalBudget = budgeted.reduce((a, r) => a + r.budget, 0);
-  const variances = budgeted
-    .map((r) => ({ name: r.name, value: (r.invoiced ?? 0) - r.budget }))
-    .sort((a, b) => a.value - b.value);
-  const behind = variances.filter((v) => v.value < 0);
-  const aheadTotal = variances
-    .filter((v) => v.value >= 0)
-    .reduce((a, v) => a + v.value, 0);
-  const unbudgetedTotal = unbudgeted.reduce((a, r) => a + (r.invoiced ?? 0), 0);
-  const invoiced = rows.reduce((a, r) => a + (r.invoiced ?? 0), 0);
-
-  return [
-    { name: "Revenue Budget", value: totalBudget },
-    ...behind,
-    ...(aheadTotal > 0
-      ? [
-          {
-            name: `Reps at or above budget (${variances.length - behind.length})`,
-            value: aheadTotal,
-          },
-        ]
-      : []),
-    ...(unbudgetedTotal > 0
-      ? [
-          {
-            name: `Invoiced with no budget set (${unbudgeted.length})`,
-            value: unbudgetedTotal,
-          },
-        ]
-      : []),
-    { name: "Invoiced Revenue", value: invoiced },
-  ];
 }

@@ -133,6 +133,8 @@ And one that cuts the other way: if a page holds *4 or 5 distinct topics and use
 
 Corroborated from the BI side: [Preset](https://preset.io/blog/bi-dashboard-best-practices/) recommends tabs to avoid overloading one view, [Fresh Consulting](https://www.freshconsulting.com/insights/blog/uiux-principle-21-when-and-when-not-to-use-tabs/) offers the test *"if you would want readers to access each section separately when printed, tabs are a logical choice"*, and [Graphed](https://www.graphed.com/blog/how-to-make-power-bi-page-scrollable) defends top-to-bottom scrolling for a KPI→detail narrative. [One essay](https://medium.com/@pavithraa/why-it-is-okay-to-scroll-d1a4a3d0e589) notes tabs force key metrics to be repeated on every tab.
 
+> **Superseded 2026-10-22/23 — see §11.** Sales Reports moved to tabs. The reasoning below is kept as the record of why it was first rejected.
+
 **What it decided — no tabs, and the reason is specific to this page.** The combine-across-sections test fails outright here:
 
 - the variance bridge in Order-to-Cash Overview explains the Invoiced Revenue tile six sections up;
@@ -159,20 +161,39 @@ Either is solvable by rendering every section off-screen during export, but that
 
 **What it decided.** Keep one scrolling page. Add identity to the sections, and spend the effort on export selection rather than on hiding things.
 
----
+## 11. The final structure — tabs, and twelve rules (2026-10-22/23)
+
+**Why tabs after all (supersedes §9).** The user asked for the report to be split for meetings that walk one funnel stage at a time, and two of §9's objections no longer held. (1) The cross-section reading §9 protected is now built *into* each tab instead of across the page: every stage tab carries its own KPIs, trend, open position and breakdown, and Summary carries the cross-stage story (funnel tiles, FY progress, the bridge, open position) as layer 1 — which also closes §2's gap. (2) §10's export problem dissolved: each tab exports itself (`ExportActions` on the active tab), which is what a meeting pack per stage wants. NN/G's own test — users reading "only a few" of 4–5 distinct topics — fits a stage-by-stage meeting.
+
+**Why the twelve rules (`DASHBOARD-CONVENTIONS.md` §8).** Between 2026-10-22 and 10-23 the tab contents were reorganised several times, each time from a code review. The fix was to write the standard first and derive the layout from it. The sources, and what each decided:
+
+| Source | Finding | Rule it drove |
+| --- | --- | --- |
+| [IBCS — top and bottom 5](https://www.ibcs.com/resource/top-and-bottom-5-of-international-business-communication-standards/), [scenario notation (v1.1 PDF)](https://www.ibcs.com/wp-content/uploads/2021/02/IBCSv1-1_p125-131.pdf), [ISO 24896](https://zebrabi.com/zbi_blog/ibcs-iso-standards/) | Actual solid, plan outlined, forecast hatched, previous year grey — "not different colors, but different patterns"; red/green only for variances; time vs structure decides the chart; use pies with caution; consistent titles | R2, R4, R5, R6, R7 |
+| [Shneiderman 1996](https://webspace.science.uu.nl/~telea001/uploads/VACourse/Shneiderman96.pdf), [Minto pyramid](https://managementconsulted.com/pyramid-principle/) | Overview first; answer first, then support, then data | R1 (Summary first, KPIs first on every tab; an AI Meeting Brief at the top is built but parked) |
+| [Kimball / fact table types](https://en.wikipedia.org/wiki/Fact_table), [Microsoft — dimensional modelling](https://learn.microsoft.com/en-ca/%20fabric/data-warehouse/dimensional-modeling-fact-tables) | Balances are snapshots, semi-additive: summable across entities, never across time | R3 — open balances are Today, never "raised in the period", no previous-period figure |
+| Management-pack column practice ([Phocas](https://docs.phocassoftware.com/budgets-and-forecasts/getting-started/overview-of-key-terms-and-concepts/overview-of-budgets-versus-forecasts), [Fathom](https://fathomhq.com/blog/new-enhanced-actuals-vs-budget-reporting)) | Month / YTD / full-year outlook vs budget | R8 (FY to Date, Monthly Invoicing Needed, projected FY, cumulative chart) |
+| [AR KPIs — HighRadius](https://www.highradius.com/resources/Blog/guide-to-accounts-receivable-reporting-and-analytics/), [Ramp](https://ramp.com/blog/accounts-payable/accounts-receivable-kpis) | Standard AR set is aging buckets + % overdue + a speed measure (DSO); CEI needs opening balances | Collection Rate retired; Overdue, Overdue by Age, DSO (Finance's formula, shared via `ar_dso`) |
+| [Book-to-bill — AccountingTools](https://www.accountingtools.com/articles/book-to-bill-ratio.html), [IPC method](https://www.electronics.org/news-release/north-american-ems-industry-101-percent-january) | Ratio > 1 grows the backlog; IPC reads it over 3 months because one month of orders is too volatile | Order-to-Invoice Ratio + its last-3-months figure (`sales_run_rate`) |
+| [Pipeline coverage — Coefficient](https://coefficient.io/pipeline-coverage), [RevOps metrics](https://resources.rework.com/vi/guides/revops-playbooks/revops-metrics-coverage-accuracy) | Coverage = open pipeline ÷ quota remaining, ~3× typical; win rate on a consistent stage definition | Pipeline Coverage (unweighted, informational), Pipeline Generated |
+| [Leading vs lagging — Basedash](https://www.basedash.com/blog/leading-vs-lagging-indicators-how-to-build-dashboards-that-warn-you-early) | Pair leading inputs with lagging outcomes | R12 |
+| [Pie / donut guidance — Maersk](https://designsystem.maersk.com/guidelines/data-visualisation/chart-types/pie-donut-chart/), [UNHCR](https://dataviz.unhcr.org/chart_gallery/part_to_a_whole.html) | Pies for 2–5 parts of a whole, label directly | Export / Local stays a donut, labelled with %, total in the centre |
+
+**What it did not adopt:** IBCS hatching for forecasts in bar charts (the fan chart already separates actual from forecast), and IBCS's black-and-white palette (the app's measure colours stay; plans and last year follow the pattern half of the standard).
 
 ---
 
 ## What this page still doesn't do
 
-Named so the next restructure argues from evidence.
+Named so the next restructure argues from evidence. Updated 2026-10-23.
 
-1. **No layer-1 overview.** §2. The single largest gap. Note that a section index (§8) is **not** this — a table of contents answers "where is it", not "what should I care about today". Shipping one without a hero would close the navigation gap and leave this one open.
-1b. **The nine sections have no names in code.** §10. They are anonymous `.pdfOverviewSection` divs with their titles hardcoded in JSX, so nothing can enumerate them — not an index, not anchors, not export checkboxes. One list of `{ id, label }` is the prerequisite for all three.
-2. **No page hero.** `DASHBOARD-CONVENTIONS.md` §4 defines one — "the page's one designated headline metric", fixed blue, always filled. Sales Reports has none; `blueCardFill` appears nowhere in its three configs. Finance Reports has one ("Revenue Invoiced").
-3. **IBCS notation is not implemented** — only its placement rules. §3.
-4. **Three concentration tiles ask one question.** Customer, Product and Product Group Concentration are three angles on *how concentrated are we?* — §4a says fold. Not done, because they were deliberately built and the fold deserves its own conversation.
+1. ~~No layer-1 overview.~~ **Closed** by the Summary tab, §11.
+1b. **Sections have no names in code** (§10) — less pressing now each tab has 4–6 sections, but still the prerequisite for a section index or section-selective export.
+2. **No page hero.** Sales' headline tiles all carry a verdict colour (§4: a dynamic tile surrenders hero blue), so none can be the fixed hero. Left as is on purpose.
+3. **IBCS notation is partly implemented**: plans are dashed grey lines and variances have a real bridge (`BridgeChartRenderer`); forecast hatching in bar charts is not done.
+4. ~~Three concentration tiles ask one question.~~ Now two (customer, product — the group is a sub-metric of product).
 5. **Forecast Value Added is measured but unpublished.** We know the blend misses ~30% at one month against seasonal-naive's 49% (positive), and that seasonal-naive **beats** it at h=6 and h=12 (negative). The dashboard implies uniform quality across horizons. Publishing FVA per horizon is the honest fix.
+6. **Definitions travel only in tooltips**, which a shared screen and the PDF don't show. A per-tab definitions block in the export is the fix.
 
 ---
 

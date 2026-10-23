@@ -34,19 +34,20 @@ import TabScroller from "@/components/navigation/tabScroller/TabScroller";
 const FILTER_KEYS = ["startDate", "endDate", "owner"];
 
 /**
- * Sales Reports shell (2026-10-22): the filters every tab shares, the tab
- * bar, and the active tab below. Plan: docs/sales/SALES-REPORTS-TABS-PLAN.md.
+ * Sales Reports shell: the period, the tab bar, the salesperson filter, and
+ * the active tab below. Plan: docs/sales/SALES-REPORTS-TABS-PLAN.md; rules
+ * every tab follows: docs/portal/DASHBOARD-CONVENTIONS.md §8.
  *
  *   Last updated
  *   PeriodSelector                 ?startDate&endDate
+ *   [ Summary | Pipeline | Orders | Invoicing | Collections | Team | Forecast ]
+ *                                  /reports/<tab>
  *   SearchFilterBar (Salesperson, Export)   ?owner
- *   [ Summary | Revenue | Collections | Team | Forecast ]   /reports/<tab>
  *   <active tab>
  *
- * Filters sit ABOVE the tabs because they apply to all of them: switching
- * tab keeps the period and salesperson (tab links carry the query string).
- * Tabs are path segments, not ?tab=, so a tab never ends up in the filters
- * sent to an RPC.
+ * The period and salesperson apply to every tab: switching tab keeps them
+ * (tab links carry the query string). Tabs are path segments, not ?tab=, so
+ * a tab never ends up in the filters sent to an RPC.
  *
  * Each tab fetches its own RPC (useSalesReportTab) -- only the open one
  * runs. Tabs get the shared state through the Outlet context.

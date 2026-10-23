@@ -3,6 +3,7 @@
 import { useOutletContext } from "react-router-dom";
 import {
   ChartLineUpIcon,
+  CoinsIcon,
   PackageIcon,
   ReceiptIcon,
   UsersThreeIcon,
@@ -13,13 +14,12 @@ import ChartCard from "../../../../../components/chartCard/ChartCard";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import LineChartRenderer from "../../../../../components/chartCard/LineChartRenderer";
 import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
-import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
 import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
 import {
   BLUE_COLOR,
   GREEN_COLOR,
-  PURPLE_COLOR,
-  YELLOW_COLOR,
+  GREY_COLOR,
+  MEASURE_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import {
   compactCurrency,
@@ -34,11 +34,15 @@ import { useSalesReportTab } from "../../../../../features/sales/reports/private
 import ReportSection from "./ReportSection";
 import TabState from "./TabState";
 import {
+  BUDGET_THRESHOLDS,
+  GROSS_MARGIN_RELEASED,
   calcDelta,
   comparedWith,
   deltaText,
   lastYearMetric,
+  lastYearRateMetric,
   periodLinkFilter,
+  pointsDeltaText,
   repLinkFilter,
   trendSubtitle,
 } from "./reportFormat";
@@ -46,10 +50,19 @@ import {
 const pctOrDash = (v) => (v === null || v === undefined ? "—" : `${v}%`);
 
 /**
- * INVOICING -- billings: invoiced revenue against budget, and who and what
- * it comes from. Data: get_sales_invoicing. Invoiced Revenue is the same
- * figure as on Summary (same function, same definition); the rest breaks it
- * down. Bookings and the order book are on the Orders tab.
+ * INVOICING -- billings: invoiced revenue against budget, its margin, and
+ * who and what it comes from. Data: get_sales_invoicing. Rules:
+ * DASHBOARD-CONVENTIONS §8.
+ *
+ *   Invoice KPIs        Invoiced Revenue (same figure as Summary), Gross
+ *                       Margin (released by GROSS_MARGIN_RELEASED after the
+ *                       data check), Customer and Product Concentration
+ *   Invoice Trend       Invoiced Revenue vs Revenue Budget, monthly
+ *   Invoice Breakdown   by customer, export/local, product, product group
+ *
+ * No Open Position section (R2): invoicing holds no stock of its own --
+ * what waits to be invoiced is Delivered, Not Invoiced on Orders, what waits
+ * to be paid is Outstanding Invoices on Collections.
  *
  * Product figures are PRODUCT SALES (BEFORE TAX): invoice lines exclude tax,
  * so they are never shown under the same name as Invoiced Revenue (which
@@ -65,7 +78,7 @@ export default function InvoicingTab() {
 
   const budgetStatus = getStatusVariant(kpis.budgetAttainmentPct ?? null, {
     direction: "high-good",
-    thresholds: { warningAt: 70, goodAt: 95 },
+    thresholds: BUDGET_THRESHOLDS,
   });
   const customerStatus = getStatusVariant(kpis.customerTop5Pct ?? null, {
     direction: "low-good",
@@ -108,6 +121,28 @@ export default function InvoicingTab() {
         "A/R invoices in the period, not cancelled, including tax, against the Revenue " +
         "Budget for the same days. Same figure as on Summary. " +
         "Colour: Critical below 70% of budget, Watch 70–94%, On track at 95%+.",
+    },
+    GROSS_MARGIN_RELEASED && {
+      icon: CoinsIcon,
+      label: "Gross Margin",
+      sublabel: period.title,
+      value: pctOrDash(kpis.grossMarginPct),
+      subvalue: pointsDeltaText(kpis.grossMarginPct, kpis.prevGrossMarginPct, against),
+      variant: "blueCard",
+      to: null,
+      metrics: [
+        { label: "Gross Profit", value: preciseCurrency(kpis.grossProfit) },
+        {
+          label: "Gross Profit Known For",
+          value: `${pctOrDash(kpis.gpCoveragePct)} of Invoiced Revenue`,
+        },
+        lastYearRateMetric(meta, kpis.grossMarginPct, kpis.lastYearGrossMarginPct),
+      ],
+      title:
+        "SAP's gross profit ÷ invoiced revenue before tax, over the invoices whose gross " +
+        "profit is known (an implausible SAP figure, over 5× the invoice, is treated as " +
+        "unknown). 'Known for' says how much of Invoiced Revenue that covers. Change is " +
+        "in percentage points. Blue: no margin target is set.",
     },
     {
       icon: UsersThreeIcon,
@@ -159,7 +194,7 @@ export default function InvoicingTab() {
         "Share of product sales (invoice lines, before tax) from the five biggest " +
         "products, and the biggest product group. Colour: Watch at 45%+, Critical at 75%+.",
     },
-  ];
+  ].filter(Boolean);
 
   const invoicedVsBudget = shapeTrendRows(
     data?.invoicedVsBudget ?? [],
@@ -169,8 +204,7 @@ export default function InvoicingTab() {
 
   const topCustomers = (data?.topCustomers ?? []).map((c) => ({
     name: c.name ?? c.customerCode,
-    "Invoiced Revenue": c.invoiced,
-    "Payments Collected": c.collected,
+    value: c.invoiced,
   }));
   const topProducts = (data?.topProducts ?? []).map((p) => ({
     name: p.name,
@@ -209,8 +243,8 @@ export default function InvoicingTab() {
               data={invoicedVsBudget.data}
               highlight={invoicedVsBudget.highlight}
               lines={[
-                { dataKey: "Invoiced Revenue", color: BLUE_COLOR },
-                { dataKey: "Revenue Budget", color: YELLOW_COLOR },
+                { dataKey: "Invoiced Revenue", color: MEASURE_COLORS.invoicedRevenue },
+                { dataKey: "Revenue Budget", color: MEASURE_COLORS.plan, dashed: true },
               ]}
             />
           </ChartCard>
@@ -225,19 +259,13 @@ export default function InvoicingTab() {
         <CardLayout style="cardLayout2">
           <ChartCard
             title="Top Customers by Invoiced Revenue (RM)"
-            subtitle={`Top 10, ${period.title} · with what they paid in the same period`}
+            subtitle={`Top 10, ${period.title}`}
             style="cardGapSmall"
             viewAllTo={access.invoices ? "/app/finance/invoices/list" : undefined}
             viewAllFilter={{ ...repFilter, ...periodFilter }}
           >
             {topCustomers.length ? (
-              <HorizontalMultiBarRenderer
-                data={topCustomers}
-                bars={[
-                  { dataKey: "Invoiced Revenue", name: "Invoiced Revenue", color: YELLOW_COLOR },
-                  { dataKey: "Payments Collected", name: "Payments Collected", color: GREEN_COLOR },
-                ]}
-              />
+              <HorizontalBarChartRenderer data={topCustomers} colorMap={MEASURE_COLORS.invoicedRevenue} />
             ) : (
               <NoResult title="No invoices in this period." />
             )}
@@ -255,7 +283,7 @@ export default function InvoicingTab() {
                 colorMap={{
                   Export: BLUE_COLOR,
                   Local: GREEN_COLOR,
-                  Unspecified: "#9ca3af",
+                  Unspecified: GREY_COLOR,
                 }}
                 centerLabel="total"
                 centerSubLabel="Invoiced Revenue"
@@ -274,7 +302,7 @@ export default function InvoicingTab() {
             style="cardGapSmall"
           >
             {topProducts.length ? (
-              <HorizontalBarChartRenderer data={topProducts} colorMap={GREEN_COLOR} />
+              <HorizontalBarChartRenderer data={topProducts} colorMap={MEASURE_COLORS.invoicedRevenue} />
             ) : (
               <NoResult title="No product sales in this period." />
             )}
@@ -286,7 +314,7 @@ export default function InvoicingTab() {
             style="cardGapSmall"
           >
             {productGroups.length ? (
-              <HorizontalBarChartRenderer data={productGroups} colorMap={PURPLE_COLOR} />
+              <HorizontalBarChartRenderer data={productGroups} colorMap={MEASURE_COLORS.invoicedRevenue} />
             ) : (
               <NoResult title="No product sales in this period." />
             )}

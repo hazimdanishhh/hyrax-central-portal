@@ -45,6 +45,26 @@ export const BLUE_COLOR = "#1abee4";
 
 export const PURPLE_COLOR = "#6763d7";
 
+export const GREY_COLOR = "#9ca3af";
+
+// ONE COLOUR PER MEASURE (2026-10-23, DASHBOARD-CONVENTIONS §8 R5): a
+// measure keeps its colour on every chart of a report, so "the green line"
+// means Invoiced Revenue on every tab. Plans (target, budget) are a dashed
+// grey line -- IBCS: the scenario is shown by pattern, not by a new colour.
+// Red / green as a VERDICT stay reserved for status and variances (tile
+// variants, the budget bridge), so lost and overdue amounts use red as the
+// one "bad money" colour.
+export const MEASURE_COLORS = {
+  pipelineWon: BLUE_COLOR,
+  salesOrders: YELLOW_COLOR,
+  invoicedRevenue: GREEN_COLOR,
+  paymentsCollected: PURPLE_COLOR,
+  grossProfit: "#e178b2",
+  plan: GREY_COLOR,
+  lost: RED_COLOR,
+  overdue: RED_COLOR,
+};
+
 // EMPLOYMENT TYPES
 
 export const EMPLOYMENT_TYPE_COLORS = {

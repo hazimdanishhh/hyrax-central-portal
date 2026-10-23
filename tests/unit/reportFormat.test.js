@@ -2,9 +2,13 @@
 // tabs/reportFormat.js): deltas, the comparison label, Same Period Last Year.
 import { describe, expect, it } from "vitest";
 import {
+  buildBudgetBridge,
   calcDelta,
   comparedWith,
   lastYearMetric,
+  lastYearRateMetric,
+  pointsDeltaText,
+  todayTile,
 } from "../../src/pages/user/sales/reports/tabs/reportFormat";
 import { formatDay } from "../../src/functions/periodRange";
 
@@ -44,5 +48,45 @@ describe("reportFormat", () => {
 
   it("formatDay", () => {
     expect(formatDay("2026-10-23")).toBe("23 Oct 2026");
+  });
+
+  it("rates change in points, never in %", () => {
+    expect(pointsDeltaText(52.5, 50, "last month")).toBe("↑ 2.5 pts vs last month");
+    expect(pointsDeltaText(40, 50, "last month")).toBe("↓ 10 pts vs last month");
+    expect(pointsDeltaText(40, null, "last month")).toBe("");
+    const meta = { lastYearWindow: { startDate: "2025-05-01", endDate: "2025-05-31" } };
+    expect(lastYearRateMetric(meta, 16.5, 15).value).toBe("15% (↑ 1.5 pts)");
+    expect(lastYearRateMetric(meta, 16.5, null).value).toBe("—");
+  });
+
+  it("todayTile: says Today and can never carry a period comparison", () => {
+    const t = todayTile({ label: "Open Backlog", subvalue: "↑ 5% vs last month", delta: "40%" });
+    expect(t.sublabel).toBe("Today");
+    expect(t.subvalue).toBe("");
+    expect(t.delta).toBe("40%"); // a headline share is not a comparison
+    expect(todayTile({ label: "X", sublabel: "Orders" }).sublabel).toBe("Today · Orders");
+  });
+
+  it("budget bridge: steps add up from Revenue Budget to Invoiced Revenue", () => {
+    const rows = [
+      { name: "Ali", invoiced: 1100, budget: 3100 }, // -2000
+      { name: "Bob", invoiced: 900, budget: 620 }, // +280
+      { name: "Cara", invoiced: 400, budget: 500 }, // -100
+      { name: "Unassigned", invoiced: 300, budget: null }, // no budget: own step
+    ];
+    const bridge = buildBudgetBridge(rows);
+    expect(bridge.map((b) => [b.name, b.value, b.kind])).toEqual([
+      ["Revenue Budget", 4220, "start"],
+      ["Ali", -2000, "delta"], // worst first
+      ["Cara", -100, "delta"],
+      ["Reps at or above budget (1)", 280, "delta"],
+      ["Invoiced with no budget set (1)", 300, "delta"],
+      ["Invoiced Revenue", 2700, "end"],
+    ]);
+    const walked = bridge
+      .filter((b) => b.kind === "delta")
+      .reduce((s, b) => s + b.value, bridge[0].value);
+    expect(walked).toBe(bridge.at(-1).value);
+    expect(buildBudgetBridge([])).toEqual([]);
   });
 });

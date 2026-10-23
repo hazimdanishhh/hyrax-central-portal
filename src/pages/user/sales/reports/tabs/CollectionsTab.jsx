@@ -4,8 +4,9 @@ import { useOutletContext } from "react-router-dom";
 import {
   ChartLineUpIcon,
   HourglassMediumIcon,
-  PercentIcon,
+  UsersThreeIcon,
   WalletIcon,
+  WarningCircleIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
@@ -13,9 +14,10 @@ import ChartCard from "../../../../../components/chartCard/ChartCard";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import LineChartRenderer from "../../../../../components/chartCard/LineChartRenderer";
 import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
+import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
 import {
-  GREEN_COLOR,
-  YELLOW_COLOR,
+  GREY_COLOR,
+  MEASURE_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import { preciseCurrency } from "../../../../../functions/formatNumber";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
@@ -27,25 +29,39 @@ import { useSalesReportTab } from "../../../../../features/sales/reports/private
 import ReportSection from "./ReportSection";
 import TabState from "./TabState";
 import {
+  OVERDUE_SHARE_THRESHOLDS,
   calcDelta,
   comparedWith,
   deltaText,
   lastYearMetric,
   pctText,
   periodLinkFilter,
+  repLinkFilter,
+  todayTile,
   trendSubtitle,
 } from "./reportFormat";
 
+const INVOICES_LIST = "/app/finance/invoices/list";
+
 /**
- * COLLECTIONS -- is the cash coming in, and who owes us. Data:
- * get_sales_collections. Payments Collected is the same figure as on
- * Summary.
+ * COLLECTIONS -- is the cash coming in, how much is owed, and how late.
+ * Data: get_sales_collections. Rules: DASHBOARD-CONVENTIONS §8.
  *
- * Outstanding is ACTIONABLE (DASHBOARD-CONVENTIONS §4b): the whole current
- * backlog until a period is picked, then the open balance on invoices raised
- * in that period. Collection Rate is kept with its caveat (decision D3): it
- * divides this period's cash by this period's invoices, and customers on
- * 30-60 day terms pay LATER invoices.
+ *   Payment KPIs        Payments Collected (period) | Outstanding Invoices
+ *                       and Overdue (TODAY)
+ *   Payment Trend       Invoiced Revenue vs Payments Collected, monthly
+ *   Receivables         TODAY: Overdue by Age, Top Overdue Invoices by Customer
+ *   Payment Breakdown   who paid, in the period
+ *
+ * Outstanding and Overdue use FINANCE's open-invoice rule (open in SAP,
+ * balance over RM0.01; overdue = past due date; critically overdue = 90+
+ * days), so they match Finance -> Invoices for the same rep, and link
+ * there with its own filters. They are open balances: always today, never
+ * narrowed to the period, no previous-period comparison (R3).
+ *
+ * Collection Rate was retired (2026-10-23): this period's cash over this
+ * period's invoices isn't a standard measure -- customers on 30-60 day terms
+ * pay earlier invoices. Aging, Overdue and DSO are the standard set.
  */
 export default function CollectionsTab() {
   const { filters, period, access, MappingMissingNote } = useOutletContext();
@@ -53,13 +69,12 @@ export default function CollectionsTab() {
 
   const against = comparedWith(meta, period);
   const periodFilter = periodLinkFilter(meta);
-  const backlogLabel = meta?.period?.hasPeriod
-    ? `Invoices raised ${period.title}`
-    : "Current backlog";
+  const repFilter = repLinkFilter(meta);
+  const invoicesLink = access.invoices ? INVOICES_LIST : null;
 
-  const rateStatus = getStatusVariant(kpis.collectionRatePct ?? null, {
-    direction: "high-good",
-    thresholds: { warningAt: 70, goodAt: 90 },
+  const overdueStatus = getStatusVariant(kpis.overduePct ?? null, {
+    direction: "low-good",
+    thresholds: OVERDUE_SHARE_THRESHOLDS,
   });
 
   const tiles = [
@@ -81,46 +96,53 @@ export default function CollectionsTab() {
         "Payments received in the period and applied to a customer invoice (deposits and " +
         "unapplied payments excluded). Payments counts receipts. Same figure as on Summary.",
     },
-    {
+    todayTile({
       icon: HourglassMediumIcon,
       label: "Outstanding Invoices",
-      sublabel: backlogLabel,
       value: preciseCurrency(kpis.outstanding),
       variant: "blueCard",
-      to: access.invoices ? "/app/finance/invoices/list" : null,
-      filter: {
-        hasBalanceOnly: "true",
-        ...(meta?.period?.hasPeriod ? periodFilter : {}),
-      },
+      to: invoicesLink,
+      filter: { ...repFilter, statusCode: "O", hasBalanceOnly: "true" },
       metrics: [
         { label: "Invoices", value: kpis.outstandingInvoices ?? 0 },
         { label: "Customers", value: kpis.outstandingCustomers ?? 0 },
+        {
+          label: "DSO",
+          value: kpis.dso == null ? "—" : `${kpis.dso} days`,
+          title:
+            "Days Sales Outstanding, Finance's formula: average receivables over the last " +
+            "90 days ÷ invoiced revenue in those days × 90.",
+        },
       ],
       title:
-        "What customers still owe on uncancelled invoices, right now. With no period " +
-        "picked this is the whole backlog, however old; once a period is picked, it is " +
-        "the open balance on invoices raised in that period.",
-    },
-    {
-      icon: PercentIcon,
-      label: "Collection Rate",
-      sublabel: period.title,
-      value: pctText(kpis.collectionRatePct),
-      variant: rateStatus.variant,
-      status: rateStatus.statusIcon
-        ? { icon: rateStatus.statusIcon, label: rateStatus.statusLabel }
+        "What customers owe right now on invoices still open in SAP (Finance's rule, same " +
+        "as Finance → Invoices). An open balance: today's figure whatever period is picked.",
+    }),
+    todayTile({
+      icon: WarningCircleIcon,
+      label: "Overdue",
+      value: preciseCurrency(kpis.overdueValue),
+      delta: pctText(kpis.overduePct),
+      variant: overdueStatus.variant,
+      status: overdueStatus.statusIcon
+        ? { icon: overdueStatus.statusIcon, label: overdueStatus.statusLabel }
         : undefined,
-      to: null,
+      to: invoicesLink,
+      filter: { ...repFilter, overdueOnly: "true" },
       metrics: [
-        { label: "Collected", value: preciseCurrency(kpis.collected) },
-        { label: "Invoiced", value: preciseCurrency(kpis.invoiced) },
+        { label: "Overdue Invoices", value: kpis.overdueCount ?? 0 },
+        {
+          label: "Critically Overdue (90+ days)",
+          value: `${preciseCurrency(kpis.criticalValue)} (${kpis.criticalCount ?? 0})`,
+          to: invoicesLink,
+          filter: { ...repFilter, criticallyOverdueOnly: "true" },
+        },
       ],
       title:
-        "Cash collected in the period ÷ revenue invoiced in the same period. CAVEAT: " +
-        "customers on 30–60 day terms pay earlier invoices, so a healthy month can read " +
-        "below 70% and a slow month above it. Read it as a trend, not a verdict. " +
-        "Colour: Critical below 70%, Watch 70–89%, On track at 90%+.",
-    },
+        "Open invoices past their due date, today (Finance's rule); the % is the share of " +
+        "Outstanding Invoices. Critically Overdue is 90+ days past due. Colour: Watch at " +
+        "30%+ overdue, Critical at 50%+.",
+    }),
   ];
 
   const invoicedVsCollected = shapeTrendRows(
@@ -128,11 +150,18 @@ export default function CollectionsTab() {
     (d) => formatMonthTick(d.period),
     (d) => ({ "Invoiced Revenue": d.invoiced, "Payments Collected": d.collected }),
   );
-  const topPayers = (data?.topPayers ?? []).map((p) => ({
-    name: p.name ?? p.customerCode,
-    value: p.value,
+  // Buckets stay in age order (an ordinal scale, not sorted by size); the
+  // not-yet-due money is not late, so it is grey, not red.
+  const overdueByAge = (data?.overdueByAge ?? []).map((b, i) => ({
+    ...b,
+    color: i === 0 ? GREY_COLOR : MEASURE_COLORS.overdue,
   }));
-  const topOutstanding = (data?.topOutstanding ?? []).map((p) => ({
+  const topOverdue = (data?.topOverdue ?? []).map((c) => ({
+    name: c.name ?? c.customerCode,
+    Overdue: c.value,
+    "Critically Overdue": c.critical,
+  }));
+  const topPayers = (data?.topPayers ?? []).map((p) => ({
     name: p.name ?? p.customerCode,
     value: p.value,
   }));
@@ -144,7 +173,7 @@ export default function CollectionsTab() {
       <ReportSection
         icon={WalletIcon}
         title="Payment KPIs"
-        description={`${period.title}, Payments Collected and the invoices still outstanding.`}
+        description={`${period.title}, Payments Collected; and today, what is owed and how much of it is late.`}
       >
         <OverviewCards items={tiles} />
       </ReportSection>
@@ -164,8 +193,8 @@ export default function CollectionsTab() {
               data={invoicedVsCollected.data}
               highlight={invoicedVsCollected.highlight}
               lines={[
-                { dataKey: "Invoiced Revenue", color: YELLOW_COLOR },
-                { dataKey: "Payments Collected", color: GREEN_COLOR },
+                { dataKey: "Invoiced Revenue", color: MEASURE_COLORS.invoicedRevenue },
+                { dataKey: "Payments Collected", color: MEASURE_COLORS.paymentsCollected },
               ]}
             />
           </ChartCard>
@@ -174,10 +203,52 @@ export default function CollectionsTab() {
 
       <ReportSection
         icon={HourglassMediumIcon}
-        title="Payment Breakdown"
-        description={`${period.title}, the customers paying the most and the largest outstanding invoices.`}
+        title="Receivables"
+        description="Today: Outstanding Invoices by how far past due they are, and the customers with the most overdue."
       >
         <CardLayout style="cardLayout2">
+          <ChartCard
+            title="Overdue by Age (RM)"
+            subtitle="Today · Outstanding Invoices by days past due"
+            style="cardGapSmall"
+            viewAllTo={invoicesLink ?? undefined}
+            viewAllFilter={{ ...repFilter, overdueOnly: "true" }}
+          >
+            {overdueByAge.some((b) => Number(b.value) > 0) ? (
+              <HorizontalBarChartRenderer data={overdueByAge} colorMap={MEASURE_COLORS.overdue} />
+            ) : (
+              <NoResult title="Nothing outstanding." />
+            )}
+          </ChartCard>
+
+          <ChartCard
+            title="Top Overdue Invoices by Customer (RM)"
+            subtitle="Today · top 10, with the critically overdue part (90+ days)"
+            style="cardGapSmall"
+            viewAllTo={invoicesLink ?? undefined}
+            viewAllFilter={{ ...repFilter, overdueOnly: "true" }}
+          >
+            {topOverdue.length ? (
+              <HorizontalMultiBarRenderer
+                data={topOverdue}
+                bars={[
+                  { dataKey: "Overdue", name: "Overdue", color: MEASURE_COLORS.overdue },
+                  { dataKey: "Critically Overdue", name: "Critically Overdue", color: "#8f2f2f" },
+                ]}
+              />
+            ) : (
+              <NoResult title="Nothing overdue." />
+            )}
+          </ChartCard>
+        </CardLayout>
+      </ReportSection>
+
+      <ReportSection
+        icon={UsersThreeIcon}
+        title="Payment Breakdown"
+        description={`${period.title}, the customers who paid the most.`}
+      >
+        <CardLayout>
           <ChartCard
             title="Top Customers by Payments Collected (RM)"
             subtitle={`Top 10, ${period.title}`}
@@ -186,23 +257,9 @@ export default function CollectionsTab() {
             viewAllFilter={{ ...periodFilter }}
           >
             {topPayers.length ? (
-              <HorizontalBarChartRenderer data={topPayers} colorMap={GREEN_COLOR} />
+              <HorizontalBarChartRenderer data={topPayers} colorMap={MEASURE_COLORS.paymentsCollected} />
             ) : (
               <NoResult title="No payments in this period." />
-            )}
-          </ChartCard>
-
-          <ChartCard
-            title="Top Outstanding Invoices by Customer (RM)"
-            subtitle={`Top 10, ${backlogLabel}`}
-            style="cardGapSmall"
-            viewAllTo={access.invoices ? "/app/finance/invoices/list" : undefined}
-            viewAllFilter={{ hasBalanceOnly: "true" }}
-          >
-            {topOutstanding.length ? (
-              <HorizontalBarChartRenderer data={topOutstanding} colorMap="#ef4444" />
-            ) : (
-              <NoResult title="Nothing outstanding." />
             )}
           </ChartCard>
         </CardLayout>

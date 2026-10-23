@@ -10,14 +10,30 @@
 --                            its trend window (not sales-specific: reusable
 --                            by Finance / HR / Operations reports)
 --   prorate_months()         a monthly plan amount spread over any date range
+--   can_view_sales_reports() who may see Sales Reports (SAL / MGM / superadmin)
 --   sales_report_scope()     access guard + salesperson resolution
 --   sales_totals()           the headline totals for one window
 --   sales_monthly_series()   the same measures per month (every trend chart)
 --   sales_rep_totals()       the same measures per sales rep (bridge, scorecard)
---   sales_pipeline_totals()  won / lost / win rate / open pipeline (CRM)
+--   sales_owner_totals()     the CRM measures per lead owner (scorecard)
+--   sales_pipeline_totals()  generated / won / lost / win rate / open pipeline
+--   sales_pipeline_coverage() Active Pipeline vs the target left this FY
+--   sales_run_rate()         the last 3 complete months (recent pace)
 --   sales_order_book_totals() open backlog, overdue, delivered-not-invoiced
+--   ar_dso()                 Days Sales Outstanding (Finance's formula)
+--   sales_receivable_totals() outstanding, overdue, aging, DSO
+--   sales_gross_margin()     gross profit / margin and how much of it is known
 --   sales_fy_progress()      fiscal year to date, FY budget, months left
 --   sales_report_meta()      the meta block every report RPC returns
+--
+-- PERIOD FIGURES vs OPEN BALANCES (2026-10-23, DASHBOARD-CONVENTIONS §8 R3).
+-- A period figure (orders, invoices, payments, won deals in a window) takes
+-- the window. An open balance (Active Pipeline, Pending SAP Order Entry, Open
+-- Backlog, Outstanding, Overdue) is a snapshot of TODAY and takes no window
+-- at all: on a report it is never narrowed to "raised in the period" (that
+-- is a different fact), and it has no previous-period figure (no history of
+-- balances is kept, and approximating one is Conventions §4b's named
+-- anti-pattern).
 --
 -- The three sales_* aggregations read ONLY the Layer 1 fact views, and the
 -- report RPCs call them instead of writing their own SQL. That is what makes
@@ -69,8 +85,9 @@ $$;
 --                          that period's own end
 --   trend_start/end      monthly charts: the period itself if a year or
 --                        longer, else the fiscal year(s) containing it
---   has_period           both dates were given (ACTIONABLE metrics narrow to
---                        the period only then)
+--   has_period           both dates were given (reported in meta; no Sales
+--                        report figure depends on it since 2026-10-23 --
+--                        open balances are always today)
 --   comparison_is_partial  the like-for-like cut above applies
 --
 -- Mirrors src/functions/periodRange.js (the period picker) by construction.
@@ -212,11 +229,32 @@ as $$
 $$;
 
 
+-- ─── can_view_sales_reports ─────────────────────────────────────────────────
+-- Who may see Sales Reports: superadmin, or anyone in SAL / MGM. The one copy
+-- of that rule: sales_report_scope() raises on it, and the RLS policies of
+-- sales_report_briefs (the AI Meeting Brief) use it, so a brief can never be
+-- read by someone who couldn't open the report it summarises.
+create or replace function public.can_view_sales_reports()
+returns boolean
+language sql
+stable
+security invoker
+as $$
+    select coalesce((
+        select r.name = 'superadmin' or d.sub in ('SAL', 'MGM')
+        from public.profiles p
+        join public.roles r on r.id = p.role_id
+        join public.departments d on d.id = p.department_id
+        where p.id = auth.uid()
+    ), false)
+$$;
+
+
 -- ─── sales_report_scope ─────────────────────────────────────────────────────
 -- Access guard + salesperson resolution, called first by every Sales report
 -- RPC (previously copy-pasted into each one).
 --
---   * caller must be superadmin, or in SAL / MGM -- 'Access denied' otherwise;
+--   * caller must pass can_view_sales_reports() -- 'Access denied' otherwise;
 --     several tables behind these reports have no RLS, so this is the gate
 --   * a staff-role caller is forced to their own data, whatever owner was asked
 --   * owner -> SAP rep code via employee_sales_rep_mapping; an owner with no
@@ -233,30 +271,23 @@ security invoker
 as $$
 declare
     v_role text;
-    v_department text;
     v_employee_id uuid;
     v_owner uuid := p_owner_id;
     v_rep bigint;
 begin
-    select r.name, d.sub, e.id
-      into v_role, v_department, v_employee_id
+    select r.name, e.id
+      into v_role, v_employee_id
     from public.profiles p
     join public.roles r on r.id = p.role_id
-    join public.departments d on d.id = p.department_id
     left join public.employees e on e.profile_id = p.id
     where p.id = auth.uid();
 
-    if v_role is null then
+    if v_role is null or not public.can_view_sales_reports() then
         raise exception 'Access denied';
     end if;
 
-    if v_role <> 'superadmin' then
-        if v_department not in ('SAL', 'MGM') then
-            raise exception 'Access denied';
-        end if;
-        if v_role = 'staff' then
-            v_owner := v_employee_id;
-        end if;
+    if v_role = 'staff' then
+        v_owner := v_employee_id;
     end if;
 
     if v_owner is not null then
@@ -534,6 +565,64 @@ as $$
 $$;
 
 
+-- ─── sales_owner_totals ─────────────────────────────────────────────────────
+-- The CRM measures per lead OWNER for one window (2026-10-23): the
+-- scorecard's Pipeline Won vs Pipeline Target and Win Rate line. The same
+-- shape as sales_rep_totals -- one UNION ALL of lead rows and target rows,
+-- grouped once -- so an owner appears if they have either, leads with no
+-- owner land in ONE row with owner_employee_id null, and the rows add up to
+-- sales_pipeline_totals / sales_totals for the same window.
+--   won, won_count       deals won (sales_lead_facts 'won'), closed in window
+--   lost_count           deals lost or cancelled, closed in window
+--   win_rate_pct         won / (won + lost) by count; null with none closed
+--   target               Pipeline Target prorated to the window; null = not set
+create or replace function public.sales_owner_totals(
+    p_owner uuid,
+    p_from date,
+    p_to date
+)
+returns table (
+    owner_employee_id uuid,
+    won numeric,
+    won_count bigint,
+    lost_count bigint,
+    win_rate_pct numeric,
+    target numeric
+)
+language sql
+stable
+security invoker
+as $$
+    with facts as (
+        select f.owner_employee_id,
+               case when f.outcome = 'won' then f.won_myr else 0 end as won,
+               (f.outcome = 'won')::int as is_won,
+               (f.outcome = 'lost')::int as is_lost,
+               null::numeric as tgt
+        from public.sales_lead_facts f
+        where f.outcome in ('won', 'lost')
+          and f.closed_on between p_from and p_to
+          and (p_owner is null or f.owner_employee_id = p_owner)
+        union all
+        select t.lead_owner_id, 0, 0, 0,
+               public.prorate_months(t.target_revenue, t.target_month, p_from, p_to)
+        from public.sales_targets t
+        where date_trunc('month', t.target_month) <= p_to
+          and date_trunc('month', t.target_month) + interval '1 month' > p_from
+          and (p_owner is null or t.lead_owner_id = p_owner)
+    )
+    select
+        x.owner_employee_id,
+        coalesce(sum(x.won), 0),
+        sum(x.is_won),
+        sum(x.is_lost),
+        round(sum(x.is_won)::numeric * 100 / nullif(sum(x.is_won) + sum(x.is_lost), 0), 1),
+        sum(x.tgt)          -- null when the owner has no target row: "not set"
+    from facts x
+    group by x.owner_employee_id
+$$;
+
+
 -- ─── sales_pipeline_totals ──────────────────────────────────────────────────
 -- The CRM pipeline for one window, from sales_lead_facts. Called for the
 -- period and the comparison window, like sales_totals. `won` here equals
@@ -550,6 +639,13 @@ $$;
 --   avg_days_to_won              Pipeline Cycle (2026-10-23): average days
 --                                from a won lead's creation to its close,
 --                                both dates in Malaysia time
+--   generated_value,             Pipeline Generated (2026-10-23): leads
+--   generated_count              CREATED in the window, any outcome, at their
+--                                expected value -- Leads Overview's own rule
+--                                (get_sales_leads_dashboard pipelineGenerated)
+--   pending_sap_value,           Pending SAP Order Entry: won leads whose PO
+--   pending_sap_count            no SAP order carries yet -- TODAY, at their
+--                                won value (Leads Overview values it the same)
 --
 -- Return columns changed on 2026-10-23, and CREATE OR REPLACE cannot change
 -- them, so the old version is dropped first. Nothing stores a dependency on
@@ -572,7 +668,11 @@ returns table (
     open_value numeric,
     weighted_value numeric,
     open_count bigint,
-    avg_days_to_won numeric
+    avg_days_to_won numeric,
+    generated_value numeric,
+    generated_count bigint,
+    pending_sap_value numeric,
+    pending_sap_count bigint
 )
 language sql
 stable
@@ -591,45 +691,247 @@ as $$
         coalesce(sum(expected_myr) filter (where outcome = 'open'), 0),
         coalesce(sum(expected_myr * coalesce(close_probability, 0) / 100.0) filter (where outcome = 'open'), 0),
         count(*) filter (where outcome = 'open'),
-        round(avg(closed_on - created_on) filter (where outcome = 'won' and closed_on between p_from and p_to), 1)
+        round(avg(closed_on - created_on) filter (where outcome = 'won' and closed_on between p_from and p_to), 1),
+        coalesce(sum(expected_myr) filter (where created_on between p_from and p_to), 0),
+        count(*) filter (where created_on between p_from and p_to),
+        coalesce(sum(won_myr) filter (where pending_sap_order), 0),
+        count(*) filter (where pending_sap_order)
     from public.sales_lead_facts
     where p_owner is null or owner_employee_id = p_owner
 $$;
 
 
--- ─── sales_order_book_totals ────────────────────────────────────────────────
--- The order book from sales_order_book_facts (the Orders page's own rules).
--- ACTIONABLE (DASHBOARD-CONVENTIONS §4b): with no period picked
--- (p_has_period false) it is the whole current backlog, however old; once a
--- period is picked, it covers orders PLACED in that period.
-create or replace function public.sales_order_book_totals(
-    p_rep bigint,
-    p_has_period boolean,
-    p_from date,
-    p_to date
-)
+-- ─── sales_pipeline_coverage ────────────────────────────────────────────────
+-- Pipeline Coverage (2026-10-23), TODAY: the Active Pipeline against the
+-- Pipeline Target still to be won this fiscal year (tomorrow to the FY end,
+-- prorated by sales_totals like every target). The standard B2B definition
+-- -- unweighted open pipeline / quota remaining -- so the commonly quoted
+-- ~3x benchmark reads against it; the weighted value is a separate figure.
+-- null when no target is left (none set, or the FY is over).
+create or replace function public.sales_pipeline_coverage(p_owner uuid)
 returns table (
-    open_value numeric,
-    open_orders bigint,
-    overdue_value numeric,
-    overdue_orders bigint,
-    unbilled_value numeric,
-    unbilled_orders bigint
+    active_value numeric,
+    target_remaining numeric,
+    coverage numeric
+)
+language sql
+stable
+security invoker
+as $$
+    with open_pipe as (
+        select coalesce(sum(expected_myr), 0) as v
+        from public.sales_lead_facts
+        where outcome = 'open'
+          and (p_owner is null or owner_employee_id = p_owner)
+    ),
+    tgt as (
+        select t.target as v
+        from public.sales_totals(
+            null, p_owner,
+            current_date + 1,
+            (public.fiscal_year_start(current_date) + interval '1 year' - interval '1 day')::date) t
+    )
+    select
+        open_pipe.v,
+        tgt.v,
+        case when tgt.v > 0 then round(open_pipe.v / tgt.v, 1) end
+    from open_pipe cross join tgt
+$$;
+
+
+-- ─── sales_run_rate ─────────────────────────────────────────────────────────
+-- The recent pace (2026-10-23): sales_totals over the last 3 COMPLETE months
+-- before this one, whatever period is picked. Three months is the industry
+-- convention for book-to-bill (IPC surveys) because one month of orders is
+-- too volatile, and it is the pace Open Backlog (Months) and DSO are read
+-- against. One copy, so those figures share the same months.
+create or replace function public.sales_run_rate(p_rep bigint, p_owner uuid)
+returns table (
+    window_start date,
+    window_end date,
+    booked numeric,
+    invoiced numeric
 )
 language sql
 stable
 security invoker
 as $$
     select
-        coalesce(sum(order_value_myr) filter (where is_open), 0),
-        count(*) filter (where is_open),
-        coalesce(sum(order_value_myr) filter (where is_overdue), 0),
-        count(*) filter (where is_overdue),
-        coalesce(sum(order_value_myr) filter (where delivered_not_invoiced), 0),
-        count(*) filter (where delivered_not_invoiced)
-    from public.sales_order_book_facts
-    where (p_rep is null or sales_rep_code = p_rep)
-      and (not p_has_period or order_date between p_from and p_to)
+        (date_trunc('month', current_date) - interval '3 months')::date,
+        (date_trunc('month', current_date) - interval '1 day')::date,
+        t.booked,
+        t.invoiced
+    from public.sales_totals(
+        p_rep, p_owner,
+        (date_trunc('month', current_date) - interval '3 months')::date,
+        (date_trunc('month', current_date) - interval '1 day')::date) t
+$$;
+
+
+-- ─── sales_order_book_totals ────────────────────────────────────────────────
+-- The order book from sales_order_book_facts (the Orders page's own rules),
+-- as of TODAY: the whole open backlog, however old -- never narrowed to
+-- "placed in the period" (2026-10-23, R3; until then a picked period
+-- narrowed it, which also shrank Open Backlog (Months) to nonsense).
+--   recent_monthly_invoiced  sales_run_rate's invoiced / 3
+--   backlog_months           Open Backlog (Months): open_value / that pace
+-- Signature changed on 2026-10-23 (p_has_period / p_from / p_to removed), so
+-- the old version is dropped first; nothing stores a dependency on it.
+drop function if exists public.sales_order_book_totals(bigint, boolean, date, date);
+
+create or replace function public.sales_order_book_totals(p_rep bigint)
+returns table (
+    open_value numeric,
+    open_orders bigint,
+    overdue_value numeric,
+    overdue_orders bigint,
+    unbilled_value numeric,
+    unbilled_orders bigint,
+    recent_monthly_invoiced numeric,
+    backlog_months numeric
+)
+language sql
+stable
+security invoker
+as $$
+    with book as (
+        select
+            coalesce(sum(order_value_myr) filter (where is_open), 0) as open_value,
+            count(*) filter (where is_open) as open_orders,
+            coalesce(sum(order_value_myr) filter (where is_overdue), 0) as overdue_value,
+            count(*) filter (where is_overdue) as overdue_orders,
+            coalesce(sum(order_value_myr) filter (where delivered_not_invoiced), 0) as unbilled_value,
+            count(*) filter (where delivered_not_invoiced) as unbilled_orders
+        from public.sales_order_book_facts
+        where p_rep is null or sales_rep_code = p_rep
+    )
+    select
+        book.*,
+        round(rr.invoiced / 3, 2),
+        case when rr.invoiced > 0 then round(book.open_value / (rr.invoiced / 3), 1) end
+    from book
+    cross join public.sales_run_rate(p_rep, null) rr
+$$;
+
+
+-- ─── ar_dso ─────────────────────────────────────────────────────────────────
+-- Days Sales Outstanding, FINANCE's formula (get_finance_dashboard_rpc.sql's
+-- 'dso', reconciled 2026-07 against hyrax-data-platform's KPI framework),
+-- extracted so Sales and Finance compute it one way (Finance can switch to
+-- this function when its report gets its own pass):
+--   DSO = average receivables / invoiced in the window x days in the window
+--   average receivables = (beginning + ending) / 2, where beginning is
+--   derived as ending - invoiced + collected (no history of balances is
+--   kept), clamped at 0.
+-- null when nothing was invoiced in the window.
+create or replace function public.ar_dso(
+    p_ending_ar numeric,
+    p_invoiced numeric,
+    p_collected numeric,
+    p_days numeric
+)
+returns numeric
+language sql
+immutable
+as $$
+    select case when p_invoiced > 0 then round(
+        ((greatest(p_ending_ar - p_invoiced + p_collected, 0) + p_ending_ar) / 2.0)
+        / p_invoiced * p_days, 1)
+    end
+$$;
+
+
+-- ─── sales_receivable_totals ────────────────────────────────────────────────
+-- Receivables as of TODAY (2026-10-23), from sales_receivable_facts -- which
+-- carries Finance's open-invoice rule -- so these match Finance -> Invoices
+-- for the same rep:
+--   outstanding, invoices, customers
+--   overdue_*       past the due date (days_past_due > 0)
+--   critical_*      critically overdue, more than 90 days past due
+--   not_due, d1_30, d31_60, d61_90, d90_plus
+--                   aging buckets (Finance's arAgingData boundaries); they add
+--                   up to outstanding. An invoice with no due date sits in
+--                   not_due -- not known to be late, the same as the overdue
+--                   test (Finance's bucket CASE would drop it into 90+; SAP
+--                   requires a due date, so neither case occurs in practice)
+--   dso             ar_dso over the trailing 90 days ending today: ending
+--                   receivables are today's, so the window must end today
+create or replace function public.sales_receivable_totals(p_rep bigint, p_owner uuid)
+returns table (
+    outstanding numeric,
+    invoices bigint,
+    customers bigint,
+    overdue_value numeric,
+    overdue_count bigint,
+    critical_value numeric,
+    critical_count bigint,
+    not_due numeric,
+    d1_30 numeric,
+    d31_60 numeric,
+    d61_90 numeric,
+    d90_plus numeric,
+    dso numeric
+)
+language sql
+stable
+security invoker
+as $$
+    with ar as (
+        select
+            coalesce(sum(outstanding_myr), 0) as outstanding,
+            count(*) as invoices,
+            count(distinct customer_code) as customers,
+            coalesce(sum(outstanding_myr) filter (where days_past_due > 0), 0) as overdue_value,
+            count(*) filter (where days_past_due > 0) as overdue_count,
+            coalesce(sum(outstanding_myr) filter (where days_past_due > 90), 0) as critical_value,
+            count(*) filter (where days_past_due > 90) as critical_count,
+            coalesce(sum(outstanding_myr) filter (where coalesce(days_past_due, 0) <= 0), 0) as not_due,
+            coalesce(sum(outstanding_myr) filter (where days_past_due between 1 and 30), 0) as d1_30,
+            coalesce(sum(outstanding_myr) filter (where days_past_due between 31 and 60), 0) as d31_60,
+            coalesce(sum(outstanding_myr) filter (where days_past_due between 61 and 90), 0) as d61_90,
+            coalesce(sum(outstanding_myr) filter (where days_past_due > 90), 0) as d90_plus
+        from public.sales_receivable_facts
+        where p_rep is null or sales_rep_code = p_rep
+    )
+    select
+        ar.*,
+        public.ar_dso(ar.outstanding, t.invoiced, t.collected, 90)
+    from ar
+    cross join public.sales_totals(p_rep, p_owner, current_date - 89, current_date) t
+$$;
+
+
+-- ─── sales_gross_margin ─────────────────────────────────────────────────────
+-- Gross Margin for one window (2026-10-23): gross profit / invoiced revenue
+-- BEFORE tax, over the invoices whose gross profit is KNOWN -- the outlier
+-- guard in sales_invoice_facts nulls an implausible GrosProfit, and an
+-- unknown GP must not count as zero profit on real revenue.
+--   gross_profit      sum of known GP
+--   margin_pct        gross_profit / before-tax revenue of those invoices
+--   coverage_pct      share of Invoiced Revenue whose GP is known: shown
+--                     beside the margin, so nobody reads a margin built on
+--                     half the invoices as the whole picture
+-- Released only if the data check (supabase/diagnostics/
+-- sales_gross_profit_coverage.sql) finds coverage at 95%+.
+create or replace function public.sales_gross_margin(p_rep bigint, p_from date, p_to date)
+returns table (
+    gross_profit numeric,
+    margin_pct numeric,
+    coverage_pct numeric
+)
+language sql
+stable
+security invoker
+as $$
+    select
+        coalesce(sum(gross_profit_myr), 0),
+        round(sum(gross_profit_myr) * 100
+              / nullif(sum(invoiced_before_tax_myr) filter (where gross_profit_myr is not null), 0), 1),
+        round(sum(invoiced_myr) filter (where gross_profit_myr is not null) * 100
+              / nullif(sum(invoiced_myr), 0), 1)
+    from public.sales_invoice_facts
+    where invoice_date between p_from and p_to
+      and (p_rep is null or sales_rep_code = p_rep)
 $$;
 
 
@@ -754,10 +1056,17 @@ revoke execute on function
     public.sales_rep_totals(bigint, date, date),
     public.sales_report_meta(date, date, bigint, boolean),
     public.sales_pipeline_totals(uuid, date, date),
-    public.sales_order_book_totals(bigint, boolean, date, date),
+    public.sales_order_book_totals(bigint),
     public.report_last_year(date, date),
     public.months_spanned(date, date),
-    public.sales_fy_progress(bigint, uuid, date, date)
+    public.sales_fy_progress(bigint, uuid, date, date),
+    public.can_view_sales_reports(),
+    public.sales_owner_totals(uuid, date, date),
+    public.sales_pipeline_coverage(uuid),
+    public.sales_run_rate(bigint, uuid),
+    public.ar_dso(numeric, numeric, numeric, numeric),
+    public.sales_receivable_totals(bigint, uuid),
+    public.sales_gross_margin(bigint, date, date)
 from public, anon;
 
 grant execute on function
@@ -770,8 +1079,15 @@ grant execute on function
     public.sales_rep_totals(bigint, date, date),
     public.sales_report_meta(date, date, bigint, boolean),
     public.sales_pipeline_totals(uuid, date, date),
-    public.sales_order_book_totals(bigint, boolean, date, date),
+    public.sales_order_book_totals(bigint),
     public.report_last_year(date, date),
     public.months_spanned(date, date),
-    public.sales_fy_progress(bigint, uuid, date, date)
+    public.sales_fy_progress(bigint, uuid, date, date),
+    public.can_view_sales_reports(),
+    public.sales_owner_totals(uuid, date, date),
+    public.sales_pipeline_coverage(uuid),
+    public.sales_run_rate(bigint, uuid),
+    public.ar_dso(numeric, numeric, numeric, numeric),
+    public.sales_receivable_totals(bigint, uuid),
+    public.sales_gross_margin(bigint, date, date)
 to authenticated;

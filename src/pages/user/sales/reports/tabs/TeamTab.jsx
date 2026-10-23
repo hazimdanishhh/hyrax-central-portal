@@ -5,71 +5,65 @@ import { ChartBarHorizontalIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import ChartCard from "../../../../../components/chartCard/ChartCard";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import ScorecardList from "../../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard";
-import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
 import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
-import {
-  BLUE_COLOR,
-  GREEN_COLOR,
-} from "../../../../../components/chartCard/chartColors";
+import { MEASURE_COLORS } from "../../../../../components/chartCard/chartColors";
 import { useSalesReportTab } from "../../../../../features/sales/reports/private/hooks/useSalesReportTab";
 import ReportSection from "./ReportSection";
+import RepFunnelScorecard from "./RepFunnelScorecard";
 import TabState from "./TabState";
+import {
+  BUDGET_THRESHOLDS,
+  GROSS_MARGIN_RELEASED,
+  TARGET_THRESHOLDS,
+} from "./reportFormat";
 
 /**
- * TEAM -- per rep, for one-to-ones. Data: get_sales_team.
+ * TEAM -- per salesperson, for one-to-ones. Data: get_sales_team. Rules:
+ * DASHBOARD-CONVENTIONS §8.
  *
- * The scorecard rows come from the same function as Summary's budget bridge
- * (sales_rep_totals), so the two can't disagree, and they add up to the
- * Summary totals (documents with no rep are one "Unassigned" row).
+ *   Rep Funnel Scorecard   the funnel per salesperson -- Pipeline Won vs
+ *                          Target and Win Rate (CRM), Sales Orders, Invoiced
+ *                          Revenue vs Budget, Payments Collected (SAP) --
+ *                          plus their open balances today. The rows add up
+ *                          to every tab's totals (one row for documents with
+ *                          no rep, one for leads with no owner).
+ *   Rep Breakdown          Invoiced Revenue & Gross Profit by Rep (released
+ *                          with Gross Margin), and Overdue by Rep (today)
  *
- * Check-in badges replace the old page's separate "Needs Attention" list
- * (which was built but never shown). Same thresholds as before -- documented
- * estimates, not audited targets (DASHBOARD-CONVENTIONS KPI colour rules):
- *   below budget       budget set and attainment under 80%
- *   unbilled backlog   more than 30% of what was booked not yet invoiced
- *   slow collection    collected under 70% of what was invoiced
+ * Check-in flags fire exactly when the same figure on a tile would read
+ * Critical (shared thresholds in reportFormat.js), or when the rep has
+ * something waiting today:
+ *   Below Pipeline Target   Pipeline Won under 60% of target
+ *   Below Budget            Invoiced Revenue under 70% of budget
+ *   Delivered, Not Invoiced orders delivered with no invoice yet (today)
+ *   Critically Overdue      invoices 90+ days past due (today)
  */
 export default function TeamTab() {
   const { filters, period, MappingMissingNote } = useOutletContext();
   const { data, meta, isLoading, error } = useSalesReportTab("team", filters);
 
-  const scorecard = (data?.scorecard ?? []).map((r) => {
-    const booked = r.booked ?? 0;
-    const invoiced = r.invoiced ?? 0;
-    const collected = r.collected ?? 0;
+  const rows = (data?.scorecard ?? []).map((r) => {
     const flags = [];
-    if (r.attainmentPct != null && r.attainmentPct < 80) flags.push("Below budget");
-    if (booked > 0 && (booked - invoiced) / booked > 0.3) flags.push("Unbilled backlog");
-    if (r.collectionRatePct != null && r.collectionRatePct < 70) flags.push("Slow collection");
-
-    return {
-      lead_owner_id: r.employeeId ?? r.salesRepCode,
-      rep_name: r.name,
-      avatar_url: r.avatarUrl,
-      actual_revenue: invoiced,
-      target_revenue: r.budget,
-      attainment_percentage: r.attainmentPct,
-      order_value_myr: booked,
-      po_vs_budget_variance_myr: r.budget == null ? null : booked - r.budget,
-      po_vs_invoice_variance_myr: booked - invoiced,
-      collected_myr: collected,
-      invoice_vs_collected_variance_myr: invoiced - collected,
-      collection_rate_pct: r.collectionRatePct,
-      flags,
-    };
+    if (r.targetAttainmentPct != null && r.targetAttainmentPct < TARGET_THRESHOLDS.warningAt)
+      flags.push("Below Pipeline Target");
+    if (r.attainmentPct != null && r.attainmentPct < BUDGET_THRESHOLDS.warningAt)
+      flags.push("Below Budget");
+    if ((r.unbilledValue ?? 0) > 0) flags.push("Delivered, Not Invoiced");
+    if ((r.criticalValue ?? 0) > 0) flags.push("Critically Overdue");
+    return { ...r, flags };
   });
-
-  const needsCheckIn = scorecard.filter((r) => r.flags.length > 0).length;
+  const needsCheckIn = rows.filter((r) => r.flags.length > 0).length;
 
   const grossProfit = (data?.grossProfitByRep ?? []).map((r) => ({
     name: r.name,
-    Invoiced: r.invoiced,
+    "Invoiced Revenue": r.invoiced,
     "Gross Profit": r.grossProfit,
   }));
-  const collectionRates = (data?.scorecard ?? [])
-    .filter((r) => r.collectionRatePct != null)
-    .map((r) => ({ name: r.name, value: r.collectionRatePct }));
+  const overdueByRep = (data?.overdueByRep ?? []).map((r) => ({
+    name: r.name,
+    Overdue: r.overdue,
+    "Critically Overdue": r.critical,
+  }));
 
   return (
     <TabState isLoading={isLoading} error={error}>
@@ -78,50 +72,62 @@ export default function TeamTab() {
       <ReportSection
         icon={UsersThreeIcon}
         title="Rep Funnel Scorecard"
-        description={`${period.title} — each rep's orders, invoicing and collection against budget.${
-          needsCheckIn ? ` ${needsCheckIn} rep(s) flagged for a check-in.` : ""
+        description={`${period.title}: each salesperson's pipeline, orders, invoicing and payments against target and budget, and what is open today.${
+          needsCheckIn ? ` ${needsCheckIn} flagged for a check-in.` : ""
         }`}
       >
-        {scorecard.length > 0 ? (
-          <ScorecardList data={scorecard} actualLabel="Invoiced" targetLabel="Budget" />
+        {rows.length > 0 ? (
+          <RepFunnelScorecard rows={rows} />
         ) : (
-          <NoResult title="No orders, invoices, collections or budget for this period." />
+          <NoResult title="No leads, orders, invoices, payments, target or budget for this period." />
         )}
       </ReportSection>
 
       <ReportSection
         icon={ChartBarHorizontalIcon}
         title="Rep Breakdown"
-        description={`${period.title}, Invoiced Revenue and gross profit, and collection rate, by rep.`}
+        description={
+          GROSS_MARGIN_RELEASED
+            ? `${period.title}, Invoiced Revenue and Gross Profit by rep; Overdue by rep as of today.`
+            : "Overdue invoices by rep, as of today."
+        }
       >
-        <CardLayout style="cardLayout2">
+        <CardLayout style={GROSS_MARGIN_RELEASED ? "cardLayout2" : "cardLayout1"}>
+          {GROSS_MARGIN_RELEASED && (
+            <ChartCard
+              title="Invoiced Revenue & Gross Profit by Rep (RM)"
+              subtitle={`${period.title} · gross profit where SAP's figure is known`}
+              style="cardGapSmall"
+            >
+              {grossProfit.length ? (
+                <HorizontalMultiBarRenderer
+                  data={grossProfit}
+                  bars={[
+                    { dataKey: "Invoiced Revenue", name: "Invoiced Revenue", color: MEASURE_COLORS.invoicedRevenue },
+                    { dataKey: "Gross Profit", name: "Gross Profit", color: MEASURE_COLORS.grossProfit },
+                  ]}
+                />
+              ) : (
+                <NoResult title="No invoices in this period." />
+              )}
+            </ChartCard>
+          )}
+
           <ChartCard
-            title="Revenue & Gross Profit by Rep (RM)"
-            subtitle={period.title}
+            title="Overdue by Rep (RM)"
+            subtitle="Today · past due, and critically overdue (90+ days)"
             style="cardGapSmall"
           >
-            {grossProfit.length ? (
+            {overdueByRep.length ? (
               <HorizontalMultiBarRenderer
-                data={grossProfit}
+                data={overdueByRep}
                 bars={[
-                  { dataKey: "Invoiced", name: "Invoiced", color: BLUE_COLOR },
-                  { dataKey: "Gross Profit", name: "Gross Profit", color: GREEN_COLOR },
+                  { dataKey: "Overdue", name: "Overdue", color: MEASURE_COLORS.overdue },
+                  { dataKey: "Critically Overdue", name: "Critically Overdue", color: "#8f2f2f" },
                 ]}
               />
             ) : (
-              <NoResult title="No invoices in this period." />
-            )}
-          </ChartCard>
-
-          <ChartCard
-            title="Collection Rate by Rep (%)"
-            subtitle={`${period.title} · collected ÷ invoiced in the same period`}
-            style="cardGapSmall"
-          >
-            {collectionRates.length ? (
-              <HorizontalBarChartRenderer data={collectionRates} colorMap={GREEN_COLOR} />
-            ) : (
-              <NoResult title="No invoices in this period." />
+              <NoResult title="Nothing overdue." />
             )}
           </ChartCard>
         </CardLayout>

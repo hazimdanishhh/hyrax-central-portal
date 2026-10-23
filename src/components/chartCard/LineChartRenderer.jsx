@@ -44,6 +44,10 @@ export default function LineChartRenderer({
   // (same compromise as FanChartRenderer) and a span gets a ReferenceArea
   // from the first point to the last.
   highlight = null,
+  // Each line may also set (2026-10-23, both optional):
+  //   dashed: true  a plan line (target, budget) -- dashed, thinner, no dots,
+  //                 so a scenario reads by its pattern, not its colour (IBCS)
+  //   name          legend/tooltip label when it differs from dataKey
 }) {
   const { darkMode } = useTheme();
   const highlightFill = darkMode
@@ -126,13 +130,19 @@ export default function LineChartRenderer({
             key={line.dataKey}
             type="monotone"
             dataKey={line.dataKey}
+            name={line.name ?? line.dataKey}
             stroke={line.color}
-            strokeWidth={3}
-            dot={{
-              r: 3,
-              fill: line.color,
-              strokeWidth: 0,
-            }}
+            strokeWidth={line.dashed ? 2 : 3}
+            strokeDasharray={line.dashed ? "6 4" : undefined}
+            dot={
+              line.dashed
+                ? false
+                : {
+                    r: 3,
+                    fill: line.color,
+                    strokeWidth: 0,
+                  }
+            }
             activeDot={{
               r: 6,
               fill: line.color,

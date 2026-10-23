@@ -1,0 +1,77 @@
+// Rep Funnel Scorecard (Team tab). Shares .leadsScoreCard's bar and flag
+// styles (LeadsScoreCard.scss); this file only lays out the funnel steps.
+.repFunnelScorecard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.repFunnelCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+
+  .repFunnelHead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+
+    .scorecardFlags {
+      margin-top: 0;
+    }
+  }
+
+  .repFunnelSteps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+
+    @media (max-width: 1024px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .repFunnelStep {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+
+    // the shared bar lives under .quotaSegment in LeadsScoreCard.scss
+    .quotaBarContainer {
+      width: 100%;
+      height: 8px;
+      background-color: $neutral100;
+      border: 1px solid $neutral500;
+      border-radius: 4px;
+      overflow: hidden;
+
+      .quotaBarFill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+      }
+    }
+
+    // Attainment text takes the same tier as the matching tile.
+    .repFunnelPlan.good {
+      color: $success600;
+    }
+    .repFunnelPlan.warning {
+      color: $warning600;
+    }
+    .repFunnelPlan.critical {
+      color: $error600;
+    }
+  }
+
+  .repFunnelToday {
+    margin: 0;
+  }
+}

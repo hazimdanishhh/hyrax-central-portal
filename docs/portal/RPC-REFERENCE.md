@@ -207,7 +207,7 @@ These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and re
 **No measure is defined in these RPCs.**
 - Every figure comes from the metric layer:
   - **fact views:** `sales_metric_facts_views.sql`: `sales_invoice_facts`, `sales_invoice_line_facts`, `sales_order_facts`, `sales_order_book_facts`, `sales_collection_facts`, `sales_receivable_facts`, `sales_lead_facts` (`sales_won_lead_facts` is its won rows);
-  - **shared functions:** `sales_metric_functions.sql`: `report_period`, `sales_totals`, `sales_monthly_series`, `sales_rep_totals`, `sales_pipeline_totals`, `sales_order_book_totals`, `prorate_months`, `sales_report_meta`.
+  - **shared functions:** `sales_metric_functions.sql`: `report_period`, `report_last_year`, `sales_totals`, `sales_monthly_series`, `sales_rep_totals`, `sales_owner_totals`, `sales_pipeline_totals`, `sales_pipeline_coverage`, `sales_run_rate`, `sales_order_book_totals`, `ar_dso`, `sales_receivable_totals`, `sales_gross_margin`, `sales_fy_progress`, `prorate_months`, `months_spanned`, `can_view_sales_reports`, `sales_report_meta`.
 - Previous-period figures are the same `sales_totals` call with the comparison window's dates.
 - `tests/sql/sales_metrics.test.js` checks that the same measure is equal across all six RPCs and adds up across months and reps.
 
@@ -220,12 +220,26 @@ These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and re
 
 | RPC | `kpis` | Datasets |
 |---|---|---|
-| `get_sales_summary` | invoiced/prev, invoiceCount, budget, budgetAttainmentPct · booked/prev, orderCount · collected/prev, paymentCount · won/prev, wonCount, target, targetAttainmentPct | `revenueVsBudget`, `budgetBridge` (per rep), `orderToCashYoY` (10 FYs, summed from the monthly series) |
-| `get_sales_pipeline` | won/prev, wonCount, avgDeal, target, targetAttainmentPct · lost/prev, lostCount · winRatePct/prev (won ÷ won+lost, by count; cancelled counts as lost) · openValue, weightedValue, openCount (snapshot of today) | `wonVsTarget`, `wonByProductType`, `wonBySource`, `topClients`, `lostByReason`, `openByStage` (today) |
-| `get_sales_orders` | booked/prev, orderCount, orderingCustomers, avgOrderValue · invoiced, bookToBill/prev · orderBookValue/Orders, overdueValue/Orders, unbilledValue/Orders (ACTIONABLE; the Orders page's own rules) | `ordersVsInvoiced`, `topCustomers` (by booked) |
-| `get_sales_invoicing` | invoiced/prev, invoiceCount, avgInvoiceValue, budget, budgetAttainmentPct · customerTop5Pct, topCustomer* · productSales, productTop5Pct, topProduct*, topGroup* (product shares are before tax on both sides) | `invoicedVsBudget`, `topCustomers` (with same-period collected), `topProducts`, `productGroups`, `exportLocal` |
-| `get_sales_collections` | collected/prev, paymentCount, payingCustomers, invoiced, collectionRatePct · outstanding, outstandingInvoices, outstandingCustomers (ACTIONABLE: whole backlog unless a period is picked) | `invoicedVsCollected`, `topPayers`, `topOutstanding` |
-| `get_sales_team` | — | `scorecard` (per rep incl. "Unassigned"; attainment/collection rate null without a denominator), `grossProfitByRep` (period-bound) |
+| `get_sales_summary` | invoiced/prev, invoiceCount, budget, budgetAttainmentPct · booked/prev, orderCount · collected/prev, paymentCount · won/prev, wonCount, target, targetAttainmentPct · lastYear* | `fyProgress`, `fyCumulative` (running FY-to-date invoiced and budget per month), `budgetBridge` (per rep), `openPosition` (TODAY: activePipeline, weightedPipeline, activeLeads, pipelineCoverage, targetRemaining, openBacklog, openBacklogOrders, openBacklogMonths, outstanding, outstandingInvoices, overdue, criticallyOverdue), `orderToCashYoY` (10 FYs; `won` null before the CRM's first FY) |
+| `get_sales_pipeline` | generated/prev/lastYear, generatedCount · won/prev, wonCount, avgDeal, target, targetAttainmentPct · lost/prev, lostCount · winRatePct/prev (won ÷ won+lost, by count; cancelled counts as lost) · avgDaysToWon · TODAY: openValue, weightedValue, openCount, pendingSapValue/Count, pipelineCoverage, targetRemaining | `wonVsTarget`, `wonByProductType`, `wonBySource`, `topClients`, `lostByReason`, `openByStage` (today) |
+| `get_sales_orders` | booked/prev, orderCount, orderingCustomers, avgOrderValue · invoiced, bookToBill/prev, recentBookToBill + recentWindow (last 3 complete months) · TODAY: orderBookValue/Orders, overdueValue/Orders, unbilledValue/Orders, recentMonthlyInvoiced, openBacklogMonths (the Orders page's own rules) | `ordersVsInvoiced`, `topCustomers` (by booked) |
+| `get_sales_invoicing` | invoiced/prev, invoiceCount, avgInvoiceValue, budget, budgetAttainmentPct · grossProfit, grossMarginPct/prev/lastYear, gpCoveragePct (gated) · customerTop5Pct, topCustomer* · productSales, productTop5Pct, topProduct*, topGroup* (product shares are before tax on both sides) | `invoicedVsBudget`, `topCustomers` (invoiced only), `topProducts`, `productGroups`, `exportLocal` |
+| `get_sales_collections` | collected/prev, paymentCount, payingCustomers · TODAY (Finance's open-invoice rule): outstanding, outstandingInvoices, outstandingCustomers, overdueValue/Count, overduePct, criticalValue/Count, dso | `invoicedVsCollected`, `overdueByAge` (Not Yet Due / 1–30 / 31–60 / 61–90 / 90+, sums to outstanding), `topOverdue` (today), `topPayers` |
+| `get_sales_team` | — | `scorecard` (one row per salesperson: CRM won/wonCount/target/targetAttainmentPct/winRatePct + SAP booked/invoiced/collected/budget/attainmentPct + TODAY unbilledValue/overdueDeliveryValue/overdueValue/criticalValue; "Unassigned" and "Leads with no owner" rows so totals add up), `grossProfitByRep` (period, gated), `overdueByRep` (today) |
+
+**Final build, 2026-10-23** (rules: `DASHBOARD-CONVENTIONS.md` §8; spec: tabs plan §9):
+- **Open balances are TODAY** on every tab, whatever period is picked (R3). `sales_order_book_totals(p_rep)` lost its `p_has_period/p_from/p_to` parameters (dropped and recreated). Before this, a picked period narrowed Open Backlog and Outstanding to "raised in the period".
+- **Outstanding / Overdue follow Finance's rule** (`sales_receivable_facts`: `status_code = 'O'` and balance > 0.01; overdue `days_past_due > 0`; critical `> 90`) — equal to Finance → Invoices for the same rep.
+- **Removed:** `collectionRatePct` (Collections, Team), `topOutstanding`, `revenueVsBudget` (Summary; the monthly chart lives on Invoicing), `topCustomers.collected` (Invoicing).
+- **DSO** = `ar_dso(ending_ar, invoiced, collected, days)`, Finance's average-receivables formula from `get_finance_dashboard_rpc.sql`, over the trailing 90 days ending today.
+- **Gross Margin** = known GP ÷ invoiced revenue before tax (`invoiced_before_tax_myr`); shown only once `supabase/diagnostics/sales_gross_profit_coverage.sql` passes.
+
+### AI Meeting Brief: `sales_report_briefs` + edge function `generate-sales-meeting-brief` (built 2026-10-23 — PARKED: not run, not deployed, not rendered)
+
+Kept for when the brief is made reusable across reports and fed every tab's figures (`DASHBOARD-ROADMAP.md` §2.1). Describes the code as written:
+
+- **Table** (`sales_report_briefs.sql`): one row per `(period_start, period_end, owner)` (`owner_key` = owner or the nil UUID), `figures jsonb` (exactly what the brief was written from), `brief_text`, `model`, `created_by`, `created_at`. RLS select/insert/update through `sales_report_brief_visible(owner_id)` = `can_view_sales_reports()` and the owner `sales_report_scope()` would resolve to (staff → themselves). No delete.
+- **Edge function**: called by `src/features/sales/reports/private/api/fetchMeetingBrief.js`'s `generateMeetingBrief({startDate, endDate, owner})`. Runs on the **caller's token** (anon key + `Authorization`), never the service role: resolves the effective owner with `sales_report_scope`, reads `get_sales_summary` / `_pipeline` / `_orders` / `_collections`, returns the stored brief unchanged if it is under 10 minutes old, else asks Gemini (key in the `x-goog-api-key` header) for three sections from the formatted figures only, and upserts the row.
 
 **Added 2026-10-23 (storyline Phase A):**
 - Every tab's `meta` carries `lastYearWindow` from `report_last_year()`: the same window a year back, cut to the same days while the period is running.
@@ -243,7 +257,7 @@ These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and re
 - Actual series are `null` after the current month; plan series are `null` where no plan row exists.
 - Customer names come from `sap_customers`.
 - Won deals exclude cancelled leads and are dated in Malaysia time (decisions D5/D7).
-- Invoiced Revenue includes tax; product figures are before tax and named that way (decision D4 still open).
+- Invoiced Revenue includes tax; product figures and the Gross Margin base are before tax and named that way (decision D4 still open for the headline).
 
 ## `get_sales_reports_dashboard`
 

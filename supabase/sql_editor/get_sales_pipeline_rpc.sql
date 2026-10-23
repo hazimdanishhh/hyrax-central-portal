@@ -3,14 +3,18 @@
 -- (src/pages/user/sales/reports/tabs/PipelineTab.jsx). Plan:
 -- docs/sales/SALES-REPORTS-TABS-PLAN.md.
 --
--- For meetings: are we winning enough, against target, why do we lose, and
--- what is coming. Daily pipeline work (aging, on hold, pending SAP order)
--- stays on Leads Overview. Every figure comes from sales_lead_facts through
--- the shared functions; the salesperson filter is the lead OWNER (CRM side).
+-- For meetings: are we creating and winning enough, against target, why do
+-- we lose, and what is open. Daily pipeline work (aging, on hold, the list
+-- of leads to chase) stays on Leads Overview. Every figure comes from
+-- sales_lead_facts through the shared functions; the salesperson filter is
+-- the lead OWNER (CRM side).
 --
---   kpis           sales_pipeline_totals for the period and the comparison
---                  window (won, lost, win rate, avg deal; open pipeline is a
---                  snapshot of today) + target from sales_totals
+--   kpis           sales_pipeline_totals for the period, the comparison
+--                  window and the same period last year (generated, won,
+--                  lost, win rate, avg deal, cycle) + target from
+--                  sales_totals. TODAY (R3, no comparison): the open
+--                  pipeline, Pending SAP Order Entry, and Pipeline Coverage
+--                  (sales_pipeline_coverage)
 --   wonVsTarget    monthly won vs target, trend window
 --   wonByProductType / wonBySource / topClients   won in the period
 --   lostByReason   lost or cancelled in the period, by reason
@@ -37,6 +41,7 @@ declare
     tot record;
     ly  record;
     lyp record;
+    cov record;
 begin
     select * into sc from public.sales_report_scope(p_owner_id);
     select * into per from public.report_period(p_start_date, p_end_date);
@@ -46,6 +51,7 @@ begin
     select * into tot from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.start_date, per.end_date);
     select * into ly from public.report_last_year(p_start_date, p_end_date);
     select * into lyp from public.sales_pipeline_totals(sc.owner_id, ly.ly_start, ly.ly_end);
+    select * into cov from public.sales_pipeline_coverage(sc.owner_id);
 
     return json_build_object(
         'meta', public.sales_report_meta(p_start_date, p_end_date, sc.sales_rep_code, sc.mapping_missing),
@@ -68,7 +74,15 @@ begin
             'openCount', cur.open_count,
             'avgDaysToWon', cur.avg_days_to_won,
             'lastYearWon', lyp.won,
-            'lastYearLost', lyp.lost
+            'lastYearLost', lyp.lost,
+            'generated', cur.generated_value,
+            'prevGenerated', prv.generated_value,
+            'lastYearGenerated', lyp.generated_value,
+            'generatedCount', cur.generated_count,
+            'pendingSapValue', cur.pending_sap_value,
+            'pendingSapCount', cur.pending_sap_count,
+            'pipelineCoverage', cov.coverage,
+            'targetRemaining', cov.target_remaining
         ),
 
         'wonVsTarget', (

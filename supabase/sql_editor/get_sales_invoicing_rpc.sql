@@ -15,10 +15,17 @@
 --                                numerator and denominator are both line
 --                                totals, so the share is never a mix of
 --                                before-tax lines over an after-tax total
+--   kpis.grossProfit / grossMarginPct / gpCoveragePct
+--                                sales_gross_margin (2026-10-23): margin on
+--                                invoices whose GP is known, before tax, with
+--                                the share of revenue that covers. Shown only
+--                                once the data check passes (plan §4)
 --   invoicedVsBudget             monthly invoiced vs budget, trend window
---                                (the same series as Summary's chart)
---   topCustomers                 top 10 by invoiced, with what those
---                                customers paid in the same period
+--   topCustomers                 top 10 by invoiced. (Until 2026-10-23 it
+--                                also showed what they paid in the same
+--                                period -- this period's cash against this
+--                                period's invoices, the timing mismatch that
+--                                retired Collection Rate; removed with it.)
 --   topProducts / productGroups  product sales (before tax)
 --   exportLocal                  invoiced by customer classification
 --
@@ -45,6 +52,9 @@ declare
     v_cust record;
     v_prod record;
     v_group record;
+    gm  record;
+    pgm record;
+    lgm record;
 begin
     select * into sc from public.sales_report_scope(p_owner_id);
     select * into per from public.report_period(p_start_date, p_end_date);
@@ -53,6 +63,9 @@ begin
     select * into prv from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.prev_start, per.prev_end);
     select * into ly from public.report_last_year(p_start_date, p_end_date);
     select * into lyt from public.sales_totals(sc.sales_rep_code, sc.owner_id, ly.ly_start, ly.ly_end);
+    select * into gm  from public.sales_gross_margin(sc.sales_rep_code, per.start_date, per.end_date);
+    select * into pgm from public.sales_gross_margin(sc.sales_rep_code, per.prev_start, per.prev_end);
+    select * into lgm from public.sales_gross_margin(sc.sales_rep_code, ly.ly_start, ly.ly_end);
 
     -- Customer concentration: top 5 customers' share of invoiced revenue.
     with by_customer as (
@@ -123,7 +136,12 @@ begin
             'topProductName', v_prod.top_name,
             'topProductPct', case when v_prod.total > 0 then round(v_prod.top_value / v_prod.total * 100, 1) end,
             'topGroupName', v_group.name,
-            'topGroupPct', case when v_prod.total > 0 then round(v_group.sales / v_prod.total * 100, 1) end
+            'topGroupPct', case when v_prod.total > 0 then round(v_group.sales / v_prod.total * 100, 1) end,
+            'grossProfit', gm.gross_profit,
+            'grossMarginPct', gm.margin_pct,
+            'prevGrossMarginPct', pgm.margin_pct,
+            'lastYearGrossMarginPct', lgm.margin_pct,
+            'gpCoveragePct', gm.coverage_pct
         ),
 
         'invoicedVsBudget', (
@@ -140,15 +158,12 @@ begin
                 per.start_date, per.end_date) s
         ),
 
-        -- Top 10 customers by invoiced revenue in the period, and the cash
-        -- those customers paid in the same period (against any of their
-        -- invoices, from Payments Collected's definition).
+        -- Top 10 customers by invoiced revenue in the period.
         'topCustomers', (
             select coalesce(json_agg(json_build_object(
                 'customerCode', t.customer_code,
                 'name', t.name,
-                'invoiced', t.invoiced,
-                'collected', coalesce(c.collected, 0)
+                'invoiced', t.invoiced
             ) order by t.invoiced desc), '[]'::json)
             from (
                 select customer_code, max(customer_name) as name, sum(invoiced_myr) as invoiced
@@ -159,13 +174,6 @@ begin
                 order by invoiced desc, customer_code
                 limit 10
             ) t
-            left join (
-                select customer_code, sum(applied_myr) as collected
-                from public.sales_collection_facts
-                where payment_date between per.start_date and per.end_date
-                  and (sc.sales_rep_code is null or sales_rep_code = sc.sales_rep_code)
-                group by customer_code
-            ) c on c.customer_code = t.customer_code
         ),
 
         'topProducts', (

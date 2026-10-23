@@ -3,7 +3,6 @@
 import { useOutletContext } from "react-router-dom";
 import {
   ArrowsLeftRightIcon,
-  CalendarIcon,
   ChartLineUpIcon,
   FileTextIcon,
   PackageIcon,
@@ -17,12 +16,10 @@ import ChartCard from "../../../../../components/chartCard/ChartCard";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import LineChartRenderer from "../../../../../components/chartCard/LineChartRenderer";
 import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
-import {
-  GREEN_COLOR,
-  YELLOW_COLOR,
-} from "../../../../../components/chartCard/chartColors";
+import { MEASURE_COLORS } from "../../../../../components/chartCard/chartColors";
 import { preciseCurrency } from "../../../../../functions/formatNumber";
 import {
+  formatDateRange,
   formatMonthTick,
   shapeTrendRows,
 } from "../../../../../functions/periodRange";
@@ -36,19 +33,26 @@ import {
   lastYearMetric,
   periodLinkFilter,
   repLinkFilter,
+  todayTile,
   trendSubtitle,
 } from "./reportFormat";
 
 /**
- * ORDERS -- bookings and the order book. Data: get_sales_orders.
+ * ORDERS -- bookings and the order book. Data: get_sales_orders. Rules:
+ * DASHBOARD-CONVENTIONS §8.
  *
- * For meetings: how much was booked, is billing keeping up (book-to-bill),
- * and how much is waiting -- the order book. The orders to chase today stay
- * on the Orders page; the order book tile here uses that page's own rules
- * (sales_order_book_facts), so the two agree, and links to it.
+ *   Sales Order KPIs    Sales Orders and the Order-to-Invoice Ratio (period)
+ *                       | Open Backlog (TODAY)
+ *   Sales Order Trend   Sales Orders vs Invoiced Revenue, monthly
+ *   Open Backlog        TODAY: Overdue Delivery, Delivered Not Invoiced (the
+ *                       hand-off to Invoicing)
+ *   Sales Order Breakdown  who ordered, in the period
  *
- * Order Book is ACTIONABLE (DASHBOARD-CONVENTIONS §4b): the whole current
- * backlog with no period picked, orders placed in the period once one is.
+ * The order book uses the Orders page's own rules (sales_order_book_facts),
+ * so the two agree, and every backlog tile links there. It is an open
+ * balance: always today's whole backlog, never narrowed to the period, no
+ * previous-period comparison (R3). The orders to chase one by one stay on
+ * the Orders page.
  */
 export default function OrdersTab() {
   const { filters, period, access, MappingMissingNote } = useOutletContext();
@@ -57,11 +61,9 @@ export default function OrdersTab() {
   const against = comparedWith(meta, period);
   const periodFilter = periodLinkFilter(meta);
   const repFilter = repLinkFilter(meta);
-  const hasPeriod = Boolean(meta?.period?.hasPeriod);
-  const bookLabel = hasPeriod ? `Placed ${period.title}` : "Current backlog";
   const ordersLink = access.orders ? "/app/sales/orders/all" : null;
-
-  const backlogFilter = hasPeriod ? periodFilter : {};
+  const recent = kpis.recentWindow;
+  const recentLabel = recent ? formatDateRange(recent.startDate, recent.endDate) : "";
 
   const salesOrderKpis = [
     {
@@ -89,101 +91,75 @@ export default function OrdersTab() {
       label: "Order-to-Invoice Ratio",
       sublabel: period.title,
       value: kpis.bookToBill == null ? "—" : `${kpis.bookToBill}×`,
-      subvalue:
-        kpis.prevBookToBill == null ? "" : `${kpis.prevBookToBill}× ${against}`,
+      subvalue: kpis.prevBookToBill == null ? "" : `${kpis.prevBookToBill}× ${against}`,
       variant: "blueCard",
       to: null,
+      // Not "Sales Orders" again: its neighbour already shows it (R11).
       metrics: [
-        { label: "Sales Orders", value: preciseCurrency(kpis.booked) },
         { label: "Invoiced Revenue", value: preciseCurrency(kpis.invoiced) },
+        {
+          label: "Last 3 Months",
+          value: kpis.recentBookToBill == null ? "—" : `${kpis.recentBookToBill}×`,
+          title: recentLabel,
+        },
       ],
       title:
         "Sales Orders ÷ Invoiced Revenue in the same period. Above 1× the Open Backlog " +
         "is growing (more ordered than invoiced); below 1× it is being worked down. " +
-        "Neither is good or bad on its own.",
+        "Neither is good or bad on its own. One month of orders is volatile, so the last " +
+        "3 complete months are shown beside it.",
     },
-  ];
-
-  const openBacklogKpis = [
-    {
+    todayTile({
       icon: PackageIcon,
       label: "Open Backlog",
-      sublabel: bookLabel,
       value: preciseCurrency(kpis.orderBookValue),
       variant: "blueCard",
       to: ordersLink,
-      filter: {
-        ...repFilter,
-        isCancelled: "N",
-        statusCode: "O",
-        deliveryStatus: "open",
-        ...backlogFilter,
-      },
-      metrics: [{ label: "Orders", value: kpis.orderBookOrders ?? 0 }],
-      title:
-        "Sales orders still open in SAP and not fully delivered (full order value). " +
-        "Same rule as the Orders page. With no period picked this is the whole current " +
-        "backlog; once a period is picked, orders placed in it.",
-    },
-    {
-      icon: CalendarIcon,
-      label: "Open Backlog (Months)",
-      sublabel: "At the last 3 months' invoicing",
-      value: kpis.openBacklogMonths == null ? "—" : `${kpis.openBacklogMonths}`,
-      variant: "blueCard",
-      to: null,
+      filter: { ...repFilter, isCancelled: "N", statusCode: "O", deliveryStatus: "open" },
       metrics: [
-        { label: "Open Backlog", value: preciseCurrency(kpis.orderBookValue) },
+        { label: "Orders", value: kpis.orderBookOrders ?? 0 },
         {
-          label: "Avg Monthly Invoiced Revenue",
-          value:
-            kpis.recentMonthlyInvoiced == null
-              ? "—"
-              : preciseCurrency(kpis.recentMonthlyInvoiced),
+          label: "Open Backlog (Months)",
+          value: kpis.openBacklogMonths == null ? "—" : `${kpis.openBacklogMonths}`,
+          title:
+            `Open Backlog ÷ average monthly Invoiced Revenue over the last 3 complete ` +
+            `months (${preciseCurrency(kpis.recentMonthlyInvoiced)} a month${
+              recentLabel ? `, ${recentLabel}` : ""
+            }).`,
         },
       ],
       title:
-        "How many months of invoicing the Open Backlog represents: Open Backlog ÷ the " +
-        "average monthly Invoiced Revenue over the last 3 complete months.",
-    },
-    {
+        "Sales orders still open in SAP and not fully delivered (full order value), right " +
+        "now, whatever period is picked. Same rule as the Orders page. Open Backlog " +
+        "(Months) is how many months of invoicing that represents at the recent pace.",
+    }),
+  ];
+
+  const openBacklogKpis = [
+    todayTile({
       icon: WarningCircleIcon,
       label: "Overdue Delivery",
-      sublabel: bookLabel,
       value: preciseCurrency(kpis.overdueValue),
       variant: (kpis.overdueOrders ?? 0) > 0 ? "yellowCard" : "blueCard",
       to: ordersLink,
-      filter: {
-        ...repFilter,
-        isCancelled: "N",
-        statusCode: "O",
-        deliveryOverdueOnly: "true",
-        ...backlogFilter,
-      },
+      filter: { ...repFilter, isCancelled: "N", statusCode: "O", deliveryOverdueOnly: "true" },
       metrics: [{ label: "Orders", value: kpis.overdueOrders ?? 0 }],
       title:
-        "Open sales orders whose delivery date has passed. Same rule as the Orders page. " +
-        "Amber when there are any.",
-    },
-    {
+        "Open sales orders whose delivery date has passed, right now. Same rule as the " +
+        "Orders page. Amber when there are any.",
+    }),
+    todayTile({
       icon: ReceiptIcon,
       label: "Delivered, Not Invoiced",
-      sublabel: bookLabel,
       value: preciseCurrency(kpis.unbilledValue),
       variant: (kpis.unbilledOrders ?? 0) > 0 ? "yellowCard" : "blueCard",
       to: ordersLink,
-      filter: {
-        ...repFilter,
-        isCancelled: "N",
-        deliveryStatus: "delivered",
-        invoicedOnly: "none",
-        ...backlogFilter,
-      },
+      filter: { ...repFilter, isCancelled: "N", deliveryStatus: "delivered", invoicedOnly: "none" },
       metrics: [{ label: "Orders", value: kpis.unbilledOrders ?? 0 }],
       title:
-        "Sales orders fully delivered with no invoice yet: the hand-off to Invoicing. " +
-        "Same rule as the Orders page. Amber when there are any.",
-    },
+        "Sales orders fully delivered with no invoice yet, right now: the hand-off to " +
+        "Invoicing. Same rule as the Orders page. Amber when there are any.",
+    }),
   ];
 
   const ordersVsInvoiced = shapeTrendRows(
@@ -203,7 +179,7 @@ export default function OrdersTab() {
       <ReportSection
         icon={FileTextIcon}
         title="Sales Order KPIs"
-        description={`${period.title}, sales orders placed and how they compare with invoicing.`}
+        description={`${period.title}, sales orders placed and how they compare with invoicing; and today, the open backlog.`}
       >
         <OverviewCards items={salesOrderKpis} />
       </ReportSection>
@@ -223,12 +199,20 @@ export default function OrdersTab() {
               data={ordersVsInvoiced.data}
               highlight={ordersVsInvoiced.highlight}
               lines={[
-                { dataKey: "Sales Orders", color: YELLOW_COLOR },
-                { dataKey: "Invoiced Revenue", color: GREEN_COLOR },
+                { dataKey: "Sales Orders", color: MEASURE_COLORS.salesOrders },
+                { dataKey: "Invoiced Revenue", color: MEASURE_COLORS.invoicedRevenue },
               ]}
             />
           </ChartCard>
         </CardLayout>
+      </ReportSection>
+
+      <ReportSection
+        icon={PackageIcon}
+        title="Open Backlog"
+        description="Today: open orders already late for delivery, and delivered orders not yet invoiced."
+      >
+        <OverviewCards items={openBacklogKpis} />
       </ReportSection>
 
       <ReportSection
@@ -245,20 +229,12 @@ export default function OrdersTab() {
             viewAllFilter={{ ...repFilter, ...periodFilter }}
           >
             {topCustomers.length ? (
-              <HorizontalBarChartRenderer data={topCustomers} colorMap={YELLOW_COLOR} />
+              <HorizontalBarChartRenderer data={topCustomers} colorMap={MEASURE_COLORS.salesOrders} />
             ) : (
               <NoResult title="No sales orders in this period." />
             )}
           </ChartCard>
         </CardLayout>
-      </ReportSection>
-
-      <ReportSection
-        icon={PackageIcon}
-        title="Open Backlog"
-        description={`${bookLabel}: sales orders not yet delivered or invoiced.`}
-      >
-        <OverviewCards items={openBacklogKpis} />
       </ReportSection>
     </TabState>
   );

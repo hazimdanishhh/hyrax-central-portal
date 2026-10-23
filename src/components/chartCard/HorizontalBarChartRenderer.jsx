@@ -1,6 +1,7 @@
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -85,7 +86,15 @@ export default function HorizontalBarChartRenderer({ data, colorMap, onBarClick 
               : undefined
           }
           cursor={onBarClick ? "pointer" : undefined}
-        />
+        >
+          {/* Optional per-bar colour (2026-10-23): a row may carry its own
+              `color` (Sales Reports' Overdue by Age greys out "Not Yet
+              Due"); rows without one keep the chart's colorMap. */}
+          {data?.some((d) => d.color) &&
+            data.map((d) => (
+              <Cell key={d.name} fill={d.color ?? colorMap} />
+            ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

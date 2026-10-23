@@ -3,12 +3,13 @@
 import { useOutletContext } from "react-router-dom";
 import {
   ChartLineUpIcon,
+  ClockCountdownIcon,
   FunnelIcon,
   GaugeIcon,
   HandshakeIcon,
   HourglassMediumIcon,
   PercentIcon,
-  TrendDownIcon,
+  PlusCircleIcon,
 } from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
@@ -18,11 +19,8 @@ import LineChartRenderer from "../../../../../components/chartCard/LineChartRend
 import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
 import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
 import {
-  BLUE_COLOR,
-  GREEN_COLOR,
-  PURPLE_COLOR,
-  RED_COLOR,
-  YELLOW_COLOR,
+  GREY_COLOR,
+  MEASURE_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import { preciseCurrency } from "../../../../../functions/formatNumber";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
@@ -34,12 +32,15 @@ import { useSalesReportTab } from "../../../../../features/sales/reports/private
 import ReportSection from "./ReportSection";
 import TabState from "./TabState";
 import {
+  TARGET_THRESHOLDS,
   calcDelta,
   comparedWith,
   deltaText,
   lastYearMetric,
   pctText,
   periodLinkFilter,
+  pointsDeltaText,
+  todayTile,
   trendSubtitle,
 } from "./reportFormat";
 
@@ -54,22 +55,27 @@ const stageLabel = (stage) =>
     .join(" ");
 
 /**
- * PIPELINE -- the CRM side of the funnel, for meetings: are we winning
- * enough against target, why do we lose, and what is coming. Data:
- * get_sales_pipeline (sales_lead_facts). Daily pipeline work -- aging, on
- * hold, pending SAP order -- stays on Leads Overview, unchanged.
+ * PIPELINE -- the CRM side of the funnel. Data: get_sales_pipeline
+ * (sales_lead_facts). Rules: DASHBOARD-CONVENTIONS §8.
  *
- * Won = deals WON and not cancelled, closed in the period (Malaysia time).
- * Lost = deals LOST, or cancelled at any stage. Win rate = won / (won +
- * lost) by count. Open Pipeline and Open by Stage are snapshots of TODAY --
- * they don't depend on the period, and say so.
+ *   Pipeline KPIs        Pipeline Generated, Pipeline Won, Win Rate (period)
+ *                        | Active Pipeline (TODAY)
+ *   Pipeline Trend       Pipeline Won vs Pipeline Target, monthly
+ *   Active Pipeline      TODAY: Pending SAP Order Entry (the hand-off to
+ *                        Orders) and the open pipeline by stage
+ *   Pipeline Breakdown   what was won and lost in the period, and why
+ *
+ * Won = leads WON and not cancelled, closed in the period (Malaysia time).
+ * Lost = leads LOST, or cancelled at any stage. Win rate = won / (won +
+ * lost) by count. Generated = leads CREATED in the period, at expected
+ * value (Leads Overview's own rule). Active Pipeline, Pipeline Coverage and
+ * Pending SAP Order Entry are open balances: always today, no comparison
+ * (R3). Daily pipeline work -- aging, on hold, the leads to chase -- stays
+ * on Leads Overview.
  */
 export default function PipelineTab() {
   const { filters, period, MappingMissingNote } = useOutletContext();
-  const { data, meta, kpis, isLoading, error } = useSalesReportTab(
-    "pipeline",
-    filters,
-  );
+  const { data, meta, kpis, isLoading, error } = useSalesReportTab("pipeline", filters);
 
   const against = comparedWith(meta, period);
   const p = periodLinkFilter(meta);
@@ -80,15 +86,30 @@ export default function PipelineTab() {
 
   const targetStatus = getStatusVariant(kpis.targetAttainmentPct ?? null, {
     direction: "high-good",
-    thresholds: { warningAt: 60, goodAt: 90 },
+    thresholds: TARGET_THRESHOLDS,
   });
 
-  const winRateChange =
-    kpis.winRatePct != null && kpis.prevWinRatePct != null
-      ? Math.round((kpis.winRatePct - kpis.prevWinRatePct) * 10) / 10
-      : null;
+  const coverageText =
+    kpis.pipelineCoverage == null ? "—" : `${kpis.pipelineCoverage}×`;
 
   const pipelineKpis = [
+    {
+      icon: PlusCircleIcon,
+      label: "Pipeline Generated",
+      sublabel: period.title,
+      value: preciseCurrency(kpis.generated),
+      subvalue: deltaText(calcDelta(kpis.generated, kpis.prevGenerated), against),
+      variant: "blueCard",
+      to: LEADS_LIST,
+      filter: { ...ownerFilter, ...p },
+      metrics: [
+        { label: "Leads Created", value: kpis.generatedCount ?? 0 },
+        lastYearMetric(meta, kpis.generated, kpis.lastYearGenerated, preciseCurrency),
+      ],
+      title:
+        "Expected revenue of leads created in the period, whatever has happened to them " +
+        "since -- the new business feeding the pipeline. Same rule as Leads Overview.",
+    },
     {
       icon: GaugeIcon,
       label: "Pipeline Won",
@@ -105,10 +126,14 @@ export default function PipelineTab() {
       metrics: [
         {
           label: "Pipeline Target",
-          value:
-            kpis.target == null ? "none set" : preciseCurrency(kpis.target),
+          value: kpis.target == null ? "none set" : preciseCurrency(kpis.target),
           to: "/app/sales/leads/targets",
           filter: { ...ownerFilter },
+        },
+        // Won Leads sits on Win Rate, beside the lost count it's a ratio of (R11).
+        {
+          label: "Avg. Deal Size",
+          value: kpis.avgDeal == null ? "—" : preciseCurrency(kpis.avgDeal),
         },
         lastYearMetric(meta, kpis.won, kpis.lastYearWon, preciseCurrency),
       ],
@@ -122,29 +147,34 @@ export default function PipelineTab() {
       label: "Win Rate",
       sublabel: period.title,
       value: pctText(kpis.winRatePct),
-      subvalue:
-        winRateChange == null
-          ? ""
-          : `${winRateChange >= 0 ? "↑" : "↓"} ${Math.abs(winRateChange)} pts vs ${against}`,
+      subvalue: pointsDeltaText(kpis.winRatePct, kpis.prevWinRatePct, against),
       variant: "blueCard",
       to: LEADS_LIST,
       filter: { ...ownerFilter, closedOnly: "true", ...closedFilter },
       metrics: [
         { label: "Won Leads", value: kpis.wonCount ?? 0 },
+        { label: "Total Lost Deals", value: kpis.lostCount ?? 0 },
+        {
+          label: "Lost Revenue",
+          value: preciseCurrency(kpis.lost),
+          to: LEADS_LIST,
+          filter: { ...ownerFilter, lostOrCancelled: "true", ...closedFilter },
+          title: "Expected revenue of leads lost or cancelled in the period. Reasons are in Pipeline Breakdown.",
+        },
         {
           icon: HourglassMediumIcon,
           label: "Pipeline Cycle",
           value: kpis.avgDaysToWon == null ? "—" : `${kpis.avgDaysToWon}d`,
+          title: "Average days from a lead being created to it being won, for leads won in the period.",
         },
       ],
       title:
         "Won leads ÷ leads closed (won + lost + cancelled) in the period, by count. " +
         "The change is in percentage points.",
     },
-    {
+    todayTile({
       icon: FunnelIcon,
       label: "Active Pipeline",
-      sublabel: "Today",
       value: preciseCurrency(kpis.openValue),
       variant: "blueCard",
       to: LEADS_LIST,
@@ -152,48 +182,38 @@ export default function PipelineTab() {
       metrics: [
         { label: "Weighted", value: preciseCurrency(kpis.weightedValue) },
         { label: "Active Leads", value: kpis.openCount ?? 0 },
+        {
+          label: "Pipeline Coverage",
+          value: coverageText,
+          title:
+            kpis.targetRemaining == null
+              ? "No Pipeline Target left this fiscal year."
+              : `Active Pipeline ÷ the Pipeline Target still to win this fiscal year ` +
+                `(${preciseCurrency(kpis.targetRemaining)}). About 3× is a common B2B benchmark.`,
+        },
       ],
       title:
-        "Expected revenue of every open, uncancelled lead right now. Weighted " +
-        "multiplies each lead by its close probability. As of today: it doesn't " +
-        "change with the period.",
-    },
-    {
-      icon: TrendDownIcon,
-      label: "Lost Revenue",
-      sublabel: period.title,
-      value: preciseCurrency(kpis.lost),
-      subvalue: deltaText(calcDelta(kpis.lost, kpis.prevLost), against),
-      variant: "blueCard",
-      to: null,
-      metrics: [
-        { label: "Total Lost Deals", value: kpis.lostCount ?? 0 },
-        lastYearMetric(meta, kpis.lost, kpis.lastYearLost, preciseCurrency),
-      ],
-      title:
-        "Expected revenue of leads lost or cancelled in the period. Reasons are in " +
-        "Pipeline Breakdown.",
-    },
+        "Expected revenue of every open, uncancelled lead right now. Weighted multiplies " +
+        "each lead by its close probability. Pipeline Coverage compares it with the " +
+        "Pipeline Target left this fiscal year. Open balances: today, whatever period " +
+        "is picked.",
+    }),
   ];
 
   const activePipelineKpis = [
-    {
-      icon: FunnelIcon,
-      label: "Active Pipeline",
-      sublabel: "Today",
-      value: preciseCurrency(kpis.openValue),
-      variant: "blueCard",
+    todayTile({
+      icon: ClockCountdownIcon,
+      label: "Pending SAP Order Entry",
+      value: preciseCurrency(kpis.pendingSapValue),
+      variant: (kpis.pendingSapCount ?? 0) > 0 ? "yellowCard" : "blueCard",
       to: LEADS_LIST,
-      filter: { ...ownerFilter, activePipelineOnly: "true" },
-      metrics: [
-        { label: "Weighted", value: preciseCurrency(kpis.weightedValue) },
-        { label: "Active Leads", value: kpis.openCount ?? 0 },
-      ],
+      filter: { ...ownerFilter, pendingSapOrder: "true", cancelled: "false" },
+      metrics: [{ label: "Won Leads", value: kpis.pendingSapCount ?? 0 }],
       title:
-        "Expected revenue of every open, uncancelled lead right now. Weighted " +
-        "multiplies each lead by its close probability. As of today: it doesn't " +
-        "change with the period.",
-    },
+        "Won leads whose PO number no SAP sales order carries yet -- the hand-off to " +
+        "Orders, waiting on the sales admin. Same rule as Leads Overview (cancelled " +
+        "leads left out). Amber when there are any.",
+    }),
   ];
 
   const wonVsTarget = shapeTrendRows(
@@ -218,7 +238,7 @@ export default function PipelineTab() {
       <ReportSection
         icon={HandshakeIcon}
         title="Pipeline KPIs"
-        description={`${period.title}, leads won against target, win rate, cycle and lost revenue.`}
+        description={`${period.title}, new pipeline, leads won against target, and win rate; and today, the active pipeline.`}
       >
         <OverviewCards items={pipelineKpis} />
       </ReportSection>
@@ -238,8 +258,8 @@ export default function PipelineTab() {
               data={wonVsTarget.data}
               highlight={wonVsTarget.highlight}
               lines={[
-                { dataKey: "Pipeline Won", color: BLUE_COLOR },
-                { dataKey: "Pipeline Target", color: YELLOW_COLOR },
+                { dataKey: "Pipeline Won", color: MEASURE_COLORS.pipelineWon },
+                { dataKey: "Pipeline Target", color: MEASURE_COLORS.plan, dashed: true },
               ]}
             />
           </ChartCard>
@@ -249,8 +269,10 @@ export default function PipelineTab() {
       <ReportSection
         icon={FunnelIcon}
         title="Active Pipeline"
-        description="Open leads as of today, by stage."
+        description="Today: won leads waiting for an SAP order, and the open pipeline by stage."
       >
+        <OverviewCards items={activePipelineKpis} />
+
         <CardLayout>
           <ChartCard
             title="Active Pipeline by Stage (RM)"
@@ -263,8 +285,8 @@ export default function PipelineTab() {
               <HorizontalMultiBarRenderer
                 data={openByStage}
                 bars={[
-                  { dataKey: "Expected", name: "Expected", color: BLUE_COLOR },
-                  { dataKey: "Weighted", name: "Weighted", color: GREEN_COLOR },
+                  { dataKey: "Expected", name: "Expected", color: MEASURE_COLORS.pipelineWon },
+                  { dataKey: "Weighted", name: "Weighted", color: GREY_COLOR },
                 ]}
               />
             ) : (
@@ -280,31 +302,17 @@ export default function PipelineTab() {
         description={`${period.title}, won revenue by product type, lead source and client, and lost revenue by reason.`}
       >
         <CardLayout style="cardLayout2">
-          <ChartCard
-            title="Won by Product Type (RM)"
-            subtitle={period.title}
-            style="cardGapSmall"
-          >
+          <ChartCard title="Won by Product Type (RM)" subtitle={period.title} style="cardGapSmall">
             {byProduct.length ? (
-              <HorizontalBarChartRenderer
-                data={byProduct}
-                colorMap={BLUE_COLOR}
-              />
+              <HorizontalBarChartRenderer data={byProduct} colorMap={MEASURE_COLORS.pipelineWon} />
             ) : (
               <NoResult title="No leads won in this period." />
             )}
           </ChartCard>
 
-          <ChartCard
-            title="Won by Lead Source (RM)"
-            subtitle={period.title}
-            style="cardGapSmall"
-          >
+          <ChartCard title="Won by Lead Source (RM)" subtitle={period.title} style="cardGapSmall">
             {bySource.length ? (
-              <HorizontalBarChartRenderer
-                data={bySource}
-                colorMap={GREEN_COLOR}
-              />
+              <HorizontalBarChartRenderer data={bySource} colorMap={MEASURE_COLORS.pipelineWon} />
             ) : (
               <NoResult title="No leads won in this period." />
             )}
@@ -316,10 +324,7 @@ export default function PipelineTab() {
             style="cardGapSmall"
           >
             {topClients.length ? (
-              <HorizontalBarChartRenderer
-                data={topClients}
-                colorMap={PURPLE_COLOR}
-              />
+              <HorizontalBarChartRenderer data={topClients} colorMap={MEASURE_COLORS.pipelineWon} />
             ) : (
               <NoResult title="No leads won in this period." />
             )}
@@ -329,12 +334,11 @@ export default function PipelineTab() {
             title="Lost Revenue by Reason (RM)"
             subtitle={`Leads lost or cancelled, ${period.title}`}
             style="cardGapSmall"
+            viewAllTo={LEADS_LIST}
+            viewAllFilter={{ ...ownerFilter, lostOrCancelled: "true", ...closedFilter }}
           >
             {lostByReason.length ? (
-              <HorizontalBarChartRenderer
-                data={lostByReason}
-                colorMap={RED_COLOR}
-              />
+              <HorizontalBarChartRenderer data={lostByReason} colorMap={MEASURE_COLORS.lost} />
             ) : (
               <NoResult title="No leads lost in this period." />
             )}
