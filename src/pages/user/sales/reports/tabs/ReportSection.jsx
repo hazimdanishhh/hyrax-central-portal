@@ -5,7 +5,12 @@
  * single-page report used (chartSection / chartHeading), so sections look
  * unchanged. `pdfOverviewSection` keeps each section together in the PDF.
  */
-export default function ReportSection({ icon: Icon, title, description, children }) {
+export default function ReportSection({
+  icon: Icon,
+  title,
+  description,
+  children,
+}) {
   return (
     <div className="pdfOverviewSection">
       <div

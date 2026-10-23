@@ -1,7 +1,9 @@
 import "./CustomLegend.scss";
 import { preciseNumber } from "../../../functions/formatNumber";
 
-export default function CustomLegend({ data, colorMap }) {
+// valueFormatter (optional, 2026-10-23): how each value is written, e.g.
+// preciseCurrency for a ringgit chart. Defaults to the plain number.
+export default function CustomLegend({ data, colorMap, valueFormatter = preciseNumber }) {
   // Number(d.value) -- a caller passing a pre-formatted string (e.g. from
   // .toFixed(2)) would otherwise turn this into string concatenation
   // instead of addition, producing an unparseable "total" and NaN% for
@@ -28,7 +30,7 @@ export default function CustomLegend({ data, colorMap }) {
               </span>
             </div>
             <span className="textBold">
-              {preciseNumber(item.value)}{" "}
+              {valueFormatter(item.value)}{" "}
               <span className="textLight">({percent}%)</span>
             </span>
           </div>

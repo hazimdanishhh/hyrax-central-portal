@@ -16,6 +16,10 @@
 --   kpis.orderBook*     sales_order_book_totals -- ACTIONABLE: the whole
 --                       current backlog unless a period is picked, then
 --                       orders placed in that period
+--   kpis.openBacklogMonths  open backlog / average monthly invoiced revenue
+--                       over the last 3 COMPLETE months (a recent run rate,
+--                       independent of the period picked): how many months
+--                       of invoicing the backlog already represents
 --   ordersVsInvoiced    monthly booked vs invoiced, trend window
 --   topCustomers        top 10 customers by orders booked in the period
 --
@@ -38,6 +42,9 @@ declare
     cur record;
     prv record;
     ob  record;
+    ly  record;
+    lyt record;
+    rr  record;
 begin
     select * into sc from public.sales_report_scope(p_owner_id);
     select * into per from public.report_period(p_start_date, p_end_date);
@@ -45,6 +52,13 @@ begin
     select * into cur from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.start_date, per.end_date);
     select * into prv from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.prev_start, per.prev_end);
     select * into ob from public.sales_order_book_totals(sc.sales_rep_code, per.has_period, per.start_date, per.end_date);
+    select * into ly from public.report_last_year(p_start_date, p_end_date);
+    select * into lyt from public.sales_totals(sc.sales_rep_code, sc.owner_id, ly.ly_start, ly.ly_end);
+    -- Recent run rate: the 3 complete months before this one.
+    select * into rr from public.sales_totals(
+        sc.sales_rep_code, sc.owner_id,
+        (date_trunc('month', current_date) - interval '3 months')::date,
+        (date_trunc('month', current_date) - interval '1 day')::date);
 
     return json_build_object(
         'meta', public.sales_report_meta(p_start_date, p_end_date, sc.sales_rep_code, sc.mapping_missing),
@@ -63,7 +77,11 @@ begin
             'overdueValue', ob.overdue_value,
             'overdueOrders', ob.overdue_orders,
             'unbilledValue', ob.unbilled_value,
-            'unbilledOrders', ob.unbilled_orders
+            'unbilledOrders', ob.unbilled_orders,
+            'lastYearBooked', lyt.booked,
+            'recentMonthlyInvoiced', round(rr.invoiced / 3, 2),
+            'openBacklogMonths',
+                case when rr.invoiced > 0 then round(ob.open_value / (rr.invoiced / 3), 1) end
         ),
 
         'ordersVsInvoiced', (

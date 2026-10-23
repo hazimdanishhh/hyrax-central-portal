@@ -4,6 +4,8 @@
 --
 -- Every rule a report needs, written once:
 --   fiscal_year_start()      April-March fiscal year
+--   report_last_year()       the same period one year back
+--   months_spanned()         months covered by a date range (part-months by days)
 --   report_period()          the selected period, its comparison window and
 --                            its trend window (not sales-specific: reusable
 --                            by Finance / HR / Operations reports)
@@ -14,6 +16,7 @@
 --   sales_rep_totals()       the same measures per sales rep (bridge, scorecard)
 --   sales_pipeline_totals()  won / lost / win rate / open pipeline (CRM)
 --   sales_order_book_totals() open backlog, overdue, delivered-not-invoiced
+--   sales_fy_progress()      fiscal year to date, FY budget, months left
 --   sales_report_meta()      the meta block every report RPC returns
 --
 -- The three sales_* aggregations read ONLY the Layer 1 fact views, and the
@@ -132,6 +135,45 @@ as $$
 $$;
 
 
+-- ─── report_last_year ───────────────────────────────────────────────────────
+-- The same period one year back, for "Same Period Last Year" (2026-10-23).
+-- Built on report_period so it inherits its rules:
+--   * whole months stay whole months: Feb 2029 compares with ALL of Feb 2028
+--     (29 days), not 1-28 Feb;
+--   * while the period is still running it is cut to the same days, like
+--     the comparison window: 1-23 Oct 2026 compares with 1-23 Oct 2025.
+-- A separate function (not extra report_period columns) so report_period's
+-- signature never changes.
+create or replace function public.report_last_year(p_start date, p_end date)
+returns table (ly_start date, ly_end date)
+language sql
+stable
+as $$
+    with per as (
+        select * from public.report_period(p_start, p_end)
+    ),
+    shifted as (
+        select
+            (start_date - interval '1 year')::date as s,
+            case
+                when extract(day from end_date + 1) = 1
+                then (date_trunc('month', end_date - interval '1 year')
+                      + interval '1 month' - interval '1 day')::date
+                else (end_date - interval '1 year')::date
+            end as e_full,
+            comparison_is_partial
+        from per
+    )
+    select
+        s,
+        case
+            when comparison_is_partial then least(e_full, (current_date - interval '1 year')::date)
+            else e_full
+        end
+    from shifted
+$$;
+
+
 -- ─── prorate_months ─────────────────────────────────────────────────────────
 -- A monthly plan amount (budget or target) counted for the days of that month
 -- falling inside [p_from, p_to]. The one proration formula (previously
@@ -151,6 +193,22 @@ as $$
         (least(p_to, (date_trunc('month', p_month) + interval '1 month' - interval '1 day')::date)
          - greatest(p_from, date_trunc('month', p_month)::date)) + 1
     ) / extract(day from (date_trunc('month', p_month) + interval '1 month' - interval '1 day'))
+$$;
+
+
+-- ─── months_spanned ─────────────────────────────────────────────────────────
+-- How many months [p_from, p_to] covers, counting part-months by their days
+-- (1-23 Oct = 23/31 of a month). It is prorate_months over an amount of 1,
+-- so it can never disagree with how budgets and targets are prorated.
+-- 0 when p_to is before p_from.
+create or replace function public.months_spanned(p_from date, p_to date)
+returns numeric
+language sql
+immutable
+as $$
+    select coalesce(sum(public.prorate_months(1, m::date, p_from, p_to)), 0)
+    from generate_series(date_trunc('month', p_from), date_trunc('month', p_to), interval '1 month') m
+    where p_to >= p_from
 $$;
 
 
@@ -489,6 +547,16 @@ $$;
 --   open_value, weighted_value,  the OPEN pipeline right now (a snapshot --
 --   open_count                   it does not depend on the window): expected
 --                                value, and expected x close probability
+--   avg_days_to_won              Pipeline Cycle (2026-10-23): average days
+--                                from a won lead's creation to its close,
+--                                both dates in Malaysia time
+--
+-- Return columns changed on 2026-10-23, and CREATE OR REPLACE cannot change
+-- them, so the old version is dropped first. Nothing stores a dependency on
+-- it (the RPCs call it by name at run time), so the drop is safe and this
+-- file stays re-runnable.
+drop function if exists public.sales_pipeline_totals(uuid, date, date);
+
 create or replace function public.sales_pipeline_totals(
     p_owner uuid,
     p_from date,
@@ -503,7 +571,8 @@ returns table (
     win_rate_pct numeric,
     open_value numeric,
     weighted_value numeric,
-    open_count bigint
+    open_count bigint,
+    avg_days_to_won numeric
 )
 language sql
 stable
@@ -521,7 +590,8 @@ as $$
             1),
         coalesce(sum(expected_myr) filter (where outcome = 'open'), 0),
         coalesce(sum(expected_myr * coalesce(close_probability, 0) / 100.0) filter (where outcome = 'open'), 0),
-        count(*) filter (where outcome = 'open')
+        count(*) filter (where outcome = 'open'),
+        round(avg(closed_on - created_on) filter (where outcome = 'won' and closed_on between p_from and p_to), 1)
     from public.sales_lead_facts
     where p_owner is null or owner_employee_id = p_owner
 $$;
@@ -563,6 +633,69 @@ as $$
 $$;
 
 
+-- ─── sales_fy_progress ──────────────────────────────────────────────────────
+-- Fiscal-year position for Summary's Fiscal Year Progress (2026-10-23): the
+-- fiscal year containing the END of the selected period, measured up to
+-- that end (or today, whichever is earlier). A closed month shows where the
+-- year stood at that month's end; the current month shows today.
+--
+--   fy_start, fy_end, as_of
+--   fytd_invoiced, fytd_budget   sales_totals from fy_start to as_of
+--   fy_budget                    sales_totals budget for the whole FY (null
+--                                when no budget row exists)
+--   months_elapsed, months_left  months_spanned before / after as_of
+--
+-- Every figure is a sales_totals call, so FY to date can never be defined
+-- differently from the period tiles.
+create or replace function public.sales_fy_progress(
+    p_rep bigint,
+    p_owner uuid,
+    p_start date,
+    p_end date
+)
+returns table (
+    fy_start date,
+    fy_end date,
+    as_of date,
+    fytd_invoiced numeric,
+    fytd_budget numeric,
+    fy_budget numeric,
+    months_elapsed numeric,
+    months_left numeric
+)
+language sql
+stable
+security invoker
+as $$
+    with per as (
+        select * from public.report_period(p_start, p_end)
+    ),
+    fy as (
+        select
+            public.fiscal_year_start(per.end_date) as fs,
+            (public.fiscal_year_start(per.end_date) + interval '1 year' - interval '1 day')::date as fe,
+            -- never before the FY starts (a future period has nothing to date)
+            greatest(
+                least(per.end_date, current_date),
+                public.fiscal_year_start(per.end_date) - 1
+            ) as asof
+        from per
+    )
+    select
+        fy.fs,
+        fy.fe,
+        fy.asof,
+        ytd.invoiced,
+        ytd.budget,
+        full_year.budget,
+        public.months_spanned(fy.fs, fy.asof),
+        public.months_spanned(fy.asof + 1, fy.fe)
+    from fy
+    cross join lateral public.sales_totals(p_rep, p_owner, fy.fs, fy.asof) ytd
+    cross join lateral public.sales_totals(p_rep, p_owner, fy.fs, fy.fe) full_year
+$$;
+
+
 -- ─── sales_report_meta ──────────────────────────────────────────────────────
 -- The `meta` block every Sales report RPC returns, so the page labels each
 -- tile and chart from the exact dates it was computed with (never
@@ -570,6 +703,7 @@ $$;
 --   period            { startDate, endDate, hasPeriod }
 --   comparisonWindow  { startDate, endDate, isPartial }  -- what deltas compare
 --   trendWindow       { startDate, endDate }             -- monthly charts
+--   lastYearWindow    { startDate, endDate }             -- Same Period Last Year
 --   mappingMissing    salesperson picked but not linked to a SAP rep
 --   salesRepCode      the resolved rep (drill-through links filter on it)
 create or replace function public.sales_report_meta(
@@ -595,10 +729,14 @@ as $$
         'trendWindow', json_build_object(
             'startDate', per.trend_start,
             'endDate', per.trend_end),
+        'lastYearWindow', json_build_object(
+            'startDate', ly.ly_start,
+            'endDate', ly.ly_end),
         'mappingMissing', p_mapping_missing,
         'salesRepCode', p_sales_rep_code
     )
     from public.report_period(p_start, p_end) per
+    cross join public.report_last_year(p_start, p_end) ly
 $$;
 
 
@@ -616,7 +754,10 @@ revoke execute on function
     public.sales_rep_totals(bigint, date, date),
     public.sales_report_meta(date, date, bigint, boolean),
     public.sales_pipeline_totals(uuid, date, date),
-    public.sales_order_book_totals(bigint, boolean, date, date)
+    public.sales_order_book_totals(bigint, boolean, date, date),
+    public.report_last_year(date, date),
+    public.months_spanned(date, date),
+    public.sales_fy_progress(bigint, uuid, date, date)
 from public, anon;
 
 grant execute on function
@@ -629,5 +770,8 @@ grant execute on function
     public.sales_rep_totals(bigint, date, date),
     public.sales_report_meta(date, date, bigint, boolean),
     public.sales_pipeline_totals(uuid, date, date),
-    public.sales_order_book_totals(bigint, boolean, date, date)
+    public.sales_order_book_totals(bigint, boolean, date, date),
+    public.report_last_year(date, date),
+    public.months_spanned(date, date),
+    public.sales_fy_progress(bigint, uuid, date, date)
 to authenticated;

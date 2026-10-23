@@ -70,7 +70,7 @@ export default function ForecastTab() {
       <ReportSection
         icon={TrendUpIcon}
         title="Projected Invoiced Revenue"
-        description={`FY ${fyLabel} — what we said, what happened, and what we now expect. Company-wide.`}
+        description={`FY ${fyLabel}, company-wide: forecast against actual invoiced revenue.`}
       >
         {!health?.monthsWithData ? (
           <NoResult title={`No forecast or actuals for FY ${fyLabel || fyStartYear} yet.`} />
@@ -105,45 +105,53 @@ export default function ForecastTab() {
                 />
               </ChartCard>
             </CardLayout>
-
-            <CardLayout style="cardLayout2">
-              <ChartCard
-                title="What Each Model Says — Invoiced Revenue"
-                subtitle={`${focusedRow?.name ?? "Selected month"} — each method's own estimate, and the blend published from them${
-                  focusedExhibit?.basis ? ` · ${focusedExhibit.basis}` : ""
-                }`}
-                style="cardGapSmall"
-              >
-                {focusedExhibit?.methods?.length ? (
-                  <HorizontalBarChartRenderer
-                    data={focusedExhibit.methods}
-                    colorMap={PURPLE_COLOR}
-                  />
-                ) : (
-                  <NoResult title="No per-model breakdown for this month." />
-                )}
-              </ChartCard>
-
-              <ChartCard
-                title="How the Number Is Built — Invoiced Revenue"
-                subtitle={`${focusedRow?.name ?? "Selected month"} — how much comes from the order book, how much from invoicing history${
-                  focusedExhibit?.basis ? ` · ${focusedExhibit.basis}` : ""
-                }`}
-                style="cardGapSmall"
-              >
-                {focusedExhibit?.buildUp?.length ? (
-                  <HorizontalBarChartRenderer
-                    data={focusedExhibit.buildUp}
-                    colorMap={BLUE_COLOR}
-                  />
-                ) : (
-                  <NoResult title="No build-up for this month." />
-                )}
-              </ChartCard>
-            </CardLayout>
           </>
         )}
       </ReportSection>
+
+      {health?.monthsWithData ? (
+        <ReportSection
+          icon={TrendUpIcon}
+          title="Forecast Model Detail"
+          description={`${focusedRow?.name ?? "The selected month"}: each model's estimate and how the forecast is built. Click a month on the chart above to change it.`}
+        >
+          <CardLayout style="cardLayout2">
+            <ChartCard
+              title="What Each Model Says — Invoiced Revenue"
+              subtitle={`${focusedRow?.name ?? "Selected month"} — each method's own estimate, and the blend published from them${
+                focusedExhibit?.basis ? ` · ${focusedExhibit.basis}` : ""
+              }`}
+              style="cardGapSmall"
+            >
+              {focusedExhibit?.methods?.length ? (
+                <HorizontalBarChartRenderer
+                  data={focusedExhibit.methods}
+                  colorMap={PURPLE_COLOR}
+                />
+              ) : (
+                <NoResult title="No per-model breakdown for this month." />
+              )}
+            </ChartCard>
+
+            <ChartCard
+              title="How the Number Is Built — Invoiced Revenue"
+              subtitle={`${focusedRow?.name ?? "Selected month"} — how much comes from the order book, how much from invoicing history${
+                focusedExhibit?.basis ? ` · ${focusedExhibit.basis}` : ""
+              }`}
+              style="cardGapSmall"
+            >
+              {focusedExhibit?.buildUp?.length ? (
+                <HorizontalBarChartRenderer
+                  data={focusedExhibit.buildUp}
+                  colorMap={BLUE_COLOR}
+                />
+              ) : (
+                <NoResult title="No build-up for this month." />
+              )}
+            </ChartCard>
+          </CardLayout>
+        </ReportSection>
+      ) : null}
     </TabState>
   );
 }

@@ -34,6 +34,8 @@ declare
     per record;
     cur record;
     prv record;
+    ly  record;
+    lyt record;
     v_ar record;
 begin
     select * into sc from public.sales_report_scope(p_owner_id);
@@ -41,6 +43,8 @@ begin
 
     select * into cur from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.start_date, per.end_date);
     select * into prv from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.prev_start, per.prev_end);
+    select * into ly from public.report_last_year(p_start_date, p_end_date);
+    select * into lyt from public.sales_totals(sc.sales_rep_code, sc.owner_id, ly.ly_start, ly.ly_end);
 
     select
         coalesce(sum(outstanding_myr), 0) as outstanding,
@@ -57,6 +61,7 @@ begin
         'kpis', json_build_object(
             'collected', cur.collected,
             'prevCollected', prv.collected,
+            'lastYearCollected', lyt.collected,
             'paymentCount', cur.payment_count,
             'payingCustomers', cur.paying_customers,
             'invoiced', cur.invoiced,

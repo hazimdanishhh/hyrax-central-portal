@@ -139,6 +139,15 @@ beforeAll(async () => {
       (6, '',           'N', 'C2', 'Beta Ltd',        1,      50,   50,     5,   0),  -- empty date
       (7, '2025-05-25', 'N', 'C3', 'Cosmo',           1,     100,  100, 10000,   0);  -- GP outlier
 
+    -- RECENT RUN RATE: 1100 invoiced (fully paid) in each of the 3 complete
+    --   months before this one -> 1100 a month. Dated by the database's own
+    --   current_date so the fixture never drifts.
+    insert into sap_invoices
+      select 100 + k,
+             to_char(date_trunc('month', current_date) - (k || ' months')::interval + interval '14 days', 'YYYY-MM-DD'),
+             'N', 'C1', 'Acme Sdn Bhd', 1, 1100, 1100, 0, 1100
+      from generate_series(1, 3) k;
+
     insert into sap_item_groups values (10, 'Transformer Oil');
     insert into sap_items values ('I1', 'Oil A', 10, 'L', null), ('I2', 'Oil B', null, null, null);
     insert into sap_invoice_lines values (1, 0, 'I1', 2, 400), (1, 1, 'I2', 1, 300), (2, 0, 'I1', 1, 450), (3, 0, 'I1', 9, 9000);
@@ -211,7 +220,7 @@ beforeAll(async () => {
 
 describe("1. definitions (fact views)", () => {
   it("invoices: cancelled excluded, empty date kept as null, canonical customer name", async () => {
-    const rows = await q("select doc_entry, invoice_date::text, customer_name from sales_invoice_facts order by doc_entry");
+    const rows = await q("select doc_entry, invoice_date::text, customer_name from sales_invoice_facts where doc_entry < 100 order by doc_entry");
     expect(rows.map((r) => Number(r.doc_entry))).toEqual([1, 2, 4, 5, 6, 7]);
     expect(rows.find((r) => Number(r.doc_entry) === 6).invoice_date).toBeNull();
     // Invoice 2 says "ACME SDN. BHD." but customer C1 is one name everywhere.
@@ -417,6 +426,36 @@ describe("3. scoping", () => {
   });
 });
 
+describe("report_last_year and months_spanned", () => {
+  it.each([
+    ["2025-05-01", "2025-05-31", "2024-05-01", "2024-05-31"], // month
+    ["2029-02-01", "2029-02-28", "2028-02-01", "2028-02-29"], // whole month -> whole leap Feb
+    ["2028-02-01", "2028-02-29", "2027-02-01", "2027-02-28"],
+    ["2025-04-01", "2026-03-31", "2024-04-01", "2025-03-31"], // fiscal year
+    ["2025-01-15", "2025-01-21", "2024-01-15", "2024-01-21"], // custom days
+  ])("%s → %s", async (s, e, ls, le) => {
+    const [r] = await q("select ly_start::text, ly_end::text from report_last_year($1, $2)", [s, e]);
+    expect([r.ly_start, r.ly_end]).toEqual([ls, le]);
+  });
+
+  it("a period still running is cut to the same days last year", async () => {
+    const [r] = await q(`
+      select ly.ly_start::text = (date_trunc('month', current_date) - interval '1 year')::date::text as start_ok,
+             ly.ly_end::text = (current_date - interval '1 year')::date::text as end_ok
+      from report_last_year(null, null) ly`);
+    expect([r.start_ok, r.end_ok]).toEqual([true, true]);
+  });
+
+  it("months_spanned counts part-months by their days", async () => {
+    const [r] = await q(`select months_spanned('2026-10-01', '2026-10-31') as full_month,
+                                months_spanned('2026-10-24', '2027-03-31') as rest_of_fy,
+                                months_spanned('2026-11-01', '2026-10-31') as empty`);
+    expect(n(r.full_month)).toBe(1);
+    expect(n(r.rest_of_fy)).toBeCloseTo(5 + 8 / 31, 6);
+    expect(n(r.empty)).toBe(0);
+  });
+});
+
 describe("report_period (the shared period rules)", () => {
   const period = async (s, e) => {
     const [r] = await q(
@@ -590,6 +629,45 @@ describe("4. tab RPCs (one number, every tab)", () => {
     expect(r.kpis.customerTop5Pct).toBeNull();
     expect(r.kpis.topGroupName).toBeNull();
     expect(r.topCustomers).toEqual([]);
+  });
+
+  it("summary: Fiscal Year Progress for May 2025", () => {
+    // FY 2025-2026, measured to the end of May: invoiced Apr 700 + May 1900;
+    // budget Apr 3000 + May 3720 (no later budget rows), so the whole-FY
+    // budget is 6720 and 4120 is left over the 10 remaining months.
+    expect(summary.kpis.lastYearInvoiced).toBe(0);
+    const f = summary.fyProgress;
+    expect([f.fyStart, f.fyEnd, f.asOf]).toEqual(["2025-04-01", "2026-03-31", "2025-05-31"]);
+    expect([n(f.fytdInvoiced), n(f.fytdBudget), n(f.fytdAttainmentPct), n(f.fyBudget)]).toEqual([2600, 6720, 39, 6720]);
+    expect([n(f.budgetRemaining), n(f.monthsElapsed), n(f.monthsLeft)]).toEqual([4120, 2, 10]);
+    expect([n(f.monthlyAverage), n(f.monthlyNeeded)]).toEqual([1300, 412]);
+  });
+
+  it("Same Period Last Year: May 2026 compares with May 2025 on every tab", async () => {
+    const may26 = ["2026-05-01", "2026-05-31"];
+    const s = await rpc("get_sales_summary", E1, ...may26);
+    expect(s.meta.lastYearWindow).toEqual({ startDate: "2025-05-01", endDate: "2025-05-31" });
+    expect([n(s.kpis.lastYearWon), n(s.kpis.lastYearBooked), n(s.kpis.lastYearInvoiced), n(s.kpis.lastYearCollected)])
+      .toEqual([3000, 3800, 1900, 1000]);
+    const pl = await rpc("get_sales_pipeline", E1, ...may26);
+    expect([n(pl.kpis.lastYearWon), n(pl.kpis.lastYearLost)]).toEqual([3000, 12000]);
+    const o = await rpc("get_sales_orders", E1, ...may26);
+    expect(n(o.kpis.lastYearBooked)).toBe(3800);
+    const iv = await rpc("get_sales_invoicing", E1, ...may26);
+    expect(n(iv.kpis.lastYearInvoiced)).toBe(1900);
+    const c = await rpc("get_sales_collections", E1, ...may26);
+    expect(n(c.kpis.lastYearCollected)).toBe(1000);
+  });
+
+  it("pipeline: Pipeline Cycle is the average days from lead to won", () => {
+    // L2 created 1 Jan, won 10 May = 129 days; L5 created 1 Jan, won 20 May = 139.
+    expect(n(pipeline.kpis.avgDaysToWon)).toBe(134);
+  });
+
+  it("orders: Open Backlog (Months) against the last 3 complete months", async () => {
+    const all = await rpc("get_sales_orders", E1, null, null);
+    expect(n(all.kpis.recentMonthlyInvoiced)).toBe(1100);
+    expect(n(all.kpis.openBacklogMonths)).toBe(3); // 3300 open / 1100 a month
   });
 
   it("staff are scoped to themselves on every tab", async () => {

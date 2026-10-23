@@ -91,8 +91,8 @@ export default function TeamTab() {
 
       <ReportSection
         icon={ChartBarHorizontalIcon}
-        title="Profitability and collection by rep"
-        description="Gross profit uses SAP's figure, with the outlier guard every dashboard here applies."
+        title="Rep Breakdown"
+        description={`${period.title}, Invoiced Revenue and gross profit, and collection rate, by rep.`}
       >
         <CardLayout style="cardLayout2">
           <ChartCard

@@ -482,9 +482,13 @@
     border-radius: 30px;
 
     &.active {
-      background-color: $neutral900;
+      background-color: $primary;
       color: $neutral100;
-      border: 1px solid $neutral700;
+      border: 1px solid $primary;
+
+      .pageTabIcon {
+        color: $primary;
+      }
     }
   }
 

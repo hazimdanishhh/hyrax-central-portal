@@ -35,6 +35,8 @@ declare
     cur record;
     prv record;
     tot record;
+    ly  record;
+    lyp record;
 begin
     select * into sc from public.sales_report_scope(p_owner_id);
     select * into per from public.report_period(p_start_date, p_end_date);
@@ -42,6 +44,8 @@ begin
     select * into cur from public.sales_pipeline_totals(sc.owner_id, per.start_date, per.end_date);
     select * into prv from public.sales_pipeline_totals(sc.owner_id, per.prev_start, per.prev_end);
     select * into tot from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.start_date, per.end_date);
+    select * into ly from public.report_last_year(p_start_date, p_end_date);
+    select * into lyp from public.sales_pipeline_totals(sc.owner_id, ly.ly_start, ly.ly_end);
 
     return json_build_object(
         'meta', public.sales_report_meta(p_start_date, p_end_date, sc.sales_rep_code, sc.mapping_missing),
@@ -61,7 +65,10 @@ begin
             'prevWinRatePct', prv.win_rate_pct,
             'openValue', cur.open_value,
             'weightedValue', cur.weighted_value,
-            'openCount', cur.open_count
+            'openCount', cur.open_count,
+            'avgDaysToWon', cur.avg_days_to_won,
+            'lastYearWon', lyp.won,
+            'lastYearLost', lyp.lost
         ),
 
         'wonVsTarget', (

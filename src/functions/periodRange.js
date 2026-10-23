@@ -266,6 +266,13 @@ const MONTH_SHORT = [
 
 const dayMonth = (d) => `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
 
+/** "2026-10-23" -> "23 Oct 2026". */
+export function formatDay(dateString) {
+  if (!isDateString(dateString)) return dateString ?? "";
+  const d = parseDateString(dateString);
+  return `${dayMonth(d)} ${d.getFullYear()}`;
+}
+
 /** "1 Oct – 31 Dec 2026", or "1 Apr 2026 – 31 Mar 2027" across a year end. */
 export function formatDateRange(startDate, endDate) {
   if (!isDateString(startDate) || !isDateString(endDate)) {

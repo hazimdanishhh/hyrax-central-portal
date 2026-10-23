@@ -149,26 +149,6 @@ export default function SalesReportsLayout() {
 
             <PeriodSelector filters={filters} onFilterChange={setFilters} />
 
-            {isForecast ? (
-              <div className="salesReportsForecastNote">
-                <p className="textXXS textLight">
-                  <GlobeHemisphereEastIcon size={14} /> Company-wide forecast
-                  for the fiscal year of the selected period. The salesperson
-                  filter doesn&apos;t apply here.
-                </p>
-                <ExportActions {...exportPdf} />
-              </div>
-            ) : (
-              <SearchFilterBar
-                filters={filters}
-                onFilterChange={setFilters}
-                filterConfig={filterConfig}
-                disableSearch
-                enableExport
-                exportPdf={exportPdf}
-              />
-            )}
-
             {/* TABS -- each link keeps the current filters (?search). */}
             <TabScroller ariaLabel="Sales report tabs">
               {salesReportsTabs.map((tab) => {
@@ -191,6 +171,26 @@ export default function SalesReportsLayout() {
                 );
               })}
             </TabScroller>
+
+            {isForecast ? (
+              <div className="salesReportsForecastNote">
+                <p className="textXXS textLight">
+                  <GlobeHemisphereEastIcon size={14} /> Company-wide forecast
+                  for the fiscal year of the selected period. The salesperson
+                  filter doesn&apos;t apply here.
+                </p>
+                <ExportActions {...exportPdf} />
+              </div>
+            ) : (
+              <SearchFilterBar
+                filters={filters}
+                onFilterChange={setFilters}
+                filterConfig={filterConfig}
+                disableSearch
+                enableExport
+                exportPdf={exportPdf}
+              />
+            )}
 
             <div ref={contentRef} className="salesReportsContent">
               {!isForecast && ownerChips.length > 0 && (

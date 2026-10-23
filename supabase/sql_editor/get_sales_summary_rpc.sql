@@ -9,8 +9,12 @@
 -- own, so a number here is the same number on every other tab.
 --
 --   meta              sales_report_meta (period, comparison, trend windows)
---   kpis              sales_totals for the period AND the comparison window
---                     (same call, so a delta can't compare unlike things)
+--   kpis              sales_totals for the period, the comparison window and
+--                     the same period last year (report_last_year) -- the
+--                     same call each time, so no delta compares unlike things
+--   fyProgress        sales_fy_progress: Invoiced Revenue FY to date vs the
+--                     budget to date, and the Monthly Invoicing Needed for
+--                     the rest of the FY (2026-10-23)
 --   revenueVsBudget   monthly invoiced vs budget over the trend window
 --   budgetBridge      per-rep invoiced vs budget (sales_rep_totals) -- the
 --                     page turns it into the gap bridge
@@ -38,6 +42,9 @@ declare
     per record;
     cur record;
     prv record;
+    ly  record;
+    lyt record;
+    fyp record;
     v_fy_now date := public.fiscal_year_start(current_date);
 begin
     -- Access guard + salesperson (raises 'Access denied').
@@ -46,6 +53,9 @@ begin
 
     select * into cur from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.start_date, per.end_date);
     select * into prv from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.prev_start, per.prev_end);
+    select * into ly from public.report_last_year(p_start_date, p_end_date);
+    select * into lyt from public.sales_totals(sc.sales_rep_code, sc.owner_id, ly.ly_start, ly.ly_end);
+    select * into fyp from public.sales_fy_progress(sc.sales_rep_code, sc.owner_id, p_start_date, p_end_date);
 
     return json_build_object(
         'meta', public.sales_report_meta(p_start_date, p_end_date, sc.sales_rep_code, sc.mapping_missing),
@@ -69,7 +79,34 @@ begin
             'wonCount', cur.won_count,
             'target', cur.target,
             'targetAttainmentPct',
-                case when cur.target > 0 then round(cur.won / cur.target * 100) end
+                case when cur.target > 0 then round(cur.won / cur.target * 100) end,
+            'lastYearWon', lyt.won,
+            'lastYearBooked', lyt.booked,
+            'lastYearInvoiced', lyt.invoiced,
+            'lastYearCollected', lyt.collected
+        ),
+
+        -- Fiscal Year Progress. monthlyNeeded = what is still needed to reach
+        -- the FY Revenue Budget, spread over the months left (part-months by
+        -- days, months_spanned); null with no FY budget or no months left.
+        'fyProgress', json_build_object(
+            'fyStart', fyp.fy_start,
+            'fyEnd', fyp.fy_end,
+            'asOf', fyp.as_of,
+            'fytdInvoiced', fyp.fytd_invoiced,
+            'fytdBudget', fyp.fytd_budget,
+            'fytdAttainmentPct',
+                case when fyp.fytd_budget > 0 then round(fyp.fytd_invoiced / fyp.fytd_budget * 100) end,
+            'fyBudget', fyp.fy_budget,
+            'budgetRemaining',
+                case when fyp.fy_budget is not null then greatest(fyp.fy_budget - fyp.fytd_invoiced, 0) end,
+            'monthsElapsed', round(fyp.months_elapsed, 2),
+            'monthsLeft', round(fyp.months_left, 2),
+            'monthlyAverage',
+                case when fyp.months_elapsed > 0 then round(fyp.fytd_invoiced / fyp.months_elapsed, 2) end,
+            'monthlyNeeded',
+                case when fyp.fy_budget is not null and fyp.months_left > 0
+                     then round(greatest(fyp.fy_budget - fyp.fytd_invoiced, 0) / fyp.months_left, 2) end
         ),
 
         'revenueVsBudget', (

@@ -40,6 +40,8 @@ declare
     per record;
     cur record;
     prv record;
+    ly  record;
+    lyt record;
     v_cust record;
     v_prod record;
     v_group record;
@@ -49,6 +51,8 @@ begin
 
     select * into cur from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.start_date, per.end_date);
     select * into prv from public.sales_totals(sc.sales_rep_code, sc.owner_id, per.prev_start, per.prev_end);
+    select * into ly from public.report_last_year(p_start_date, p_end_date);
+    select * into lyt from public.sales_totals(sc.sales_rep_code, sc.owner_id, ly.ly_start, ly.ly_end);
 
     -- Customer concentration: top 5 customers' share of invoiced revenue.
     with by_customer as (
@@ -105,6 +109,7 @@ begin
         'kpis', json_build_object(
             'invoiced', cur.invoiced,
             'prevInvoiced', prv.invoiced,
+            'lastYearInvoiced', lyt.invoiced,
             'invoiceCount', cur.invoice_count,
             'avgInvoiceValue', case when cur.invoice_count > 0 then round(cur.invoiced / cur.invoice_count, 2) end,
             'budget', cur.budget,

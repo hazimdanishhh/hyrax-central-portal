@@ -227,6 +227,17 @@ These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and re
 | `get_sales_collections` | collected/prev, paymentCount, payingCustomers, invoiced, collectionRatePct · outstanding, outstandingInvoices, outstandingCustomers (ACTIONABLE: whole backlog unless a period is picked) | `invoicedVsCollected`, `topPayers`, `topOutstanding` |
 | `get_sales_team` | — | `scorecard` (per rep incl. "Unassigned"; attainment/collection rate null without a denominator), `grossProfitByRep` (period-bound) |
 
+**Added 2026-10-23 (storyline Phase A):**
+- Every tab's `meta` carries `lastYearWindow` from `report_last_year()`: the same window a year back, cut to the same days while the period is running.
+- Every headline measure has a `lastYear*` twin (`lastYearWon`, `lastYearBooked`, `lastYearInvoiced`, `lastYearCollected`, `lastYearLost`). Each is the same `sales_totals` / `sales_pipeline_totals` call over that window.
+- `get_sales_summary` adds `fyProgress`, from `sales_fy_progress()`: the FY containing the end of the period, up to that end or today:
+  - `fytdInvoiced`, `fytdBudget`, `fytdAttainmentPct`, `fyBudget`, `budgetRemaining`;
+  - `monthsElapsed` / `monthsLeft` (part-months by days, `months_spanned()`);
+  - `monthlyAverage`;
+  - `monthlyNeeded` (budget remaining ÷ months left).
+- `get_sales_pipeline` adds `avgDaysToWon` (Pipeline Cycle).
+- `get_sales_orders` adds `recentMonthlyInvoiced` (the average of the last 3 complete months) and `openBacklogMonths` (open backlog ÷ that average).
+
 **Rules:**
 - Ratios are `null`, never 0, without a denominator.
 - Actual series are `null` after the current month; plan series are `null` where no plan row exists.

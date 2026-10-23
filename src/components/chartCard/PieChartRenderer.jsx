@@ -62,9 +62,33 @@ export default function PieChartRenderer({
   // doesn't pass it. Recharts' own onClick natively receives the full
   // data-point object each slice was drawn from.
   onSliceClick,
+  // Number formatting (2026-10-23), all optional -- leaving them out keeps
+  // the original plain-number look:
+  //   valueFormatter   tooltip and legend values (full precision)
+  //   centerFormatter  the "total" in the middle (it has to fit the hole,
+  //                    so a compact form, e.g. compactCurrency)
+  //   sliceLabel       what sits beside each slice: "value" (default),
+  //                    "percent", or false for none
+  valueFormatter,
+  centerFormatter,
+  sliceLabel = "value",
 }) {
-  const total = data?.reduce((sum, d) => sum + d.value, 0) || 0;
+  // Number(): a value arriving as a string would otherwise concatenate.
+  const total = data?.reduce((sum, d) => sum + Number(d.value || 0), 0) || 0;
   const { darkMode } = useTheme();
+
+  const pieLabel =
+    sliceLabel === "percent"
+      ? ({ percent }) => `${Math.round(percent * 100)}%`
+      : sliceLabel === "value"
+        ? valueFormatter
+          ? ({ value }) => valueFormatter(value)
+          : true
+        : false;
+  const centerText =
+    centerLabel === "total"
+      ? (centerFormatter ?? valueFormatter ?? ((v) => v))(total)
+      : centerLabel;
 
   return (
     <>
@@ -76,7 +100,7 @@ export default function PieChartRenderer({
             nameKey="name"
             innerRadius={innerRadius}
             outerRadius={outerRadius}
-            label
+            label={pieLabel}
             onClick={
               onSliceClick
                 ? (entry) => openChartClickThrough(onSliceClick(entry))
@@ -104,7 +128,13 @@ export default function PieChartRenderer({
 
           <Tooltip
             cursor={{ fill: "transparent" }}
-            content={<CustomTooltip darkMode={darkMode} colorMap={colorMap} />}
+            content={
+              <CustomTooltip
+                darkMode={darkMode}
+                colorMap={colorMap}
+                valueFormatter={valueFormatter}
+              />
+            }
           />
 
           {centerLabel && (
@@ -117,7 +147,7 @@ export default function PieChartRenderer({
                 className="textXL textBold"
                 style={{ fill: "currentColor " }}
               >
-                {centerLabel === "total" ? total : centerLabel}
+                {centerText}
               </text>
 
               {centerSubLabel && (
@@ -142,6 +172,7 @@ export default function PieChartRenderer({
         <CustomLegend
           data={data}
           colorMap={colorMap}
+          valueFormatter={valueFormatter}
           mode={mode}
           colors={colors}
         />

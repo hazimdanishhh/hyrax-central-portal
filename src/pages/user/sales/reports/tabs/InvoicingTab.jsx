@@ -2,6 +2,7 @@
 
 import { useOutletContext } from "react-router-dom";
 import {
+  ChartLineUpIcon,
   PackageIcon,
   ReceiptIcon,
   UsersThreeIcon,
@@ -20,7 +21,10 @@ import {
   PURPLE_COLOR,
   YELLOW_COLOR,
 } from "../../../../../components/chartCard/chartColors";
-import { preciseCurrency } from "../../../../../functions/formatNumber";
+import {
+  compactCurrency,
+  preciseCurrency,
+} from "../../../../../functions/formatNumber";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
 import {
   formatMonthTick,
@@ -33,6 +37,7 @@ import {
   calcDelta,
   comparedWith,
   deltaText,
+  lastYearMetric,
   periodLinkFilter,
   repLinkFilter,
   trendSubtitle,
@@ -71,13 +76,13 @@ export default function InvoicingTab() {
     thresholds: { warningAt: 45, criticalAt: 75 },
   });
 
-  const tiles = [
+  const invoiceKpis = [
     {
       icon: ReceiptIcon,
       label: "Invoiced Revenue",
-      sublabel: `${period.title} · vs budget`,
+      sublabel: `${period.title} · vs Revenue Budget`,
       value: preciseCurrency(kpis.invoiced),
-      delta: kpis.budgetAttainmentPct == null ? "—" : `${kpis.budgetAttainmentPct}%`,
+      delta: pctOrDash(kpis.budgetAttainmentPct),
       subvalue: deltaText(calcDelta(kpis.invoiced, kpis.prevInvoiced), against),
       variant: budgetStatus.variant,
       status: budgetStatus.statusIcon
@@ -86,21 +91,22 @@ export default function InvoicingTab() {
       to: access.invoices ? "/app/finance/invoices/list" : null,
       filter: { ...repFilter, ...periodFilter },
       metrics: [
-        { label: "Invoice Count", value: kpis.invoiceCount ?? 0 },
-        {
-          label: "Avg Invoice Value",
-          value: kpis.avgInvoiceValue == null ? "—" : preciseCurrency(kpis.avgInvoiceValue),
-        },
         {
           label: "Revenue Budget",
           value: kpis.budget == null ? "none set" : preciseCurrency(kpis.budget),
           to: "/app/sales/orders/budgets",
           filter: { ...repFilter },
         },
+        { label: "Invoice Count", value: kpis.invoiceCount ?? 0 },
+        {
+          label: "Avg Invoice Value",
+          value: kpis.avgInvoiceValue == null ? "—" : preciseCurrency(kpis.avgInvoiceValue),
+        },
+        lastYearMetric(meta, kpis.invoiced, kpis.lastYearInvoiced, preciseCurrency),
       ],
       title:
-        "A/R invoices in the period, not cancelled, including tax, against the revenue " +
-        "budget for the same days. Same figure as on Summary. " +
+        "A/R invoices in the period, not cancelled, including tax, against the Revenue " +
+        "Budget for the same days. Same figure as on Summary. " +
         "Colour: Critical below 70% of budget, Watch 70–94%, On track at 95%+.",
     },
     {
@@ -122,13 +128,13 @@ export default function InvoicingTab() {
         },
       ],
       title:
-        "Share of invoiced revenue from the five biggest customers. High means " +
-        "dependence on a few accounts. Colour: Watch at 50%+, Critical at 75%+.",
+        "Share of Invoiced Revenue from the five biggest customers. Colour: Watch at " +
+        "50%+, Critical at 75%+.",
     },
     {
       icon: PackageIcon,
       label: "Product Concentration",
-      sublabel: `Top 5 products' share of product sales (before tax), ${period.title}`,
+      sublabel: `Top 5 products' share, ${period.title}`,
       value: pctOrDash(kpis.productTop5Pct),
       variant: productStatus.variant,
       status: productStatus.statusIcon
@@ -151,21 +157,20 @@ export default function InvoicingTab() {
       ],
       title:
         "Share of product sales (invoice lines, before tax) from the five biggest " +
-        "products, and the biggest product group. Both sides of each share are " +
-        "before tax. Colour: Watch at 45%+, Critical at 75%+.",
+        "products, and the biggest product group. Colour: Watch at 45%+, Critical at 75%+.",
     },
   ];
 
   const invoicedVsBudget = shapeTrendRows(
     data?.invoicedVsBudget ?? [],
     (d) => formatMonthTick(d.period),
-    (d) => ({ Invoiced: d.invoiced, Budget: d.budget }),
+    (d) => ({ "Invoiced Revenue": d.invoiced, "Revenue Budget": d.budget }),
   );
 
   const topCustomers = (data?.topCustomers ?? []).map((c) => ({
     name: c.name ?? c.customerCode,
-    Invoiced: c.invoiced,
-    Collected: c.collected,
+    "Invoiced Revenue": c.invoiced,
+    "Payments Collected": c.collected,
   }));
   const topProducts = (data?.topProducts ?? []).map((p) => ({
     name: p.name,
@@ -183,14 +188,20 @@ export default function InvoicingTab() {
 
       <ReportSection
         icon={ReceiptIcon}
-        title="Invoiced revenue"
-        description={`${period.title} — what was billed, against budget, and who it depends on.`}
+        title="Invoice KPIs"
+        description={`${period.title}, Invoiced Revenue against Revenue Budget, and customer and product concentration.`}
       >
-        <OverviewCards items={tiles} />
+        <OverviewCards items={invoiceKpis} />
+      </ReportSection>
 
+      <ReportSection
+        icon={ChartLineUpIcon}
+        title="Invoice Trend"
+        description="Invoiced Revenue against Revenue Budget by month."
+      >
         <CardLayout>
           <ChartCard
-            title="Invoiced vs Budget (RM)"
+            title="Invoiced Revenue vs Budget (RM)"
             subtitle={trendSubtitle(meta, period, invoicedVsBudget)}
             style="cardGapSmall"
           >
@@ -198,8 +209,8 @@ export default function InvoicingTab() {
               data={invoicedVsBudget.data}
               highlight={invoicedVsBudget.highlight}
               lines={[
-                { dataKey: "Invoiced", color: BLUE_COLOR },
-                { dataKey: "Budget", color: YELLOW_COLOR },
+                { dataKey: "Invoiced Revenue", color: BLUE_COLOR },
+                { dataKey: "Revenue Budget", color: YELLOW_COLOR },
               ]}
             />
           </ChartCard>
@@ -208,13 +219,13 @@ export default function InvoicingTab() {
 
       <ReportSection
         icon={UsersThreeIcon}
-        title="Customers"
-        description="The biggest invoiced customers and what they paid in the same period."
+        title="Invoice Breakdown"
+        description={`${period.title}, Invoiced Revenue by customer and classification; product sales (before tax) by product and group.`}
       >
         <CardLayout style="cardLayout2">
           <ChartCard
             title="Top Customers by Invoiced Revenue (RM)"
-            subtitle={`Top 10, ${period.title}`}
+            subtitle={`Top 10, ${period.title} · with what they paid in the same period`}
             style="cardGapSmall"
             viewAllTo={access.invoices ? "/app/finance/invoices/list" : undefined}
             viewAllFilter={{ ...repFilter, ...periodFilter }}
@@ -223,8 +234,8 @@ export default function InvoicingTab() {
               <HorizontalMultiBarRenderer
                 data={topCustomers}
                 bars={[
-                  { dataKey: "Invoiced", name: "Invoiced", color: YELLOW_COLOR },
-                  { dataKey: "Collected", name: "Collected", color: GREEN_COLOR },
+                  { dataKey: "Invoiced Revenue", name: "Invoiced Revenue", color: YELLOW_COLOR },
+                  { dataKey: "Payments Collected", name: "Payments Collected", color: GREEN_COLOR },
                 ]}
               />
             ) : (
@@ -247,20 +258,16 @@ export default function InvoicingTab() {
                   Unspecified: "#9ca3af",
                 }}
                 centerLabel="total"
+                centerSubLabel="Invoiced Revenue"
+                centerFormatter={compactCurrency}
+                valueFormatter={preciseCurrency}
+                sliceLabel="percent"
               />
             ) : (
               <NoResult title="No invoices in this period." />
             )}
           </ChartCard>
-        </CardLayout>
-      </ReportSection>
 
-      <ReportSection
-        icon={PackageIcon}
-        title="Products"
-        description="Product sales from invoice lines, before tax."
-      >
-        <CardLayout style="cardLayout2">
           <ChartCard
             title="Top Products — Sales Before Tax (RM)"
             subtitle={`Top 10, ${period.title}`}

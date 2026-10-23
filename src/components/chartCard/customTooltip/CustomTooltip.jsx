@@ -9,6 +9,9 @@ export default function CustomTooltip({
   colorMap = {},
   barChart,
   multiBar,
+  // Optional (2026-10-23): how each value is written, e.g. preciseCurrency
+  // for a ringgit chart. Defaults to the plain comma-separated number.
+  valueFormatter = preciseNumber,
 }) {
   if (active && payload && payload.length) {
     return (
@@ -47,7 +50,7 @@ export default function CustomTooltip({
                 className="tooltipEntryCircle"
               />
               <span className="textBold">{displayLabel}:</span>
-              <span>{preciseNumber(entry.value)}</span>
+              <span>{valueFormatter(entry.value)}</span>
             </div>
           );
         })}

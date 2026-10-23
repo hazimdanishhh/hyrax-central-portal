@@ -2,6 +2,7 @@
 
 import { useOutletContext } from "react-router-dom";
 import {
+  ChartLineUpIcon,
   HourglassMediumIcon,
   PercentIcon,
   WalletIcon,
@@ -29,6 +30,7 @@ import {
   calcDelta,
   comparedWith,
   deltaText,
+  lastYearMetric,
   pctText,
   periodLinkFilter,
   trendSubtitle,
@@ -73,14 +75,15 @@ export default function CollectionsTab() {
       metrics: [
         { label: "Payments", value: kpis.paymentCount ?? 0 },
         { label: "Customers Paying", value: kpis.payingCustomers ?? 0 },
+        lastYearMetric(meta, kpis.collected, kpis.lastYearCollected, preciseCurrency),
       ],
       title:
-        "Cash received in the period and applied to a customer invoice (deposits and " +
-        "unapplied cash excluded). Payments counts receipts. Same figure as on Summary.",
+        "Payments received in the period and applied to a customer invoice (deposits and " +
+        "unapplied payments excluded). Payments counts receipts. Same figure as on Summary.",
     },
     {
       icon: HourglassMediumIcon,
-      label: "Outstanding Receivables",
+      label: "Outstanding Invoices",
       sublabel: backlogLabel,
       value: preciseCurrency(kpis.outstanding),
       variant: "blueCard",
@@ -90,8 +93,8 @@ export default function CollectionsTab() {
         ...(meta?.period?.hasPeriod ? periodFilter : {}),
       },
       metrics: [
-        { label: "Open Invoices", value: kpis.outstandingInvoices ?? 0 },
-        { label: "Customers Owing", value: kpis.outstandingCustomers ?? 0 },
+        { label: "Invoices", value: kpis.outstandingInvoices ?? 0 },
+        { label: "Customers", value: kpis.outstandingCustomers ?? 0 },
       ],
       title:
         "What customers still owe on uncancelled invoices, right now. With no period " +
@@ -123,7 +126,7 @@ export default function CollectionsTab() {
   const invoicedVsCollected = shapeTrendRows(
     data?.invoicedVsCollected ?? [],
     (d) => formatMonthTick(d.period),
-    (d) => ({ Invoiced: d.invoiced, Collected: d.collected }),
+    (d) => ({ "Invoiced Revenue": d.invoiced, "Payments Collected": d.collected }),
   );
   const topPayers = (data?.topPayers ?? []).map((p) => ({
     name: p.name ?? p.customerCode,
@@ -140,14 +143,20 @@ export default function CollectionsTab() {
 
       <ReportSection
         icon={WalletIcon}
-        title="Cash coming in"
-        description={`${period.title} — what was collected, and what is still owed.`}
+        title="Payment KPIs"
+        description={`${period.title}, Payments Collected and the invoices still outstanding.`}
       >
         <OverviewCards items={tiles} />
+      </ReportSection>
 
+      <ReportSection
+        icon={ChartLineUpIcon}
+        title="Payment Trend"
+        description="Invoiced Revenue against Payments Collected by month."
+      >
         <CardLayout>
           <ChartCard
-            title="Invoiced vs Collected (RM)"
+            title="Invoiced Revenue vs Payments Collected (RM)"
             subtitle={trendSubtitle(meta, period, invoicedVsCollected)}
             style="cardGapSmall"
           >
@@ -155,8 +164,8 @@ export default function CollectionsTab() {
               data={invoicedVsCollected.data}
               highlight={invoicedVsCollected.highlight}
               lines={[
-                { dataKey: "Invoiced", color: YELLOW_COLOR },
-                { dataKey: "Collected", color: GREEN_COLOR },
+                { dataKey: "Invoiced Revenue", color: YELLOW_COLOR },
+                { dataKey: "Payments Collected", color: GREEN_COLOR },
               ]}
             />
           </ChartCard>
@@ -165,8 +174,8 @@ export default function CollectionsTab() {
 
       <ReportSection
         icon={HourglassMediumIcon}
-        title="Who paid, who owes"
-        description="The biggest payers this period, and the biggest open balances."
+        title="Payment Breakdown"
+        description={`${period.title}, the customers paying the most and the largest outstanding invoices.`}
       >
         <CardLayout style="cardLayout2">
           <ChartCard
@@ -184,7 +193,7 @@ export default function CollectionsTab() {
           </ChartCard>
 
           <ChartCard
-            title="Top Outstanding by Customer (RM)"
+            title="Top Outstanding Invoices by Customer (RM)"
             subtitle={`Top 10, ${backlogLabel}`}
             style="cardGapSmall"
             viewAllTo={access.invoices ? "/app/finance/invoices/list" : undefined}

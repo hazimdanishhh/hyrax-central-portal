@@ -37,6 +37,24 @@ export function deltaText(delta, against) {
     : `↓ ${Math.abs(delta)}% vs ${against}`;
 }
 
+/**
+ * The "Same Period Last Year" sub-metric row every headline tile carries
+ * (2026-10-23): last year's figure for the same dates (meta.lastYearWindow,
+ * cut to the same days while the period is still running) with the change
+ * in brackets. `format` renders the figure (e.g. preciseCurrency).
+ */
+export function lastYearMetric(meta, current, lastYear, format) {
+  const w = meta?.lastYearWindow;
+  const delta = calcDelta(current, lastYear);
+  const change =
+    delta === null ? "" : ` (${delta >= 0 ? "↑" : "↓"} ${Math.abs(delta)}%)`;
+  return {
+    label: "Same Period Last Year",
+    value: lastYear === null || lastYear === undefined ? "—" : `${format(lastYear)}${change}`,
+    title: w ? formatDateRange(w.startDate, w.endDate) : undefined,
+  };
+}
+
 /** An attainment / rate that is null when there is no denominator. */
 export function pctText(pct) {
   return pct === null || pct === undefined ? "—" : `${pct}%`;

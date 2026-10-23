@@ -32,11 +32,19 @@ const prefersReducedMotion = () =>
  * The inner element keeps the `pageTabContainer` class, so every page's tab
  * styling (styles/index.scss) applies unchanged.
  */
-export default function TabScroller({ children, ariaLabel = "Page sections", className = "" }) {
+export default function TabScroller({
+  children,
+  ariaLabel = "Page sections",
+  className = "",
+}) {
   const scrollRef = useRef(null);
   const positionedRef = useRef(false);
   const activeRef = useRef(null);
-  const [state, setState] = useState({ overflow: false, left: false, right: false });
+  const [state, setState] = useState({
+    overflow: false,
+    left: false,
+    right: false,
+  });
 
   const measure = useCallback(() => {
     const el = scrollRef.current;
@@ -48,7 +56,9 @@ export default function TabScroller({ children, ariaLabel = "Page sections", cla
       right: overflow && el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
     };
     setState((prev) =>
-      prev.overflow === next.overflow && prev.left === next.left && prev.right === next.right
+      prev.overflow === next.overflow &&
+      prev.left === next.left &&
+      prev.right === next.right
         ? prev
         : next,
     );
@@ -66,7 +76,10 @@ export default function TabScroller({ children, ariaLabel = "Page sections", cla
     const tab = active.getBoundingClientRect();
     const offset = tab.left + tab.width / 2 - (strip.left + strip.width / 2);
     const smooth = positionedRef.current && !prefersReducedMotion();
-    el.scrollTo({ left: el.scrollLeft + offset, behavior: smooth ? "smooth" : "auto" });
+    el.scrollTo({
+      left: el.scrollLeft + offset,
+      behavior: smooth ? "smooth" : "auto",
+    });
     positionedRef.current = true;
   }, []);
 
@@ -94,12 +107,18 @@ export default function TabScroller({ children, ariaLabel = "Page sections", cla
     // DIFFERENT tab becomes active -- otherwise every manual scroll or arrow
     // click would snap straight back to the active tab.
     const mutation = new MutationObserver((records) => {
-      if (records.every((r) => r.target === el && r.type === "attributes")) return;
+      if (records.every((r) => r.target === el && r.type === "attributes"))
+        return;
       measure();
       const active = el.querySelector(":scope > .active");
       if (active !== activeRef.current) revealActive();
     });
-    mutation.observe(el, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    mutation.observe(el, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
 
     return () => {
       el.removeEventListener("scroll", measure);
@@ -117,7 +136,9 @@ export default function TabScroller({ children, ariaLabel = "Page sections", cla
     });
   }
 
-  const fade = [state.left && "fadeLeft", state.right && "fadeRight"].filter(Boolean).join(" ");
+  const fade = [state.left && "fadeLeft", state.right && "fadeRight"]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <nav className={`tabScroller ${className}`} aria-label={ariaLabel}>
