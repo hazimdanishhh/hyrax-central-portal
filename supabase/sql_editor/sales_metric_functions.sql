@@ -401,6 +401,14 @@ $$;
 --   is_partial  the current month (in progress)
 --   in_period   inside [p_sel_from, p_sel_to], the selected period, for
 --               highlighting it inside a wider trend window
+--   generated, lost  (2026-10-23, CRM, by lead owner) Pipeline Generated
+--               (leads created in the month) and Lost Revenue (leads lost or
+--               cancelled, closed in the month) -- the same rules as
+--               sales_pipeline_totals, for Leads Overview's monthly chart.
+--               Appended, so callers reading columns by name are unaffected;
+--               the return columns changed, so the old version is dropped.
+drop function if exists public.sales_monthly_series(bigint, uuid, date, date, date, date);
+
 create or replace function public.sales_monthly_series(
     p_rep bigint,
     p_owner uuid,
@@ -418,7 +426,9 @@ returns table (
     booked numeric,
     won numeric,
     budget numeric,
-    target numeric
+    target numeric,
+    generated numeric,
+    lost numeric
 )
 language sql
 stable
@@ -477,6 +487,21 @@ as $$
           and date_trunc('month', target_month) + interval '1 month' > p_from
           and (p_owner is null or lead_owner_id = p_owner)
         group by 1
+    ),
+    gen as (
+        select date_trunc('month', created_on)::date as month_start, sum(expected_myr) as v
+        from public.sales_lead_facts
+        where created_on between p_from and p_to
+          and (p_owner is null or owner_employee_id = p_owner)
+        group by 1
+    ),
+    lst as (
+        select date_trunc('month', closed_on)::date as month_start, sum(expected_myr) as v
+        from public.sales_lead_facts
+        where outcome = 'lost'
+          and closed_on between p_from and p_to
+          and (p_owner is null or owner_employee_id = p_owner)
+        group by 1
     )
     select
         m.month_start,
@@ -487,7 +512,9 @@ as $$
         case when m.is_future then null else coalesce(ord.v, 0) end,
         case when m.is_future then null else coalesce(won.v, 0) end,
         bud.v,
-        tgt.v
+        tgt.v,
+        case when m.is_future then null else coalesce(gen.v, 0) end,
+        case when m.is_future then null else coalesce(lst.v, 0) end
     from months m
     left join inv on inv.month_start = m.month_start
     left join col on col.month_start = m.month_start
@@ -495,6 +522,8 @@ as $$
     left join won on won.month_start = m.month_start
     left join bud on bud.month_start = m.month_start
     left join tgt on tgt.month_start = m.month_start
+    left join gen on gen.month_start = m.month_start
+    left join lst on lst.month_start = m.month_start
     order by m.month_start
 $$;
 
@@ -646,6 +675,12 @@ $$;
 --   pending_sap_value,           Pending SAP Order Entry: won leads whose PO
 --   pending_sap_count            no SAP order carries yet -- TODAY, at their
 --                                won value (Leads Overview values it the same)
+--   won_expected                 (2026-10-23) what the won deals were
+--                                EXPECTED to bring -- Won vs Expected Value
+--   on_hold_value, on_hold_count TODAY: open leads on hold
+--   aging_value, aging_count     TODAY: open leads not on hold, created 30+
+--                                days ago -- the Leads list's own Aging rule
+--                                (get_leads_overview), in Malaysia dates
 --
 -- Return columns changed on 2026-10-23, and CREATE OR REPLACE cannot change
 -- them, so the old version is dropped first. Nothing stores a dependency on
@@ -672,7 +707,12 @@ returns table (
     generated_value numeric,
     generated_count bigint,
     pending_sap_value numeric,
-    pending_sap_count bigint
+    pending_sap_count bigint,
+    won_expected numeric,
+    on_hold_value numeric,
+    on_hold_count bigint,
+    aging_value numeric,
+    aging_count bigint
 )
 language sql
 stable
@@ -695,7 +735,16 @@ as $$
         coalesce(sum(expected_myr) filter (where created_on between p_from and p_to), 0),
         count(*) filter (where created_on between p_from and p_to),
         coalesce(sum(won_myr) filter (where pending_sap_order), 0),
-        count(*) filter (where pending_sap_order)
+        count(*) filter (where pending_sap_order),
+        coalesce(sum(expected_myr) filter (where outcome = 'won' and closed_on between p_from and p_to), 0),
+        coalesce(sum(expected_myr) filter (where outcome = 'open' and is_on_hold), 0),
+        count(*) filter (where outcome = 'open' and is_on_hold),
+        coalesce(sum(expected_myr) filter (
+            where outcome = 'open' and not coalesce(is_on_hold, false)
+              and created_on <= current_date - 30), 0),
+        count(*) filter (
+            where outcome = 'open' and not coalesce(is_on_hold, false)
+              and created_on <= current_date - 30)
     from public.sales_lead_facts
     where p_owner is null or owner_employee_id = p_owner
 $$;

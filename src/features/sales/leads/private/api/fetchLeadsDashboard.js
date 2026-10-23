@@ -3,80 +3,18 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 
 /**
- * Dashboard Analytics
- * Source: get_sales_leads_dashboard()
+ * Leads Overview figures: get_sales_leads_dashboard (rebuilt 2026-10-23 on
+ * the shared Sales metric layer). It takes the period and the salesperson
+ * only (DASHBOARD-CONVENTIONS §8 R13); empty dates = the current month,
+ * like every report.
  */
-export async function fetchLeadsDashboard({ filters }) {
-  const FILTER_NULL = "__null__";
-
-  const rpcParams = {
-    p_owner_id: null,
-    p_client_id: null,
-    p_sap_customer_code: null,
-    p_source_id: null,
-    p_stage: null,
-    p_start_date: null,
-    p_end_date: null,
-    p_is_on_hold: null,
-    p_is_cancelled: null,
-    p_product_type: null,
-  };
-
-  Object.entries(filters || {}).forEach(([key, value]) => {
-    if (value === undefined || value === "") return;
-
-    switch (key) {
-      case "owner":
-        rpcParams.p_owner_id = value === FILTER_NULL ? null : value;
-        break;
-
-      case "client":
-        rpcParams.p_client_id = value === FILTER_NULL ? null : value;
-        break;
-
-      case "sapCustomer":
-        rpcParams.p_sap_customer_code = value === FILTER_NULL ? null : value;
-        break;
-
-      case "leadSourceType":
-        rpcParams.p_source_id = value === FILTER_NULL ? null : value;
-        break;
-
-      case "stage":
-        rpcParams.p_stage = value === FILTER_NULL ? null : value;
-        break;
-
-      case "startDate":
-        rpcParams.p_start_date = value;
-        break;
-
-      case "endDate":
-        rpcParams.p_end_date = value;
-        break;
-
-      case "onHold":
-        rpcParams.p_is_on_hold = value;
-        break;
-
-      case "cancelled":
-        rpcParams.p_is_cancelled = value;
-        break;
-
-      case "productType":
-        rpcParams.p_product_type = value === FILTER_NULL ? null : value;
-        break;
-
-      default:
-        break;
-    }
+export async function fetchLeadsDashboard({ startDate, endDate, owner }) {
+  const { data, error } = await supabase.rpc("get_sales_leads_dashboard", {
+    p_start_date: startDate || null,
+    p_end_date: endDate || null,
+    p_owner_id: owner || null,
   });
 
-  const { data, error } = await supabase.rpc(
-    "get_sales_leads_dashboard",
-    rpcParams,
-  );
-
   if (error) throw error;
-
   return data;
 }

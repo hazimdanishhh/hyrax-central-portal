@@ -293,9 +293,11 @@ the starting point.
 **Left for step 5**, after the reconciliation shows only the expected differences:
 
 - Delete `/sales/reports-legacy`, `Reports.jsx`, `config/overviewConfig.js` and `supabase/sql_editor/get_sales_reports_dashboard_rpc.sql` (drop the function in Supabase).
-- Leads Overview:
-  - add a target line to its revenue trend (replacing Pipeline vs Target);
-  - adopt D5 (cancelled WON leads aren't won) by reading `sales_won_lead_facts`.
+- ~~Leads Overview: add a target line to its revenue trend; adopt D5.~~
+  **Done 2026-10-23** — Leads Overview was rebuilt onto the shared metric
+  layer (`get_sales_leads_dashboard`): Pipeline Won vs Target line, D5
+  (cancelled WON leads are lost), and every figure equal to the Pipeline tab.
+  See `DASHBOARD-CURRENT-STATE.md` §4.
 - Update `RPC-REFERENCE.md` (replace the `get_sales_reports_dashboard` section) and `table_access_matrix.csv`.
 - Later: Finance's invoice and collection figures read the same fact views.
 

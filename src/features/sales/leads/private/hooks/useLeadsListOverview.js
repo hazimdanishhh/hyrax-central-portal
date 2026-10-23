@@ -18,8 +18,8 @@ const EMPTY_KPIS = {
  * filtered slice the list below is showing. filters/search are the same
  * values the page already gets from usePaginatedQuery -- no separate state.
  *
- * Distinct from useLeadsOverview.js (the legacy, unused client-side
- * aggregator) and from the Overview tab's dashboard RPC hook.
+ * Distinct from useLeadsOverview.js, the Overview tab's hook (2026-10-23;
+ * it replaced a legacy, unused client-side aggregator of the same name).
  *
  * queryKey starts with "sales_leads" on purpose: LeadsManagement's
  * handleConfirmAction already fires invalidateQueries({ queryKey:

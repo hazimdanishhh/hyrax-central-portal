@@ -523,47 +523,23 @@ Three sources, disjoint by month:
 
 ## `get_sales_leads_dashboard`
 
-Backs Sales Leads Overview (`LeadsOverview.jsx`) — Tier 2, daily rep-coaching cadence, CRM-only (no SAP tables involved at all).
+Backs **Sales Leads Overview** (`src/pages/user/sales/leads/overview/LeadsOverview.jsx`). **Rebuilt 2026-10-23** onto the shared Sales metric layer and `DASHBOARD-CONVENTIONS.md` §8 (R1–R13): every figure is a `sales_metric_functions.sql` call or a grouping of `sales_lead_facts` with `sales_pipeline_totals`' own predicates, so Leads Overview equals Sales Reports' Pipeline tab for the same period and salesperson (tested).
 
-**Signature:**
+**Signature:** `get_sales_leads_dashboard(p_start_date date default null, p_end_date date default null, p_owner_id uuid default null) returns json`, security invoker. The ten-filter version is dropped. Filters per R13: period + salesperson only. Guard: `can_view_sales_reports()`; `sales_leads` RLS keeps a staff user to their own leads.
 
-```
-get_sales_leads_dashboard(
-  p_owner_id           uuid default null,
-  p_client_id          uuid default null,        -- native Prospect (clients.id)
-  p_sap_customer_code  text default null,         -- real SAP customer (added 2026-08)
-  p_source_id    bigint default null,
-  p_stage        sales_leads_stage default null,
-  p_start_date   date default null,
-  p_end_date     date default null,
-  p_is_on_hold   boolean default null,
-  p_is_cancelled boolean default null,
-  p_product_type public.product_type default null
-)
-```
+**What the rebuild fixed:** cancelled WON leads counted as won and lost (now D5: lost); leaderboards / trend / KPIs each defining Won and Lost differently; UTC date bounds including the next midnight; tiles defaulting to This Month while charts and the scorecard defaulted to all time; scorecard targets ignoring the owner filter and reading 0% when unset; the previous window off by a day; null close probability landing in "76–100%".
 
-**Base CTEs:** `closing_dates` (last WON/LOST transition per lead from `sales_leads_stage_history`), `base_leads` (`sales_leads` + resolved `closed_date`, filtered by all the params above, plus `account_key`/`account_name` — added 2026-08, `coalesce(client_id::text, sap_customer_code)` / `coalesce(clients.name, sap_customers.customer_name)` — since a lead now references exactly one of a native Prospect (`client_id`) or a real SAP customer (`sap_customer_code`), never a `clients` row mirroring an SAP customer; see `DASHBOARD-ROADMAP.md` §1.4).
+| Key | Content |
+| --- | --- |
+| `meta` | `sales_report_meta(start, end, null, false)` — period, comparison, trend, last-year windows |
+| `kpis` | period / previous / last year from `sales_pipeline_totals`: `generated`, `generatedCount`, `won`, `wonCount`, `avgDeal`, `wonExpected`, `lost`, `lostCount`, `winRatePct`, `avgDaysToWon` (+ `prev*`, `lastYear*`); `target` / `targetAttainmentPct` (`sales_totals`). TODAY: `openValue`, `weightedValue`, `openCount`, `pipelineCoverage` / `targetRemaining` (`sales_pipeline_coverage`), `pendingSapValue/Count`, `onHoldValue/Count` (open + on hold), `agingValue/Count` (open, not on hold, created 30+ days ago — the Leads list's rule) |
+| `wonVsTarget` / `monthlyActivity` | `sales_monthly_series` over the trend window: won + target; generated + won + lost |
+| `openByStage` / `openByProbability` | TODAY; probability buckets 0–25 / 26–50 / 51–75 / 76–100 / Not set |
+| `lostByReason` | period, lost or cancelled, by reason |
+| `byProductType` / `bySource` / `topClients` | period, `{name, generated, won, lost}`, ranked by won (clients top 10); each adds up to the tiles |
+| `scorecard` | per owner: `won`, `wonCount`, `target`, `targetAttainmentPct`, `winRatePct` (`sales_owner_totals`) + `generated`, `lost`, `openValue` (today); "Leads with no owner" row; adds up to the tiles |
 
-**`kpis`** (all from `base_leads`, most gated by `stage`/`is_cancelled`/date-range filters applied per-field via `filter (where ...)`):
-
-| Field                                                 | Formula                                                                                 | Period-bound?                |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------- |
-| `totalLeadsCreated` / `pipelineGenerated`             | `count(*)` / `sum(expected_revenue)`, `created_at` in range                             | Yes                          |
-| `wonLeads` / `wonRevenue` / `avgDealSize`             | `count`/`sum`/`avg(actual_revenue)`, `stage='WON'`, `closed_date` in range              | Yes                          |
-| `lostLeads` / `lostRevenue`                           | `count`/`sum(expected_revenue)`, `stage='LOST' or is_cancelled`, `closed_date` in range | Yes                          |
-| `winRate`                                             | `WON / (WON + LOST)` — cancelled excluded from denominator                              | Yes                          |
-| `activeLeads` / `activePipelineValue`                 | `count`/`sum(expected_revenue)`, not WON/LOST, not cancelled                            | **No** — real-time snapshot  |
-| `weightedPipelineValue`                               | `sum(expected_revenue * close_probability/100)`, active leads                           | **No**                       |
-| `avgDaysToClose`                                      | `avg(closed_date - created_at)`, WON in range                                           | Yes                          |
-| `forecastVariance`                                    | `sum(actual_revenue) - sum(expected_revenue)`, WON in range                             | Yes                          |
-| `fastTrackDeals`                                      | Created AND won inside the same period                                                  | Yes                          |
-| `negotiationPipeline` / `onHoldPipeline`              | `sum(expected_revenue)` filtered by stage/hold flag, ignoring date range                | **No**                       |
-| `avgLostDealSize` / `avgLostCycle` / `cancelledLeads` | Same shape as the WON equivalents, for LOST/cancelled                                   | Yes                          |
-| `prevPipelineGenerated` / `prevWonRevenue`            | Same formulas over the immediately-preceding window                                     | Yes (null if no range given) |
-
-**Chart datasets:** `stageData` (count/value by stage), `probabilityHealthData` (active leads bucketed by `close_probability`), `lossReasonData` (LOST leads by `lose_reason_id`), `trendData` (monthly created/won/lost from `sales_leads_stage_history`), `productTypeData` / `leadOwnerData` / `sourceData` / `topClientsData` (active-in-period + pipeline-generated + won + lost, grouped by product type / owner / source / account), `scorecardData` (per-owner WON actuals vs. prorated `sales_targets`, mirrored by Sales Reports' `pipeline_target_math`). `topClientsData` groups by `base_leads.account_key`/`account_name` (2026-08) — a real SAP customer's name shows here too now, not just native Prospects; previously an inner `join clients` silently dropped every SAP-referenced lead from this chart.
-
-**Known gap:** `scorecardData`'s target proration ignores `p_owner_id` — filtering to one rep can still show other reps' target contribution leaking in (see `DASHBOARD-CURRENT-STATE.md` §4).
+**Shared-layer changes made for it:** `sales_lead_facts.is_cancelled`; `sales_pipeline_totals` + `won_expected`, `on_hold_*`, `aging_*`; `sales_monthly_series` + `generated`, `lost` (both dropped and recreated; existing callers unaffected). `generate-ai-summary` (parked) still calls this RPC by name with dates only.
 
 ---
 

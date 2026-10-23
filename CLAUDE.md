@@ -32,7 +32,7 @@ If you're offered/offering a multiple-choice decision and one branch depends on 
 
 - `npm test` — Vitest (added 2026-10-22), two suites under `tests/`:
   - `tests/sql/sales_metrics.test.js` runs the Sales Reports metric layer (`supabase/sql_editor/sales_metric_*.sql` + the `get_sales_*` tab RPCs) against an in-process Postgres (PGlite) with stub source tables, and checks definitions, cross-tab consistency and scoping. Run it after touching any of those SQL files.
-  - `tests/unit/` covers pure helpers (`periodRange.js`, `navPaths.js`, the Sales Reports `reportFormat.js` and `projectionConfig.js`).
+  - `tests/unit/` covers pure helpers (`periodRange.js`, `navPaths.js`, the shared `functions/reportFormat.js`, Sales Reports' `projectionConfig.js`, Leads Overview's tile config).
   Nothing else in the repo is tested yet; don't assume coverage outside these.
 
 Required env vars (see `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, plus `VITE_GOOGLE_PICKER_API_KEY` / `VITE_GOOGLE_CLIENT_ID` / `VITE_GOOGLE_APP_ID` for Google Drive picker features, and `GEMINI_API_KEY` for the AI Summary feature.

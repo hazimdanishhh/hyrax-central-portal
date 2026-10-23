@@ -12,6 +12,9 @@ import CardLayout from "../../../cardLayout/CardLayout";
 // shows won revenue against a target (the defaults); Sales Reports' Team tab
 // shows INVOICED revenue against a BUDGET and passes its own labels.
 // row.flags (optional string[]) renders as check-in badges under the bar.
+// row.details (optional [{label, value}], 2026-10-23) renders as plain lines
+// beside the actual figure -- Leads Overview's Win Rate / Generated / Lost /
+// Active Pipeline. Callers that pass neither are unchanged.
 export default function ScorecardList({
   data = [],
   actualLabel = "Actual Won",
@@ -191,6 +194,16 @@ export default function ScorecardList({
                     {invoice_vs_collected_variance_myr >= 0 ? "+" : ""}
                     {formatRM(invoice_vs_collected_variance_myr)}
                   </span>
+                </div>
+              )}
+
+              {row.details?.length > 0 && (
+                <div className="varianceSegment">
+                  {row.details.map((d) => (
+                    <span key={d.label} className="textXXXS textLight">
+                      {d.label}: <span className="textBold">{d.value}</span>
+                    </span>
+                  ))}
                 </div>
               )}
             </CardLayout>

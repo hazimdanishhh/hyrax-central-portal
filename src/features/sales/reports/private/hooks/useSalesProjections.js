@@ -32,14 +32,19 @@ export function useSalesProjections(fiscalYearStart) {
     queryFn: () => fetchSalesProjections({ fiscalYearStart }),
     staleTime: 1000 * 60 * 30,
     retry: 1,
-    // The year selector is a deliberate user action and the section is small;
-    // holding the previous year's numbers on screen while the new ones load
-    // reads as the figures having changed rather than as a fetch in progress.
-    keepPreviousData: false,
+    // Hold the previous year's numbers while the new ones load (2026-10-23).
+    // This was deliberately off before ("reads as the figures having
+    // changed rather than as a fetch in progress", and keepPreviousData was
+    // a v4 option v5 ignores anyway); the report pages now show that state
+    // explicitly -- TabState's "Updating figures…" with the old figures
+    // dimmed -- so keeping them no longer misleads and stops the tab
+    // blanking on every fiscal-year change.
+    placeholderData: (previous) => previous,
   });
 
   return {
     ...query,
+    isUpdating: query.isFetching && query.isPlaceholderData,
     // kpis is NESTED -- { year, month, reliability, health }. The RPC's two
     // merged key sets are ~68 keys between them, and json_build_object raises
     // 54023 past 100 arguments, so a flat object would not compile.

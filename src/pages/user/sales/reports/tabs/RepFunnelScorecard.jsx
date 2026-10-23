@@ -4,7 +4,10 @@ import EmployeeImage from "../../../../../components/employees/employeeImage/Emp
 import { MEASURE_COLORS } from "../../../../../components/chartCard/chartColors";
 import { getStatusVariant } from "../../../../../functions/statusVariant";
 import { preciseCurrency } from "../../../../../functions/formatNumber";
-import { BUDGET_THRESHOLDS, TARGET_THRESHOLDS } from "./reportFormat";
+import {
+  BUDGET_THRESHOLDS,
+  TARGET_THRESHOLDS,
+} from "../../../../../functions/reportFormat";
 import "../../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard.scss";
 import "./RepFunnelScorecard.scss";
 
@@ -66,7 +69,9 @@ export default function RepFunnelScorecard({ rows = [] }) {
                 pct: row.targetAttainmentPct,
                 thresholds: TARGET_THRESHOLDS,
               }}
-              note={row.winRatePct == null ? null : `Win Rate ${row.winRatePct}%`}
+              note={
+                row.winRatePct == null ? null : `Win Rate ${row.winRatePct}%`
+              }
             />
             <FunnelStep
               label="Sales Orders"
@@ -93,10 +98,10 @@ export default function RepFunnelScorecard({ rows = [] }) {
 
           {row.overdueValue != null && (
             <p className="repFunnelToday textXXXS textLight">
-              <span className="textBold">Today:</span>{" "}
-              Delivered, Not Invoiced {preciseCurrency(row.unbilledValue)} ·
-              Overdue Delivery {preciseCurrency(row.overdueDeliveryValue)} ·
-              Overdue {preciseCurrency(row.overdueValue)} · Critically Overdue{" "}
+              <span className="textBold">Today:</span> Delivered, Not Invoiced{" "}
+              {preciseCurrency(row.unbilledValue)} · Overdue Delivery{" "}
+              {preciseCurrency(row.overdueDeliveryValue)} · Overdue{" "}
+              {preciseCurrency(row.overdueValue)} · Critically Overdue{" "}
               {preciseCurrency(row.criticalValue)}
             </p>
           )}

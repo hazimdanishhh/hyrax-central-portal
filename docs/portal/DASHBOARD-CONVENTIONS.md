@@ -43,6 +43,8 @@ Give every figure ONE home, chosen by the question it answers:
 - "How did we do in the period, and what is open in total?" → the **Reports tab**. A Reports tab shows an open-balance TOTAL (and links to the list); it never carries the queue itself.
 - A figure on both (e.g. Active Pipeline, Open Backlog, Outstanding) comes from **one shared SQL function**, so the two pages cannot disagree.
 
+**First done: Sales Leads Overview (2026-10-23).** Kept — it carries the team's daily work (Pending SAP Order Entry, On Hold, Aging) and is what staff see, since Sales Reports is manager-only. Rebuilt to §8 on the shared metric layer, so its period figures equal Sales Reports' Pipeline tab; the List keeps the items to chase.
+
 **When reviewing an existing Overview** (do it as part of building that department's Reports page, not as a separate cleanup):
 
 | Question | If yes |
@@ -190,6 +192,8 @@ Every KPI tile renders through one shared component, `OverviewCards` (`src/compo
 
 Static-hero/informational tiles never call `getStatusVariant` — they keep hardcoding `"blueCardFill"`/`"blueCard"` directly.
 
+**"Something to act on" tiles (added 2026-10-23).** A count whose good state is zero — Pending SAP Order Entry, On Hold, Aging, Overdue Delivery, Delivered Not Invoiced — is an evaluated tile (direction: low is good; comparator: zero), so "nothing waiting" is **green "On track"**, never blue, and anything waiting is **amber "Watch"** with its badge — a task, not a failure, so two tiers and a tint, no red. One helper for every page: `actionTileStatus(count)` in `src/functions/reportFormat.js` (Sales Reports, Leads Overview and the Leads list strip all use it, so the same figure is the same colour everywhere). Same for a pace check: `paceTileStatus(onPace)` (Monthly Invoicing Needed). A share with nothing to divide by because the base is zero (Overdue when nothing is outstanding) reads 0% — a good reading — not "no comparator".
+
 **Numeric thresholds are documented estimates, not audited business targets.** Where a dynamic tile needed a real cutoff with no existing target/budget on the page (margin floors, DSO targets, attrition/absenteeism benchmarks, etc.), the threshold is commented inline in that tile's config as a starting point, tunable by Finance/HR/Sales without needing to touch the shared utility.
 
 ## 4a. Group related KPI tiles into fewer, denser cards (added 2026-09)
@@ -232,7 +236,7 @@ Every KPI belongs to exactly one family; a single tile's sub-metrics can legally
 
 Both families respect every non-date filter (department, employee, entity, location, etc.) with no exception; only the date dimension differs between them.
 
-**On a Tier-3 Reports page the ACTIONABLE family is always Today (added 2026-10-23, §8 R3).** "Originated within the selected period" answers a different question from "what is open", and on a report that always has a period it silently replaced the total (Sales' Open Backlog (Months) shrank to nonsense the moment a past month was picked). Reports show open balances as of today, labelled "Today", with no comparison; Overviews and Lists keep the rule above.
+**On any page with the period selector the ACTIONABLE family is always Today (added 2026-10-23, §8 R3; extended the same day from Reports to Overviews).** "Originated within the selected period" answers a different question from "what is open", and `PeriodSelector` always has a period (the current month is just empty dates), so the rule above would flip meaning depending on which month is picked — Sales' Open Backlog (Months) shrank to nonsense the moment a past month was picked. Such pages show open balances as of today, labelled "Today" (`todayTile()`), with no comparison. Pages with a free date-range filter (Lists) keep the rule above.
 
 **Deciding which family a metric belongs to:** ask whether the number describes something that already happened in a period ("60 absences in August" — REGULAR), or something still open right now regardless of when it originated ("14 approvals still pending" — ACTIONABLE). A metric that could be framed either way is ACTIONABLE if the practical daily question is "what do I need to clear today" — the common case for anything HR/ops needs to action.
 
@@ -373,6 +377,18 @@ The standard every Tier-3 Reports page is built and reviewed against. Written af
 | R10 | **Never put figures side by side that follow different filters.** A company-wide figure is hidden (with a note) when a narrower filter is picked. | Research doc §3 |
 | R11 | **Tile limits:** 4 per row (the grid width), at most 4 sub-metrics each, no figure shown twice in one row (§4a). | KPI-count studies; §4a |
 | R12 | **Order follows the business flow**, leading indicators before lagging (Sales: Pipeline → Orders → Invoicing → Collections). | Leading / lagging indicator practice |
+| R13 | **Every filter earns its place** (added 2026-10-23). A dashboard has one period selector (if it shows period figures) plus only the filters that pass all four tests: **(1) audience** — its audience routinely reviews or compares by that dimension in meetings or decisions (a manager reviewing each salesperson → Salesperson); **(2) every figure honours it** — targets, budgets and forecasts included; if one can't, that figure is hidden while the filter is on (R10) or the filter goes; **(3) not already a breakdown** — a dimension shown as a breakdown chart doesn't also get a filter (filtering collapses its own chart, and the chart already answers the question); **(4) not a work-queue attribute** — stage, status, on hold and the like are List filters: they sort work, they don't define a period's results. Each page states its filter set and the reason in its header comment and spec (table below). | Microsoft Power BI design guidance; "cut what wouldn't change a decision"; progressive disclosure (detail lives in the List) |
+
+**Filter sets (R13)** — add a row when a page is built to these rules:
+
+| Page | Filters | Why |
+| --- | --- | --- |
+| Sales Reports (all tabs) | Salesperson | Managers review each person's performance; budgets and targets exist per salesperson |
+| Sales Leads Overview | Salesperson | As above. Client, source and product are its breakdown charts; stage / on hold / cancelled are Leads list filters |
+
+**A refresh is always visible (added 2026-10-23).** Pages keep the previous figures on screen while new ones load (React Query `placeholderData`), so a period or filter change must show that it is working: `TabState`'s `isUpdating` dims the old figures and shows a floating "Updating figures…" pill (left out of PDF exports). Hooks return `isUpdating = isFetching && isPlaceholderData` (`useSalesReportTab`, `useSalesProjections`, `useLeadsOverview`).
+
+**Shared building blocks** (moved out of the Sales pages 2026-10-23 so every department reuses them): `src/functions/reportFormat.js` (deltas, Same Period Last Year, `todayTile`, thresholds, bridge builder), `src/components/report/ReportSection.jsx` and `TabState.jsx`, `PeriodSelector`, `MEASURE_COLORS`, `BridgeChartRenderer`. The `.pdfOverviewSection` spacing lives in `styles/sections.scss`.
 
 **Also binding on every Reports page:**
 
@@ -390,6 +406,8 @@ The standard every Tier-3 Reports page is built and reviewed against. Written af
 5. Is any figure in a row a duplicate of a neighbour, or filtered differently from it?
 6. Does every tile and chart link to the list page with the same filters?
 7. Does the SQL test prove the tab's figures equal the same figures elsewhere?
+8. Does every filter pass R13's four tests, and is the filter set written down?
+9. Does a period or filter change visibly show "Updating figures…"?
 
 ---
 

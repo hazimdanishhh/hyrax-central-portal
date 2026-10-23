@@ -267,7 +267,10 @@ select
             select 1 from public.sap_sales_orders sso
             where sso.customer_ref = sl.po_number
         ),
-        false) as pending_sap_order
+        false) as pending_sap_order,
+    -- (2026-10-23) so "cancelled" never has to be read back from the
+    -- lost_reason text, which a real lose reason could share
+    coalesce(sl.is_cancelled, false) as is_cancelled
 from classified sl
 left join closing c on c.lead_id = sl.id
 left join public.clients cl on cl.id = sl.client_id

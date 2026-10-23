@@ -1,4 +1,4 @@
-// src/pages/user/sales/reports/tabs/reportFormat.js
+// src/functions/reportFormat.js (shared by every report and overview page)
 //
 // Wording shared by every Sales Reports tab, so a delta, a period label or a
 // trend subtitle reads the same on all of them. Labels come from the `meta`
@@ -9,7 +9,8 @@ import {
   classifyRange,
   formatDateRange,
   formatPeriod,
-} from "../../../../../functions/periodRange";
+} from "./periodRange";
+import { getStatusVariant } from "./statusVariant";
 
 // ─── Gross Margin release gate ──────────────────────────────────────────────
 // Gross Margin (Invoicing) and Gross Profit by Rep (Team) show only once
@@ -29,6 +30,55 @@ export const BUDGET_THRESHOLDS = { warningAt: 70, goodAt: 95 }; // Invoiced Reve
 // Overdue as a share of Outstanding (low is good). A starting point: AR
 // guidance treats 70-80% current as healthy and 90+ above 5% as systemic.
 export const OVERDUE_SHARE_THRESHOLDS = { warningAt: 30, criticalAt: 50 };
+
+/** A tile's { variant, status } from getStatusVariant, ready to spread in. */
+function toTileStatus(s, label) {
+  return {
+    variant: s.variant,
+    status: s.statusIcon ? { icon: s.statusIcon, label: label ?? s.statusLabel } : undefined,
+  };
+}
+
+/**
+ * "Something to act on" tiles (DASHBOARD-CONVENTIONS §4, 2026-10-23):
+ * Pending SAP Order Entry, On Hold, Aging, Overdue Delivery, Delivered Not
+ * Invoiced. Zero is the good state, so these ARE evaluated tiles: green
+ * "On track" at zero, amber "Watch" above -- with the status badge, never
+ * colour alone, and never blue (blue is never a verdict). Two tiers: each
+ * is a task waiting, not a failure, so there is no red; amber stays a tint
+ * (fill is for a worst tier that is a real failure).
+ */
+export function actionTileStatus(count) {
+  if (count === null || count === undefined) return { variant: "blueCard", status: undefined };
+  return toTileStatus(
+    getStatusVariant(Number(count), {
+      direction: "low-good",
+      tiers: 2,
+      badLevel: "warning",
+      thresholds: { criticalAt: 1 },
+      fill: "never",
+    }),
+  );
+}
+
+/**
+ * Monthly Invoicing Needed: green when the monthly average so far already
+ * covers what is needed, amber when a faster pace is needed. No red: a
+ * pace to pick up is not a verdict on its own. null -> blue (no budget).
+ */
+export function paceTileStatus(onPace) {
+  if (onPace === null || onPace === undefined) return { variant: "blueCard", status: undefined };
+  return toTileStatus(
+    getStatusVariant(onPace ? 0 : 1, {
+      direction: "low-good",
+      tiers: 2,
+      badLevel: "warning",
+      thresholds: { criticalAt: 1 },
+      fill: "never",
+    }),
+    onPace ? "On pace" : "Above current pace",
+  );
+}
 
 /** % change from previous to current; null when there's nothing to compare. */
 export function calcDelta(current, previous) {

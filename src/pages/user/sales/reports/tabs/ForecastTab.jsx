@@ -16,8 +16,8 @@ import {
 import { fiscalYearStartYear } from "../../../../../functions/periodRange";
 import { useSalesProjections } from "../../../../../features/sales/reports/private/hooks/useSalesProjections";
 import { getSalesProjectionsConfig } from "../config/projectionConfig";
-import ReportSection from "./ReportSection";
-import TabState from "./TabState";
+import ReportSection from "../../../../../components/report/ReportSection";
+import TabState from "../../../../../components/report/TabState";
 
 /**
  * FORECAST -- the projections section of the single-page report, moved to
@@ -41,6 +41,7 @@ export default function ForecastTab() {
     exhibitsByMonth,
     defaultExhibitMonth,
     isLoading,
+    isUpdating,
     error,
   } = useSalesProjections(fyStartYear);
 
@@ -66,7 +67,7 @@ export default function ForecastTab() {
   const fyLabel = projectionKpis?.year?.fiscalYearLabel ?? "";
 
   return (
-    <TabState isLoading={isLoading} error={error}>
+    <TabState isLoading={isLoading} isUpdating={isUpdating} error={error}>
       <ReportSection
         icon={TrendUpIcon}
         title="Projected Invoiced Revenue"

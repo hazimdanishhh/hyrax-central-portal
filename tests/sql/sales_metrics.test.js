@@ -31,6 +31,7 @@ const SQL_FILES = [
   "get_sales_invoicing_rpc.sql",
   "get_sales_collections_rpc.sql",
   "get_sales_team_rpc.sql",
+  "get_sales_leads_dashboard_rpc.sql",
   "sales_report_briefs.sql",
 ];
 
@@ -888,6 +889,110 @@ describe("4. tab RPCs (one number, every tab)", () => {
     const s = await rpc("get_sales_summary", E1, ...MAY, E3);
     expect(s.meta.mappingMissing).toBe(true);
     expect(n(s.kpis.invoiced)).toBe(0);
+  });
+});
+
+describe("6. Leads Overview (get_sales_leads_dashboard) is the Pipeline tab's numbers", () => {
+  const rpc = async (name, who, start, end, owner = null) => {
+    const [row] = await as(who, () => q(`select ${name}($1, $2, $3) as r`, [start, end, owner]));
+    return row.r;
+  };
+  const sum = (rows, k) => rows.reduce((s, r) => s + (n(r[k]) ?? 0), 0);
+
+  let leads, pipeline;
+  beforeAll(async () => {
+    leads = await rpc("get_sales_leads_dashboard", E1, ...MAY);
+    pipeline = await rpc("get_sales_pipeline", E1, ...MAY);
+  });
+
+  it("every shared tile equals the Pipeline tab's, D5 included", () => {
+    const k = leads.kpis;
+    const p = pipeline.kpis;
+    for (const key of ["generated", "won", "wonCount", "lost", "lostCount", "winRatePct", "avgDaysToWon",
+      "openValue", "weightedValue", "openCount", "pendingSapValue", "pipelineCoverage", "target"]) {
+      expect(n(k[key])).toBe(n(p[key]));
+    }
+    // The cancelled WON lead (L3, 9000) is lost, never won.
+    expect([n(k.won), n(k.lost), n(k.targetAttainmentPct)]).toEqual([3000, 12000, 60]);
+    expect(leads.meta.comparisonWindow).toEqual({ startDate: "2025-04-01", endDate: "2025-04-30", isPartial: false });
+  });
+
+  it("open balances are today's whatever the period", async () => {
+    const now = await rpc("get_sales_leads_dashboard", E1, null, null);
+    for (const key of ["openValue", "pendingSapValue", "onHoldValue", "agingValue", "agingCount"]) {
+      expect(n(now.kpis[key])).toBe(n(leads.kpis[key]));
+    }
+    // L6 (10000) and L7 (4000) are open, not on hold, and 30+ days old.
+    expect([n(leads.kpis.agingValue), n(leads.kpis.agingCount), n(leads.kpis.onHoldValue)]).toEqual([14000, 2, 0]);
+  });
+
+  it("on hold and aging follow the Leads list's rules", async () => {
+    await db.exec("begin");
+    try {
+      await db.exec("update sales_leads set is_on_hold = true where id = 'a0000000-0000-0000-0000-000000000007'");
+      const [t] = await q("select * from sales_pipeline_totals(null, $1, $2)", MAY);
+      // On hold is counted once: it leaves Aging.
+      expect([n(t.on_hold_value), n(t.on_hold_count), n(t.aging_value), n(t.aging_count)]).toEqual([4000, 1, 10000, 1]);
+    } finally {
+      await db.exec("rollback");
+    }
+  });
+
+  it("breakdowns and the scorecard add up to the tiles", () => {
+    const k = leads.kpis;
+    for (const set of [leads.byProductType, leads.bySource, leads.topClients]) {
+      expect(sum(set, "generated")).toBe(n(k.generated));
+      expect(sum(set, "won")).toBe(n(k.won));
+      expect(sum(set, "lost")).toBe(n(k.lost));
+    }
+    expect(leads.bySource.map((s) => [s.name, n(s.generated), n(s.won), n(s.lost)])).toEqual([
+      ["Referral", 10000, 2000, 12000],
+      ["Website", 0, 1000, 0],
+    ]);
+    expect(sum(leads.lostByReason, "value")).toBe(n(k.lost));
+    const sc = leads.scorecard;
+    expect(sum(sc, "won")).toBe(n(k.won));
+    expect(sum(sc, "generated")).toBe(n(k.generated));
+    expect(sum(sc, "lost")).toBe(n(k.lost));
+    expect(sum(sc, "openValue")).toBe(n(k.openValue));
+    const ali = sc.find((r) => r.name === "Ali");
+    expect([n(ali.won), n(ali.target), n(ali.targetAttainmentPct), n(ali.winRatePct), n(ali.openValue)])
+      .toEqual([2000, 4000, 50, 50, 10000]);
+  });
+
+  it("the monthly charts are the shared series, Generated and Lost included", () => {
+    expect(leads.monthlyActivity).toHaveLength(12);
+    const may = leads.monthlyActivity.find((m) => m.period === "2025-05");
+    expect([n(may.generated), n(may.won), n(may.lost), may.inPeriod]).toEqual([10000, 3000, 12000, true]);
+    const mayTarget = leads.wonVsTarget.find((m) => m.period === "2025-05");
+    expect([n(mayTarget.won), n(mayTarget.target)]).toEqual([3000, 5000]);
+  });
+
+  it("open pipeline by probability adds up, with a 'Not set' bucket", async () => {
+    expect(sum(leads.openByProbability, "value")).toBe(n(leads.kpis.openValue));
+    await db.exec("begin");
+    try {
+      await db.exec("update sales_leads set close_probability = null where id = 'a0000000-0000-0000-0000-000000000007'");
+      const r = await rpc("get_sales_leads_dashboard", E1, ...MAY);
+      expect(r.openByProbability.map((b) => [b.name, n(b.value)])).toEqual([
+        ["26-50% (Medium)", 10000],
+        ["Not set", 4000], // the old RPC put these in 76-100% (Commit)
+      ]);
+    } finally {
+      await db.exec("rollback");
+    }
+  });
+
+  it("a salesperson narrows everything, targets included", async () => {
+    const ali = await rpc("get_sales_leads_dashboard", E1, ...MAY, E1);
+    const aliPipeline = await rpc("get_sales_pipeline", E1, ...MAY, E1);
+    expect([n(ali.kpis.won), n(ali.kpis.target), n(ali.kpis.openValue), n(ali.kpis.generated)])
+      .toEqual([n(aliPipeline.kpis.won), 4000, 10000, 10000]);
+    expect(ali.scorecard.map((r) => r.name)).toEqual(["Ali"]); // no other reps leak in
+  });
+
+  it("outside Sales / Management is denied", async () => {
+    await expect(rpc("get_sales_leads_dashboard", E4, ...MAY)).rejects.toThrow(/Access denied/);
   });
 });
 

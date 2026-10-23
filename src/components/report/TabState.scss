@@ -1,0 +1,58 @@
+// The "Updating figures…" state (TabState.jsx). The pill floats over the top
+// of the content (sticky, so it stays in view while scrolled), taking no
+// space -- showing it never shifts the page; the content dims instead of
+// disappearing.
+.reportContent {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: inherit;
+  transition: opacity 0.15s ease;
+
+  &.updating > :not(.reportUpdatingPill) {
+    opacity: 0.55;
+    pointer-events: none;
+  }
+}
+
+.reportUpdatingPill {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 5;
+  align-self: center;
+  height: 0;
+  overflow: visible;
+  display: flex;
+  justify-content: center;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    background-color: $neutral800;
+    color: $neutral100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+  }
+
+  .reportUpdatingSpinner {
+    animation: reportUpdatingSpin 0.8s linear infinite;
+  }
+}
+
+@keyframes reportUpdatingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reportUpdatingPill .reportUpdatingSpinner {
+    animation: none;
+  }
+  .reportContent {
+    transition: none;
+  }
+}

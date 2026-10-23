@@ -91,27 +91,23 @@ The Overview-vs-List shape mismatch (some submodules have both, some are flat st
 | `private.mv_sales_projection_ensemble` (+ `mv_sales_order_development_pit`, `mv_sales_projection_baseline`, `mv_sales_chainladder_backtest`, `mv_sales_projection_ensemble_backtest`) | Sales Reports — Projections section. **The blend itself was cached 2026-10-15** — the view measured 4,202 ms for twelve rows on every page load. Five caches now: four refreshed **monthly** by `snapshot-sales-projections-monthly`, the blend **daily at 00:20 MYT** by `refresh-sales-projection-ensemble-daily`, because it reads the open order book and because a cache built in a previous month names the wrong month for horizon 1. Full map: architecture §8b |
 | `sales_projection_snapshots` (+ `v_sales_projection_accuracy`) (added 2026-10-14) | Sales Reports — Projections section, via `get_sales_projections`. **Written only by `snapshot_sales_projections()`**, a `security definer` job; `authenticated` has no insert/update/delete, because a hand-edited snapshot is a falsified record. Read via three RLS policies (`Sales Department VIEW`, `MGM Department VIEW`, `Superadmin CRUD`) |
 
-## 4. Sales Leads Overview (`LeadsOverview.jsx`, RPC `get_sales_leads_dashboard`)
+## 4. Sales Leads Overview (`LeadsOverview.jsx`, RPC `get_sales_leads_dashboard`) — rebuilt 2026-10-23
 
-**Core question:** is the pipeline healthy today, and how is each rep tracking against quota?
+**Core question:** how is the pipeline doing in the period, what is waiting today, and how is each salesperson tracking against target? The team's daily/weekly page (Tier 2) and the one staff see; Sales Reports is the manager's meeting view. Built to `DASHBOARD-CONVENTIONS.md` §8 (R1–R13) on the shared metric layer — every period figure equals Sales Reports' Pipeline tab for the same period and salesperson (`tests/sql/sales_metrics.test.js` §6).
 
-| Field                               | Formula                                                                   | Period-bound?               |
-| ----------------------------------- | ------------------------------------------------------------------------- | --------------------------- |
-| `totalLeadsCreated`                 | `count(*)` where `created_at` in range                                    | Yes                         |
-| `pipelineGenerated`                 | `sum(expected_revenue)` where `created_at` in range                       | Yes                         |
-| `wonLeads`/`wonRevenue`             | `count`/`sum(actual_revenue)` where `stage='WON'`, `closed_date` in range | Yes                         |
-| `avgDealSize`                       | `avg(actual_revenue)`, WON, closed in range                               | Yes                         |
-| `lostLeads`/`lostRevenue`           | `count`/`sum(expected_revenue)` where LOST or cancelled, closed in range  | Yes                         |
-| `winRate`                           | `WON / (WON+LOST)` (cancelled excluded from denominator)                  | Yes                         |
-| `activeLeads`/`activePipelineValue` | `count`/`sum(expected_revenue)` where not WON/LOST/cancelled              | **No** — real-time snapshot |
-| `weightedPipelineValue`             | `sum(expected_revenue * close_probability/100)`, active leads             | **No**                      |
-| `avgDaysToClose`                    | `avg(closed_date − created_at)`, WON in range                             | Yes                         |
-| `forecastVariance`                  | `sum(actual_revenue) − sum(expected_revenue)`, WON in range               | Yes                         |
-| `fastTrackDeals`                    | Created AND won inside the same period                                    | Yes                         |
+**Filters (R13):** `PeriodSelector` (Month default) + Salesperson. Client / source / product are breakdown charts; stage / on hold / cancelled live on the Leads list. Export: CSV of leads and a PDF of the page. A period or salesperson change shows "Updating figures…".
 
-Charts: Lead Stages (count by stage) · Active Pipeline Health (by probability bucket, $) · Revenue Lost (by reason) · Pipeline Activity/Revenue Trend Over Time · Executive Leaderboards (Product/Owner/Source/Clients, 3-way lens toggle: Productivity/Accuracy/Execution).
+| Section | Content |
+| --- | --- |
+| Pipeline KPIs | Pipeline Generated [Leads Created · SPLY] · Pipeline Won vs Pipeline Target [Target · Avg. Deal Size · vs Expected Value · SPLY] · Win Rate [Won Leads · Total Lost Deals · Lost Revenue · Pipeline Cycle] · Active Pipeline — Today [Weighted · Active Leads · Pipeline Coverage] |
+| Pipeline Trend | Pipeline Won vs Target (dashed) · Generated, Won and Lost by Month — FY trend window, selected months shaded |
+| Active Pipeline (Today) | Pending SAP Order Entry · On Hold · Aging 30+ Days (each opens the list on those leads) · by Stage (expected vs weighted) · by Close Probability (with "Not set") |
+| Pipeline Breakdown | Lost Revenue by Reason · By Product Type · By Lead Source · Top Clients — Generated / Won / Lost, ranked by Won (the old Productivity / Accuracy / Execution lens toggle is gone) |
+| Salesperson Scorecard | per salesperson: Pipeline Won vs Target bar, Win Rate, Generated, Lost, Active Pipeline today |
 
-**Notable gaps:** no freshness banner anywhere on this page. `scorecardData`'s target proration ignores the owner filter — can leak other reps into a single-rep view. Several imported color constants appear unused in the JSX.
+**Parked:** the old AI summary block (insecure, generation broken) — returns with the reusable AI summary (`DASHBOARD-ROADMAP.md` §2.1).
+
+**Gaps:** no freshness banner (the page is app data, live; only Pending SAP Order Entry depends on a SAP sync). The Leads list's own KPI strip (`get_leads_overview`) still defines On Hold as any on-hold lead and Pending SAP Order including cancelled leads — the Overview links into it with filters that show exactly the Overview's leads; aligning the strip is a List-page task.
 
 ## 5a. Sales Reports — tabs (current page, final end state 2026-10-23)
 

@@ -1,4 +1,4 @@
-// src/pages/user/sales/reports/tabs/ReportSection.jsx
+// src/components/report/ReportSection.jsx (shared by every report page)
 
 /**
  * A titled block inside a Sales Reports tab -- the same heading markup the

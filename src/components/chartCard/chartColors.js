@@ -55,6 +55,7 @@ export const GREY_COLOR = "#9ca3af";
 // variants, the budget bridge), so lost and overdue amounts use red as the
 // one "bad money" colour.
 export const MEASURE_COLORS = {
+  pipelineGenerated: "#2bb3a3", // teal: new pipeline coming in (Leads Overview)
   pipelineWon: BLUE_COLOR,
   salesOrders: YELLOW_COLOR,
   invoicedRevenue: GREEN_COLOR,

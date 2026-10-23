@@ -6,6 +6,7 @@ import {
 } from "@phosphor-icons/react";
 import { compactCurrency } from "../../../../../../functions/formatNumber";
 import { toLocalDateString } from "../../../../../../functions/dateRangeFilters";
+import { actionTileStatus } from "../../../../../../functions/reportFormat";
 
 // Keep in lockstep with get_leads_overview_rpc.sql's v_aging_cutoff.
 const AGING_DAYS = 30;
@@ -62,7 +63,7 @@ export function getLeadsListOverviewConfig(kpis) {
       icon: ReceiptIcon,
       label: "Pending SAP Order",
       value: compactCurrency(kpis.pendingSapOrderValue),
-      variant: kpis.pendingSapOrderCount > 0 ? "redCard" : "greenCard",
+      ...actionTileStatus(kpis.pendingSapOrderCount),
       to: ".",
       filter: pendingSapFilter,
       metrics: [
@@ -79,7 +80,7 @@ export function getLeadsListOverviewConfig(kpis) {
       icon: PauseCircleIcon,
       label: "On Hold",
       value: compactCurrency(kpis.onHoldValue),
-      variant: kpis.onHoldCount > 0 ? "yellowCard" : "greenCard",
+      ...actionTileStatus(kpis.onHoldCount),
       to: ".",
       filter: onHoldFilter,
       metrics: [
@@ -91,7 +92,7 @@ export function getLeadsListOverviewConfig(kpis) {
       icon: HourglassHighIcon,
       label: `Aging ${AGING_DAYS}d+`,
       value: compactCurrency(kpis.agingValue),
-      variant: kpis.agingCount > 0 ? "yellowCard" : "greenCard",
+      ...actionTileStatus(kpis.agingCount),
       to: ".",
       filter: agingFilter,
       metrics: [

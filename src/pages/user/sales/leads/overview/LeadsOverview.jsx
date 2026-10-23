@@ -1,606 +1,436 @@
-import { useRef, useState } from "react";
+// src/pages/user/sales/leads/overview/LeadsOverview.jsx
+
+import { useRef } from "react";
+import { useSearchParams } from "react-router-dom";
+import {
+  ChartBarHorizontalIcon,
+  ChartLineUpIcon,
+  FunnelIcon,
+  GaugeIcon,
+  HandshakeIcon,
+  RankingIcon,
+} from "@phosphor-icons/react";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
-import BarChartRenderer from "../../../../../components/chartCard/BarChartRenderer";
 import ChartCard from "../../../../../components/chartCard/ChartCard";
 import LineChartRenderer from "../../../../../components/chartCard/LineChartRenderer";
-import PieChartRenderer from "../../../../../components/chartCard/PieChartRenderer";
+import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
+import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
 import {
-  BLUE_COLOR,
-  GREEN_COLOR,
-  LEAD_STAGE_COLORS,
-  LEAD_TREND_COLORS,
-  YELLOW_COLOR,
-  PRODUCT_TYPE_COLORS,
+  GREY_COLOR,
+  MEASURE_COLORS,
 } from "../../../../../components/chartCard/chartColors";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
-import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
+import PeriodSelector from "../../../../../components/periodSelector/PeriodSelector";
+import ReportSection from "../../../../../components/report/ReportSection";
+import TabState from "../../../../../components/report/TabState";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
-import { fetchLeadsDashboard } from "../../../../../features/sales/leads/private/api/fetchLeadsDashboard";
-import { fetchLeads } from "../../../../../features/sales/leads/private/api/leadsService";
-import { useLeadsMetadata } from "../../../../../features/sales/leads/private/hooks/useLeadsMetadata";
-import useDashboardQuery from "../../../../../hooks/useDashboardQuery";
-import { getFilterConfig } from "./config/filterConfig";
-import { getLeadsOverviewConfig } from "./config/overviewConfig";
-import { leadsExportColumns } from "../list/constants/exportConfig";
-import ExportActions from "../../../../../components/exportActions/ExportActions";
-import HorizontalBarChartRenderer from "../../../../../components/chartCard/HorizontalBarChartRenderer";
-import HorizontalDualBarRenderer from "../../../../../components/chartCard/HorizontalDualBarRenderer";
-import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
-import Button from "../../../../../components/buttons/button/Button";
-import { getChartConfig } from "./config/chartConfig";
-import { fetchSalesTargets } from "../../../../../features/sales/leads/private/api/fetchSalesTargets";
 import ScorecardList from "../../../../../components/sales/leads/leadsScoreCard/LeadsScoreCard";
+// PARKED 2026-10-23 -- the old AI summary (generate-ai-summary +
+// ai_dashboard_summaries) is insecure and its generation is broken; it comes
+// back as the reusable, secure AI summary (DASHBOARD-ROADMAP.md §2.1).
+// import AISummary from "../../../../../components/aiSummary/AISummary";
+import { fetchLeads } from "../../../../../features/sales/leads/private/api/leadsService";
+import { useLeadsOverview } from "../../../../../features/sales/leads/private/hooks/useLeadsOverview";
+import { useSalesReportsMetadata } from "../../../../../features/sales/reports/private/hooks/useSalesReportsMetadata";
+import { preciseCurrency } from "../../../../../functions/formatNumber";
 import {
-  ChartBarHorizontalIcon,
-  ChartLineIcon,
-  CheckCircleIcon,
-  CrosshairSimpleIcon,
-  GaugeIcon,
-  LightbulbIcon,
-  PulseIcon,
-  RankingIcon,
-  TrendUpIcon,
-} from "@phosphor-icons/react";
-import { useQueryClient } from "@tanstack/react-query";
-import AISummary from "../../../../../components/aiSummary/AISummary";
-import GenerateAiButton from "../../../../../components/aiSummary/generateAIButton/GenerateAIButton";
-import "./LeadsOverview.scss";
-import TabScroller from "@/components/navigation/tabScroller/TabScroller";
+  describePeriod,
+  formatMonthTick,
+  shapeTrendRows,
+} from "../../../../../functions/periodRange";
+import {
+  comparedWith,
+  pctText,
+  periodLinkFilter,
+  trendSubtitle,
+} from "../../../../../functions/reportFormat";
+import { getFilterConfig } from "../../reports/config/filterConfig";
+import { leadsExportColumns } from "../list/constants/exportConfig";
+import {
+  getActivePipelineKpis,
+  getPipelineKpis,
+} from "./config/overviewConfig";
 
+// The page's only filters, all in the URL (DASHBOARD-CONVENTIONS §8 R13):
+// the period, and the salesperson -- managers review each person's
+// pipeline. Client, source and product are breakdown charts below; stage,
+// on hold and cancelled are Leads list filters.
+const FILTER_KEYS = ["startDate", "endDate", "owner"];
+const LIST = "../list";
+
+// "SAMPLE_TEST" -> "Sample Test"
+const stageLabel = (stage) =>
+  String(stage)
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
+/**
+ * LEADS OVERVIEW -- the sales team's pipeline page (Tier 2, daily/weekly).
+ * Rebuilt 2026-10-23 to DASHBOARD-CONVENTIONS §8 (R1-R13), on the shared
+ * Sales metric layer (get_sales_leads_dashboard), so every figure equals
+ * Sales Reports' Pipeline tab for the same period and salesperson. Sales
+ * Reports is the manager's meeting view; this page also carries the day's
+ * work (Active Pipeline · Today) and is what staff see -- sales_leads' RLS
+ * keeps a staff user to their own leads.
+ *
+ *   Pipeline KPIs           Generated, Won vs Target, Win Rate (period) |
+ *                           Active Pipeline (TODAY)
+ *   Pipeline Trend          Won vs Target; Generated, Won and Lost by month
+ *   Active Pipeline · Today Pending SAP Order Entry, On Hold, Aging 30+ days;
+ *                           open pipeline by stage and by close probability
+ *   Pipeline Breakdown      lost by reason; Generated / Won / Lost by product
+ *                           type, lead source and client (no lens toggle:
+ *                           one definition per chart, ranked by Won)
+ *   Salesperson Scorecard   Won vs Target, Win Rate, Generated, Lost, Active
+ */
 export default function LeadsOverview() {
-  const queryClient = useQueryClient();
-  const dashboardRef = useRef(null);
+  const contentRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // AI
-  const handleAiComplete = () => {
-    // Force TanStack query to fetch the newly generated summary
-    queryClient.invalidateQueries(["ai_summary", "leads"]);
-  };
+  const filters = Object.fromEntries(
+    FILTER_KEYS.map((key) => [key, searchParams.get(key) || ""]),
+  );
+  function setFilters(updates) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        Object.entries(updates).forEach(([key, value]) => {
+          if (!FILTER_KEYS.includes(key)) return;
+          if (value === undefined || value === null || value === "")
+            next.delete(key);
+          else next.set(key, String(value));
+        });
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
-  const {
-    data: dashboard,
-    search,
-    filters,
-    activeFilters,
-    hasActiveFilters,
-    setSearch,
-    setFilters,
-    resetParams,
-    isLoading: dashboardLoading,
-    isFetching: dashboardFetching,
-    error: dashboardError,
-  } = useDashboardQuery({
-    queryKey: "sales_leads",
-    queryFn: fetchLeadsDashboard,
-  });
+  const { owners } = useSalesReportsMetadata();
+  const filterConfig = getFilterConfig({ owners });
+  const period = describePeriod(filters);
+  const ownerName = owners.find(
+    (o) => String(o.id) === String(filters.owner),
+  )?.full_name;
 
-  // FETCH PRORATED SALES TARGETS
-  const {
-    data: targetData,
-    isLoading: targetLoading,
-    isFetching: targetFetching,
-    error: targetError,
-  } = useDashboardQuery({
-    queryKey: "sales_targets",
-    queryFn: fetchSalesTargets,
-  });
+  const { data, meta, kpis, isLoading, isUpdating, error } =
+    useLeadsOverview(filters);
+  const against = comparedWith(meta, period);
+  const owner = filters.owner || null;
+  const ownerFilter = owner ? { owner } : {};
+  const p = periodLinkFilter(meta);
+  const closedFilter = p.startDate
+    ? { closedDateFrom: p.startDate, closedDateTo: p.endDate }
+    : {};
 
-  // ==============
-  // LEADERBOARD LENS STATE
-  // ==============
-  // "productivity" | "accuracy" | "execution"
-  const [leaderboardView, setLeaderboardView] = useState("productivity");
+  const pipelineKpis = getPipelineKpis({ kpis, meta, period, against, owner });
+  const activeKpis = getActivePipelineKpis({ kpis, owner });
 
-  const chartConfig = getChartConfig(leaderboardView);
-  // ==============
+  const wonVsTarget = shapeTrendRows(
+    data?.wonVsTarget ?? [],
+    (d) => formatMonthTick(d.period),
+    (d) => ({ "Pipeline Won": d.won, "Pipeline Target": d.target }),
+  );
+  const monthlyActivity = shapeTrendRows(
+    data?.monthlyActivity ?? [],
+    (d) => formatMonthTick(d.period),
+    (d) => ({
+      "Pipeline Generated": d.generated,
+      "Pipeline Won": d.won,
+      "Lost Revenue": d.lost,
+    }),
+  );
+  const openByStage = (data?.openByStage ?? []).map((s) => ({
+    name: stageLabel(s.name),
+    Expected: s.value,
+    Weighted: s.weighted,
+  }));
+  const openByProbability = (data?.openByProbability ?? []).map((b) => ({
+    name: b.name,
+    value: b.value,
+    color: b.name === "Not set" ? GREY_COLOR : undefined,
+  }));
+  const lostByReason = data?.lostByReason ?? [];
+  const toBars = (rows) =>
+    (rows ?? []).map((r) => ({
+      name: r.name,
+      "Pipeline Generated": r.generated,
+      "Pipeline Won": r.won,
+      "Lost Revenue": r.lost,
+    }));
+  const breakdownBars = [
+    {
+      dataKey: "Pipeline Generated",
+      name: "Pipeline Generated",
+      color: MEASURE_COLORS.pipelineGenerated,
+    },
+    {
+      dataKey: "Pipeline Won",
+      name: "Pipeline Won",
+      color: MEASURE_COLORS.pipelineWon,
+    },
+    {
+      dataKey: "Lost Revenue",
+      name: "Lost Revenue",
+      color: MEASURE_COLORS.lost,
+    },
+  ];
+  const breakdowns = [
+    {
+      key: "product",
+      title: "By Product Type (RM)",
+      rows: toBars(data?.byProductType),
+    },
+    {
+      key: "source",
+      title: "By Lead Source (RM)",
+      rows: toBars(data?.bySource),
+    },
+    {
+      key: "clients",
+      title: "Top Clients (RM)",
+      rows: toBars(data?.topClients),
+      top: true,
+    },
+  ];
 
-  const kpis = dashboard?.kpis ?? {};
+  const scorecard = (data?.scorecard ?? []).map((r) => ({
+    lead_owner_id: r.ownerId,
+    rep_name: r.name,
+    avatar_url: r.avatarUrl,
+    actual_revenue: r.won,
+    target_revenue: r.target,
+    attainment_percentage: r.targetAttainmentPct,
+    details: [
+      { label: "Win Rate", value: pctText(r.winRatePct) },
+      { label: "Pipeline Generated", value: preciseCurrency(r.generated) },
+      { label: "Lost Revenue", value: preciseCurrency(r.lost) },
+      { label: "Active Pipeline (today)", value: preciseCurrency(r.openValue) },
+    ],
+  }));
 
-  // Map to 'value' based on what you want to chart (volume vs revenue).
-  // Using 'count' here for volume, but you could swap it to 'total_value'.
-  const stageData =
-    dashboard?.stageData?.map((d) => ({
-      name: d.name,
-      value: d.count,
-    })) ?? [];
-
-  // const leadOwnerData =
-  //   dashboard?.leadOwnerData?.map((d) => ({
-  //     name: d.name,
-  //     value: d.won_revenue, // Changed from d.count
-  //   })) ?? [];
-
-  // const sourceData =
-  //   dashboard?.sourceData?.map((d) => ({
-  //     name: d.name,
-  //     value: d.won_revenue, // Changed from d.count
-  //   })) ?? [];
-
-  // const topClientsData =
-  //   dashboard?.topClientsData?.map((d) => ({
-  //     name: d.name,
-  //     value: d.won_revenue, // Changed from d.count
-  //   })) ?? [];
-
-  const trendData =
-    dashboard?.trendData?.map((d) => ({
-      name: d.period,
-      "Leads Generated": d.leads_created,
-      "Deals Won": d.deals_won,
-      "Deals Lost": d.deals_lost,
-      "Pipeline Generated (RM)": d.pipeline_generated, // NEW
-      "Revenue Won (RM)": d.revenue_won, // NEW
-      "Revenue Lost (RM)": d.revenue_lost, // NEW
-    })) ?? [];
-
-  const lossReasonData =
-    dashboard?.lossReasonData?.map((d) => ({
-      name: d.name,
-      value: d.total_lost_value, // Visualizing by revenue lost, not just count
-    })) ?? [];
-
-  const probabilityHealthData =
-    dashboard?.probabilityHealthData?.map((d) => ({
-      name: d.name,
-      value: d.total_value, // Visualizing the RM value in each probability bucket
-    })) ?? [];
-
-  // const productTypeData =
-  //   dashboard?.productTypeData?.map((d) => ({
-  //     name: d.name,
-  //     value: d.won_revenue, // Showing RM value distribution by product
-  //   })) ?? [];
-
-  const productTypeData = dashboard?.productTypeData ?? [];
-  const leadOwnerData = dashboard?.leadOwnerData ?? [];
-  const sourceData = dashboard?.sourceData ?? [];
-  const topClientsData = dashboard?.topClientsData ?? [];
-
-  // ==============
-  // METADATA
-  // ==============
-  const {
-    owners,
-    clients,
-    leadSourceTypes,
-    isLoading: metadataLoading,
-    isFetching: metadataFetching,
-    error: metadataError,
-  } = useLeadsMetadata();
-
-  // ==============
-  // FILTER CONFIG
-  // ==============
-  const filterConfig = getFilterConfig({
-    owners,
-    clients,
-    leadSourceTypes,
-  });
-
-  const isLoading = dashboardLoading || metadataLoading || targetLoading;
-  const isFetching = dashboardFetching || metadataFetching || targetFetching;
-  const isError = dashboardError || metadataError || targetError;
-
-  // const overviewItems = getLeadsOverviewConfig(kpis);
-  const overviewItems = getLeadsOverviewConfig(kpis, targetData, filters);
-
-  // Same baseFilter shape overviewConfig.js builds internally for tile links
-  // -- duplicated here since these chart-card "View All" links are plain
-  // JSX props, not part of the tile config array itself. No date bounds are
-  // ever added to these three (see overviewConfig.js's chart-link comments
-  // for why -- their RPC conditions are an OR across created_at/closed_date
-  // that only degrades to something clean when unfiltered).
-  const chartBaseFilter = {
-    ...(filters.owner && { owner: filters.owner }),
-    ...(filters.client && { client: filters.client }),
-    ...(filters.sapCustomer && { sapCustomer: filters.sapCustomer }),
-    ...(filters.leadSourceType && { leadSourceType: filters.leadSourceType }),
-    ...(filters.stage && { stage: filters.stage }),
-    ...(filters.onHold && { onHold: filters.onHold }),
-    ...(filters.cancelled && { cancelled: filters.cancelled }),
-    ...(filters.productType && { productType: filters.productType }),
-  };
-
-  const formatCurrency = (value) => {
-    if (!value && value !== 0) return "RM0";
-
-    if (value >= 1_000_000) {
-      return `RM${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-    }
-    if (value >= 1_000) {
-      return `RM${(value / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
-    }
-
-    return `RM${value}`;
+  const exportPdf = {
+    targetRef: contentRef,
+    fileName: "Sales_Leads_Overview",
+    reportTitle: "Sales Leads Overview",
+    logoUrl: "/logos/logo.png",
+    subtitle: `${period.title} (${period.range})${ownerName ? ` · Salesperson: ${ownerName}` : ""}`,
   };
 
   return (
     <>
-      {/* SEARCH AND FILTER BAR */}
+      <PeriodSelector filters={filters} onFilterChange={setFilters} />
+
       <SearchFilterBar
         filters={filters}
         onFilterChange={setFilters}
         filterConfig={filterConfig}
-        placeholder="Search leads..."
-        enableDateRange
-        disableSearch={true}
-        enableExport={true}
+        disableSearch
+        enableExport
         exportFetchFn={fetchLeads}
         exportColumns={leadsExportColumns}
         exportFileNamePrefix="Sales_Leads_Export"
-        isLoading={isLoading}
-        isError={isError}
-        dashboardRef={dashboardRef}
+        exportPdf={exportPdf}
       />
 
-      {/* AI BUTTON */}
-      {/* <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <GenerateAiButton
-          type="leads"
-          filters={filters}
-          onComplete={handleAiComplete}
-        />
-      </div> */}
-
       <div
-        ref={dashboardRef}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.8rem",
-        }}
+        ref={contentRef}
+        style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}
       >
-        {/* ACTIVE FILTERS */}
-        {hasActiveFilters && (
+        {owner && (
           <ActiveFiltersBar
-            search={search}
-            setSearch={setSearch}
-            filters={activeFilters}
+            filters={[["owner", owner]]}
             setFilters={setFilters}
             filterConfig={filterConfig}
-            resetParams={resetParams}
+            resetParams={() => setFilters({ owner: "" })}
           />
         )}
 
-        {isLoading || isFetching ? (
-          <CardLayout style="cardLayoutFlexFull">
-            <LoadingIcon />
-          </CardLayout>
-        ) : isError ? (
-          <CardLayout style="cardLayoutFlexFull">
-            <NoResult title="Error loading data." />
-          </CardLayout>
-        ) : (
-          <>
-            <div className="pdfOverviewSection">
-              <AISummary type="leads" filters={filters} />
+        <TabState isLoading={isLoading} isUpdating={isUpdating} error={error}>
+          {/* PARKED 2026-10-23: <AISummary type="leads" filters={filters} /> */}
 
-              {/* TIER 1: THE HIGH-LEVEL SUMMARY */}
-              <div
-                style={{
-                  justifyContent: "start",
-                  textAlign: "start",
-                }}
+          <ReportSection
+            icon={GaugeIcon}
+            title="Pipeline KPIs"
+            description={`${period.title}, new pipeline, leads won against target, and win rate; and today, the active pipeline.`}
+          >
+            <OverviewCards items={pipelineKpis} />
+          </ReportSection>
+
+          <ReportSection
+            icon={ChartLineUpIcon}
+            title="Pipeline Trend"
+            description="Pipeline Won against Pipeline Target, and new, won and lost pipeline, by month."
+          >
+            <CardLayout style="cardLayout2">
+              <ChartCard
+                title="Pipeline Won vs Target (RM)"
+                subtitle={trendSubtitle(meta, period, wonVsTarget)}
+                style="cardGapSmall"
               >
-                <div style={{ marginBottom: "1rem" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.8rem",
-                    }}
-                  >
-                    <GaugeIcon size={24} />
-                    <h2 className="textL textBold">Leads Pipeline KPIs</h2>
-                  </div>
-                  <p className="textXS textLight">
-                    Live pipeline health and performance.
-                  </p>
-                </div>
+                <LineChartRenderer
+                  data={wonVsTarget.data}
+                  highlight={wonVsTarget.highlight}
+                  lines={[
+                    {
+                      dataKey: "Pipeline Won",
+                      color: MEASURE_COLORS.pipelineWon,
+                    },
+                    {
+                      dataKey: "Pipeline Target",
+                      color: MEASURE_COLORS.plan,
+                      dashed: true,
+                    },
+                  ]}
+                />
+              </ChartCard>
 
-                <OverviewCards items={overviewItems} />
-              </div>
-            </div>
-
-            <div className="pdfOverviewSection">
-              {/* THE NEW SCORECARD COMPONENT */}
-              {dashboard?.scorecardData &&
-                dashboard.scorecardData.length > 0 && (
-                  <div
-                    style={{
-                      justifyContent: "start",
-                      textAlign: "start",
-                    }}
-                  >
-                    <div style={{ marginBottom: "1rem" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.8rem",
-                        }}
-                      >
-                        <RankingIcon size={24} />
-                        <h2 className="textL textBold">
-                          Rep Pipeline Performance Scorecard
-                        </h2>
-                      </div>
-                      <p className="textXS textLight">
-                        Live quota attainment and period-over-period rep
-                        performance.
-                      </p>
-                    </div>
-
-                    <ScorecardList data={dashboard.scorecardData} />
-                  </div>
-                )}
-
-              {/* TIER 2: FORWARD-LOOKING FUNNEL (What is coming next?) */}
-              <div
-                style={{
-                  justifyContent: "start",
-                  textAlign: "start",
-                }}
+              <ChartCard
+                title="Generated, Won and Lost by Month (RM)"
+                subtitle={trendSubtitle(meta, period, monthlyActivity)}
+                style="cardGapSmall"
               >
-                <div style={{ marginBottom: "1rem" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.8rem",
-                    }}
-                  >
-                    <PulseIcon size={24} />
-                    <h2 className="textL textBold">Pipeline Health & Funnel</h2>
-                  </div>
-                  <p className="textXS textLight">
-                    Leading indicators and current pipeline distribution.
-                  </p>
-                </div>
+                <LineChartRenderer
+                  data={monthlyActivity.data}
+                  highlight={monthlyActivity.highlight}
+                  lines={[
+                    {
+                      dataKey: "Pipeline Generated",
+                      color: MEASURE_COLORS.pipelineGenerated,
+                    },
+                    {
+                      dataKey: "Pipeline Won",
+                      color: MEASURE_COLORS.pipelineWon,
+                    },
+                    { dataKey: "Lost Revenue", color: MEASURE_COLORS.lost },
+                  ]}
+                />
+              </ChartCard>
+            </CardLayout>
+          </ReportSection>
 
-                <CardLayout style="cardLayout3">
-                  {/* LEAD STAGES */}
-                  <ChartCard
-                    title="Lead Stages"
-                    subtitle="Active Pipeline Drop-off"
-                    style="cardGapSmall"
-                    viewAllTo="../list"
-                    viewAllFilter={{ ...chartBaseFilter, cancelled: "false" }}
-                  >
-                    <HorizontalBarChartRenderer
-                      data={stageData}
-                      colorMap={BLUE_COLOR}
-                    />
-                  </ChartCard>
+          <ReportSection
+            icon={FunnelIcon}
+            title="Active Pipeline"
+            description="Today, whatever period is picked: won leads waiting for an SAP order, leads on hold, aging leads, and the open pipeline by stage and close probability."
+          >
+            <OverviewCards items={activeKpis} />
 
-                  {/* PIPELINE HEALTH */}
-                  <ChartCard
-                    title="Active Pipeline Health"
-                    subtitle="By Probability (%)"
-                    style="cardGapSmall"
-                    viewAllTo="../list"
-                    viewAllFilter={{
-                      ...chartBaseFilter,
-                      activePipelineOnly: "true",
-                    }}
-                  >
-                    <BarChartRenderer
-                      data={probabilityHealthData}
-                      colorMap={BLUE_COLOR}
-                    />
-                  </ChartCard>
-
-                  {/* REVENUE LOST (Static - Always shows reasons) */}
-                  <ChartCard
-                    title="Revenue Lost"
-                    subtitle="By Reason"
-                    style="cardGapSmall"
-                    viewAllTo="../list"
-                    viewAllFilter={{ ...chartBaseFilter, stage: "LOST" }}
-                  >
-                    <HorizontalBarChartRenderer
-                      data={lossReasonData}
-                      colorMap="#ef4444"
-                    />
-                  </ChartCard>
-                </CardLayout>
-              </div>
-
-              {/* TIER 3: BACKWARD-LOOKING DIAGNOSTICS (Why did it happen?) */}
-              <div
-                style={{
-                  justifyContent: "start",
-                  textAlign: "start",
-                }}
+            <CardLayout style="cardLayout2">
+              <ChartCard
+                title="Active Pipeline by Stage (RM)"
+                subtitle="Today · expected revenue, and weighted by close probability"
+                style="cardGapSmall"
+                viewAllTo={LIST}
+                viewAllFilter={{ ...ownerFilter, activePipelineOnly: "true" }}
               >
-                <div style={{ marginBottom: "1rem" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.8rem",
-                    }}
-                  >
-                    <ChartLineIcon size={24} />
-                    <h2 className="textL textBold">
-                      Historical Diagnostics & Performance
-                    </h2>
-                  </div>
-                  <p className="textXS textLight">
-                    Lagging indicators tracking activity, revenue, and
-                    performance.
-                  </p>
-                </div>
-
-                {/* TREND LINES: Side-by-side for correlation */}
-                <CardLayout style="cardLayout2">
-                  <ChartCard
-                    title="Pipeline Activity Over Time"
-                    subtitle="Volume"
-                    style="cardGapSmall"
-                  >
-                    <LineChartRenderer
-                      data={trendData}
-                      lines={[
-                        { dataKey: "Leads Generated", color: BLUE_COLOR },
-                        { dataKey: "Deals Won", color: GREEN_COLOR },
-                        { dataKey: "Deals Lost", color: "#ef4444" },
-                      ]}
-                    />
-                  </ChartCard>
-
-                  <ChartCard
-                    title="Revenue Trend Over Time"
-                    subtitle="Actual RM"
-                    style="cardGapSmall"
-                  >
-                    <LineChartRenderer
-                      data={trendData}
-                      lines={[
-                        {
-                          dataKey: "Pipeline Generated (RM)",
-                          color: BLUE_COLOR,
-                        },
-                        { dataKey: "Revenue Won (RM)", color: GREEN_COLOR },
-                        { dataKey: "Revenue Lost (RM)", color: "#ef4444" },
-                      ]}
-                    />
-                  </ChartCard>
-                </CardLayout>
-              </div>
-            </div>
-
-            <div className="pdfOverviewSection leaderboardsOverviewSection">
-              {/* LENS TOGGLE UI */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "start",
-                  textAlign: "start",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "10px",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.8rem",
-                    }}
-                  >
-                    <ChartBarHorizontalIcon size={24} />
-                    <h2 className="textL textBold">Executive Leaderboards</h2>
-                  </div>
-                  <p className="textXS textLight">
-                    Select a lens to analyze rep, product, and client
-                    performance.
-                  </p>
-                </div>
-                <TabScroller ariaLabel="Leaderboard lens">
-                  <Button
-                    onClick={() => setLeaderboardView("productivity")}
-                    name="Productivity (Input/Output)"
-                    icon={LightbulbIcon}
-                    weight="fill"
-                    style={
-                      leaderboardView === "productivity"
-                        ? "textXS button buttonType3 active"
-                        : "textXS button buttonType3 "
-                    }
-                    className="textXXS"
+                {openByStage.length ? (
+                  <HorizontalMultiBarRenderer
+                    data={openByStage}
+                    bars={[
+                      {
+                        dataKey: "Expected",
+                        name: "Expected",
+                        color: MEASURE_COLORS.pipelineWon,
+                      },
+                      {
+                        dataKey: "Weighted",
+                        name: "Weighted",
+                        color: GREY_COLOR,
+                      },
+                    ]}
                   />
-                  <Button
-                    onClick={() => setLeaderboardView("accuracy")}
-                    name="Accuracy (Forecast/Actual)"
-                    icon={CrosshairSimpleIcon}
-                    weight="fill"
-                    style={
-                      leaderboardView === "accuracy"
-                        ? "textXS button buttonType3 active"
-                        : "textXS button buttonType3 "
-                    }
-                    className="textXXS"
+                ) : (
+                  <NoResult title="No active leads." />
+                )}
+              </ChartCard>
+
+              <ChartCard
+                title="Active Pipeline by Close Probability (RM)"
+                subtitle="Today · expected revenue in each probability band"
+                style="cardGapSmall"
+                viewAllTo={LIST}
+                viewAllFilter={{ ...ownerFilter, activePipelineOnly: "true" }}
+              >
+                {openByProbability.length ? (
+                  <HorizontalBarChartRenderer
+                    data={openByProbability}
+                    colorMap={MEASURE_COLORS.pipelineWon}
                   />
-                  <Button
-                    onClick={() => setLeaderboardView("execution")}
-                    name="Execution (Won/Lost)"
-                    icon={CheckCircleIcon}
-                    weight="fill"
-                    style={
-                      leaderboardView === "execution"
-                        ? "textXS button buttonType3 active"
-                        : "textXS button buttonType3 "
-                    }
-                    className="textXXS"
+                ) : (
+                  <NoResult title="No active leads." />
+                )}
+              </ChartCard>
+            </CardLayout>
+          </ReportSection>
+
+          <ReportSection
+            icon={ChartBarHorizontalIcon}
+            title="Pipeline Breakdown"
+            description={`${period.title}: why leads were lost, and new, won and lost pipeline by product type, lead source and client, ranked by Pipeline Won.`}
+          >
+            <CardLayout style="cardLayout2">
+              <ChartCard
+                title="Lost Revenue by Reason (RM)"
+                subtitle={`Leads lost or cancelled, ${period.title}`}
+                style="cardGapSmall"
+                viewAllTo={LIST}
+                viewAllFilter={{
+                  ...ownerFilter,
+                  lostOrCancelled: "true",
+                  ...closedFilter,
+                }}
+              >
+                {lostByReason.length ? (
+                  <HorizontalBarChartRenderer
+                    data={lostByReason}
+                    colorMap={MEASURE_COLORS.lost}
                   />
-                </TabScroller>
-              </div>
-
-              {/* LEADERBOARDS: 2-column grid dynamically controlled by the toggle */}
-              <CardLayout style="cardLayout2">
-                {/* PRODUCT TYPE */}
-                {!filters?.productType && (
-                  <ChartCard
-                    title="Product Performance"
-                    subtitle={chartConfig.subtitle}
-                    style="cardGapSmall"
-                  >
-                    <HorizontalMultiBarRenderer
-                      data={productTypeData}
-                      bars={chartConfig.bars}
-                    />
-                  </ChartCard>
+                ) : (
+                  <NoResult title="No leads lost in this period." />
                 )}
+              </ChartCard>
 
-                {/* TOP LEAD OWNERS */}
-                {!filters?.owner && (
-                  <ChartCard
-                    title="Top Lead Owners"
-                    subtitle={chartConfig.subtitle}
-                    style="cardGapSmall"
-                  >
+              {breakdowns.map((b) => (
+                <ChartCard
+                  key={b.key}
+                  title={b.title}
+                  subtitle={`${b.top ? "Top 10, " : ""}${period.title} · generated, won and lost`}
+                  style="cardGapSmall"
+                >
+                  {b.rows.length ? (
                     <HorizontalMultiBarRenderer
-                      data={leadOwnerData}
-                      bars={chartConfig.bars}
+                      data={b.rows}
+                      bars={breakdownBars}
                     />
-                  </ChartCard>
-                )}
+                  ) : (
+                    <NoResult title="No leads created, won or lost in this period." />
+                  )}
+                </ChartCard>
+              ))}
+            </CardLayout>
+          </ReportSection>
 
-                {/* TOP LEAD SOURCES */}
-                {!filters?.leadSourceType && (
-                  <ChartCard
-                    title="Top Lead Sources"
-                    subtitle={chartConfig.subtitle}
-                    style="cardGapSmall"
-                  >
-                    <HorizontalMultiBarRenderer
-                      data={sourceData}
-                      bars={chartConfig.bars}
-                    />
-                  </ChartCard>
-                )}
-
-                {/* TOP CLIENTS */}
-                {!filters?.client && !filters?.sapCustomer && (
-                  <ChartCard
-                    title="Top Clients"
-                    subtitle={chartConfig.subtitle}
-                    style="cardGapSmall"
-                  >
-                    <HorizontalMultiBarRenderer
-                      data={topClientsData}
-                      bars={chartConfig.bars}
-                    />
-                  </ChartCard>
-                )}
-              </CardLayout>
-            </div>
-          </>
-        )}
+          <ReportSection
+            icon={RankingIcon}
+            title="Salesperson Scorecard"
+            description={`${period.title}: each salesperson's Pipeline Won against target, win rate, new and lost pipeline, and their active pipeline today.`}
+          >
+            {scorecard.length ? (
+              <ScorecardList
+                data={scorecard}
+                actualLabel="Pipeline Won"
+                targetLabel="Pipeline Target"
+              />
+            ) : (
+              <NoResult title="No pipeline activity or target for this period." />
+            )}
+          </ReportSection>
+        </TabState>
       </div>
     </>
   );

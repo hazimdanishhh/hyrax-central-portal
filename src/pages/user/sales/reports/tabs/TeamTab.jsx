@@ -8,14 +8,14 @@ import NoResult from "../../../../../components/crud/noResult/NoResult";
 import HorizontalMultiBarRenderer from "../../../../../components/chartCard/HorizontalMultiBarRenderer";
 import { MEASURE_COLORS } from "../../../../../components/chartCard/chartColors";
 import { useSalesReportTab } from "../../../../../features/sales/reports/private/hooks/useSalesReportTab";
-import ReportSection from "./ReportSection";
+import ReportSection from "../../../../../components/report/ReportSection";
 import RepFunnelScorecard from "./RepFunnelScorecard";
-import TabState from "./TabState";
+import TabState from "../../../../../components/report/TabState";
 import {
   BUDGET_THRESHOLDS,
   GROSS_MARGIN_RELEASED,
   TARGET_THRESHOLDS,
-} from "./reportFormat";
+} from "../../../../../functions/reportFormat";
 
 /**
  * TEAM -- per salesperson, for one-to-ones. Data: get_sales_team. Rules:
@@ -40,7 +40,7 @@ import {
  */
 export default function TeamTab() {
   const { filters, period, MappingMissingNote } = useOutletContext();
-  const { data, meta, isLoading, error } = useSalesReportTab("team", filters);
+  const { data, meta, isLoading, isUpdating, error } = useSalesReportTab("team", filters);
 
   const rows = (data?.scorecard ?? []).map((r) => {
     const flags = [];
@@ -66,7 +66,7 @@ export default function TeamTab() {
   }));
 
   return (
-    <TabState isLoading={isLoading} error={error}>
+    <TabState isLoading={isLoading} isUpdating={isUpdating} error={error}>
       <MappingMissingNote meta={meta} />
 
       <ReportSection

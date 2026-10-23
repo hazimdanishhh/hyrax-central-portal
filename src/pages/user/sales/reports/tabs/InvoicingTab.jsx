@@ -31,8 +31,8 @@ import {
   shapeTrendRows,
 } from "../../../../../functions/periodRange";
 import { useSalesReportTab } from "../../../../../features/sales/reports/private/hooks/useSalesReportTab";
-import ReportSection from "./ReportSection";
-import TabState from "./TabState";
+import ReportSection from "../../../../../components/report/ReportSection";
+import TabState from "../../../../../components/report/TabState";
 import {
   BUDGET_THRESHOLDS,
   GROSS_MARGIN_RELEASED,
@@ -45,7 +45,7 @@ import {
   pointsDeltaText,
   repLinkFilter,
   trendSubtitle,
-} from "./reportFormat";
+} from "../../../../../functions/reportFormat";
 
 const pctOrDash = (v) => (v === null || v === undefined ? "—" : `${v}%`);
 
@@ -70,7 +70,7 @@ const pctOrDash = (v) => (v === null || v === undefined ? "—" : `${v}%`);
  */
 export default function InvoicingTab() {
   const { filters, period, access, MappingMissingNote } = useOutletContext();
-  const { data, meta, kpis, isLoading, error } = useSalesReportTab("invoicing", filters);
+  const { data, meta, kpis, isLoading, isUpdating, error } = useSalesReportTab("invoicing", filters);
 
   const against = comparedWith(meta, period);
   const periodFilter = periodLinkFilter(meta);
@@ -217,7 +217,7 @@ export default function InvoicingTab() {
   const exportLocal = data?.exportLocal ?? [];
 
   return (
-    <TabState isLoading={isLoading} error={error}>
+    <TabState isLoading={isLoading} isUpdating={isUpdating} error={error}>
       <MappingMissingNote meta={meta} />
 
       <ReportSection

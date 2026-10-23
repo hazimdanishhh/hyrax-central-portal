@@ -2,6 +2,8 @@
 // tabs/reportFormat.js): deltas, the comparison label, Same Period Last Year.
 import { describe, expect, it } from "vitest";
 import {
+  actionTileStatus,
+  paceTileStatus,
   buildBudgetBridge,
   calcDelta,
   comparedWith,
@@ -9,7 +11,7 @@ import {
   lastYearRateMetric,
   pointsDeltaText,
   todayTile,
-} from "../../src/pages/user/sales/reports/tabs/reportFormat";
+} from "../../src/functions/reportFormat";
 import { formatDay } from "../../src/functions/periodRange";
 
 const money = (v) => `RM ${v}`;
@@ -57,6 +59,19 @@ describe("reportFormat", () => {
     const meta = { lastYearWindow: { startDate: "2025-05-01", endDate: "2025-05-31" } };
     expect(lastYearRateMetric(meta, 16.5, 15).value).toBe("15% (↑ 1.5 pts)");
     expect(lastYearRateMetric(meta, 16.5, null).value).toBe("—");
+  });
+
+  it("action tiles: green 'On track' at zero, amber 'Watch' tint above, never blue", () => {
+    expect(actionTileStatus(0)).toMatchObject({ variant: "greenCard", status: { label: "On track" } });
+    expect(actionTileStatus(3)).toMatchObject({ variant: "yellowCard", status: { label: "Watch" } });
+    expect(actionTileStatus(3).status.icon).toBeTruthy(); // a badge, never colour alone
+    expect(actionTileStatus(null)).toEqual({ variant: "blueCard", status: undefined }); // no data
+  });
+
+  it("pace tile: green on pace, amber above it, blue without a budget", () => {
+    expect(paceTileStatus(true)).toMatchObject({ variant: "greenCard", status: { label: "On pace" } });
+    expect(paceTileStatus(false)).toMatchObject({ variant: "yellowCard", status: { label: "Above current pace" } });
+    expect(paceTileStatus(null).variant).toBe("blueCard");
   });
 
   it("todayTile: says Today and can never carry a period comparison", () => {

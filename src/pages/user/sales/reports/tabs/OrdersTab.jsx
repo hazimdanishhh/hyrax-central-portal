@@ -24,8 +24,8 @@ import {
   shapeTrendRows,
 } from "../../../../../functions/periodRange";
 import { useSalesReportTab } from "../../../../../features/sales/reports/private/hooks/useSalesReportTab";
-import ReportSection from "./ReportSection";
-import TabState from "./TabState";
+import ReportSection from "../../../../../components/report/ReportSection";
+import TabState from "../../../../../components/report/TabState";
 import {
   calcDelta,
   comparedWith,
@@ -33,9 +33,10 @@ import {
   lastYearMetric,
   periodLinkFilter,
   repLinkFilter,
+  actionTileStatus,
   todayTile,
   trendSubtitle,
-} from "./reportFormat";
+} from "../../../../../functions/reportFormat";
 
 /**
  * ORDERS -- bookings and the order book. Data: get_sales_orders. Rules:
@@ -56,7 +57,7 @@ import {
  */
 export default function OrdersTab() {
   const { filters, period, access, MappingMissingNote } = useOutletContext();
-  const { data, meta, kpis, isLoading, error } = useSalesReportTab("orders", filters);
+  const { data, meta, kpis, isLoading, isUpdating, error } = useSalesReportTab("orders", filters);
 
   const against = comparedWith(meta, period);
   const periodFilter = periodLinkFilter(meta);
@@ -140,25 +141,25 @@ export default function OrdersTab() {
       icon: WarningCircleIcon,
       label: "Overdue Delivery",
       value: preciseCurrency(kpis.overdueValue),
-      variant: (kpis.overdueOrders ?? 0) > 0 ? "yellowCard" : "blueCard",
+      ...actionTileStatus(kpis.overdueOrders),
       to: ordersLink,
       filter: { ...repFilter, isCancelled: "N", statusCode: "O", deliveryOverdueOnly: "true" },
       metrics: [{ label: "Orders", value: kpis.overdueOrders ?? 0 }],
       title:
         "Open sales orders whose delivery date has passed, right now. Same rule as the " +
-        "Orders page. Amber when there are any.",
+        "Orders page. Green when there are none, amber (Watch) when there are any.",
     }),
     todayTile({
       icon: ReceiptIcon,
       label: "Delivered, Not Invoiced",
       value: preciseCurrency(kpis.unbilledValue),
-      variant: (kpis.unbilledOrders ?? 0) > 0 ? "yellowCard" : "blueCard",
+      ...actionTileStatus(kpis.unbilledOrders),
       to: ordersLink,
       filter: { ...repFilter, isCancelled: "N", deliveryStatus: "delivered", invoicedOnly: "none" },
       metrics: [{ label: "Orders", value: kpis.unbilledOrders ?? 0 }],
       title:
         "Sales orders fully delivered with no invoice yet, right now: the hand-off to " +
-        "Invoicing. Same rule as the Orders page. Amber when there are any.",
+        "Invoicing. Same rule as the Orders page. Green when there are none, amber (Watch) when there are any.",
     }),
   ];
 
@@ -173,7 +174,7 @@ export default function OrdersTab() {
   }));
 
   return (
-    <TabState isLoading={isLoading} error={error}>
+    <TabState isLoading={isLoading} isUpdating={isUpdating} error={error}>
       <MappingMissingNote meta={meta} />
 
       <ReportSection

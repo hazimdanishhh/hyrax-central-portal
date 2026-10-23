@@ -29,8 +29,8 @@ import {
   shapeTrendRows,
 } from "../../../../../functions/periodRange";
 import { useSalesReportTab } from "../../../../../features/sales/reports/private/hooks/useSalesReportTab";
-import ReportSection from "./ReportSection";
-import TabState from "./TabState";
+import ReportSection from "../../../../../components/report/ReportSection";
+import TabState from "../../../../../components/report/TabState";
 import {
   TARGET_THRESHOLDS,
   calcDelta,
@@ -40,9 +40,10 @@ import {
   pctText,
   periodLinkFilter,
   pointsDeltaText,
+  actionTileStatus,
   todayTile,
   trendSubtitle,
-} from "./reportFormat";
+} from "../../../../../functions/reportFormat";
 
 const LEADS_LIST = "/app/sales/leads/list";
 
@@ -75,7 +76,7 @@ const stageLabel = (stage) =>
  */
 export default function PipelineTab() {
   const { filters, period, MappingMissingNote } = useOutletContext();
-  const { data, meta, kpis, isLoading, error } = useSalesReportTab("pipeline", filters);
+  const { data, meta, kpis, isLoading, isUpdating, error } = useSalesReportTab("pipeline", filters);
 
   const against = comparedWith(meta, period);
   const p = periodLinkFilter(meta);
@@ -205,14 +206,14 @@ export default function PipelineTab() {
       icon: ClockCountdownIcon,
       label: "Pending SAP Order Entry",
       value: preciseCurrency(kpis.pendingSapValue),
-      variant: (kpis.pendingSapCount ?? 0) > 0 ? "yellowCard" : "blueCard",
+      ...actionTileStatus(kpis.pendingSapCount),
       to: LEADS_LIST,
       filter: { ...ownerFilter, pendingSapOrder: "true", cancelled: "false" },
       metrics: [{ label: "Won Leads", value: kpis.pendingSapCount ?? 0 }],
       title:
         "Won leads whose PO number no SAP sales order carries yet -- the hand-off to " +
         "Orders, waiting on the sales admin. Same rule as Leads Overview (cancelled " +
-        "leads left out). Amber when there are any.",
+        "leads left out). Green when there are none, amber (Watch) when there are any.",
     }),
   ];
 
@@ -232,7 +233,7 @@ export default function PipelineTab() {
   }));
 
   return (
-    <TabState isLoading={isLoading} error={error}>
+    <TabState isLoading={isLoading} isUpdating={isUpdating} error={error}>
       <MappingMissingNote meta={meta} />
 
       <ReportSection

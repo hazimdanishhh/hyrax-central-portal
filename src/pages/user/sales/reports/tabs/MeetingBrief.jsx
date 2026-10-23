@@ -13,7 +13,7 @@ import { SparkleIcon } from "@phosphor-icons/react";
 import Button from "../../../../../components/buttons/button/Button";
 import { formatDateTime } from "../../../../../functions/formatDate";
 import { useMeetingBrief } from "../../../../../features/sales/reports/private/hooks/useMeetingBrief";
-import ReportSection from "./ReportSection";
+import ReportSection from "../../../../../components/report/ReportSection";
 import "../../../../../components/aiSummary/AISummary.scss";
 
 /**

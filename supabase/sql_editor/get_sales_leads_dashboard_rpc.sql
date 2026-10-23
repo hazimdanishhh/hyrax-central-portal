@@ -1,615 +1,335 @@
-create or replace function get_sales_leads_dashboard(
-    p_owner_id uuid default null,
-    p_client_id uuid default null,
-    p_sap_customer_code text default null,
-    p_source_id bigint default null,
-    p_stage sales_leads_stage default null,
+-- ############################################################################
+-- get_sales_leads_dashboard -- Sales LEADS OVERVIEW
+-- (src/pages/user/sales/leads/overview/LeadsOverview.jsx). Rebuilt
+-- 2026-10-23 onto the shared Sales metric layer and the reporting rules in
+-- docs/portal/DASHBOARD-CONVENTIONS.md §8 (R1-R13).
+--
+-- WHY IT WAS REWRITTEN. The old version defined Won, Lost and Generated its
+-- own way in several places at once: cancelled WON leads counted as won AND
+-- lost (against decision D5), the leaderboards excluded cancelled leads, the
+-- trend counted stage-history transitions instead of leads, dates were
+-- compared in UTC including midnight of the next day, tiles defaulted to
+-- This Month while every chart and the scorecard defaulted to all time,
+-- the scorecard's targets ignored the salesperson filter, and the previous
+-- period was off by a day. Now every figure is a shared-layer call or a
+-- grouping of sales_lead_facts with sales_pipeline_totals' own predicates,
+-- so Leads Overview and the Pipeline tab of Sales Reports cannot disagree.
+--
+-- FILTERS (R13): the period, and the salesperson (lead owner). Nothing else:
+-- client, source and product are breakdown charts on the page, and targets
+-- exist per salesperson only; stage / on hold / cancelled are List filters.
+-- ACCESS: SAL / MGM / superadmin (can_view_sales_reports); security invoker,
+-- so sales_leads' RLS keeps a staff user to their own leads.
+--
+--   meta              sales_report_meta (period, comparison, trend, last year)
+--   kpis              sales_pipeline_totals for the period, the comparison
+--                     window and the same period last year; target from
+--                     sales_totals; TODAY (R3, no comparison): open
+--                     pipeline, Pipeline Coverage, Pending SAP Order Entry,
+--                     On Hold, Aging 30+ days
+--   wonVsTarget       monthly Pipeline Won vs Pipeline Target, trend window
+--   monthlyActivity   monthly Generated / Won / Lost, trend window
+--   openByStage       TODAY, open pipeline by stage (expected, weighted)
+--   openByProbability TODAY, open pipeline by close probability ("Not set"
+--                     for none -- the old version put those in 76-100%)
+--   lostByReason      period, lost or cancelled, by reason
+--   byProductType / bySource / topClients
+--                     period, Generated / Won / Lost per group, top 10 by Won
+--   scorecard         per salesperson: Won vs Target and Win Rate
+--                     (sales_owner_totals), Generated, Lost, and Active
+--                     Pipeline today; leads with no owner are one row
+--
+-- Run after sales_metric_facts_views.sql and sales_metric_functions.sql.
+-- ############################################################################
+
+-- The pre-2026-10-23 version took ten filters; the new one takes three. If
+-- the old one survived, both would accept (p_start_date, p_end_date,
+-- p_owner_id) and every call would fail as ambiguous. So drop EVERY version
+-- by name, whatever its argument types are in the live database (a drop
+-- that spells the old types out is skipped silently if any type differs);
+-- the create below makes the current one again. Re-runnable.
+do $$
+declare
+    r record;
+begin
+    for r in
+        select p.oid::regprocedure as sig
+        from pg_proc p
+        where p.proname = 'get_sales_leads_dashboard'
+          and p.pronamespace = 'public'::regnamespace
+    loop
+        execute 'drop function ' || r.sig;
+    end loop;
+end
+$$;
+
+create or replace function public.get_sales_leads_dashboard(
     p_start_date date default null,
-    p_end_date date default null,
-    p_is_on_hold boolean default null,
-    p_is_cancelled boolean default null,
-    p_product_type public.product_type default null
+    p_end_date   date default null,
+    p_owner_id   uuid default null
 )
 returns json
 language plpgsql
-as
-$$
+stable
+security invoker
+as $$
 declare
-    result json;
-    v_interval integer;
-    v_effective_start_date date;
-    v_effective_end_date date;
-    v_prev_start_date date;
-    v_prev_end_date date;
-    v_caller_role text;
-    v_caller_department text;
+    per record;
+    cur record;
+    prv record;
+    ly  record;
+    lyp record;
+    tot record;
+    cov record;
 begin
+    if not public.can_view_sales_reports() then
+        raise exception 'Access denied';
+    end if;
 
--- 0. Authorization guard (2026-09) -- this RPC previously had none at all;
--- added now that MGM legitimately calls it via the Leads Overview page too,
--- mirroring get_sales_reports_dashboard_rpc.sql's existing SAL/MGM guard.
-select r.name, d.sub
-  into v_caller_role, v_caller_department
-from profiles p
-join roles r on r.id = p.role_id
-join departments d on d.id = p.department_id
-where p.id = auth.uid();
+    select * into per from public.report_period(p_start_date, p_end_date);
+    select * into cur from public.sales_pipeline_totals(p_owner_id, per.start_date, per.end_date);
+    select * into prv from public.sales_pipeline_totals(p_owner_id, per.prev_start, per.prev_end);
+    select * into ly  from public.report_last_year(p_start_date, p_end_date);
+    select * into lyp from public.sales_pipeline_totals(p_owner_id, ly.ly_start, ly.ly_end);
+    select * into tot from public.sales_totals(null, p_owner_id, per.start_date, per.end_date);
+    select * into cov from public.sales_pipeline_coverage(p_owner_id);
 
-if v_caller_role is null then
-    raise exception 'Access denied';
-end if;
+    return json_build_object(
+        'meta', public.sales_report_meta(p_start_date, p_end_date, null, false),
 
-if v_caller_role <> 'superadmin' and v_caller_department not in ('SAL', 'MGM') then
-    raise exception 'Access denied';
-end if;
-
--- 1. Effective period (This Month by default, mirrors
--- get_sales_reports_dashboard_rpc.sql's v_effective_* mechanism, 2026-09-30)
--- + the Previous Period for Deltas, now always resolvable since
--- v_effective_start_date/v_effective_end_date are never null.
-v_effective_start_date := coalesce(p_start_date, date_trunc('month', current_date)::date);
-v_effective_end_date := coalesce(p_end_date, (date_trunc('month', current_date) + interval '1 month' - interval '1 day')::date);
-
-v_interval := v_effective_end_date - v_effective_start_date;
-v_prev_end_date := v_effective_start_date - 1;
-v_prev_start_date := v_prev_end_date - v_interval;
-
--- 1. Find the exact date deals were closed
-with closing_dates as (
-    select 
-        lead_id, 
-        max(changed_at) as closed_date
-    from sales_leads_stage_history
-    where new_stage in ('WON', 'LOST')
-    group by lead_id
-),
-
--- 2. Base filter without dates
-base_leads as (
-    select
-        sl.*,
-        coalesce(cd.closed_date, case when sl.stage in ('WON', 'LOST') or sl.is_cancelled then sl.updated_at else null end) as closed_date,
-        -- Account identity (2026-08): a lead references exactly one of a
-        -- real SAP customer (sap_customer_code) or a native Prospect
-        -- (client_id), never both -- see clients_sap_customer_link_migration
-        -- .sql / sales_leads_sap_customer_link_migration.sql. Computed once
-        -- here so every downstream chart (e.g. topClientsData below) can
-        -- treat both cases uniformly instead of re-joining per chart.
-        coalesce(sl.client_id::text, sl.sap_customer_code) as account_key,
-        coalesce(c.name, sc.customer_name) as account_name
-    from sales_leads sl
-    left join closing_dates cd on cd.lead_id = sl.id
-    left join clients c on c.id = sl.client_id
-    left join sap_customers sc on sc.customer_code = sl.sap_customer_code
-    where
-        (p_owner_id is null or sl.lead_owner_id = p_owner_id)
-        and (p_client_id is null or sl.client_id = p_client_id)
-        and (p_sap_customer_code is null or sl.sap_customer_code = p_sap_customer_code)
-        and (p_source_id is null or sl.lead_source_type_id = p_source_id)
-        and (p_stage is null or sl.stage = p_stage)
-        and (p_is_on_hold is null or sl.is_on_hold = p_is_on_hold)
-        and (p_is_cancelled is null or sl.is_cancelled = p_is_cancelled)
-        and (p_product_type is null or sl.product_type = p_product_type)
-)
-
-select json_build_object(
-
-    'kpis', (
-        select json_build_object(
-            'totalLeadsCreated', count(*) filter (
-                where created_at >= v_effective_start_date
-                and created_at <= v_effective_end_date + interval '1 day'
-            ),
-            'pipelineGenerated', coalesce(sum(expected_revenue) filter (
-                where created_at >= v_effective_start_date
-                and created_at <= v_effective_end_date + interval '1 day'
-            ), 0),
-
-            'wonLeads', count(*) filter (
-                where stage = 'WON'
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            ),
-            'wonRevenue', coalesce(sum(actual_revenue) filter (
-                where stage = 'WON'
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            ), 0),
-
-            'avgDealSize', coalesce(round(avg(actual_revenue) filter (
-                where stage = 'WON'
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            )), 0),
-
-            -- Current backlog -- WON leads still sitting unactioned in SAP.
-            -- Same reasoning as Finance's overdueValue KPI; mirrors
-            -- sales_leads_with_closed_date.sql's pending_sap_order column --
-            -- keep both in sync if this predicate ever changes. ACTIONABLE
-            -- scoping (2026-10, same as activeLeads below): unbounded by
-            -- default, narrows to closed_date-in-period (WON leads closed in
-            -- that window, still unmatched) once the caller explicitly picks
-            -- a range.
-            'wonLeadsPendingSapOrderCount', count(*) filter (
-                where stage = 'WON'
-                and po_number is not null
-                and not exists (
-                    select 1 from public.sap_sales_orders sso
-                    where sso.customer_ref = base_leads.po_number
-                )
-                and (p_start_date is null or closed_date >= p_start_date)
-                and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
-            ),
-
-            'lostLeads', count(*) filter (
-                where (stage = 'LOST' or is_cancelled)
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            ),
-            'lostRevenue', coalesce(sum(expected_revenue) filter (
-                where (stage = 'LOST' or is_cancelled)
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            ), 0),
-
-            'winRate', coalesce(
-                round(
-                    (count(*) filter (
-                        where stage = 'WON'
-                        and closed_date >= v_effective_start_date
-                        and closed_date <= v_effective_end_date + interval '1 day'
-                    )::numeric /
-                    nullif(count(*) filter (
-                        where stage in ('WON', 'LOST')
-                        and closed_date >= v_effective_start_date
-                        and closed_date <= v_effective_end_date + interval '1 day'
-                    ), 0)) * 100,
-                1),
-            0),
-
-            -- ACTIONABLE family (2026-10): unbounded "current backlog" by
-            -- default (no date predicate at all when both p_start_date/
-            -- p_end_date are null), narrows to created_at-in-period once the
-            -- caller explicitly picks a range -- same pattern every other
-            -- true backlog KPI in this app follows. Deliberately keyed off
-            -- the raw nullable p_start_date/p_end_date here, NOT
-            -- v_effective_start_date/v_effective_end_date (which always
-            -- resolve to This Month) -- that would wrongly force a period
-            -- bound onto this tile even when the caller asked for none.
-            'activeLeads', count(*) filter (
-                where stage not in ('WON', 'LOST') and not is_cancelled
-                and (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
-            ),
-            'activePipelineValue', coalesce(sum(expected_revenue) filter (
-                where stage not in ('WON', 'LOST') and not is_cancelled
-                and (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
-            ), 0),
-            'weightedPipelineValue', coalesce(sum(expected_revenue * (close_probability / 100.0)) filter (
-                where stage not in ('WON', 'LOST') and not is_cancelled
-                and (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
-            ), 0),
-            -- Only meaningful once the caller has picked an explicit period
-            -- (comparing "active leads created in period X" against the
-            -- equivalent-length window before it) -- null otherwise, same
-            -- "no meaningful previous backlog" rule as every other true
-            -- backlog KPI.
-            'prevActivePipelineValue', case
-                when p_start_date is null or p_end_date is null then null
-                else coalesce(sum(expected_revenue) filter (
-                    where stage not in ('WON', 'LOST') and not is_cancelled
-                    and created_at >= v_prev_start_date
-                    and created_at <= v_prev_end_date + interval '1 day'
-                ), 0)
-            end,
-
-            'avgDaysToClose', coalesce(
-                round(
-                    (avg(extract(epoch from (closed_date - created_at))/86400) filter (
-                        where stage = 'WON'
-                        and closed_date >= v_effective_start_date
-                        and closed_date <= v_effective_end_date + interval '1 day'
-                    ))::numeric,
-                    1
-                ),
-            0),
-
-            'forecastVariance', coalesce(
-                sum(actual_revenue) filter (
-                    where stage = 'WON'
-                    and closed_date >= v_effective_start_date
-                    and closed_date <= v_effective_end_date + interval '1 day'
-                ) -
-                sum(expected_revenue) filter (
-                    where stage = 'WON'
-                    and closed_date >= v_effective_start_date
-                    and closed_date <= v_effective_end_date + interval '1 day'
-                ), 0
-            ),
-
-            'expectedRevenueOfWonDeals', coalesce(sum(expected_revenue) filter (
-                where stage = 'WON'
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            ), 0),
-
-            'avgGeneratedDealSize', coalesce(round(avg(expected_revenue) filter (
-                where created_at >= v_effective_start_date
-                and created_at <= v_effective_end_date + interval '1 day'
-            )), 0),
-
-            'avgGeneratedProbability', coalesce(round(avg(close_probability) filter (
-                where created_at >= v_effective_start_date
-                and created_at <= v_effective_end_date + interval '1 day'
-            )), 0),
-
-            'fastTrackDeals', count(*) filter (
-                where stage = 'WON'
-                and created_at >= v_effective_start_date
-                and created_at <= v_effective_end_date + interval '1 day'
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            ),
-
-            -- Same ACTIONABLE scoping as activeLeads/activePipelineValue
-            -- above (both are Active Pipeline's own sub-metrics) -- kept
-            -- consistent so they stay a true breakdown of the headline
-            -- figure once a period is picked.
-            'negotiationPipeline', coalesce(sum(expected_revenue) filter (
-                where stage = 'NEGOTIATION' and not is_cancelled and not is_on_hold
-                and (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
-            ), 0),
-
-            'onHoldPipeline', coalesce(sum(expected_revenue) filter (
-                where is_on_hold and stage not in ('WON', 'LOST') and not is_cancelled
-                and (p_start_date is null or created_at >= p_start_date)
-                and (p_end_date is null or created_at <= p_end_date + interval '1 day')
-            ), 0),
-
-            'avgLostDealSize', coalesce(round(avg(expected_revenue) filter (
-                where stage = 'LOST'
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            )), 0),
-
-            'avgLostCycle', coalesce(round(
-                (avg(extract(epoch from (closed_date - created_at))/86400) filter (
-                    where stage = 'LOST'
-                    and closed_date >= v_effective_start_date
-                    and closed_date <= v_effective_end_date + interval '1 day'
-                ))::numeric, 1
-            ), 0),
-
-            'cancelledLeads', count(*) filter (
-                where is_cancelled
-                and closed_date >= v_effective_start_date
-                and closed_date <= v_effective_end_date + interval '1 day'
-            ),
-
-            -- Always resolvable now (not conditional on p_start_date) --
-            -- v_prev_start_date/v_prev_end_date are derived from
-            -- v_effective_start_date/v_effective_end_date above, which are
-            -- never null (defaults to This Month). Mirrors
-            -- get_sales_reports_dashboard_rpc.sql's 2026-09-30 switch to
-            -- always-on deltas.
-            'prevPipelineGenerated', coalesce(sum(expected_revenue) filter (
-                where created_at >= v_prev_start_date
-                and created_at <= v_prev_end_date + interval '1 day'
-            ), 0),
-
-            'prevWonRevenue', coalesce(sum(actual_revenue) filter (
-                where stage = 'WON'
-                and closed_date >= v_prev_start_date
-                and closed_date <= v_prev_end_date + interval '1 day'
-            ), 0),
-
-            'prevLostRevenue', coalesce(sum(expected_revenue) filter (
-                where (stage = 'LOST' or is_cancelled)
-                and closed_date >= v_prev_start_date
-                and closed_date <= v_prev_end_date + interval '1 day'
-            ), 0)
-        )
-        from base_leads
-    ),
-
-    'stageData', (
-        select coalesce(json_agg(x), '[]'::json)
-        from (
-            select
-                stage as name,
-                count(*) as count,
-                coalesce(sum(case when stage = 'WON' then actual_revenue else expected_revenue end), 0) as total_value
-            from base_leads
-            where not is_cancelled 
-            and (
-                (p_start_date is null) or 
-                (created_at >= p_start_date and created_at <= p_end_date + interval '1 day') or
-                (closed_date >= p_start_date and closed_date <= p_end_date + interval '1 day')
-            )
-            group by stage
-            order by stage
-        ) x
-    ),
-
-    'probabilityHealthData', (
-        select coalesce(json_agg(x), '[]'::json)
-        from (
-            select 
-                case 
-                    when close_probability <= 25 then '0-25% (Low)'
-                    when close_probability <= 50 then '26-50% (Medium)'
-                    when close_probability <= 75 then '51-75% (High)'
-                    else '76-100% (Commit)'
-                end as name,
-                count(*) as count,
-                coalesce(sum(expected_revenue), 0) as total_value
-            from base_leads
-            where stage not in ('WON', 'LOST') and not is_cancelled
-            group by 1
-            order by 1
-        ) x
-    ),
-
-    'lossReasonData', (
-        select coalesce(json_agg(x), '[]'::json)
-        from (
-            select 
-                coalesce(lr.name, 'No Reason Given') as name,
-                count(*) as count,
-                coalesce(sum(fl.expected_revenue), 0) as total_lost_value
-            from base_leads fl
-            left join sales_leads_lose_reasons lr on lr.id = fl.lose_reason_id
-            where fl.stage = 'LOST'
-            and (
-                (p_start_date is null) or 
-                (fl.created_at >= p_start_date and fl.created_at <= p_end_date + interval '1 day') or
-                (fl.closed_date >= p_start_date and fl.closed_date <= p_end_date + interval '1 day')
-            )
-            group by coalesce(lr.name, 'No Reason Given')
-            order by total_lost_value desc
-        ) x
-    ),
-
-    'trendData', (
-        select coalesce(json_agg(x), '[]'::json)
-        from (
-            select 
-                to_char(date_trunc('month', h.changed_at), 'YYYY-MM') as period,
-                count(*) filter (where h.previous_stage is null) as leads_created,
-                coalesce(sum(h.expected_revenue) filter (where h.previous_stage is null), 0) as pipeline_generated,
-                count(*) filter (where h.new_stage = 'WON') as deals_won,
-                coalesce(sum(fl.actual_revenue) filter (where h.new_stage = 'WON'), 0) as revenue_won,
-                count(*) filter (where h.new_stage = 'LOST') as deals_lost,
-                coalesce(sum(h.expected_revenue) filter (where h.new_stage = 'LOST'), 0) as revenue_lost
-            from sales_leads_stage_history h
-            join base_leads fl on fl.id = h.lead_id 
-            where 
-                (p_start_date is null or h.changed_at >= p_start_date)
-                and (p_end_date is null or h.changed_at <= p_end_date + interval '1 day')
-            group by 1
-            order by 1
-        ) x
-    ),
-
-    'productTypeData', (
-        select coalesce(json_agg(x), '[]'::json)
-        from (
-            select
-                coalesce(product_type::text, 'Unspecified') as name,
-                coalesce(sum(expected_revenue), 0) as active_in_period,
-                coalesce(sum(expected_revenue) filter (
-                    where (p_start_date is null or created_at >= p_start_date)
-                    and (p_end_date is null or created_at <= p_end_date + interval '1 day')
-                ), 0) as pipeline_generated,
-                coalesce(sum(expected_revenue) filter (
-                    where stage = 'WON'
-                    and (p_start_date is null or closed_date >= p_start_date)
-                    and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
-                ), 0) as won_expected,
-                coalesce(sum(actual_revenue) filter (
-                    where stage = 'WON'
-                    and (p_start_date is null or closed_date >= p_start_date)
-                    and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
-                ), 0) as won_actual,
-                coalesce(sum(expected_revenue) filter (
-                    where stage = 'LOST'
-                    and (p_start_date is null or closed_date >= p_start_date)
-                    and (p_end_date is null or closed_date <= p_end_date + interval '1 day')
-                ), 0) as lost_revenue
-            from base_leads
-            where not is_cancelled
-            and (
-                (p_start_date is null or closed_date is null or closed_date >= p_start_date)
-                and
-                (p_end_date is null or created_at < p_end_date + interval '1 day')
-            )
-            group by coalesce(product_type::text, 'Unspecified')
-            order by won_actual desc, active_in_period desc
-        ) x
-    ),
-
-    'leadOwnerData', (
-        select coalesce(json_agg(x), '[]'::json)
-        from (
-            select
-                e.full_name as name,
-                coalesce(sum(fl.expected_revenue), 0) as active_in_period,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where (p_start_date is null or fl.created_at >= p_start_date)
-                    and (p_end_date is null or fl.created_at <= p_end_date + interval '1 day')
-                ), 0) as pipeline_generated,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where fl.stage = 'WON'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as won_expected,
-                coalesce(sum(fl.actual_revenue) filter (
-                    where fl.stage = 'WON'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as won_actual,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where fl.stage = 'LOST'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as lost_revenue
-            from base_leads fl
-            join employees_public e on e.id = fl.lead_owner_id
-            where not fl.is_cancelled
-            and (
-                (p_start_date is null or fl.closed_date is null or fl.closed_date >= p_start_date)
-                and
-                (p_end_date is null or fl.created_at < p_end_date + interval '1 day')
-            )
-            group by e.full_name
-            order by won_actual desc, active_in_period desc
-            limit 10
-        ) x
-    ),
-
-    'scorecardData', (
-        with rep_actuals as (
-            -- 1. Get the actual WON revenue for the exact filtered period
-            select 
-                fl.lead_owner_id,
-                e.full_name as rep_name,
-                p.avatar_url,
-                coalesce(sum(fl.actual_revenue), 0) as actual_revenue
-            from base_leads fl
-            join employees_public e on e.id = fl.lead_owner_id
-            left join profiles p on p.id = e.profile_id
-            where fl.stage = 'WON'
-            and (p_start_date is null or fl.closed_date >= p_start_date)
-            and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-            group by 1, 2, 3
+        'kpis', json_build_object(
+            'generated', cur.generated_value,
+            'prevGenerated', prv.generated_value,
+            'lastYearGenerated', lyp.generated_value,
+            'generatedCount', cur.generated_count,
+            'won', cur.won,
+            'prevWon', prv.won,
+            'lastYearWon', lyp.won,
+            'wonCount', cur.won_count,
+            'avgDeal', cur.avg_deal,
+            'wonExpected', cur.won_expected,
+            'target', tot.target,
+            'targetAttainmentPct',
+                case when tot.target > 0 then round(cur.won / tot.target * 100) end,
+            'lost', cur.lost,
+            'lostCount', cur.lost_count,
+            'winRatePct', cur.win_rate_pct,
+            'prevWinRatePct', prv.win_rate_pct,
+            'avgDaysToWon', cur.avg_days_to_won,
+            -- TODAY
+            'openValue', cur.open_value,
+            'weightedValue', cur.weighted_value,
+            'openCount', cur.open_count,
+            'pipelineCoverage', cov.coverage,
+            'targetRemaining', cov.target_remaining,
+            'pendingSapValue', cur.pending_sap_value,
+            'pendingSapCount', cur.pending_sap_count,
+            'onHoldValue', cur.on_hold_value,
+            'onHoldCount', cur.on_hold_count,
+            'agingValue', cur.aging_value,
+            'agingCount', cur.aging_count
         ),
-        target_math as (
-            -- 2. Calculate the prorated targets for the overlapping months
-            select 
-                t.lead_owner_id,
-                sum(
-                    t.target_revenue * (
-                        case 
-                            when p_start_date is null and p_end_date is null then 1 -- All time = full target
-                            else
-                                greatest(0, 
-                                    (least(coalesce(p_end_date, '2099-12-31'::date), (t.target_month + interval '1 month' - interval '1 day')::date) - 
-                                    greatest(coalesce(p_start_date, '1900-01-01'::date), t.target_month)) + 1
-                                ) / extract(day from (t.target_month + interval '1 month' - interval '1 day'))
-                        end
-                    )
-                ) as prorated_target
-            from sales_targets t
-            group by 1
+
+        'wonVsTarget', (
+            select coalesce(json_agg(json_build_object(
+                'period', to_char(s.month_start, 'YYYY-MM'),
+                'isPartial', s.is_partial,
+                'inPeriod', s.in_period,
+                'won', s.won,
+                'target', s.target
+            ) order by s.month_start), '[]'::json)
+            from public.sales_monthly_series(
+                null, p_owner_id, per.trend_start, per.trend_end,
+                per.start_date, per.end_date) s
+        ),
+
+        'monthlyActivity', (
+            select coalesce(json_agg(json_build_object(
+                'period', to_char(s.month_start, 'YYYY-MM'),
+                'isPartial', s.is_partial,
+                'inPeriod', s.in_period,
+                'generated', s.generated,
+                'won', s.won,
+                'lost', s.lost
+            ) order by s.month_start), '[]'::json)
+            from public.sales_monthly_series(
+                null, p_owner_id, per.trend_start, per.trend_end,
+                per.start_date, per.end_date) s
+        ),
+
+        'openByStage', (
+            select coalesce(json_agg(json_build_object(
+                'name', x.stage, 'value', x.expected, 'weighted', x.weighted, 'count', x.deals
+            ) order by x.stage_order), '[]'::json)
+            from (
+                select
+                    stage,
+                    case stage
+                        when 'DISCOVERY'   then 1
+                        when 'SAMPLE_TEST' then 2
+                        when 'PROPOSAL'    then 3
+                        when 'NEGOTIATION' then 4
+                        else 5
+                    end as stage_order,
+                    coalesce(sum(expected_myr), 0) as expected,
+                    coalesce(sum(expected_myr * coalesce(close_probability, 0) / 100.0), 0) as weighted,
+                    count(*) as deals
+                from public.sales_lead_facts
+                where outcome = 'open'
+                  and (p_owner_id is null or owner_employee_id = p_owner_id)
+                group by stage
+            ) x
+        ),
+
+        'openByProbability', (
+            select coalesce(json_agg(json_build_object(
+                'name', x.bucket, 'value', x.expected, 'count', x.deals
+            ) order by x.bucket_order), '[]'::json)
+            from (
+                select
+                    case
+                        when close_probability is null then 'Not set'
+                        when close_probability <= 25 then '0-25% (Low)'
+                        when close_probability <= 50 then '26-50% (Medium)'
+                        when close_probability <= 75 then '51-75% (High)'
+                        else '76-100% (Commit)'
+                    end as bucket,
+                    case
+                        when close_probability is null then 5
+                        when close_probability <= 25 then 1
+                        when close_probability <= 50 then 2
+                        when close_probability <= 75 then 3
+                        else 4
+                    end as bucket_order,
+                    coalesce(sum(expected_myr), 0) as expected,
+                    count(*) as deals
+                from public.sales_lead_facts
+                where outcome = 'open'
+                  and (p_owner_id is null or owner_employee_id = p_owner_id)
+                group by 1, 2
+            ) x
+        ),
+
+        'lostByReason', (
+            select coalesce(json_agg(json_build_object(
+                'name', x.name, 'value', x.lost, 'count', x.deals
+            ) order by x.lost desc), '[]'::json)
+            from (
+                select lost_reason as name,
+                       coalesce(sum(expected_myr), 0) as lost,
+                       count(*) as deals
+                from public.sales_lead_facts
+                where outcome = 'lost'
+                  and closed_on between per.start_date and per.end_date
+                  and (p_owner_id is null or owner_employee_id = p_owner_id)
+                group by 1
+            ) x
+        ),
+
+        -- Generated / Won / Lost per group: the same three predicates as
+        -- sales_pipeline_totals (created_on in the period; won / lost with
+        -- closed_on in the period), so each chart's bars add up to the tiles.
+        'byProductType', (
+            select coalesce(json_agg(json_build_object(
+                'name', x.name, 'generated', x.generated, 'won', x.won, 'lost', x.lost
+            ) order by x.won desc, x.generated desc, x.name), '[]'::json)
+            from (
+                select coalesce(product_type::text, 'Unspecified') as name,
+                       coalesce(sum(expected_myr) filter (where created_on between per.start_date and per.end_date), 0) as generated,
+                       coalesce(sum(won_myr) filter (where outcome = 'won' and closed_on between per.start_date and per.end_date), 0) as won,
+                       coalesce(sum(expected_myr) filter (where outcome = 'lost' and closed_on between per.start_date and per.end_date), 0) as lost
+                from public.sales_lead_facts
+                where (p_owner_id is null or owner_employee_id = p_owner_id)
+                group by 1
+            ) x
+            where x.generated > 0 or x.won > 0 or x.lost > 0
+        ),
+
+        'bySource', (
+            select coalesce(json_agg(json_build_object(
+                'name', x.name, 'generated', x.generated, 'won', x.won, 'lost', x.lost
+            ) order by x.won desc, x.generated desc, x.name), '[]'::json)
+            from (
+                select lead_source as name,
+                       coalesce(sum(expected_myr) filter (where created_on between per.start_date and per.end_date), 0) as generated,
+                       coalesce(sum(won_myr) filter (where outcome = 'won' and closed_on between per.start_date and per.end_date), 0) as won,
+                       coalesce(sum(expected_myr) filter (where outcome = 'lost' and closed_on between per.start_date and per.end_date), 0) as lost
+                from public.sales_lead_facts
+                where (p_owner_id is null or owner_employee_id = p_owner_id)
+                group by 1
+            ) x
+            where x.generated > 0 or x.won > 0 or x.lost > 0
+        ),
+
+        'topClients', (
+            select coalesce(json_agg(json_build_object(
+                'name', x.name, 'generated', x.generated, 'won', x.won, 'lost', x.lost
+            ) order by x.won desc, x.generated desc, x.name), '[]'::json)
+            from (
+                select account_key,
+                       max(coalesce(account_name, 'Unknown')) as name,
+                       coalesce(sum(expected_myr) filter (where created_on between per.start_date and per.end_date), 0) as generated,
+                       coalesce(sum(won_myr) filter (where outcome = 'won' and closed_on between per.start_date and per.end_date), 0) as won,
+                       coalesce(sum(expected_myr) filter (where outcome = 'lost' and closed_on between per.start_date and per.end_date), 0) as lost
+                from public.sales_lead_facts
+                where (p_owner_id is null or owner_employee_id = p_owner_id)
+                group by account_key
+                having coalesce(sum(expected_myr) filter (where created_on between per.start_date and per.end_date), 0) > 0
+                    or coalesce(sum(won_myr) filter (where outcome = 'won' and closed_on between per.start_date and per.end_date), 0) > 0
+                    or coalesce(sum(expected_myr) filter (where outcome = 'lost' and closed_on between per.start_date and per.end_date), 0) > 0
+                order by won desc, generated desc, name
+                limit 10
+            ) x
+        ),
+
+        'scorecard', (
+            with ot as (
+                select * from public.sales_owner_totals(p_owner_id, per.start_date, per.end_date)
+            ),
+            lf as (
+                select owner_employee_id,
+                       coalesce(sum(expected_myr) filter (where created_on between per.start_date and per.end_date), 0) as generated,
+                       coalesce(sum(expected_myr) filter (where outcome = 'lost' and closed_on between per.start_date and per.end_date), 0) as lost,
+                       coalesce(sum(expected_myr) filter (where outcome = 'open'), 0) as open_value
+                from public.sales_lead_facts
+                where p_owner_id is null or owner_employee_id = p_owner_id
+                group by owner_employee_id
+            ),
+            rows as (
+                -- full outer join on the owner, with the nil UUID standing in
+                -- for "no owner" (a FULL JOIN needs a hashable condition)
+                select
+                    coalesce(ot.owner_employee_id, lf.owner_employee_id) as owner_id,
+                    ot.won, ot.won_count, ot.win_rate_pct, ot.target,
+                    lf.generated, lf.lost, lf.open_value
+                from ot
+                full outer join lf
+                  on coalesce(ot.owner_employee_id, '00000000-0000-0000-0000-000000000000'::uuid)
+                   = coalesce(lf.owner_employee_id, '00000000-0000-0000-0000-000000000000'::uuid)
+            )
+            select coalesce(json_agg(json_build_object(
+                'ownerId', r.owner_id,
+                'name', coalesce(e.full_name,
+                    case when r.owner_id is null then 'Leads with no owner' else 'Unknown salesperson' end),
+                'avatarUrl', p.avatar_url,
+                'won', coalesce(r.won, 0),
+                'wonCount', coalesce(r.won_count, 0),
+                'target', r.target,
+                'targetAttainmentPct', case when r.target > 0 then round(coalesce(r.won, 0) / r.target * 100) end,
+                'winRatePct', r.win_rate_pct,
+                'generated', coalesce(r.generated, 0),
+                'lost', coalesce(r.lost, 0),
+                'openValue', coalesce(r.open_value, 0)
+            ) order by coalesce(r.won, 0) desc, coalesce(r.generated, 0) desc, e.full_name), '[]'::json)
+            from rows r
+            left join public.employees_public e on e.id = r.owner_id
+            left join public.profiles p on p.id = e.profile_id
+            where coalesce(r.won, 0) > 0 or coalesce(r.target, 0) > 0 or coalesce(r.generated, 0) > 0
+               or coalesce(r.lost, 0) > 0 or coalesce(r.open_value, 0) > 0
         )
-        -- 3. Combine them into the final scorecard
-        select coalesce(json_agg(
-            json_build_object(
-                'lead_owner_id', coalesce(a.lead_owner_id, t.lead_owner_id),
-                'rep_name', coalesce(a.rep_name, e.full_name),
-                'avatar_url', coalesce(a.avatar_url, p.avatar_url),
-                'actual_revenue', coalesce(a.actual_revenue, 0),
-                'target_revenue', coalesce(t.prorated_target, 0),
-                'attainment_percentage', case 
-                    when coalesce(t.prorated_target, 0) > 0 then round((coalesce(a.actual_revenue, 0) / t.prorated_target) * 100)
-                    else 0 
-                end
-            ) order by coalesce(a.actual_revenue, 0) desc
-        ), '[]'::json)
-        from rep_actuals a
-        full outer join target_math t on t.lead_owner_id = a.lead_owner_id
-        left join employees_public e on e.id = coalesce(a.lead_owner_id, t.lead_owner_id)
-        left join profiles p on p.id = e.profile_id
-        where coalesce(a.actual_revenue, 0) > 0 or coalesce(t.prorated_target, 0) > 0
-    ),
-
-    'sourceData', (
-        select coalesce(json_agg(x), '[]'::json)
-        from (
-            select
-                lst.name,
-                coalesce(sum(fl.expected_revenue), 0) as active_in_period,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where (p_start_date is null or fl.created_at >= p_start_date)
-                    and (p_end_date is null or fl.created_at <= p_end_date + interval '1 day')
-                ), 0) as pipeline_generated,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where fl.stage = 'WON'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as won_expected,
-                coalesce(sum(fl.actual_revenue) filter (
-                    where fl.stage = 'WON'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as won_actual,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where fl.stage = 'LOST'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as lost_revenue
-            from base_leads fl
-            join lead_source_types lst on lst.id = fl.lead_source_type_id
-            where not fl.is_cancelled
-            and (
-                (p_start_date is null or fl.closed_date is null or fl.closed_date >= p_start_date)
-                and
-                (p_end_date is null or fl.created_at < p_end_date + interval '1 day')
-            )
-            group by lst.name
-            order by won_actual desc, active_in_period desc
-        ) x
-    ),
-
-    'topClientsData', (
-        -- Blends both account kinds via base_leads.account_name/account_key
-        -- (see the CTE above) -- previously an inner `join clients` silently
-        -- dropped every SAP-referenced lead (client_id is null) from this
-        -- chart entirely once that became possible (2026-08).
-        select coalesce(json_agg(x), '[]'::json)
-        from (
-            select
-                fl.account_name as name,
-                coalesce(sum(fl.expected_revenue), 0) as active_in_period,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where (p_start_date is null or fl.created_at >= p_start_date)
-                    and (p_end_date is null or fl.created_at <= p_end_date + interval '1 day')
-                ), 0) as pipeline_generated,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where fl.stage = 'WON'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as won_expected,
-                coalesce(sum(fl.actual_revenue) filter (
-                    where fl.stage = 'WON'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as won_actual,
-                coalesce(sum(fl.expected_revenue) filter (
-                    where fl.stage = 'LOST'
-                    and (p_start_date is null or fl.closed_date >= p_start_date)
-                    and (p_end_date is null or fl.closed_date <= p_end_date + interval '1 day')
-                ), 0) as lost_revenue
-            from base_leads fl
-            where not fl.is_cancelled
-            and (
-                (p_start_date is null or fl.closed_date is null or fl.closed_date >= p_start_date)
-                and
-                (p_end_date is null or fl.created_at < p_end_date + interval '1 day')
-            )
-            group by fl.account_key, fl.account_name
-            order by won_actual desc, active_in_period desc
-            limit 5
-        ) x
-    )
-
-)
-into result;
-
-return result;
-
+    );
 end;
 $$;
+
+revoke execute on function public.get_sales_leads_dashboard(date, date, uuid) from public, anon;
+grant execute on function public.get_sales_leads_dashboard(date, date, uuid) to authenticated;

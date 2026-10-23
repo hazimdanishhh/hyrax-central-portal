@@ -26,5 +26,8 @@ export function useSalesReportTab(tab, filters) {
     ...query,
     meta: query.data?.meta ?? null,
     kpis: query.data?.kpis ?? {},
+    // The previous period's / salesperson's figures are on screen while the
+    // new ones load (placeholderData): TabState shows that as "Updating".
+    isUpdating: query.isFetching && query.isPlaceholderData,
   };
 }

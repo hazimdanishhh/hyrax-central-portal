@@ -26,8 +26,8 @@ import {
   shapeTrendRows,
 } from "../../../../../functions/periodRange";
 import { useSalesReportTab } from "../../../../../features/sales/reports/private/hooks/useSalesReportTab";
-import ReportSection from "./ReportSection";
-import TabState from "./TabState";
+import ReportSection from "../../../../../components/report/ReportSection";
+import TabState from "../../../../../components/report/TabState";
 import {
   OVERDUE_SHARE_THRESHOLDS,
   calcDelta,
@@ -39,7 +39,7 @@ import {
   repLinkFilter,
   todayTile,
   trendSubtitle,
-} from "./reportFormat";
+} from "../../../../../functions/reportFormat";
 
 const INVOICES_LIST = "/app/finance/invoices/list";
 
@@ -65,14 +65,19 @@ const INVOICES_LIST = "/app/finance/invoices/list";
  */
 export default function CollectionsTab() {
   const { filters, period, access, MappingMissingNote } = useOutletContext();
-  const { data, meta, kpis, isLoading, error } = useSalesReportTab("collections", filters);
+  const { data, meta, kpis, isLoading, isUpdating, error } = useSalesReportTab("collections", filters);
 
   const against = comparedWith(meta, period);
   const periodFilter = periodLinkFilter(meta);
   const repFilter = repLinkFilter(meta);
   const invoicesLink = access.invoices ? INVOICES_LIST : null;
 
-  const overdueStatus = getStatusVariant(kpis.overduePct ?? null, {
+  // Nothing outstanding means nothing overdue: 0%, a good reading -- not
+  // "no comparator" (the SQL's share is null only because there is nothing
+  // to divide by).
+  const overduePct =
+    kpis.overduePct ?? (kpis.outstanding != null && Number(kpis.outstanding) === 0 ? 0 : null);
+  const overdueStatus = getStatusVariant(overduePct, {
     direction: "low-good",
     thresholds: OVERDUE_SHARE_THRESHOLDS,
   });
@@ -122,7 +127,7 @@ export default function CollectionsTab() {
       icon: WarningCircleIcon,
       label: "Overdue",
       value: preciseCurrency(kpis.overdueValue),
-      delta: pctText(kpis.overduePct),
+      delta: pctText(overduePct),
       variant: overdueStatus.variant,
       status: overdueStatus.statusIcon
         ? { icon: overdueStatus.statusIcon, label: overdueStatus.statusLabel }
@@ -167,7 +172,7 @@ export default function CollectionsTab() {
   }));
 
   return (
-    <TabState isLoading={isLoading} error={error}>
+    <TabState isLoading={isLoading} isUpdating={isUpdating} error={error}>
       <MappingMissingNote meta={meta} />
 
       <ReportSection

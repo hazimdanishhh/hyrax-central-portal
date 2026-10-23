@@ -114,6 +114,17 @@
 
 // CHART SECTIONS
 
+// A report / overview section (ReportSection, and the PDF export's unit of
+// capture). Moved here 2026-10-23 from LeadsOverview.scss, where it lived
+// by accident yet styled every report page -- Sales Reports' spacing came
+// from the Leads Overview stylesheet. Same values, now in the global place.
+.pdfOverviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4rem;
+  margin-bottom: 4rem;
+}
+
 .chartSection {
   text-align: start;
 }

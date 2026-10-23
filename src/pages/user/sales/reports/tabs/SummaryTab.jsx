@@ -42,8 +42,8 @@ import {
 // used (see MeetingBrief.jsx). Re-enable this import and the section below
 // together.
 // import MeetingBrief from "./MeetingBrief";
-import ReportSection from "./ReportSection";
-import TabState from "./TabState";
+import ReportSection from "../../../../../components/report/ReportSection";
+import TabState from "../../../../../components/report/TabState";
 import {
   BUDGET_THRESHOLDS,
   TARGET_THRESHOLDS,
@@ -55,8 +55,9 @@ import {
   lastYearMetric,
   pctText,
   repLinkFilter,
+  paceTileStatus,
   todayTile,
-} from "./reportFormat";
+} from "../../../../../functions/reportFormat";
 
 /**
  * SUMMARY -- the meeting's opening page (layer 1: answer first). Data:
@@ -85,7 +86,7 @@ import {
 export default function SummaryTab() {
   const { filters, period, MappingMissingNote } = useOutletContext();
   const { search } = useLocation();
-  const { data, meta, kpis, isLoading, error } = useSalesReportTab(
+  const { data, meta, kpis, isLoading, isUpdating, error } = useSalesReportTab(
     "summary",
     filters,
   );
@@ -102,6 +103,7 @@ export default function SummaryTab() {
     kpis: projectionKpis,
     monthlyData: projectionMonthly,
     defaultExhibitMonth,
+    isUpdating: projectionsUpdating,
   } = useSalesProjections(fyStartYear);
   const now = new Date(); // local time: the month in progress here
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -289,11 +291,7 @@ export default function SummaryTab() {
           ? `${fyLabel} · ${Math.round(fy.monthsLeft * 10) / 10} month(s) left`
           : `${fyLabel} · no months left`,
       value: fy.monthlyNeeded == null ? "—" : preciseCurrency(fy.monthlyNeeded),
-      variant: onPace === null ? "blueCard" : onPace ? "greenCard" : "yellowCard",
-      status:
-        onPace === null
-          ? undefined
-          : { label: onPace ? "On pace" : "Above current pace" },
+      ...paceTileStatus(onPace),
       to: null,
       metrics: [
         {
@@ -398,7 +396,11 @@ export default function SummaryTab() {
   );
 
   return (
-    <TabState isLoading={isLoading} error={error}>
+    <TabState
+      isLoading={isLoading}
+      isUpdating={isUpdating || projectionsUpdating}
+      error={error}
+    >
       <MappingMissingNote meta={meta} />
 
       {/* PARKED 2026-10-23: AI Meeting Brief, not deployed (see the import above).
