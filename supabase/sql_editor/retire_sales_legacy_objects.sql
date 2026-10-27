@@ -47,7 +47,9 @@ from retiring r_name
 join pg_proc p
   on p.pronamespace = 'public'::regnamespace
  and p.proname <> r_name.name
- and p.prosrc ilike '%' || r_name.name || '%';
+ -- comments stripped first: a "-- same as get_sales_reports_dashboard"
+ -- note is not a use (2026-10-27: four such false matches)
+ and regexp_replace(p.prosrc, '--[^\n]*', '', 'g') ilike '%' || r_name.name || '%';
 
 -- STEP 2 -- no CASCADE anywhere: if a live view still depends on one of
 -- these, its drop fails and nothing changes.

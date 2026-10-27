@@ -1,0 +1,173 @@
+schema,table_name,name,definition
+private,mv_gl_monthly_account_summary,mv_gl_monthly_account_summary_month_account_idx,"CREATE UNIQUE INDEX mv_gl_monthly_account_summary_month_account_idx ON private.mv_gl_monthly_account_summary USING btree (month, account_code)"
+private,mv_gl_monthly_balance_sheet_snapshot,mv_gl_monthly_balance_sheet_snapshot_month_account_idx,"CREATE UNIQUE INDEX mv_gl_monthly_balance_sheet_snapshot_month_account_idx ON private.mv_gl_monthly_balance_sheet_snapshot USING btree (month, account_code)"
+private,mv_sales_chainladder_backtest,mv_sales_cl_backtest_horizon,"CREATE INDEX mv_sales_cl_backtest_horizon ON private.mv_sales_chainladder_backtest USING btree (horizon, origin_month)"
+private,mv_sales_chainladder_backtest,mv_sales_cl_backtest_target,"CREATE INDEX mv_sales_cl_backtest_target ON private.mv_sales_chainladder_backtest USING btree (horizon, target_month)"
+private,mv_sales_order_development_pit,mv_sales_order_dev_pit_lookup,"CREATE INDEX mv_sales_order_dev_pit_lookup ON private.mv_sales_order_development_pit USING btree (as_of_month, age_months)"
+private,mv_sales_projection_baseline,mv_sales_proj_baseline_horizon,"CREATE INDEX mv_sales_proj_baseline_horizon ON private.mv_sales_projection_baseline USING btree (horizon, period_month)"
+private,mv_sales_projection_baseline,mv_sales_proj_baseline_lookup,"CREATE INDEX mv_sales_proj_baseline_lookup ON private.mv_sales_projection_baseline USING btree (measure, method, horizon, period_month)"
+private,mv_sales_projection_ensemble,mv_sales_projection_ensemble_horizon,CREATE UNIQUE INDEX mv_sales_projection_ensemble_horizon ON private.mv_sales_projection_ensemble USING btree (horizon)
+private,mv_sales_projection_ensemble_backtest,mv_sales_ens_backtest_lookup,"CREATE INDEX mv_sales_ens_backtest_lookup ON private.mv_sales_projection_ensemble_backtest USING btree (estimator, window_months, cl_weight_label, horizon)"
+public,addresses,addresses_pkey,CREATE UNIQUE INDEX addresses_pkey ON public.addresses USING btree (id)
+public,ai_dashboard_summaries,ai_dashboard_summaries_pkey,CREATE UNIQUE INDEX ai_dashboard_summaries_pkey ON public.ai_dashboard_summaries USING btree (id)
+public,attendance_acknowledgement_reasons,attendance_acknowledgement_reasons_code_key,CREATE UNIQUE INDEX attendance_acknowledgement_reasons_code_key ON public.attendance_acknowledgement_reasons USING btree (code)
+public,attendance_acknowledgement_reasons,attendance_acknowledgement_reasons_pkey,CREATE UNIQUE INDEX attendance_acknowledgement_reasons_pkey ON public.attendance_acknowledgement_reasons USING btree (id)
+public,attendance_activities,attendance_activities_one_open_session_per_employee,CREATE UNIQUE INDEX attendance_activities_one_open_session_per_employee ON public.attendance_activities USING btree (employee_id) WHERE (clocked_out_at IS NULL)
+public,attendance_activities,attendance_activities_pkey,CREATE UNIQUE INDEX attendance_activities_pkey ON public.attendance_activities USING btree (id)
+public,attendance_activities,idx_attendance_activities_employee_clocked_in,"CREATE INDEX idx_attendance_activities_employee_clocked_in ON public.attendance_activities USING btree (employee_id, clocked_in_at)"
+public,attendance_activities,one_active_attendance_per_employee,CREATE UNIQUE INDEX one_active_attendance_per_employee ON public.attendance_activities USING btree (employee_id) WHERE (clocked_out_at IS NULL)
+public,attendance_adjustment_reasons,attendance_adjustment_reasons_code_key,CREATE UNIQUE INDEX attendance_adjustment_reasons_code_key ON public.attendance_adjustment_reasons USING btree (code)
+public,attendance_adjustment_reasons,attendance_adjustment_reasons_pkey,CREATE UNIQUE INDEX attendance_adjustment_reasons_pkey ON public.attendance_adjustment_reasons USING btree (id)
+public,attendance_logs,attendance_logs_emp_time_key,"CREATE UNIQUE INDEX attendance_logs_emp_time_key ON public.attendance_logs USING btree (employee_id, scanned_at)"
+public,attendance_logs,attendance_logs_pkey,CREATE UNIQUE INDEX attendance_logs_pkey ON public.attendance_logs USING btree (id)
+public,attendance_logs,idx_attendance_logs_scanned_at,CREATE INDEX idx_attendance_logs_scanned_at ON public.attendance_logs USING btree (scanned_at)
+public,attendance_reconciliation_acknowledgements,attendance_reconciliation_ack_employee_id_work_date_categor_key,"CREATE UNIQUE INDEX attendance_reconciliation_ack_employee_id_work_date_categor_key ON public.attendance_reconciliation_acknowledgements USING btree (employee_id, work_date, category)"
+public,attendance_reconciliation_acknowledgements,attendance_reconciliation_acknowledgements_pkey,CREATE UNIQUE INDEX attendance_reconciliation_acknowledgements_pkey ON public.attendance_reconciliation_acknowledgements USING btree (id)
+public,attendance_types,attendance_type_id_key,CREATE UNIQUE INDEX attendance_type_id_key ON public.attendance_types USING btree (id)
+public,attendance_types,attendance_type_pkey,CREATE UNIQUE INDEX attendance_type_pkey ON public.attendance_types USING btree (id)
+public,clients,clients_company_name_key,CREATE UNIQUE INDEX clients_company_name_key ON public.clients USING btree (name)
+public,clients,clients_pkey,CREATE UNIQUE INDEX clients_pkey ON public.clients USING btree (id)
+public,departments,departments_id_key,CREATE UNIQUE INDEX departments_id_key ON public.departments USING btree (id)
+public,departments,departments_pkey,CREATE UNIQUE INDEX departments_pkey ON public.departments USING btree (id)
+public,departments,departments_sub_key,CREATE UNIQUE INDEX departments_sub_key ON public.departments USING btree (sub)
+public,documents,documents_attached_by_idx,CREATE INDEX documents_attached_by_idx ON public.documents USING btree (attached_by)
+public,documents,documents_pkey,CREATE UNIQUE INDEX documents_pkey ON public.documents USING btree (id)
+public,documents,documents_unique_file_per_project,"CREATE UNIQUE INDEX documents_unique_file_per_project ON public.documents USING btree (project_id, drive_file_id)"
+public,email_log,email_log_pkey,CREATE UNIQUE INDEX email_log_pkey ON public.email_log USING btree (id)
+public,email_queue,email_queue_pkey,CREATE UNIQUE INDEX email_queue_pkey ON public.email_queue USING btree (id)
+public,email_queue,email_queue_status_idx,"CREATE INDEX email_queue_status_idx ON public.email_queue USING btree (status, created_at) WHERE (status = 'pending'::text)"
+public,employee_lifecycle_case_items,employee_lifecycle_case_items_case_id_idx,CREATE INDEX employee_lifecycle_case_items_case_id_idx ON public.employee_lifecycle_case_items USING btree (case_id)
+public,employee_lifecycle_case_items,employee_lifecycle_case_items_case_id_item_key_key,"CREATE UNIQUE INDEX employee_lifecycle_case_items_case_id_item_key_key ON public.employee_lifecycle_case_items USING btree (case_id, item_key)"
+public,employee_lifecycle_case_items,employee_lifecycle_case_items_pkey,CREATE UNIQUE INDEX employee_lifecycle_case_items_pkey ON public.employee_lifecycle_case_items USING btree (id)
+public,employee_lifecycle_cases,employee_lifecycle_cases_case_type_status_idx,"CREATE INDEX employee_lifecycle_cases_case_type_status_idx ON public.employee_lifecycle_cases USING btree (case_type, status)"
+public,employee_lifecycle_cases,employee_lifecycle_cases_employee_id_idx,CREATE INDEX employee_lifecycle_cases_employee_id_idx ON public.employee_lifecycle_cases USING btree (employee_id)
+public,employee_lifecycle_cases,employee_lifecycle_cases_one_open_per_type_idx,"CREATE UNIQUE INDEX employee_lifecycle_cases_one_open_per_type_idx ON public.employee_lifecycle_cases USING btree (employee_id, case_type) WHERE (status = 'OPEN'::lifecycle_case_status)"
+public,employee_lifecycle_cases,employee_lifecycle_cases_pkey,CREATE UNIQUE INDEX employee_lifecycle_cases_pkey ON public.employee_lifecycle_cases USING btree (id)
+public,employee_sales_rep_mapping,employee_sales_rep_mapping_employee_id_key,CREATE UNIQUE INDEX employee_sales_rep_mapping_employee_id_key ON public.employee_sales_rep_mapping USING btree (employee_id)
+public,employee_sales_rep_mapping,employee_sales_rep_mapping_pkey,CREATE UNIQUE INDEX employee_sales_rep_mapping_pkey ON public.employee_sales_rep_mapping USING btree (sales_rep_code)
+public,employees,employees_email_personal_key,CREATE UNIQUE INDEX employees_email_personal_key ON public.employees USING btree (email_personal)
+public,employees,employees_email_work_key,CREATE UNIQUE INDEX employees_email_work_key ON public.employees USING btree (email_work)
+public,employees,employees_employee_id_key,CREATE UNIQUE INDEX employees_employee_id_key ON public.employees USING btree (employee_id)
+public,employees,employees_identification_number_key,CREATE UNIQUE INDEX employees_identification_number_key ON public.employees USING btree (identification_number)
+public,employees,employees_phone_personal_key,CREATE UNIQUE INDEX employees_phone_personal_key ON public.employees USING btree (phone_personal)
+public,employees,employees_phone_work_key,CREATE UNIQUE INDEX employees_phone_work_key ON public.employees USING btree (phone_work)
+public,employees,employees_pkey,CREATE UNIQUE INDEX employees_pkey ON public.employees USING btree (id)
+public,employees,employees_profile_id_key,CREATE UNIQUE INDEX employees_profile_id_key ON public.employees USING btree (profile_id)
+public,employment_status,employment_status_pkey,CREATE UNIQUE INDEX employment_status_pkey ON public.employment_status USING btree (id)
+public,employment_type,employment_type_pkey,CREATE UNIQUE INDEX employment_type_pkey ON public.employment_type USING btree (id)
+public,identification_type,identification_type_pkey,CREATE UNIQUE INDEX identification_type_pkey ON public.identification_type USING btree (id)
+public,industries,industries_pkey,CREATE UNIQUE INDEX industries_pkey ON public.industries USING btree (id)
+public,it_asset_category,it_asset_category_pkey,CREATE UNIQUE INDEX it_asset_category_pkey ON public.it_asset_category USING btree (id)
+public,it_asset_condition,it_asset_condition_pkey,CREATE UNIQUE INDEX it_asset_condition_pkey ON public.it_asset_condition USING btree (id)
+public,it_asset_manufacturer,it_asset_manufacturer_id_key,CREATE UNIQUE INDEX it_asset_manufacturer_id_key ON public.it_asset_manufacturer USING btree (id)
+public,it_asset_manufacturer,it_asset_manufacturer_pkey,CREATE UNIQUE INDEX it_asset_manufacturer_pkey ON public.it_asset_manufacturer USING btree (id)
+public,it_asset_operating_system,it_asset_operating_system_pkey,CREATE UNIQUE INDEX it_asset_operating_system_pkey ON public.it_asset_operating_system USING btree (id)
+public,it_asset_status,it_asset_status_pkey,CREATE UNIQUE INDEX it_asset_status_pkey ON public.it_asset_status USING btree (id)
+public,it_asset_subcategory,it_asset_subcategory_pkey,CREATE UNIQUE INDEX it_asset_subcategory_pkey ON public.it_asset_subcategory USING btree (id)
+public,it_assets,it_assets_asset_code_key,CREATE UNIQUE INDEX it_assets_asset_code_key ON public.it_assets USING btree (asset_code)
+public,it_assets,it_assets_id_key,CREATE UNIQUE INDEX it_assets_id_key ON public.it_assets USING btree (id)
+public,it_assets,it_assets_pkey,CREATE UNIQUE INDEX it_assets_pkey ON public.it_assets USING btree (id)
+public,lead_source_types,lead_source_types_pkey,CREATE UNIQUE INDEX lead_source_types_pkey ON public.lead_source_types USING btree (id)
+public,leave_balances,leave_balances_id_key,CREATE UNIQUE INDEX leave_balances_id_key ON public.leave_balances USING btree (id)
+public,leave_balances,leave_balances_pkey,CREATE UNIQUE INDEX leave_balances_pkey ON public.leave_balances USING btree (id)
+public,leave_ledger_entries,leave_ledger_entries_content_dedupe_key,"CREATE UNIQUE INDEX leave_ledger_entries_content_dedupe_key ON public.leave_ledger_entries USING btree (content_key, dedupe_ordinal)"
+public,leave_ledger_entries,leave_ledger_entries_employee_date_idx,"CREATE INDEX leave_ledger_entries_employee_date_idx ON public.leave_ledger_entries USING btree (employee_id, leave_date)"
+public,leave_ledger_entries,leave_ledger_entries_pkey,CREATE UNIQUE INDEX leave_ledger_entries_pkey ON public.leave_ledger_entries USING btree (id)
+public,leave_ledger_sync_runs,leave_ledger_sync_runs_pkey,CREATE UNIQUE INDEX leave_ledger_sync_runs_pkey ON public.leave_ledger_sync_runs USING btree (id)
+public,leave_ledger_sync_runs,leave_ledger_sync_runs_run_at_idx,CREATE INDEX leave_ledger_sync_runs_run_at_idx ON public.leave_ledger_sync_runs USING btree (run_at DESC)
+public,leave_ledger_types,leave_ledger_types_code_key,CREATE UNIQUE INDEX leave_ledger_types_code_key ON public.leave_ledger_types USING btree (code)
+public,leave_ledger_types,leave_ledger_types_pkey,CREATE UNIQUE INDEX leave_ledger_types_pkey ON public.leave_ledger_types USING btree (id)
+public,leave_requests,leave_requests_pkey,CREATE UNIQUE INDEX leave_requests_pkey ON public.leave_requests USING btree (id)
+public,leave_types,leave_types_code_key,CREATE UNIQUE INDEX leave_types_code_key ON public.leave_types USING btree (code)
+public,leave_types,leave_types_name_key,CREATE UNIQUE INDEX leave_types_name_key ON public.leave_types USING btree (name)
+public,leave_types,leave_types_pkey,CREATE UNIQUE INDEX leave_types_pkey ON public.leave_types USING btree (id)
+public,nationalities,nationalities_pkey,CREATE UNIQUE INDEX nationalities_pkey ON public.nationalities USING btree (id)
+public,notification_events,notification_events_event_type_idx,"CREATE INDEX notification_events_event_type_idx ON public.notification_events USING btree (event_type, occurred_at DESC)"
+public,notification_events,notification_events_pkey,CREATE UNIQUE INDEX notification_events_pkey ON public.notification_events USING btree (id)
+public,notification_rules,notification_rules_event_type_idx,CREATE INDEX notification_rules_event_type_idx ON public.notification_rules USING btree (event_type) WHERE is_active
+public,notification_rules,notification_rules_pkey,CREATE UNIQUE INDEX notification_rules_pkey ON public.notification_rules USING btree (id)
+public,notifications,notifications_pkey,CREATE UNIQUE INDEX notifications_pkey ON public.notifications USING btree (id)
+public,notifications,notifications_user_id_created_at_idx,"CREATE INDEX notifications_user_id_created_at_idx ON public.notifications USING btree (user_id, created_at DESC)"
+public,payroll_reconciliation_email_sends,payroll_reconciliation_email_sends_lookup_idx,"CREATE INDEX payroll_reconciliation_email_sends_lookup_idx ON public.payroll_reconciliation_email_sends USING btree (employee_id, period_start, period_end, queued_at DESC)"
+public,payroll_reconciliation_email_sends,payroll_reconciliation_email_sends_pkey,CREATE UNIQUE INDEX payroll_reconciliation_email_sends_pkey ON public.payroll_reconciliation_email_sends USING btree (id)
+public,payroll_reconciliation_glossary,payroll_reconciliation_glossary_code_key,CREATE UNIQUE INDEX payroll_reconciliation_glossary_code_key ON public.payroll_reconciliation_glossary USING btree (code)
+public,payroll_reconciliation_glossary,payroll_reconciliation_glossary_pkey,CREATE UNIQUE INDEX payroll_reconciliation_glossary_pkey ON public.payroll_reconciliation_glossary USING btree (id)
+public,pipeline_run_log,pipeline_run_log_pipeline_name_run_at_idx,"CREATE INDEX pipeline_run_log_pipeline_name_run_at_idx ON public.pipeline_run_log USING btree (pipeline_name, run_at DESC)"
+public,pipeline_run_log,pipeline_run_log_pkey,CREATE UNIQUE INDEX pipeline_run_log_pkey ON public.pipeline_run_log USING btree (id)
+public,product_brands,product_brands_pkey,CREATE UNIQUE INDEX product_brands_pkey ON public.product_brands USING btree (id)
+public,products,products_pkey,CREATE UNIQUE INDEX products_pkey ON public.products USING btree (id)
+public,profiles,profiles_email_key,CREATE UNIQUE INDEX profiles_email_key ON public.profiles USING btree (email)
+public,profiles,profiles_pkey,CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)
+public,project_categories,project_categories_name_lower_idx,CREATE UNIQUE INDEX project_categories_name_lower_idx ON public.project_categories USING btree (lower(btrim(name)))
+public,project_categories,project_categories_pkey,CREATE UNIQUE INDEX project_categories_pkey ON public.project_categories USING btree (id)
+public,project_members,project_members_employee_id_idx,CREATE INDEX project_members_employee_id_idx ON public.project_members USING btree (employee_id)
+public,project_members,project_members_pkey,"CREATE UNIQUE INDEX project_members_pkey ON public.project_members USING btree (project_id, employee_id)"
+public,project_members,project_members_single_owner_idx,CREATE UNIQUE INDEX project_members_single_owner_idx ON public.project_members USING btree (project_id) WHERE (role = 'owner'::text)
+public,projects,projects_category_id_idx,CREATE INDEX projects_category_id_idx ON public.projects USING btree (category_id)
+public,projects,projects_created_by_idx,CREATE INDEX projects_created_by_idx ON public.projects USING btree (created_by)
+public,projects,projects_pkey,CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (id)
+public,public_holidays,public_holidays_location_date_idx,"CREATE UNIQUE INDEX public_holidays_location_date_idx ON public.public_holidays USING btree (work_location_id, holiday_date) NULLS NOT DISTINCT"
+public,public_holidays,public_holidays_pkey,CREATE UNIQUE INDEX public_holidays_pkey ON public.public_holidays USING btree (id)
+public,reconciliation_results,reconciliation_results_pkey,CREATE UNIQUE INDEX reconciliation_results_pkey ON public.reconciliation_results USING btree (id)
+public,reconciliation_results,reconciliation_results_run_at_idx,CREATE INDEX reconciliation_results_run_at_idx ON public.reconciliation_results USING btree (run_at DESC)
+public,reconciliation_results,reconciliation_results_table_run_idx,"CREATE INDEX reconciliation_results_table_run_idx ON public.reconciliation_results USING btree (table_key, run_at DESC)"
+public,roles,roles_id_key,CREATE UNIQUE INDEX roles_id_key ON public.roles USING btree (id)
+public,roles,roles_pkey,CREATE UNIQUE INDEX roles_pkey ON public.roles USING btree (id)
+public,sales_attainment_snapshots,sales_attainment_snapshots_lead_owner_id_performance_month_key,"CREATE UNIQUE INDEX sales_attainment_snapshots_lead_owner_id_performance_month_key ON public.sales_attainment_snapshots USING btree (lead_owner_id, performance_month)"
+public,sales_attainment_snapshots,sales_attainment_snapshots_pkey,CREATE UNIQUE INDEX sales_attainment_snapshots_pkey ON public.sales_attainment_snapshots USING btree (id)
+public,sales_budgets,sales_budgets_pkey,CREATE UNIQUE INDEX sales_budgets_pkey ON public.sales_budgets USING btree (id)
+public,sales_budgets,sales_budgets_rep_month_unique,"CREATE UNIQUE INDEX sales_budgets_rep_month_unique ON public.sales_budgets USING btree (sales_rep_code, budget_month)"
+public,sales_leads,sales_leads_pkey,CREATE UNIQUE INDEX sales_leads_pkey ON public.sales_leads USING btree (id)
+public,sales_leads,sales_leads_po_number_key,CREATE UNIQUE INDEX sales_leads_po_number_key ON public.sales_leads USING btree (po_number)
+public,sales_leads_lose_reasons,sales_leads_lose_reasons_pkey,CREATE UNIQUE INDEX sales_leads_lose_reasons_pkey ON public.sales_leads_lose_reasons USING btree (id)
+public,sales_leads_stage_history,sales_leads_stage_history_pkey,CREATE UNIQUE INDEX sales_leads_stage_history_pkey ON public.sales_leads_stage_history USING btree (id)
+public,sales_orders,sales_orders_pkey,CREATE UNIQUE INDEX sales_orders_pkey ON public.sales_orders USING btree (id)
+public,sales_orders,sales_orders_sap_so_id_key,CREATE UNIQUE INDEX sales_orders_sap_so_id_key ON public.sales_orders USING btree (sap_so_id)
+public,sales_projection_snapshots,sales_projection_snapshots_period_idx,"CREATE INDEX sales_projection_snapshots_period_idx ON public.sales_projection_snapshots USING btree (period_month, horizon)"
+public,sales_projection_snapshots,sales_projection_snapshots_pkey,CREATE UNIQUE INDEX sales_projection_snapshots_pkey ON public.sales_projection_snapshots USING btree (id)
+public,sales_projection_snapshots,sales_projection_snapshots_snapshot_month_horizon_key,"CREATE UNIQUE INDEX sales_projection_snapshots_snapshot_month_horizon_key ON public.sales_projection_snapshots USING btree (snapshot_month, horizon)"
+public,sales_quotation_items,sales_quotation_items_pkey,CREATE UNIQUE INDEX sales_quotation_items_pkey ON public.sales_quotation_items USING btree (id)
+public,sales_quotations,sales_quotations_pkey,CREATE UNIQUE INDEX sales_quotations_pkey ON public.sales_quotations USING btree (id)
+public,sales_targets,sales_targets_lead_owner_id_target_month_key,"CREATE UNIQUE INDEX sales_targets_lead_owner_id_target_month_key ON public.sales_targets USING btree (lead_owner_id, target_month)"
+public,sales_targets,sales_targets_owner_month_unique,"CREATE UNIQUE INDEX sales_targets_owner_month_unique ON public.sales_targets USING btree (lead_owner_id, target_month)"
+public,sales_targets,sales_targets_pkey,CREATE UNIQUE INDEX sales_targets_pkey ON public.sales_targets USING btree (id)
+public,sap_bank_account_details,sap_bank_account_details_pkey,CREATE UNIQUE INDEX sap_bank_account_details_pkey ON public.sap_bank_account_details USING btree (bank_code)
+public,sap_bank_account_movements,sap_bank_account_movements_pkey,"CREATE UNIQUE INDEX sap_bank_account_movements_pkey ON public.sap_bank_account_movements USING btree (account_code, line_sequence)"
+public,sap_bank_codes,sap_bank_codes_pkey,CREATE UNIQUE INDEX sap_bank_codes_pkey ON public.sap_bank_codes USING btree (bank_code)
+public,sap_customers,sap_customers_pkey,CREATE UNIQUE INDEX sap_customers_pkey ON public.sap_customers USING btree (customer_code)
+public,sap_deliveries,sap_deliveries_pkey,CREATE UNIQUE INDEX sap_deliveries_pkey ON public.sap_deliveries USING btree (doc_entry)
+public,sap_delivery_lines,idx_sap_delivery_lines_base_entry_type,"CREATE INDEX idx_sap_delivery_lines_base_entry_type ON public.sap_delivery_lines USING btree (base_entry, base_type)"
+public,sap_delivery_lines,sap_delivery_lines_pkey,"CREATE UNIQUE INDEX sap_delivery_lines_pkey ON public.sap_delivery_lines USING btree (doc_entry, line_num)"
+public,sap_gl_accounts,idx_sap_gl_accounts_account_code,CREATE INDEX idx_sap_gl_accounts_account_code ON public.sap_gl_accounts USING btree (account_code)
+public,sap_gl_accounts,sap_gl_accounts_pkey,CREATE UNIQUE INDEX sap_gl_accounts_pkey ON public.sap_gl_accounts USING btree (account_code)
+public,sap_gl_journal_entries,sap_gl_journal_entries_pkey,CREATE UNIQUE INDEX sap_gl_journal_entries_pkey ON public.sap_gl_journal_entries USING btree (trans_id)
+public,sap_gl_journal_lines,idx_sap_gl_journal_lines_account_code,CREATE INDEX idx_sap_gl_journal_lines_account_code ON public.sap_gl_journal_lines USING btree (account_code)
+public,sap_gl_journal_lines,idx_sap_gl_journal_lines_trans_id,CREATE INDEX idx_sap_gl_journal_lines_trans_id ON public.sap_gl_journal_lines USING btree (trans_id)
+public,sap_gl_journal_lines,sap_gl_journal_lines_pkey,"CREATE UNIQUE INDEX sap_gl_journal_lines_pkey ON public.sap_gl_journal_lines USING btree (trans_id, line_id)"
+public,sap_invoice_lines,idx_sap_invoice_lines_base_entry_type,"CREATE INDEX idx_sap_invoice_lines_base_entry_type ON public.sap_invoice_lines USING btree (base_entry, base_type)"
+public,sap_invoice_lines,sap_invoice_lines_pkey,"CREATE UNIQUE INDEX sap_invoice_lines_pkey ON public.sap_invoice_lines USING btree (doc_entry, line_num)"
+public,sap_invoices,sap_invoices_pkey,CREATE UNIQUE INDEX sap_invoices_pkey ON public.sap_invoices USING btree (doc_entry)
+public,sap_item_groups,sap_item_groups_pkey,CREATE UNIQUE INDEX sap_item_groups_pkey ON public.sap_item_groups USING btree (group_code)
+public,sap_item_warehouse_stock,sap_item_warehouse_stock_pkey,"CREATE UNIQUE INDEX sap_item_warehouse_stock_pkey ON public.sap_item_warehouse_stock USING btree (item_code, warehouse_code)"
+public,sap_items,sap_items_pkey,CREATE UNIQUE INDEX sap_items_pkey ON public.sap_items USING btree (item_code)
+public,sap_payment_applications,sap_payment_applications_pkey,"CREATE UNIQUE INDEX sap_payment_applications_pkey ON public.sap_payment_applications USING btree (doc_entry, payment_ref, doc_line)"
+public,sap_payments,sap_payments_pkey,CREATE UNIQUE INDEX sap_payments_pkey ON public.sap_payments USING btree (doc_entry)
+public,sap_pipeline_state,sap_pipeline_state_pkey,CREATE UNIQUE INDEX sap_pipeline_state_pkey ON public.sap_pipeline_state USING btree (pipeline_name)
+public,sap_sales_order_lines,sap_sales_order_lines_pkey,"CREATE UNIQUE INDEX sap_sales_order_lines_pkey ON public.sap_sales_order_lines USING btree (doc_entry, line_num)"
+public,sap_sales_orders,sap_sales_orders_pkey,CREATE UNIQUE INDEX sap_sales_orders_pkey ON public.sap_sales_orders USING btree (doc_entry)
+public,sap_sales_persons,sap_sales_persons_pkey,CREATE UNIQUE INDEX sap_sales_persons_pkey ON public.sap_sales_persons USING btree (sales_rep_code)
+public,sap_vendor_bill_lines,sap_vendor_bill_lines_pkey,"CREATE UNIQUE INDEX sap_vendor_bill_lines_pkey ON public.sap_vendor_bill_lines USING btree (doc_entry, line_num)"
+public,sap_vendor_bills,sap_vendor_bills_pkey,CREATE UNIQUE INDEX sap_vendor_bills_pkey ON public.sap_vendor_bills USING btree (doc_entry)
+public,sap_vendor_payment_applications,sap_vendor_payment_applications_pkey,"CREATE UNIQUE INDEX sap_vendor_payment_applications_pkey ON public.sap_vendor_payment_applications USING btree (doc_entry, payment_ref, doc_line)"
+public,sap_vendor_payments,sap_vendor_payments_pkey,CREATE UNIQUE INDEX sap_vendor_payments_pkey ON public.sap_vendor_payments USING btree (doc_entry)
+public,task_assignees,task_assignees_employee_id_idx,CREATE INDEX task_assignees_employee_id_idx ON public.task_assignees USING btree (employee_id)
+public,task_assignees,task_assignees_pkey,"CREATE UNIQUE INDEX task_assignees_pkey ON public.task_assignees USING btree (task_id, employee_id)"
+public,task_documents,task_documents_document_id_idx,CREATE INDEX task_documents_document_id_idx ON public.task_documents USING btree (document_id)
+public,task_documents,task_documents_pkey,"CREATE UNIQUE INDEX task_documents_pkey ON public.task_documents USING btree (task_id, document_id)"
+public,tasks,tasks_is_completed_late_idx,CREATE INDEX tasks_is_completed_late_idx ON public.tasks USING btree (project_id) WHERE is_completed_late
+public,tasks,tasks_pkey,CREATE UNIQUE INDEX tasks_pkey ON public.tasks USING btree (id)
+public,tasks,tasks_project_id_idx,CREATE INDEX tasks_project_id_idx ON public.tasks USING btree (project_id)
+public,tasks,tasks_project_id_status_idx,"CREATE INDEX tasks_project_id_status_idx ON public.tasks USING btree (project_id, status)"
+public,termination_reason,termination_reason_pkey,CREATE UNIQUE INDEX termination_reason_pkey ON public.termination_reason USING btree (id)
+public,work_locations,work_locations_pkey,CREATE UNIQUE INDEX work_locations_pkey ON public.work_locations USING btree (id)
+public,work_locations,work_locations_sub_key,CREATE UNIQUE INDEX work_locations_sub_key ON public.work_locations USING btree (sub)

@@ -595,6 +595,35 @@ R = rows, T = table, — = not a list. Period default per 9b. ✅ = done.
 
 **Leads Overview:** reads `get_sales_leads_dashboard`; Salesperson filter only (R13); period = close date for won / lost figures, created date for generated; open position is Today.
 
+### 10d. Full audit — the to-do list (2026-10-27)
+
+From the first full catalog export (`supabase/catalog/*.csv`, via `supabase/diagnostics/export_full_catalog.sql`) and the generated **`DATA-INVENTORY.md`** (every live object: what it reads, what reads it, where the app uses it, where it is defined — refresh with `npm run catalog` after each export). Live: 90 tables, 41 views, 7 materialized views, 146 functions, 44 triggers, 254 policies, 11 cron jobs (all succeeding; the email sender failed to start twice in 8,631 runs).
+
+**P0 — security (now):** `security_hardening_2026_10_27.sql`
+
+- `sap_gl_journal_lines_with_entry_info` had no `security_invoker`: every signed-in user — and anyone with the public anon key — could read every GL line. Now follows the Finance / MGM / Superadmin RLS.
+- The logged-out role (`anon`) loses everything in `public`. It could read `employees_public` (staff directory incl. phones, today's attendance and leave) and call 51 SECURITY DEFINER functions (payroll-reconciliation emails, notification fan-out, onboarding / offboarding cases, the projection refresh). The login page needs none of it.
+- The 19 cron-only functions are no longer callable by signed-in users either; views are read-only.
+- Still to decide: the `attendance` storage bucket is **public** (clock-in photos open to anyone with the link — moving to signed URLs needs an app change); `ai_dashboard_summaries` is readable by every signed-in user (parked AI feature — lock down or drop with its redesign); `employees_public` shows today's attendance and leave to all staff (HR to confirm that's intended).
+
+**P1 — bug risk:** `retire_old_function_versions.sql` — `get_finance_dashboard`, `get_hr_employees_dashboard`, `get_hr_reports_dashboard`, `get_payroll_period_summary` each have an old version beside the new one (the PGRST203 trap). The app only uses the new ones.
+
+**P2 — one rule, one place (the entity audits, in this order):**
+
+| Entity | The rule defined more than once | Target |
+| --- | --- | --- |
+| **Sales Orders** | open / delivered / invoiced: `sap_sales_orders_with_fulfillment` (Orders page) vs `sales_order_facts` / `sales_order_book_facts` (Reports) vs `get_operations_dashboard` vs the forecast views; `get_sales_orders_overview` unused | one order facts view; the Orders list view on it |
+| **Finance — receivables** | invoice balance / paid / overdue: `sap_invoices_with_balance` vs `sales_invoice_facts` / `sales_collection_facts` / `sales_receivable_facts` vs `get_finance_dashboard`'s own CTEs vs `v_sales_monthly_series` vs `get_operations_dashboard` | one invoice facts view for Finance, Sales and the forecast |
+| **Finance — payables, GL** | bill balance: `sap_vendor_bills_with_balance` vs `get_finance_dashboard`; GL flags view + two materialized views refreshed by the data platform | same shape; split the `get_finance_dashboard` monolith onto them (as Sales Reports was) |
+| **HR — attendance, leave, payroll** | a day's status: `unified_daily_attendance` vs `attendance_activity_audit` vs `employees_public`'s "current status" vs `get_attendance_dashboard` / `get_hr_reports_dashboard` / `get_payroll_period_summary` each reading `leave_ledger_entries`; `attendance_activities_hr_view` unused | `unified_daily_attendance` as the one day-model view everything reads |
+| **HR — people** | `get_hr_employees_dashboard`, `get_hr_reports_dashboard` monoliths | facts view + shared functions |
+| **Workspace** | progress / overdue: `project_progress` vs `projects_with_progress` vs `get_project(s)_overview` vs the `check_tasks_*` / `check_projects_*` cron rules | one project and one task facts view |
+| **Sales — forecast** | 16 views + 5 materialized views, self-contained; `v_sales_monthly_trend`, `v_sales_seasonal_index` unused; its monthly series reads invoices directly | read the invoice / order facts views once they exist |
+
+**P3 — remove (after each entity's audit confirms):** unused tables `leave_balances`, `leave_requests`, `leave_types` (superseded by the leave ledger), `products`, `product_brands`, `sales_attainment_snapshots`; `sales_quotations` / `_items` kept (decision); unused views above; live-only functions `log_sales_lead_stage_change` (an old copy — the trigger uses `log_sales_leads_stage_change`) and `current_employee_manager_id`; `check_employee_confirmation_status_mismatches` is a manual diagnostic (keep, documented).
+
+**P4 — repo hygiene:** live-only objects get their SQL into the repo; stale definitions in `hyrax-data-platform/infrastructure/supabase_schema.sql` (`leave_holidays`, `client_contacts`, never live) marked historical; `DEPARTMENT-PAGES-TABLES.md`, `supabase/access-control/table_access_matrix.csv` and `TABLE-POLICIES.csv` replaced by `DATA-INVENTORY.md` and `supabase/catalog/policies.csv` (keep the business-flow diagram); then connect the Supabase CLI so exports and changes stop going through copy-paste.
+
 ---
 
 ### What this app owns vs. what it doesn't

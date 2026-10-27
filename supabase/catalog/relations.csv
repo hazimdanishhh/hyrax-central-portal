@@ -1,0 +1,2698 @@
+schema,name,kind,rls_enabled,rls_forced,security_invoker,owner,estimated_rows,size,comment,columns,definition
+private,mv_gl_monthly_account_summary,materialized view,false,false,false,service_role,17999,2360 kB,null,"month date, account_code text, account_name text, drawer bigint, debit_amount_myr numeric, credit_amount_myr numeric"," SELECT date_trunc('month'::text, je.posting_date::date::timestamp with time zone)::date AS month,
+    jl.account_code,
+    a.account_name,
+    a.drawer,
+    sum(jl.debit_amount_myr) AS debit_amount_myr,
+    sum(jl.credit_amount_myr) AS credit_amount_myr
+   FROM sap_gl_journal_lines jl
+     JOIN sap_gl_journal_entries je ON jl.trans_id = je.trans_id
+     JOIN sap_gl_accounts a ON jl.account_code = a.account_code
+  WHERE je.trans_type <> '-3'::text
+  GROUP BY (date_trunc('month'::text, je.posting_date::date::timestamp with time zone)::date), jl.account_code, a.account_name, a.drawer;"
+private,mv_gl_monthly_balance_sheet_snapshot,materialized view,false,false,false,service_role,6881,920 kB,null,"month date, account_code text, account_name text, drawer bigint, cumulative_balance_myr numeric"," WITH monthly_movement AS (
+         SELECT date_trunc('month'::text, je.posting_date::date::timestamp with time zone)::date AS month,
+            jl.account_code,
+            a.account_name,
+            a.drawer,
+            sum(jl.debit_amount_myr - jl.credit_amount_myr) AS net_movement_myr
+           FROM sap_gl_journal_lines jl
+             JOIN sap_gl_journal_entries je ON jl.trans_id = je.trans_id
+             JOIN sap_gl_accounts a ON jl.account_code = a.account_code
+          WHERE (a.drawer = ANY (ARRAY[1::bigint, 2::bigint, 3::bigint])) AND je.trans_type <> '-3'::text
+          GROUP BY (date_trunc('month'::text, je.posting_date::date::timestamp with time zone)::date), jl.account_code, a.account_name, a.drawer
+        )
+ SELECT month,
+    account_code,
+    account_name,
+    drawer,
+    sum(net_movement_myr) OVER (PARTITION BY account_code ORDER BY month) AS cumulative_balance_myr
+   FROM monthly_movement;"
+private,mv_sales_chainladder_backtest,materialized view,false,false,false,postgres,774,224 kB,"Frozen copy of v_sales_chainladder_backtest, which reconstructs the order book at every historical origin. Was being recomputed TWICE per v_sales_projection_ensemble query. Refresh with public.refresh_sales_projection_caches().","origin_month date, horizon integer, target_month date, predicted numeric, target_known_orders numeric, target_order_sourced numeric, target_total numeric, error_vs_known numeric"," SELECT origin_month,
+    horizon,
+    target_month,
+    predicted,
+    target_known_orders,
+    target_order_sourced,
+    target_total,
+    error_vs_known
+   FROM v_sales_chainladder_backtest;"
+private,mv_sales_order_development_pit,materialized view,false,false,false,postgres,1800,280 kB,null,"as_of_month date, age_months integer, cohorts_used bigint, outstanding_myr numeric, converted_next_myr numeric, link_rate numeric, survival_log numeric, implied_cumulative numeric"," SELECT as_of_month,
+    age_months,
+    cohorts_used,
+    outstanding_myr,
+    converted_next_myr,
+    link_rate,
+    survival_log,
+    implied_cumulative
+   FROM v_sales_order_development_pit;"
+private,mv_sales_projection_baseline,materialized view,false,false,false,postgres,42120,5960 kB,Frozen copy of v_sales_projection_baseline. The view scores 12 methods x 12 horizons over ~100 origins and was being recomputed FOUR times by a single v_sales_projection_ensemble query. Backtest over closed history -- cannot change until a month closes or a model is edited. Refresh with public.refresh_sales_projection_caches().,"measure text, period_month date, actual numeric, horizon integer, method text, predicted numeric"," SELECT measure,
+    period_month,
+    actual,
+    horizon,
+    method,
+    predicted
+   FROM v_sales_projection_baseline;"
+private,mv_sales_projection_ensemble,materialized view,false,false,false,postgres,12,144 kB,"Frozen copy of v_sales_projection_ensemble -- the published blend. The view measured 4,202 ms to produce twelve rows and ran on every page load. UNLIKE THE OTHER CACHES THIS ONE FREEZES THE CALENDAR: period_month is derived from current_date, so a cache built last month names the wrong month for horizon=1, and get_sales_projections silently DROPS that row rather than erroring. Refreshed daily at 00:20 MYT by refresh-sales-projection-ensemble-daily for exactly that reason. cache_refreshed_at is the only staleness marker these forward rows carry.","period_month date, horizon integer, projected numeric, coverage numeric, order_book_weight numeric, implied_from_order_book numeric, implied_from_apriori numeric, within_var numeric, between_var numeric, total_var numeric, sd numeric, lo_80 numeric, hi_80 numeric, lo_95 numeric, hi_95 numeric, composed_var numeric, band_origins bigint, model_detail jsonb, cache_refreshed_at timestamp with time zone"," SELECT period_month,
+    horizon,
+    projected,
+    coverage,
+    order_book_weight,
+    implied_from_order_book,
+    implied_from_apriori,
+    within_var,
+    between_var,
+    total_var,
+    sd,
+    lo_80,
+    hi_80,
+    lo_95,
+    hi_95,
+    composed_var,
+    band_origins,
+    model_detail,
+    clock_timestamp() AS cache_refreshed_at
+   FROM v_sales_projection_ensemble v;"
+private,mv_sales_projection_ensemble_backtest,materialized view,false,false,false,postgres,24336,3456 kB,null,"window_months integer, cl_weight_label text, cl_weight numeric, horizon integer, origin_month date, target_month date, estimator text, predicted numeric, actual numeric, error numeric"," SELECT window_months,
+    cl_weight_label,
+    cl_weight,
+    horizon,
+    origin_month,
+    target_month,
+    estimator,
+    predicted,
+    actual,
+    error
+   FROM v_sales_projection_ensemble_backtest;"
+public,addresses,table,true,false,false,postgres,-1,32 kB,null,"id bigint, line1 text, line2 text, city text, state text, postcode text, country text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,ai_dashboard_summaries,table,true,false,false,postgres,-1,32 kB,null,"id uuid, created_at timestamp with time zone, dashboard_type text, period_start date, period_end date, summary_text text, is_default_view boolean",null
+public,attendance_acknowledgement_reasons,table,true,false,false,postgres,-1,48 kB,null,"id bigint, code text, label text, description text, applicable_categories text[], requires_notes boolean, is_active boolean, sort_order integer, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,attendance_activities,table,true,false,false,postgres,30,136 kB,Current Employee Attendance Activity Status,"id uuid, employee_id uuid, attendance_type_id bigint, photo_url text, notes text, location text, created_at timestamp with time zone, clocked_out_at timestamp with time zone, clocked_in_at timestamp with time zone, approval_status attendance_approval_status, approved_by uuid, approved_at timestamp with time zone, rejection_reason text, photo_path text, last_reminder_sent_at timestamp with time zone, evening_autoclockout_warned_at timestamp with time zone, midnight_autoclockout_warned_at timestamp with time zone, entry_method text, adjustment_reason_id bigint, created_by uuid",null
+public,attendance_adjustment_reasons,table,true,false,false,postgres,-1,48 kB,null,"id bigint, code text, label text, description text, requires_notes boolean, is_active boolean, sort_order integer, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,attendance_logs,table,true,false,false,postgres,52412,11 MB,null,"id uuid, employee_id text, scanned_at timestamp with time zone, created_at timestamp with time zone, scanner_location text",null
+public,attendance_reconciliation_acknowledgements,table,true,false,false,postgres,-1,24 kB,"One row per resolved reconciliation flag, keyed on the same (employee, date, category) grain get_payroll_reconciliation_rows() emits. Only category = insufficient_half_day is acknowledgeable as of 2026-09-23; absences resolve by being recorded in HR2000 and re-synced. Acknowledging closes the review, not the fact -- the period totals still count the day for payroll.","id bigint, employee_id uuid, work_date date, category text, reason_id bigint, notes text, acknowledged_by uuid, acknowledged_at timestamp with time zone",null
+public,attendance_types,table,true,false,false,postgres,4,48 kB,Attendance Activity Type,"id bigint, name text, created_at timestamp with time zone, requires_photo boolean, requires_location boolean, requires_notes boolean, is_self_selectable boolean, is_full_day boolean",null
+public,clients,table,true,false,false,postgres,0,304 kB,Sales Client Companies,"id uuid, name text, address text, website_url text, created_at timestamp with time zone, updated_at timestamp with time zone, industry_id bigint",null
+public,departments,table,true,false,false,postgres,-1,64 kB,null,"id bigint, sub text, name text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,documents,table,true,false,false,postgres,34,96 kB,"Project-scoped Google Drive file library (Drive file references only -- no binary storage). Belongs to exactly one project; may be linked to zero, one, or many of that project's tasks via task_documents. Rows are immutable once created -- no UPDATE policy; ""editing"" is remove + re-attach.","id uuid, project_id uuid, drive_file_id text, name text, url text, mime_type text, icon_url text, attached_by uuid, attached_at timestamp with time zone",null
+public,email_log,table,true,false,false,postgres,1169,288 kB,null,"id bigint, queue_id bigint, to_email text, subject text, status text, provider text, error text, sent_at timestamp with time zone",null
+public,email_queue,table,true,false,false,postgres,1259,640 kB,null,"id bigint, to_email text, subject text, body_html text, related_event_id bigint, status text, attempts integer, last_error text, created_at timestamp with time zone, sent_at timestamp with time zone",null
+public,employee_lifecycle_case_items,table,true,false,false,postgres,87,104 kB,"One row per checklist item per case, seeded for EVERY fixed item (including non-applicable ones, as SKIPPED with a note) so HR/IT always see the full standard checklist. See docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md.","id uuid, case_id uuid, item_key text, status lifecycle_item_status, completed_at timestamp with time zone, completed_by uuid, notes text, owning_department_sub text, employee_visible boolean, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,employee_lifecycle_cases,table,true,false,false,postgres,-1,80 kB,One row per onboarding/offboarding attempt for one employee. See docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md.,"id uuid, employee_id uuid, case_type lifecycle_case_type, status lifecycle_case_status, opened_at timestamp with time zone, opened_reason text, expected_last_day date, employee_can_view boolean, closed_at timestamp with time zone, closed_reason text, it_revocation_reminder_last_notified_at timestamp with time zone, overdue_last_notified_at timestamp with time zone, created_at timestamp with time zone, updated_at timestamp with time zone, hr_items_reminder_last_notified_at timestamp with time zone",null
+public,employee_sales_rep_mapping,table,true,false,false,postgres,-1,40 kB,null,"sales_rep_code bigint, employee_id uuid, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,employees,table,true,false,false,postgres,80,208 kB,Employee Details Table,"id uuid, profile_id uuid, employee_id text, full_name text, preferred_name text, date_of_birth date, gender gender, nationality_id bigint, identification_type_id bigint, identification_number text, marital_status marital_status, email_personal text, email_work text, phone_personal numeric, phone_work numeric, emergency_contact_name text, emergency_contact_relationship emergency_contact_relationship, emergency_contact_phone numeric, department_id bigint, position text, manager_id uuid, employment_status text, employment_type_id bigint, join_date date, confirmation_date date, end_date date, resignation_date date, termination_reason_id bigint, address_work text, address_personal text, created_at timestamp with time zone, updated_at timestamp with time zone, employment_status_id bigint, confirmation_reminder_sent_at timestamp with time zone, confirmation_mismatch_notified_at timestamp with time zone, confirmation_overdue_last_notified_at timestamp with time zone, contract_action_reminder_sent_at timestamp with time zone, needs_it_asset boolean, contract_offboarding_case_opened_at timestamp with time zone, work_location_id bigint, personal_address_id bigint",null
+public,employment_status,table,true,false,false,postgres,-1,32 kB,Employment Status of Employees,"id bigint, created_at timestamp with time zone, name text, description text, updated_at timestamp with time zone, category text",null
+public,employment_type,table,true,false,false,postgres,-1,32 kB,Type of Employment,"id bigint, name text, description text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,identification_type,table,true,false,false,postgres,-1,32 kB,Employee Identification Document Types,"id bigint, name text, description text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,industries,table,true,false,false,postgres,147,64 kB,null,"id bigint, name text, created_at timestamp with time zone",null
+public,it_asset_category,table,true,false,false,postgres,-1,32 kB,IT Asset Categories,"id bigint, name text, created_at timestamp with time zone, updated_at timestamp with time zone, sub text",null
+public,it_asset_condition,table,true,false,false,postgres,-1,32 kB,Condition of IT Asset,"id bigint, name text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,it_asset_manufacturer,table,true,false,false,postgres,-1,48 kB,IT Manufacturers,"id bigint, name text, created_at timestamp with time zone",null
+public,it_asset_operating_system,table,true,false,false,postgres,-1,32 kB,Operating System,"id bigint, name text, created_at timestamp with time zone, updated_at timestamp with time zone, icon text",null
+public,it_asset_status,table,true,false,false,postgres,-1,32 kB,Status of IT Asset,"id bigint, name text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,it_asset_subcategory,table,true,false,false,postgres,18,32 kB,IT Asset Subcategory,"id bigint, name text, created_at timestamp with time zone, updated_at timestamp with time zone, sub text, icon text, category_id bigint",null
+public,it_assets,table,true,false,false,postgres,54,72 kB,IT Assets,"id uuid, asset_code text, asset_name text, asset_category_id bigint, asset_subcategory_id bigint, asset_status_id bigint, asset_user_id uuid, mdm_status mdm_status, mdm_link text, asset_model text, serial_number text, operating_system_id bigint, product_key text, mac_address text, management_ip text, asset_condition_id bigint, asset_location_id bigint, asset_department_id bigint, purchase_date date, purchase_cost text, vendor_id bigint, purchase_order text, warranty_expiry text, retire_date date, notes text, created_at timestamp with time zone, updated_at timestamp with time zone, asset_manufacturer_id bigint",null
+public,lead_source_types,table,true,false,false,postgres,-1,32 kB,null,"id bigint, created_at timestamp with time zone, name text",null
+public,leave_balances,table,true,false,false,postgres,-1,48 kB,null,"employee_id uuid, allocated_days numeric, used_days numeric, created_at timestamp with time zone, remaining_days numeric, id uuid, year integer, carried_forward_days numeric, leave_type_id bigint, pending_days numeric, updated_at timestamp with time zone",null
+public,leave_ledger_entries,table,true,false,false,postgres,3459,2560 kB,null,"id uuid, employee_id uuid, employee_code text, leave_date date, leave_type_id bigint, leave_type_code text, day_fraction numeric(3,2), remarks text, content_key text, dedupe_ordinal integer, source_row_ordinal integer, first_seen_at timestamp with time zone, last_seen_at timestamp with time zone, last_synced_by uuid, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,leave_ledger_sync_runs,table,true,false,false,postgres,-1,48 kB,null,"id bigint, run_at timestamp with time zone, uploaded_by uuid, status text, incoming_row_count integer, current_row_count integer, added_count integer, unchanged_count integer, removed_count integer, skipped_count integer, guardrail_overridden boolean, summary jsonb",null
+public,leave_ledger_types,table,true,false,false,postgres,-1,48 kB,null,"id bigint, code text, label text, category text, is_paid boolean, needs_hr_confirmation boolean, notes text, is_active boolean, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,leave_requests,table,true,false,false,postgres,-1,16 kB,Leave Request Transaction Logs,"id uuid, employee_id uuid, leave_type_id bigint, start_date date, end_date date, days_requested numeric, half_day boolean, reason text, attachment_url text, attachment_path text, applied_at timestamp with time zone, status_updated_by uuid, status_updated_at timestamp with time zone, rejection_reason text, updated_at timestamp with time zone, created_at timestamp with time zone, status leave_status",null
+public,leave_types,table,true,false,false,postgres,-1,64 kB,Types of Leaves for Leave Module,"id bigint, name text, code text, description text, paid boolean, deduct_balance boolean, requires_attachment boolean, allows_half_day boolean, annual_default_days numeric, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,nationalities,table,true,false,false,postgres,225,64 kB,null,"id bigint, name text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,notification_events,table,true,false,false,postgres,828,680 kB,null,"id bigint, event_type text, entity_table text, entity_id text, payload jsonb, occurred_at timestamp with time zone",null
+public,notification_rules,table,true,false,false,postgres,45,80 kB,null,"id bigint, event_type text, condition jsonb, target_roles text[], target_departments text[], target_employee_ids uuid[], channels text[], is_active boolean, created_at timestamp with time zone, updated_at timestamp with time zone, target_payload_keys text[]",null
+public,notifications,table,true,false,false,postgres,1277,552 kB,null,"id bigint, user_id uuid, type text, title text, message text, link_to text, read_status boolean, created_by text, created_at timestamp with time zone",null
+public,payroll_reconciliation_email_sends,table,true,false,false,postgres,-1,40 kB,null,"id bigint, employee_id uuid, period_start date, period_end date, email_queue_id bigint, queued_by uuid, queued_at timestamp with time zone",null
+public,payroll_reconciliation_glossary,table,true,false,false,postgres,-1,48 kB,null,"id bigint, code text, label text, description text, employee_action_text text, is_active boolean, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,pipeline_run_log,table,true,false,false,postgres,22753,5680 kB,null,"id bigint, pipeline_name text, run_at timestamp with time zone, status text, rows_extracted integer, duration_seconds numeric, error_message text",null
+public,product_brands,table,true,false,false,postgres,-1,32 kB,List of Product Brands,"id bigint, name text, created_at timestamp with time zone",null
+public,products,table,true,false,false,postgres,166,64 kB,Products Master,"id bigint, name text, created_at timestamp with time zone, updated_at timestamp with time zone, product_brand_id bigint, cost double precision",null
+public,profiles,table,true,false,false,postgres,20,96 kB,App user profiles,"id uuid, role_id bigint, department_id bigint, created_at timestamp with time zone, updated_at timestamp with time zone, full_name text, email text, avatar_url text, deactivated_at timestamp with time zone",null
+public,project_categories,table,true,false,false,postgres,-1,48 kB,"User-created-on-the-fly taxonomy for projects (Internal/External/Plant Upgrade/Company Event/...). Shared, low-stakes -- anyone can add a new one, only superadmin can rename/delete.","id bigint, name text, created_by uuid, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,project_members,table,true,false,false,postgres,30,64 kB,"Who can see/act on a project (req #6), and at what permission tier. Departments a project touches (project_departments view) are derived from employees.department_id here, not profiles.department_id -- the two can drift for one person.","project_id uuid, employee_id uuid, role text, added_by uuid, added_at timestamp with time zone",null
+public,projects,table,true,false,false,postgres,11,64 kB,Projects & Tasks module. Visibility is membership-gated via project_members (req #6). See docs/PROJECTS-TASKS-ARCHITECTURE.md.,"id uuid, name text, description text, status project_status, category_id bigint, start_date date, target_end_date date, created_by uuid, created_at timestamp with time zone, updated_at timestamp with time zone, completed_date date, deadline_reminder_sent_at timestamp with time zone, overdue_last_notified_at timestamp with time zone, drive_folder_url text",null
+public,public_holidays,table,true,false,false,postgres,-1,48 kB,null,"id bigint, work_location_id bigint, holiday_date date, code text, name text, category text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,reconciliation_results,table,true,false,false,postgres,391,216 kB,null,"id bigint, run_at timestamp with time zone, table_key text, sap_table text, supabase_table text, sap_rows bigint, supabase_rows bigint, row_diff bigint, key_columns text, key_total bigint, key_distinct bigint, key_collisions bigint, status text, error_message text",null
+public,roles,table,true,false,false,postgres,-1,48 kB,App roles,"id bigint, created_at timestamp with time zone, name text, updated_at timestamp with time zone",null
+public,sales_attainment_snapshots,table,true,false,false,postgres,-1,16 kB,null,"id uuid, lead_owner_id uuid, performance_month date, target_revenue numeric(15,2), actual_won_revenue numeric(15,2), attainment_percentage numeric(5,2), locked_at timestamp with time zone",null
+public,sales_budgets,table,true,false,false,postgres,459,160 kB,null,"id uuid, sales_rep_code bigint, budget_month date, budget_revenue numeric",null
+public,sales_leads,table,true,false,false,postgres,57,88 kB,Sales Leads Master Table,"id uuid, client_id uuid, lead_owner_id uuid, title text, description text, close_probability numeric, expected_revenue numeric, lose_reason_id bigint, cancel_reason text, hold_reason text, notes text, created_at timestamp with time zone, updated_at timestamp with time zone, lead_source_type_id bigint, is_on_hold boolean, stage sales_leads_stage, is_cancelled boolean, actual_revenue numeric, po_number text, po_document_url text, quotation_url text, product_type product_type, sap_customer_code text",null
+public,sales_leads_lose_reasons,table,true,false,false,postgres,-1,32 kB,null,"id bigint, name text, description text, created_at timestamp with time zone",null
+public,sales_leads_stage_history,table,true,false,false,postgres,102,72 kB,null,"id uuid, lead_id uuid, previous_stage sales_leads_stage, new_stage sales_leads_stage, expected_revenue numeric, close_probability numeric, changed_at timestamp with time zone",null
+public,sales_orders,table,true,false,false,postgres,-1,24 kB,Sales Orders Master,"id bigint, created_at timestamp with time zone, updated_at timestamp with time zone, sap_so_id text, sales_lead_id uuid, sales_quotation_id bigint, client_po_file_path text, client_po_file_url text, target_delivery_date date, priority_level sales_orders_priority, status sales_orders_status",null
+public,sales_projection_snapshots,table,true,false,false,postgres,-1,96 kB,"Frozen monthly record of what v_sales_projection_ensemble published, one row per horizon. Exists because the view recomputes on every page load, so without this, forecast accuracy can only be reconstructed -- and a reconstruction built with hindsight flatters itself. Written only by snapshot_sales_projections() under pg_cron. 144 rows a year.","id bigint, snapshot_month date, period_month date, horizon integer, projected numeric, lo_80 numeric, hi_80 numeric, lo_95 numeric, hi_95 numeric, implied_from_order_book numeric, implied_from_apriori numeric, coverage numeric, order_book_weight numeric, model_detail jsonb, config jsonb, created_at timestamp with time zone",null
+public,sales_quotation_items,table,true,false,false,postgres,-1,16 kB,null,"id bigint, sales_quotation_id bigint, product_id bigint, requested_product_name text, quantity numeric, unit_price numeric, total_price numeric, calculated_margin numeric, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,sales_quotations,table,true,false,false,postgres,-1,16 kB,Sales Quotations Master Folder,"id bigint, sales_lead_id uuid, created_by uuid, approved_by uuid, version text, total_value numeric, quotation_file_url text, quotation_file_path text, created_at timestamp with time zone, updated_at timestamp with time zone, status sales_quotations_status",null
+public,sales_targets,table,true,false,false,postgres,48,56 kB,null,"id uuid, lead_owner_id uuid, target_month date, target_revenue numeric(15,2)",null
+public,sap_bank_account_details,table,true,false,false,postgres,9,64 kB,null,"bank_code text, gl_account text, account_number text, account_name text, branch text, currency text",null
+public,sap_bank_account_movements,table,true,false,false,postgres,783,320 kB,null,"account_code text, line_sequence bigint, id_number bigint, due_date text, debit_amount numeric, debit_amount_currency text, credit_amount numeric, credit_amount_currency text, balance numeric, bank_match bigint, statement_no bigint, data_source text",null
+public,sap_bank_codes,table,true,false,false,postgres,9,64 kB,null,"bank_code text, bank_name text, swift_num text, iban text, country_code text",null
+public,sap_customers,table,true,false,false,postgres,2313,968 kB,null,"customer_code text, customer_name text, card_type text, group_code bigint, phone text, email text, contact_person text, balance numeric, credit_limit numeric, country text, city text, industry text, business_category text, is_deleted text, is_active text, created_at text, updated_at text, local_export_flag text, bp_group text",null
+public,sap_deliveries,table,true,false,false,postgres,669,432 kB,null,"doc_entry bigint, delivery_number bigint, delivery_date text, promised_delivery_date text, created_at text, updated_at text, is_cancelled text, customer_code text, customer_name text, sales_rep_code bigint, customer_ref text, doc_status text, total_amount numeric, currency text, total_amount_myr numeric, exchange_rate numeric, remarks text",null
+public,sap_delivery_lines,table,true,false,false,postgres,1143,512 kB,null,"doc_entry bigint, line_num bigint, item_code text, description text, quantity numeric, unit_price numeric, currency text, discount_pct numeric, line_total numeric, warehouse_code text, unit_of_measure text, base_entry bigint, base_type bigint, base_ref text, base_line bigint",null
+public,sap_gl_accounts,table,true,false,false,postgres,555,304 kB,null,"account_code text, account_name text, drawer bigint, father_code text, level bigint, is_postable text, current_balance numeric, current_balance_myr numeric, created_at text, updated_at text",null
+public,sap_gl_journal_entries,table,true,false,false,postgres,158525,46 MB,null,"trans_id bigint, posting_date text, due_date text, memo text, reference_1 text, reference_2 text, trans_type text, created_at text, updated_at text",null
+public,sap_gl_journal_lines,table,true,false,false,postgres,472561,105 MB,null,"trans_id bigint, line_id bigint, account_code text, debit_amount numeric, credit_amount numeric, debit_amount_myr numeric, credit_amount_myr numeric, bp_code text",null
+public,sap_invoice_lines,table,true,false,false,postgres,36057,17 MB,null,"doc_entry bigint, line_num bigint, item_code text, description text, quantity numeric, unit_price numeric, currency text, exchange_rate numeric, discount_pct numeric, line_total numeric, warehouse_code text, sales_rep_code bigint, tax_group text, tax_pct numeric, cost_price numeric, stock_price numeric, unit_of_measure text, uom_code text, tax_code text, base_entry bigint, base_type bigint, base_ref text",null
+public,sap_invoices,table,true,false,false,postgres,22598,11 MB,null,"doc_entry bigint, invoice_number bigint, invoice_date text, due_date text, created_at text, updated_at text, status_code text, is_cancelled text, customer_code text, customer_name text, sales_rep_code bigint, owner_code bigint, ship_to_code text, customer_ref text, total_amount numeric, currency text, total_amount_myr numeric, exchange_rate numeric, paid_to_date numeric, gross_profit numeric, discount_pct numeric, tax_amount numeric",null
+public,sap_item_groups,table,true,false,false,postgres,13,64 kB,null,"group_code bigint, group_name text, is_locked text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,sap_item_warehouse_stock,table,true,false,false,postgres,65138,13 MB,null,"item_code text, warehouse_code text, stock_on_hand numeric, committed_stock numeric, on_order numeric, min_stock numeric",null
+public,sap_items,table,true,false,false,postgres,2715,1216 kB,null,"item_code text, item_name text, foreign_name text, item_group_code bigint, stock_on_hand numeric, committed_stock numeric, on_order numeric, purchase_uom text, sales_uom text, inventory_uom text, last_purchase_price numeric, avg_cost numeric, item_type text, item_class text, is_inactive text, is_deleted text, is_active text, created_at text, updated_at text, packaging text",null
+public,sap_payment_applications,table,true,false,false,postgres,19738,5216 kB,null,"doc_entry bigint, payment_ref bigint, doc_line bigint, inv_entry bigint, inv_type bigint, amount_applied numeric, amount_applied_myr numeric, amount_applied_foreign numeric, exchange_rate numeric, installment_id bigint",null
+public,sap_payments,table,true,false,false,postgres,13091,5400 kB,null,"doc_entry bigint, receipt_number bigint, payment_date text, created_at text, updated_at text, is_cancelled text, customer_code text, customer_name text, cash_amount numeric, check_amount numeric, transfer_amount numeric, unallocated_amount numeric, currency text, total_amount numeric, total_amount_myr numeric, bank_code text, bank_account text, reference text, remarks text",null
+public,sap_pipeline_state,table,true,false,false,postgres,18,64 kB,null,"pipeline_name text, last_watermark timestamp with time zone, last_run_at timestamp with time zone, last_run_status text, rows_extracted integer",null
+public,sap_sales_order_lines,table,true,false,false,postgres,26963,11 MB,null,"doc_entry bigint, line_num bigint, item_code text, description text, quantity numeric, unit_price numeric, currency text, exchange_rate numeric, discount_pct numeric, line_total numeric, warehouse_code text, sales_rep_code bigint, tax_group text, tax_pct numeric, cost_price numeric, stock_price numeric, unit_of_measure text, uom_code text, tax_code text, delivered_qty numeric, open_qty numeric",null
+public,sap_sales_orders,table,true,false,false,postgres,13581,6776 kB,null,"doc_entry bigint, so_number bigint, order_date text, delivery_date text, created_at text, updated_at text, status_code text, is_cancelled text, customer_code text, customer_name text, sales_rep_code bigint, owner_code bigint, ship_to_code text, customer_ref text, total_amount numeric, currency text, total_amount_myr numeric, exchange_rate numeric, gross_profit numeric, discount_pct numeric",null
+public,sap_sales_persons,table,true,false,false,postgres,24,64 kB,null,"sales_rep_code bigint, sales_rep_name text, employee_id bigint, commission_pct numeric, group_code bigint, is_active text, phone text, mobile text, email text",null
+public,sap_vendor_bill_lines,table,true,false,false,postgres,54588,17 MB,null,"doc_entry bigint, line_num bigint, item_code text, description text, quantity numeric, unit_price numeric, currency text, exchange_rate numeric, discount_pct numeric, line_total numeric, warehouse_code text, tax_group text, tax_pct numeric, cost_price numeric, stock_price numeric, unit_of_measure text, tax_code text, base_entry bigint, base_type bigint, base_ref text",null
+public,sap_vendor_bills,table,true,false,false,postgres,28101,12 MB,null,"doc_entry bigint, bill_number bigint, bill_date text, due_date text, created_at text, updated_at text, status_code text, is_cancelled text, vendor_code text, vendor_name text, vendor_ref text, total_amount numeric, currency text, total_amount_myr numeric, exchange_rate numeric, paid_to_date numeric, gross_profit numeric, discount_pct numeric, tax_amount numeric",null
+public,sap_vendor_payment_applications,table,true,false,false,postgres,30406,7872 kB,null,"doc_entry bigint, payment_ref bigint, doc_line bigint, inv_entry bigint, doc_type bigint, amount_applied numeric, amount_applied_myr numeric, amount_applied_foreign numeric, exchange_rate numeric, installment_id bigint",null
+public,sap_vendor_payments,table,true,false,false,postgres,15982,6744 kB,null,"doc_entry bigint, payment_number bigint, payment_date text, created_at text, updated_at text, is_cancelled text, vendor_code text, vendor_name text, cash_amount numeric, check_amount numeric, transfer_amount numeric, unallocated_amount numeric, currency text, total_amount numeric, total_amount_myr numeric, bank_code text, bank_account text, reference text, remarks text",null
+public,task_assignees,table,true,false,false,postgres,61,72 kB,"Req #4/#5. employee_id here MUST already be a project_members row for this task's project, with a WORKING role (owner/lead/member, never cc) -- enforced by trigger, not just RLS.","task_id uuid, employee_id uuid, assigned_by uuid, assigned_at timestamp with time zone, due_soon_reminder_sent_at timestamp with time zone, overdue_last_notified_at timestamp with time zone",null
+public,task_documents,table,true,false,false,postgres,-1,40 kB,"Many-to-many link between a project's documents and its tasks. document_id here MUST belong to the SAME project as task_id's own project_id -- enforced by trigger (enforce_task_document_same_project), not just RLS. Rows are immutable -- no UPDATE policy; ""editing"" a link is unlink + re-link.","task_id uuid, document_id uuid, linked_by uuid, linked_at timestamp with time zone",null
+public,tasks,table,true,false,false,postgres,58,88 kB,Linked to exactly one project (req #3). ALL project members (incl. cc) see ALL tasks (req #6) -- only task_assignees can update one.,"id uuid, project_id uuid, title text, description text, status task_status, due_date date, created_by uuid, created_at timestamp with time zone, updated_at timestamp with time zone, start_date date, completed_date date, is_completed_late boolean",null
+public,termination_reason,table,true,false,false,postgres,-1,32 kB,Reason of Termination,"id bigint, name text, description text, created_at timestamp with time zone, updated_at timestamp with time zone",null
+public,work_locations,table,true,false,false,postgres,-1,48 kB,null,"id bigint, sub text, name text, early_leave_time time without time zone, created_at timestamp with time zone, updated_at timestamp with time zone, link text",null
+public,attendance_activities_hr_view,view,false,false,on,postgres,-1,0 bytes,null,"id uuid, employee_id uuid, employee_name text, employee_code text, department_id bigint, department_name text, employee_position text, attendance_type_id bigint, attendance_type_name text, clocked_in_at timestamp with time zone, clocked_out_at timestamp with time zone, notes text, location text, photo_url text, approval_status attendance_approval_status, approved_by uuid, approved_by_name text, approved_at timestamp with time zone, rejection_reason text, created_at timestamp with time zone, avatar_url text, employee_preferred_name text"," SELECT aa.id,
+    aa.employee_id,
+    e.full_name AS employee_name,
+    e.employee_id AS employee_code,
+    e.department_id,
+    d.name AS department_name,
+    e.""position"" AS employee_position,
+    at.id AS attendance_type_id,
+    at.name AS attendance_type_name,
+    aa.clocked_in_at,
+    aa.clocked_out_at,
+    aa.notes,
+    aa.location,
+    aa.photo_url,
+    aa.approval_status,
+    aa.approved_by,
+    ap.full_name AS approved_by_name,
+    aa.approved_at,
+    aa.rejection_reason,
+    aa.created_at,
+    p.avatar_url,
+    e.preferred_name AS employee_preferred_name
+   FROM attendance_activities aa
+     LEFT JOIN employees e ON e.id = aa.employee_id
+     LEFT JOIN profiles p ON p.id = e.profile_id
+     LEFT JOIN departments d ON d.id = e.department_id
+     LEFT JOIN attendance_types at ON at.id = aa.attendance_type_id
+     LEFT JOIN employees ap ON ap.id = aa.approved_by;"
+public,attendance_activity_audit,view,false,false,on,postgres,-1,0 bytes,null,"activity_id text, employee_uuid uuid, company_employee_code text, full_name text, work_date date, event_source text, attendance_type text, check_in_time timestamp with time zone, check_out_time timestamp with time zone, approval_status text, activity_audit_flag text, day_fraction numeric, remarks text, is_leave_attendance_conflict boolean, is_insufficient_half_day_hours boolean, has_leave_fraction_error boolean, is_worked_on_holiday boolean, holiday_hours_worked numeric, attendance_type_id bigint, photo_url text, notes text, entry_method text, adjustment_reason_id bigint, adjustment_reason_label text"," WITH app_events AS (
+         SELECT aa.id::text AS activity_id,
+            aa.employee_id AS employee_uuid,
+            e.employee_id AS company_employee_code,
+            e.full_name,
+            date((aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) AS work_date,
+            'App'::text AS event_source,
+            at.name AS attendance_type,
+            aa.clocked_in_at AS check_in_time,
+            aa.clocked_out_at AS check_out_time,
+            aa.approval_status::text AS approval_status,
+                CASE
+                    WHEN aa.clocked_out_at IS NULL THEN 'Missing Check-Out'::text
+                    ELSE 'Valid'::text
+                END AS activity_audit_flag,
+            NULL::numeric AS day_fraction,
+            NULL::text AS remarks,
+            aa.attendance_type_id,
+            aa.photo_url,
+            aa.notes,
+            aa.entry_method,
+            aa.adjustment_reason_id
+           FROM attendance_activities aa
+             JOIN employees e ON aa.employee_id = e.id
+             LEFT JOIN attendance_types at ON aa.attendance_type_id = at.id
+        ), hw_events AS (
+         SELECT md5((e.id::text || COALESCE(h.scanner_location, 'HW'::text)) || date((h.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text))::text) AS activity_id,
+            e.id AS employee_uuid,
+            h.employee_id AS company_employee_code,
+            e.full_name,
+            date((h.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) AS work_date,
+            'Hardware'::text AS event_source,
+            COALESCE(h.scanner_location, 'On-Site'::text) AS attendance_type,
+            min(h.scanned_at) AS check_in_time,
+            NULLIF(max(h.scanned_at), min(h.scanned_at)) AS check_out_time,
+            'System Verified'::text AS approval_status,
+                CASE
+                    WHEN count(*) = 1 THEN 'Incomplete Scans'::text
+                    ELSE 'Valid'::text
+                END AS activity_audit_flag,
+            NULL::numeric AS day_fraction,
+            NULL::text AS remarks,
+            NULL::bigint AS attendance_type_id,
+            NULL::text AS photo_url,
+            NULL::text AS notes,
+            NULL::text AS entry_method,
+            NULL::bigint AS adjustment_reason_id
+           FROM attendance_logs h
+             JOIN employees e ON h.employee_id = e.employee_id
+          GROUP BY e.id, h.employee_id, e.full_name, h.scanner_location, (date((h.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)))
+        ), leave_events AS (
+         SELECT 'leave-'::text || le.id::text AS activity_id,
+            le.employee_id AS employee_uuid,
+            e.employee_id AS company_employee_code,
+            e.full_name,
+            le.leave_date AS work_date,
+            'Leave'::text AS event_source,
+            ('On Leave ('::text || lt.code) || ')'::text AS attendance_type,
+            NULL::timestamp with time zone AS check_in_time,
+            NULL::timestamp with time zone AS check_out_time,
+            'Approved'::text AS approval_status,
+            'On Leave'::text AS activity_audit_flag,
+            le.day_fraction,
+            le.remarks,
+            NULL::bigint AS attendance_type_id,
+            NULL::text AS photo_url,
+            NULL::text AS notes,
+            NULL::text AS entry_method,
+            NULL::bigint AS adjustment_reason_id
+           FROM leave_ledger_entries le
+             JOIN leave_ledger_types lt ON lt.id = le.leave_type_id
+             JOIN employees e ON e.id = le.employee_id
+        ), holiday_events AS (
+         SELECT DISTINCT ON (e.id, ph.holiday_date) 'holiday-'::text || ph.id::text AS activity_id,
+            e.id AS employee_uuid,
+            e.employee_id AS company_employee_code,
+            e.full_name,
+            ph.holiday_date AS work_date,
+            'Holiday'::text AS event_source,
+            ('Public Holiday ('::text || ph.name) || ')'::text AS attendance_type,
+            NULL::timestamp with time zone AS check_in_time,
+            NULL::timestamp with time zone AS check_out_time,
+            'Approved'::text AS approval_status,
+            'Public Holiday'::text AS activity_audit_flag,
+            NULL::numeric AS day_fraction,
+            NULL::text AS remarks,
+            NULL::bigint AS attendance_type_id,
+            NULL::text AS photo_url,
+            NULL::text AS notes,
+            NULL::text AS entry_method,
+            NULL::bigint AS adjustment_reason_id
+           FROM public_holidays ph
+             JOIN employees e ON ph.work_location_id = e.work_location_id OR ph.work_location_id IS NULL
+             JOIN employment_status es ON es.id = e.employment_status_id AND es.category = 'active'::text
+          ORDER BY e.id, ph.holiday_date, ph.work_location_id
+        ), all_events AS (
+         SELECT app_events.activity_id,
+            app_events.employee_uuid,
+            app_events.company_employee_code,
+            app_events.full_name,
+            app_events.work_date,
+            app_events.event_source,
+            app_events.attendance_type,
+            app_events.check_in_time,
+            app_events.check_out_time,
+            app_events.approval_status,
+            app_events.activity_audit_flag,
+            app_events.day_fraction,
+            app_events.remarks,
+            app_events.attendance_type_id,
+            app_events.photo_url,
+            app_events.notes,
+            app_events.entry_method,
+            app_events.adjustment_reason_id
+           FROM app_events
+        UNION ALL
+         SELECT hw_events.activity_id,
+            hw_events.employee_uuid,
+            hw_events.company_employee_code,
+            hw_events.full_name,
+            hw_events.work_date,
+            hw_events.event_source,
+            hw_events.attendance_type,
+            hw_events.check_in_time,
+            hw_events.check_out_time,
+            hw_events.approval_status,
+            hw_events.activity_audit_flag,
+            hw_events.day_fraction,
+            hw_events.remarks,
+            hw_events.attendance_type_id,
+            hw_events.photo_url,
+            hw_events.notes,
+            hw_events.entry_method,
+            hw_events.adjustment_reason_id
+           FROM hw_events
+        UNION ALL
+         SELECT leave_events.activity_id,
+            leave_events.employee_uuid,
+            leave_events.company_employee_code,
+            leave_events.full_name,
+            leave_events.work_date,
+            leave_events.event_source,
+            leave_events.attendance_type,
+            leave_events.check_in_time,
+            leave_events.check_out_time,
+            leave_events.approval_status,
+            leave_events.activity_audit_flag,
+            leave_events.day_fraction,
+            leave_events.remarks,
+            leave_events.attendance_type_id,
+            leave_events.photo_url,
+            leave_events.notes,
+            leave_events.entry_method,
+            leave_events.adjustment_reason_id
+           FROM leave_events
+        UNION ALL
+         SELECT holiday_events.activity_id,
+            holiday_events.employee_uuid,
+            holiday_events.company_employee_code,
+            holiday_events.full_name,
+            holiday_events.work_date,
+            holiday_events.event_source,
+            holiday_events.attendance_type,
+            holiday_events.check_in_time,
+            holiday_events.check_out_time,
+            holiday_events.approval_status,
+            holiday_events.activity_audit_flag,
+            holiday_events.day_fraction,
+            holiday_events.remarks,
+            holiday_events.attendance_type_id,
+            holiday_events.photo_url,
+            holiday_events.notes,
+            holiday_events.entry_method,
+            holiday_events.adjustment_reason_id
+           FROM holiday_events
+        )
+ SELECT ae.activity_id,
+    ae.employee_uuid,
+    ae.company_employee_code,
+    ae.full_name,
+    ae.work_date,
+    ae.event_source,
+    ae.attendance_type,
+    ae.check_in_time,
+    ae.check_out_time,
+    ae.approval_status,
+    ae.activity_audit_flag,
+    ae.day_fraction,
+    ae.remarks,
+    uda.is_leave_attendance_conflict,
+    uda.is_insufficient_half_day_hours,
+    uda.has_leave_fraction_error,
+    uda.is_worked_on_holiday,
+    uda.holiday_hours_worked,
+    ae.attendance_type_id,
+    ae.photo_url,
+    ae.notes,
+    ae.entry_method,
+    ae.adjustment_reason_id,
+    ar.label AS adjustment_reason_label
+   FROM all_events ae
+     LEFT JOIN unified_daily_attendance uda ON uda.employee_uuid = ae.employee_uuid AND uda.work_date = ae.work_date
+     LEFT JOIN attendance_adjustment_reasons ar ON ar.id = ae.adjustment_reason_id;"
+public,documents_with_context,view,false,false,true,postgres,-1,0 bytes,"Project-scoped document library listing, with aggregated linked-task ids/titles so a page can show ""linked to: Task A, Task B"" without an N+1 query per document. security_invoker=true is load-bearing -- without it this view would leak every project's documents to every authenticated user regardless of documents/projects/task_documents RLS.","id uuid, project_id uuid, project_name text, drive_file_id text, name text, url text, mime_type text, icon_url text, attached_by uuid, attached_by_name text, attached_at timestamp with time zone, linked_task_ids uuid[], linked_task_titles text[], linked_task_count bigint"," SELECT d.id,
+    d.project_id,
+    p.name AS project_name,
+    d.drive_file_id,
+    d.name,
+    d.url,
+    d.mime_type,
+    d.icon_url,
+    d.attached_by,
+    e.full_name AS attached_by_name,
+    d.attached_at,
+    COALESCE(lt.linked_task_ids, '{}'::uuid[]) AS linked_task_ids,
+    COALESCE(lt.linked_task_titles, '{}'::text[]) AS linked_task_titles,
+    lt.linked_task_count
+   FROM documents d
+     JOIN projects p ON p.id = d.project_id
+     LEFT JOIN employees e ON e.id = d.attached_by
+     LEFT JOIN LATERAL ( SELECT array_agg(t.id ORDER BY t.created_at) AS linked_task_ids,
+            array_agg(t.title ORDER BY t.created_at) AS linked_task_titles,
+            count(*) AS linked_task_count
+           FROM task_documents td
+             JOIN tasks t ON t.id = td.task_id
+          WHERE td.document_id = d.id) lt ON true;"
+public,employee_lifecycle_cases_with_progress,view,false,false,true,postgres,-1,0 bytes,"Per-case completed(DONE+SKIPPED)/total item progress %, backing CaseCard/ProgressBar/OverviewCards KPIs. NULL progress_percentage means the case has no seeded items yet (should not happen in practice -- get_or_create_*_case() always seeds the full fixed set atomically).","id uuid, employee_id uuid, case_type lifecycle_case_type, status lifecycle_case_status, opened_at timestamp with time zone, opened_reason text, expected_last_day date, employee_can_view boolean, closed_at timestamp with time zone, closed_reason text, it_revocation_reminder_last_notified_at timestamp with time zone, overdue_last_notified_at timestamp with time zone, created_at timestamp with time zone, updated_at timestamp with time zone, total_item_count bigint, skipped_item_count bigint, completed_item_count bigint, progress_percentage numeric"," SELECT c.id,
+    c.employee_id,
+    c.case_type,
+    c.status,
+    c.opened_at,
+    c.opened_reason,
+    c.expected_last_day,
+    c.employee_can_view,
+    c.closed_at,
+    c.closed_reason,
+    c.it_revocation_reminder_last_notified_at,
+    c.overdue_last_notified_at,
+    c.created_at,
+    c.updated_at,
+    count(i.id) AS total_item_count,
+    count(i.id) FILTER (WHERE i.status = 'SKIPPED'::lifecycle_item_status) AS skipped_item_count,
+    count(i.id) FILTER (WHERE i.status = ANY (ARRAY['DONE'::lifecycle_item_status, 'SKIPPED'::lifecycle_item_status])) AS completed_item_count,
+        CASE
+            WHEN count(i.id) = 0 THEN NULL::numeric
+            ELSE round(100.0 * count(i.id) FILTER (WHERE i.status = ANY (ARRAY['DONE'::lifecycle_item_status, 'SKIPPED'::lifecycle_item_status]))::numeric / count(i.id)::numeric)
+        END AS progress_percentage
+   FROM employee_lifecycle_cases c
+     LEFT JOIN employee_lifecycle_case_items i ON i.case_id = c.id
+  GROUP BY c.id;"
+public,employees_public,view,false,false,false,postgres,-1,0 bytes,null,"id uuid, full_name text, preferred_name text, email_work text, phone_work numeric, employment_status text, position text, department_id bigint, department_name text, employee_id text, profile_id uuid, address_work text, nationality_id bigint, nationality_name text, employment_type_id bigint, employment_type_name text, avatar_url text, manager_id uuid, manager_name text, manager_employee_id text, manager_profile_id uuid, manager_preferred_name text, manager_position text, manager_phone numeric, manager_email text, manager_address_work text, manager_avatar_url text, manager_department_name text, employment_status_name text, employment_status_category text, manager_employment_status_name text, current_status text, last_status_time text, first_arrival_time text, current_attendance_id uuid, current_attendance_type_id bigint, is_on_leave_today boolean, leave_type_codes_today text, work_location_name text, work_location_code text, personal_address_line1 text, personal_address_line2 text, personal_address_city text, personal_address_state text, personal_address_postcode text, personal_address_country text"," SELECT e.id,
+    e.full_name,
+    e.preferred_name,
+    e.email_work,
+    e.phone_work,
+    e.employment_status,
+    e.""position"",
+    e.department_id,
+    d.name AS department_name,
+    e.employee_id,
+    e.profile_id,
+    e.address_work,
+    e.nationality_id,
+    n.name AS nationality_name,
+    e.employment_type_id,
+    et.name AS employment_type_name,
+    p.avatar_url,
+    e.manager_id,
+    m.full_name AS manager_name,
+    m.employee_id AS manager_employee_id,
+    m.profile_id AS manager_profile_id,
+    m.preferred_name AS manager_preferred_name,
+    m.""position"" AS manager_position,
+    m.phone_work AS manager_phone,
+    m.email_work AS manager_email,
+    NULL::text AS manager_address_work,
+    mp.avatar_url AS manager_avatar_url,
+    md.name AS manager_department_name,
+    es.name AS employment_status_name,
+    es.category AS employment_status_category,
+    mes.name AS manager_employment_status_name,
+        CASE
+            WHEN app.latest_event_time IS NOT NULL AND app.clocked_out_at IS NOT NULL AND app.latest_event_time = app.clocked_out_at AND (hw.scanned_at IS NULL OR app.latest_event_time > hw.scanned_at) THEN 'Offline'::text
+            WHEN app.latest_event_time IS NOT NULL AND (hw.scanned_at IS NULL OR app.latest_event_time > hw.scanned_at) THEN app.type_name
+            WHEN hw.scanned_at IS NOT NULL THEN hw.scanner_location
+            WHEN lv.leave_type_codes IS NOT NULL THEN ('On Leave ('::text || lv.leave_type_codes) || ')'::text
+            ELSE 'Offline / Not Arrived'::text
+        END AS current_status,
+    to_char((GREATEST(app.latest_event_time, hw.scanned_at) AT TIME ZONE 'Asia/Kuala_Lumpur'::text), 'HH12:MI AM'::text) AS last_status_time,
+    to_char((LEAST(first_app.first_app_time, first_hw.first_hw_time) AT TIME ZONE 'Asia/Kuala_Lumpur'::text), 'HH12:MI AM'::text) AS first_arrival_time,
+    app.id AS current_attendance_id,
+    app.attendance_type_id AS current_attendance_type_id,
+    lv.leave_type_codes IS NOT NULL AS is_on_leave_today,
+    lv.leave_type_codes AS leave_type_codes_today,
+    wl.name AS work_location_name,
+    wl.sub AS work_location_code,
+    pa.line1 AS personal_address_line1,
+    pa.line2 AS personal_address_line2,
+    pa.city AS personal_address_city,
+    pa.state AS personal_address_state,
+    pa.postcode AS personal_address_postcode,
+    pa.country AS personal_address_country
+   FROM employees e
+     LEFT JOIN profiles p ON p.id = e.profile_id
+     LEFT JOIN departments d ON d.id = e.department_id
+     LEFT JOIN employees m ON m.id = e.manager_id
+     LEFT JOIN profiles mp ON mp.id = m.profile_id
+     LEFT JOIN departments md ON md.id = m.department_id
+     LEFT JOIN employment_status es ON es.id = e.employment_status_id
+     LEFT JOIN employment_status mes ON mes.id = m.employment_status_id
+     LEFT JOIN nationalities n ON n.id = e.nationality_id
+     LEFT JOIN employment_type et ON et.id = e.employment_type_id
+     LEFT JOIN work_locations wl ON wl.id = e.work_location_id
+     LEFT JOIN addresses pa ON pa.id = e.personal_address_id
+     LEFT JOIN LATERAL ( SELECT a.id,
+            a.attendance_type_id,
+            at.name AS type_name,
+            a.clocked_in_at,
+            a.clocked_out_at,
+            GREATEST(a.clocked_in_at, COALESCE(a.clocked_out_at, '1970-01-01 00:00:00+00'::timestamp with time zone)) AS latest_event_time
+           FROM attendance_activities a
+             LEFT JOIN attendance_types at ON a.attendance_type_id = at.id
+          WHERE a.employee_id = e.id AND date((a.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) = CURRENT_DATE
+          ORDER BY (GREATEST(a.clocked_in_at, COALESCE(a.clocked_out_at, '1970-01-01 00:00:00+00'::timestamp with time zone))) DESC
+         LIMIT 1) app ON true
+     LEFT JOIN LATERAL ( SELECT attendance_logs.scanner_location,
+            attendance_logs.scanned_at
+           FROM attendance_logs
+          WHERE attendance_logs.employee_id = e.employee_id AND date((attendance_logs.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) = CURRENT_DATE
+          ORDER BY attendance_logs.scanned_at DESC
+         LIMIT 1) hw ON true
+     LEFT JOIN LATERAL ( SELECT min(attendance_activities.clocked_in_at) AS first_app_time
+           FROM attendance_activities
+          WHERE attendance_activities.employee_id = e.id AND date((attendance_activities.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) = CURRENT_DATE) first_app ON true
+     LEFT JOIN LATERAL ( SELECT min(attendance_logs.scanned_at) AS first_hw_time
+           FROM attendance_logs
+          WHERE attendance_logs.employee_id = e.employee_id AND date((attendance_logs.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) = CURRENT_DATE) first_hw ON true
+     LEFT JOIN LATERAL ( SELECT string_agg(DISTINCT lt.code, '+'::text ORDER BY lt.code) AS leave_type_codes
+           FROM leave_ledger_entries le
+             JOIN leave_ledger_types lt ON lt.id = le.leave_type_id
+          WHERE le.employee_id = e.id AND le.leave_date = CURRENT_DATE) lv ON true;"
+public,project_departments,view,false,false,true,postgres,-1,0 bytes,null,"project_id uuid, department_id bigint, department_name text, department_sub text"," SELECT DISTINCT pm.project_id,
+    e.department_id,
+    d.name AS department_name,
+    d.sub AS department_sub
+   FROM project_members pm
+     JOIN employees e ON e.id = pm.employee_id
+     JOIN departments d ON d.id = e.department_id
+  WHERE e.department_id IS NOT NULL;"
+public,project_progress,view,false,false,true,postgres,-1,0 bytes,"Per-project completed/total-non-cancelled progress %, req #9. NULL (not 0) progress_percentage means zero non-cancelled tasks exist yet.","project_id uuid, total_task_count bigint, cancelled_task_count bigint, active_task_count bigint, completed_task_count bigint, progress_percentage numeric"," SELECT p.id AS project_id,
+    count(t.id) AS total_task_count,
+    count(t.id) FILTER (WHERE t.status = 'CANCELLED'::task_status) AS cancelled_task_count,
+    count(t.id) FILTER (WHERE t.status <> 'CANCELLED'::task_status) AS active_task_count,
+    count(t.id) FILTER (WHERE t.status = 'COMPLETED'::task_status) AS completed_task_count,
+        CASE
+            WHEN count(t.id) FILTER (WHERE t.status <> 'CANCELLED'::task_status) = 0 THEN NULL::numeric
+            ELSE round(100.0 * count(t.id) FILTER (WHERE t.status = 'COMPLETED'::task_status)::numeric / count(t.id) FILTER (WHERE t.status <> 'CANCELLED'::task_status)::numeric)
+        END AS progress_percentage
+   FROM projects p
+     LEFT JOIN tasks t ON t.project_id = p.id
+  GROUP BY p.id;"
+public,projects_with_progress,view,false,false,true,postgres,-1,0 bytes,null,"id uuid, name text, description text, status project_status, category_id bigint, start_date date, target_end_date date, created_by uuid, created_at timestamp with time zone, updated_at timestamp with time zone, completed_date date, deadline_reminder_sent_at timestamp with time zone, overdue_last_notified_at timestamp with time zone, drive_folder_url text, total_task_count bigint, cancelled_task_count bigint, active_task_count bigint, completed_task_count bigint, progress_percentage numeric"," SELECT p.id,
+    p.name,
+    p.description,
+    p.status,
+    p.category_id,
+    p.start_date,
+    p.target_end_date,
+    p.created_by,
+    p.created_at,
+    p.updated_at,
+    p.completed_date,
+    p.deadline_reminder_sent_at,
+    p.overdue_last_notified_at,
+    p.drive_folder_url,
+    pp.total_task_count,
+    pp.cancelled_task_count,
+    pp.active_task_count,
+    pp.completed_task_count,
+    pp.progress_percentage
+   FROM projects p
+     JOIN project_progress pp ON pp.project_id = p.id;"
+public,sales_collection_facts,view,false,false,on,postgres,-1,0 bytes,null,"payment_doc_entry bigint, payment_date date, invoice_doc_entry bigint, customer_code text, customer_name text, sales_rep_code bigint, applied_myr numeric"," SELECT p.doc_entry AS payment_doc_entry,
+    NULLIF(p.payment_date, ''::text)::date AS payment_date,
+    i.doc_entry AS invoice_doc_entry,
+    i.customer_code,
+    COALESCE(sc.customer_name, i.customer_name) AS customer_name,
+    i.sales_rep_code,
+    pa.amount_applied_myr AS applied_myr
+   FROM sap_payment_applications pa
+     JOIN sap_payments p ON p.doc_entry = pa.payment_ref
+     JOIN sap_invoices i ON i.doc_entry = pa.doc_entry AND pa.inv_type = 13
+     LEFT JOIN sap_customers sc ON sc.customer_code = i.customer_code
+  WHERE p.is_cancelled = 'N'::text AND i.is_cancelled = 'N'::text;"
+public,sales_invoice_facts,view,false,false,on,postgres,-1,0 bytes,null,"doc_entry bigint, invoice_date date, customer_code text, customer_name text, local_export_flag text, sales_rep_code bigint, invoiced_myr numeric, gross_profit_myr numeric, doc_myr_ratio numeric, invoiced_before_tax_myr numeric"," SELECT i.doc_entry,
+    NULLIF(i.invoice_date, ''::text)::date AS invoice_date,
+    i.customer_code,
+    COALESCE(sc.customer_name, i.customer_name) AS customer_name,
+    sc.local_export_flag,
+    i.sales_rep_code,
+    i.total_amount_myr AS invoiced_myr,
+        CASE
+            WHEN i.total_amount_myr <> 0::numeric AND abs(i.gross_profit) > (abs(i.total_amount_myr) * 5::numeric) THEN NULL::numeric
+            ELSE i.gross_profit
+        END AS gross_profit_myr,
+        CASE
+            WHEN i.total_amount <> 0::numeric THEN i.total_amount_myr / i.total_amount
+            ELSE 1::numeric
+        END AS doc_myr_ratio,
+    i.total_amount_myr - COALESCE(i.tax_amount, 0::numeric) AS invoiced_before_tax_myr
+   FROM sap_invoices i
+     LEFT JOIN sap_customers sc ON sc.customer_code = i.customer_code
+  WHERE i.is_cancelled = 'N'::text;"
+public,sales_invoice_line_facts,view,false,false,on,postgres,-1,0 bytes,null,"doc_entry bigint, line_num bigint, invoice_date date, customer_code text, sales_rep_code bigint, item_code text, item_name text, item_group_name text, quantity numeric, line_before_tax_myr numeric"," SELECT il.doc_entry,
+    il.line_num,
+    f.invoice_date,
+    f.customer_code,
+    f.sales_rep_code,
+    il.item_code,
+        CASE
+            WHEN COALESCE(NULLIF(it.inventory_uom, ''::text), NULLIF(it.sales_uom, ''::text)) IS NOT NULL THEN ((COALESCE(it.item_name, il.item_code) || ' - ('::text) || COALESCE(NULLIF(it.inventory_uom, ''::text), it.sales_uom)) || ')'::text
+            ELSE COALESCE(it.item_name, il.item_code)
+        END AS item_name,
+    COALESCE(ig.group_name, 'Ungrouped'::text) AS item_group_name,
+    il.quantity,
+    il.line_total * f.doc_myr_ratio AS line_before_tax_myr
+   FROM sap_invoice_lines il
+     JOIN sales_invoice_facts f ON f.doc_entry = il.doc_entry
+     LEFT JOIN sap_items it ON it.item_code = il.item_code
+     LEFT JOIN sap_item_groups ig ON ig.group_code = it.item_group_code;"
+public,sales_lead_facts,view,false,false,on,postgres,-1,0 bytes,null,"lead_id uuid, outcome text, stage text, is_on_hold boolean, created_on date, closed_on date, owner_employee_id uuid, account_key text, account_name text, product_type product_type, lead_source_type_id bigint, lead_source text, lost_reason text, expected_myr numeric, close_probability numeric, won_myr numeric, po_number text, pending_sap_order boolean, is_cancelled boolean"," WITH closing AS (
+         SELECT sales_leads_stage_history.lead_id,
+            max(sales_leads_stage_history.changed_at) AS closed_at
+           FROM sales_leads_stage_history
+          WHERE sales_leads_stage_history.new_stage = ANY (ARRAY['WON'::sales_leads_stage, 'LOST'::sales_leads_stage])
+          GROUP BY sales_leads_stage_history.lead_id
+        ), classified AS (
+         SELECT sl_1.id,
+            sl_1.client_id,
+            sl_1.lead_owner_id,
+            sl_1.title,
+            sl_1.description,
+            sl_1.close_probability,
+            sl_1.expected_revenue,
+            sl_1.lose_reason_id,
+            sl_1.cancel_reason,
+            sl_1.hold_reason,
+            sl_1.notes,
+            sl_1.created_at,
+            sl_1.updated_at,
+            sl_1.lead_source_type_id,
+            sl_1.is_on_hold,
+            sl_1.stage,
+            sl_1.is_cancelled,
+            sl_1.actual_revenue,
+            sl_1.po_number,
+            sl_1.po_document_url,
+            sl_1.quotation_url,
+            sl_1.product_type,
+            sl_1.sap_customer_code,
+                CASE
+                    WHEN sl_1.is_cancelled OR sl_1.stage = 'LOST'::sales_leads_stage THEN 'lost'::text
+                    WHEN sl_1.stage = 'WON'::sales_leads_stage THEN 'won'::text
+                    ELSE 'open'::text
+                END AS outcome
+           FROM sales_leads sl_1
+        )
+ SELECT sl.id AS lead_id,
+    sl.outcome,
+    sl.stage::text AS stage,
+    sl.is_on_hold,
+    (sl.created_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)::date AS created_on,
+        CASE
+            WHEN sl.outcome <> 'open'::text THEN (COALESCE(c.closed_at, sl.updated_at) AT TIME ZONE 'Asia/Kuala_Lumpur'::text)::date
+            ELSE NULL::date
+        END AS closed_on,
+    sl.lead_owner_id AS owner_employee_id,
+    COALESCE(sl.client_id::text, sl.sap_customer_code) AS account_key,
+    COALESCE(cl.name, sc.customer_name) AS account_name,
+    sl.product_type,
+    sl.lead_source_type_id,
+    COALESCE(lst.name, 'Unspecified'::text) AS lead_source,
+        CASE
+            WHEN sl.outcome = 'lost'::text THEN
+            CASE
+                WHEN sl.is_cancelled THEN 'Cancelled'::text
+                ELSE COALESCE(lr.name, 'No reason given'::text)
+            END
+            ELSE NULL::text
+        END AS lost_reason,
+    sl.expected_revenue AS expected_myr,
+    sl.close_probability,
+        CASE
+            WHEN sl.outcome = 'won'::text THEN sl.actual_revenue
+            ELSE NULL::numeric
+        END AS won_myr,
+    sl.po_number,
+    COALESCE(sl.outcome = 'won'::text AND sl.po_number IS NOT NULL AND NOT (EXISTS ( SELECT 1
+           FROM sap_sales_orders sso
+          WHERE sso.customer_ref = sl.po_number)), false) AS pending_sap_order,
+    COALESCE(sl.is_cancelled, false) AS is_cancelled
+   FROM classified sl
+     LEFT JOIN closing c ON c.lead_id = sl.id
+     LEFT JOIN clients cl ON cl.id = sl.client_id
+     LEFT JOIN sap_customers sc ON sc.customer_code = sl.sap_customer_code
+     LEFT JOIN lead_source_types lst ON lst.id = sl.lead_source_type_id
+     LEFT JOIN sales_leads_lose_reasons lr ON lr.id = sl.lose_reason_id;"
+public,sales_leads_list,view,false,false,on,postgres,-1,0 bytes,null,"id uuid, client_id uuid, lead_owner_id uuid, title text, description text, close_probability numeric, expected_revenue numeric, lose_reason_id bigint, cancel_reason text, hold_reason text, notes text, created_at timestamp with time zone, updated_at timestamp with time zone, lead_source_type_id bigint, is_on_hold boolean, stage sales_leads_stage, is_cancelled boolean, actual_revenue numeric, po_number text, po_document_url text, quotation_url text, product_type product_type, sap_customer_code text, outcome text, created_on date, closed_on date, pending_sap_order boolean, won_myr numeric"," SELECT sl.id,
+    sl.client_id,
+    sl.lead_owner_id,
+    sl.title,
+    sl.description,
+    sl.close_probability,
+    sl.expected_revenue,
+    sl.lose_reason_id,
+    sl.cancel_reason,
+    sl.hold_reason,
+    sl.notes,
+    sl.created_at,
+    sl.updated_at,
+    sl.lead_source_type_id,
+    sl.is_on_hold,
+    sl.stage,
+    sl.is_cancelled,
+    sl.actual_revenue,
+    sl.po_number,
+    sl.po_document_url,
+    sl.quotation_url,
+    sl.product_type,
+    sl.sap_customer_code,
+    f.outcome,
+    f.created_on,
+    f.closed_on,
+    f.pending_sap_order,
+    f.won_myr
+   FROM sales_leads sl
+     JOIN sales_lead_facts f ON f.lead_id = sl.id;"
+public,sales_order_book_facts,view,false,false,on,postgres,-1,0 bytes,null,"doc_entry bigint, order_date date, delivery_date date, customer_code text, sales_rep_code bigint, order_value_myr numeric, is_open boolean, is_overdue boolean, delivered_not_invoiced boolean"," SELECT doc_entry,
+    NULLIF(order_date, ''::text)::date AS order_date,
+    NULLIF(delivery_date, ''::text)::date AS delivery_date,
+    customer_code,
+    sales_rep_code,
+    total_amount_myr AS order_value_myr,
+    status_code = 'O'::text AND NOT is_fully_delivered AS is_open,
+    COALESCE(status_code = 'O'::text AND NOT is_fully_delivered AND NULLIF(delivery_date, ''::text)::date < CURRENT_DATE, false) AS is_overdue,
+    is_fully_delivered AND matched_invoice_count = 0 AS delivered_not_invoiced
+   FROM sap_sales_orders_with_fulfillment f
+  WHERE is_cancelled = 'N'::text;"
+public,sales_order_facts,view,false,false,on,postgres,-1,0 bytes,null,"doc_entry bigint, order_date date, customer_code text, sales_rep_code bigint, booked_myr numeric"," SELECT doc_entry,
+    NULLIF(order_date, ''::text)::date AS order_date,
+    customer_code,
+    sales_rep_code,
+    total_amount_myr AS booked_myr
+   FROM sap_sales_orders o
+  WHERE is_cancelled = 'N'::text;"
+public,sales_receivable_facts,view,false,false,on,postgres,-1,0 bytes,null,"doc_entry bigint, invoice_date date, customer_code text, customer_name text, sales_rep_code bigint, outstanding_myr numeric, due_date date, days_past_due integer"," SELECT b.doc_entry,
+    NULLIF(b.invoice_date, ''::text)::date AS invoice_date,
+    b.customer_code,
+    COALESCE(sc.customer_name, b.customer_name) AS customer_name,
+    b.sales_rep_code,
+    b.outstanding_balance AS outstanding_myr,
+    NULLIF(b.due_date, ''::text)::date AS due_date,
+    CURRENT_DATE - NULLIF(b.due_date, ''::text)::date AS days_past_due
+   FROM sap_invoices_with_balance b
+     LEFT JOIN sap_customers sc ON sc.customer_code = b.customer_code
+  WHERE b.is_cancelled = 'N'::text AND b.status_code = 'O'::text AND b.outstanding_balance > 0.01;"
+public,sales_won_lead_facts,view,false,false,on,postgres,-1,0 bytes,null,"lead_id uuid, closed_on date, owner_employee_id uuid, account_key text, account_name text, product_type product_type, lead_source_type_id bigint, won_myr numeric"," SELECT lead_id,
+    closed_on,
+    owner_employee_id,
+    account_key,
+    account_name,
+    product_type,
+    lead_source_type_id,
+    won_myr
+   FROM sales_lead_facts
+  WHERE outcome = 'won'::text;"
+public,sap_gl_journal_entries_with_flags,view,false,false,on,postgres,-1,0 bytes,null,"trans_id bigint, posting_date text, due_date text, memo text, reference_1 text, reference_2 text, trans_type text, created_at text, updated_at text, total_debit_myr numeric, total_credit_myr numeric, is_unbalanced boolean, has_nonpostable_posting boolean"," SELECT je.trans_id,
+    je.posting_date,
+    je.due_date,
+    je.memo,
+    je.reference_1,
+    je.reference_2,
+    je.trans_type,
+    je.created_at,
+    je.updated_at,
+    COALESCE(agg.total_debit_myr, 0::numeric) AS total_debit_myr,
+    COALESCE(agg.total_credit_myr, 0::numeric) AS total_credit_myr,
+    abs(COALESCE(agg.total_debit_myr, 0::numeric) - COALESCE(agg.total_credit_myr, 0::numeric)) > 0.01 AS is_unbalanced,
+    COALESCE(agg.has_nonpostable_posting, false) AS has_nonpostable_posting
+   FROM sap_gl_journal_entries je
+     LEFT JOIN LATERAL ( SELECT sum(jl.debit_amount_myr) AS total_debit_myr,
+            sum(jl.credit_amount_myr) AS total_credit_myr,
+            bool_or(COALESCE(a.is_postable, 'Y'::text) = 'N'::text) AS has_nonpostable_posting
+           FROM sap_gl_journal_lines jl
+             LEFT JOIN sap_gl_accounts a ON a.account_code = jl.account_code
+          WHERE jl.trans_id = je.trans_id) agg ON true;"
+public,sap_gl_journal_lines_with_entry_info,view,false,false,false,postgres,-1,0 bytes,null,"trans_id bigint, line_id bigint, account_code text, debit_amount numeric, credit_amount numeric, debit_amount_myr numeric, credit_amount_myr numeric, bp_code text, posting_date text, due_date text, memo text, reference_1 text, reference_2 text, trans_type text"," SELECT jl.trans_id,
+    jl.line_id,
+    jl.account_code,
+    jl.debit_amount,
+    jl.credit_amount,
+    jl.debit_amount_myr,
+    jl.credit_amount_myr,
+    jl.bp_code,
+    je.posting_date,
+    je.due_date,
+    je.memo,
+    je.reference_1,
+    je.reference_2,
+    je.trans_type
+   FROM sap_gl_journal_lines jl
+     JOIN sap_gl_journal_entries je ON je.trans_id = jl.trans_id;"
+public,sap_invoices_with_balance,view,false,false,on,postgres,-1,0 bytes,null,"doc_entry bigint, invoice_number bigint, invoice_date text, due_date text, created_at text, updated_at text, status_code text, is_cancelled text, customer_code text, customer_name text, sales_rep_code bigint, owner_code bigint, ship_to_code text, customer_ref text, total_amount numeric, currency text, total_amount_myr numeric, exchange_rate numeric, paid_to_date numeric, gross_profit numeric, discount_pct numeric, tax_amount numeric, outstanding_balance numeric, applied_payment_myr numeric, has_paid_mismatch boolean"," SELECT i.doc_entry,
+    i.invoice_number,
+    i.invoice_date,
+    i.due_date,
+    i.created_at,
+    i.updated_at,
+    i.status_code,
+    i.is_cancelled,
+    i.customer_code,
+    i.customer_name,
+    i.sales_rep_code,
+    i.owner_code,
+    i.ship_to_code,
+    i.customer_ref,
+    i.total_amount,
+    i.currency,
+    i.total_amount_myr,
+    i.exchange_rate,
+    i.paid_to_date,
+    i.gross_profit,
+    i.discount_pct,
+    i.tax_amount,
+    i.total_amount_myr - i.paid_to_date AS outstanding_balance,
+    COALESCE(pa.applied_payment_myr, 0::numeric) AS applied_payment_myr,
+    abs(i.paid_to_date - COALESCE(pa.applied_payment_myr, 0::numeric)) > 0.01 AS has_paid_mismatch
+   FROM sap_invoices i
+     LEFT JOIN LATERAL ( SELECT sum(pa_1.amount_applied_myr) AS applied_payment_myr
+           FROM sap_payment_applications pa_1
+             JOIN sap_payments p ON pa_1.payment_ref = p.doc_entry
+          WHERE pa_1.doc_entry = i.doc_entry AND pa_1.inv_type = 13 AND p.is_cancelled = 'N'::text) pa ON true;"
+public,sap_sales_orders_with_fulfillment,view,false,false,on,postgres,-1,0 bytes,null,"doc_entry bigint, so_number bigint, order_date text, delivery_date text, created_at text, updated_at text, status_code text, is_cancelled text, customer_code text, customer_name text, sales_rep_code bigint, owner_code bigint, ship_to_code text, customer_ref text, total_amount numeric, currency text, total_amount_myr numeric, exchange_rate numeric, gross_profit numeric, discount_pct numeric, total_open_qty numeric, total_delivered_qty numeric, is_fully_delivered boolean, delivery_record_count bigint, matched_invoice_count bigint, total_invoiced_myr numeric, total_paid_myr numeric, total_applied_myr numeric, total_outstanding_myr numeric, has_paid_mismatch boolean, is_fully_paid boolean, has_matched_lead boolean"," SELECT so.doc_entry,
+    so.so_number,
+    so.order_date,
+    so.delivery_date,
+    so.created_at,
+    so.updated_at,
+    so.status_code,
+    so.is_cancelled,
+    so.customer_code,
+    so.customer_name,
+    so.sales_rep_code,
+    so.owner_code,
+    so.ship_to_code,
+    so.customer_ref,
+    so.total_amount,
+    so.currency,
+    so.total_amount_myr,
+    so.exchange_rate,
+    so.gross_profit,
+    so.discount_pct,
+    COALESCE(lf.total_open_qty, 0::numeric) AS total_open_qty,
+    COALESCE(lf.total_delivered_qty, 0::numeric) AS total_delivered_qty,
+    COALESCE(lf.total_open_qty, 0::numeric) <= 0::numeric AS is_fully_delivered,
+    COALESCE(di.delivery_count, 0::bigint) AS delivery_record_count,
+    COALESCE(ir.matched_invoice_count, 0::bigint) AS matched_invoice_count,
+    COALESCE(ir.total_invoiced_myr, 0::numeric) AS total_invoiced_myr,
+    COALESCE(ir.total_paid_myr, 0::numeric) AS total_paid_myr,
+    COALESCE(ir.total_applied_myr, 0::numeric) AS total_applied_myr,
+    COALESCE(ir.total_outstanding_myr, 0::numeric) AS total_outstanding_myr,
+    abs(COALESCE(ir.total_paid_myr, 0::numeric) - COALESCE(ir.total_applied_myr, 0::numeric)) > 0.01 AS has_paid_mismatch,
+    COALESCE(ir.matched_invoice_count, 0::bigint) > 0 AND COALESCE(ir.total_outstanding_myr, 0::numeric) <= 0.01 AS is_fully_paid,
+    (EXISTS ( SELECT 1
+           FROM sales_leads sl
+          WHERE sl.po_number = so.customer_ref)) AS has_matched_lead
+   FROM sap_sales_orders so
+     LEFT JOIN LATERAL ( SELECT COALESCE(sum(sap_sales_order_lines.open_qty), 0::numeric) AS total_open_qty,
+            COALESCE(sum(sap_sales_order_lines.delivered_qty), 0::numeric) AS total_delivered_qty
+           FROM sap_sales_order_lines
+          WHERE sap_sales_order_lines.doc_entry = so.doc_entry) lf ON true
+     LEFT JOIN LATERAL ( SELECT count(*) AS delivery_count
+           FROM sap_deliveries d
+             JOIN sap_delivery_lines dl ON dl.doc_entry = d.doc_entry
+          WHERE dl.base_entry = so.doc_entry AND dl.base_type = 17 AND d.is_cancelled = 'N'::text) di ON true
+     LEFT JOIN LATERAL ( WITH matched_invoice_ids AS (
+                 SELECT DISTINCT il.doc_entry
+                   FROM sap_invoice_lines il
+                  WHERE il.base_entry = so.doc_entry AND il.base_type = 17
+                UNION
+                 SELECT DISTINCT il2.doc_entry
+                   FROM sap_delivery_lines dl2
+                     JOIN sap_invoice_lines il2 ON il2.base_entry = dl2.doc_entry AND il2.base_type = 15
+                  WHERE dl2.base_entry = so.doc_entry AND dl2.base_type = 17
+                )
+         SELECT count(*) AS matched_invoice_count,
+            COALESCE(sum(i.total_amount_myr), 0::numeric) AS total_invoiced_myr,
+            COALESCE(sum(i.paid_to_date), 0::numeric) AS total_paid_myr,
+            COALESCE(sum(i.applied_payment_myr), 0::numeric) AS total_applied_myr,
+            COALESCE(sum(i.outstanding_balance), 0::numeric) AS total_outstanding_myr
+           FROM matched_invoice_ids m
+             JOIN sap_invoices_with_balance i ON i.doc_entry = m.doc_entry
+          WHERE i.is_cancelled = 'N'::text) ir ON true;"
+public,sap_vendor_bills_with_balance,view,false,false,on,postgres,-1,0 bytes,null,"doc_entry bigint, bill_number bigint, bill_date text, due_date text, created_at text, updated_at text, status_code text, is_cancelled text, vendor_code text, vendor_name text, vendor_ref text, total_amount numeric, currency text, total_amount_myr numeric, exchange_rate numeric, paid_to_date numeric, gross_profit numeric, discount_pct numeric, tax_amount numeric, outstanding_balance numeric, applied_payment_myr numeric, has_paid_mismatch boolean"," SELECT b.doc_entry,
+    b.bill_number,
+    b.bill_date,
+    b.due_date,
+    b.created_at,
+    b.updated_at,
+    b.status_code,
+    b.is_cancelled,
+    b.vendor_code,
+    b.vendor_name,
+    b.vendor_ref,
+    b.total_amount,
+    b.currency,
+    b.total_amount_myr,
+    b.exchange_rate,
+    b.paid_to_date,
+    b.gross_profit,
+    b.discount_pct,
+    b.tax_amount,
+    b.total_amount_myr - b.paid_to_date AS outstanding_balance,
+    COALESCE(pa.applied_payment_myr, 0::numeric) AS applied_payment_myr,
+    abs(b.paid_to_date - COALESCE(pa.applied_payment_myr, 0::numeric)) > 0.01 AS has_paid_mismatch
+   FROM sap_vendor_bills b
+     LEFT JOIN LATERAL ( SELECT sum(pa_1.amount_applied_myr) AS applied_payment_myr
+           FROM sap_vendor_payment_applications pa_1
+             JOIN sap_vendor_payments p ON pa_1.payment_ref = p.doc_entry
+          WHERE pa_1.doc_entry = b.doc_entry AND pa_1.doc_type = 18 AND p.is_cancelled = 'N'::text) pa ON true;"
+public,unified_daily_attendance,view,false,false,on,postgres,-1,0 bytes,null,"employee_uuid uuid, company_employee_code text, full_name text, avatar_url text, position text, employment_status_id bigint, department_id bigint, department_name text, manager_id uuid, manager_name text, work_date date, hw_check_in timestamp without time zone, hw_check_out timestamp without time zone, total_hw_scans bigint, app_check_in timestamp without time zone, app_check_out timestamp without time zone, daily_activities text, hours_worked numeric, first_in timestamp without time zone, last_out timestamp without time zone, first_in_time_of_day time without time zone, last_out_time_of_day time without time zone, is_on_leave boolean, leave_type_codes text, leave_day_fraction numeric, overtime_hours numeric, is_early_leave boolean, work_location_id bigint, work_location_name text, is_late_arrival boolean, is_leave_attendance_conflict boolean, is_insufficient_half_day_hours boolean, has_leave_fraction_error boolean, paid_leave_day_fraction numeric, unpaid_leave_day_fraction numeric, is_public_holiday boolean, public_holiday_name text, is_worked_on_holiday boolean, holiday_hours_worked numeric, is_weekend boolean, is_worked_on_weekend boolean, weekend_hours_worked numeric, normal_hours_threshold numeric, true_hours_worked numeric, rest_day_wage_tier text, rest_day_excess_hours numeric, holiday_wage_tier text, holiday_excess_hours numeric, day_calendar_type text, is_expected_working_day boolean, leave_state text, evidence_source text, evidence_quality text, approval_state text, day_state text, is_unacknowledged_absent boolean, is_unacknowledged_insufficient_half_day boolean, needs_reconciliation boolean, pending_approval_hours numeric, approved_hours_worked numeric, approved_overtime_hours numeric, approved_holiday_hours_worked numeric, approved_weekend_hours_worked numeric"," WITH active_company_dates AS (
+         SELECT get_company_activity_dates.work_date
+           FROM get_company_activity_dates() get_company_activity_dates(work_date)
+          WHERE get_company_activity_dates.work_date <= (now() AT TIME ZONE 'Asia/Kuala_Lumpur'::text)::date
+        UNION
+         SELECT DISTINCT public_holidays.holiday_date AS work_date
+           FROM public_holidays
+        UNION
+         SELECT gs.gs::date AS work_date
+           FROM generate_series(( SELECT GREATEST(min(employees.join_date)::timestamp without time zone, CURRENT_DATE - '2 years'::interval) AS ""greatest""
+                   FROM employees), CURRENT_DATE + '1 year'::interval, '1 day'::interval) gs(gs)
+          WHERE EXTRACT(isodow FROM gs.gs) = ANY (ARRAY[6::numeric, 7::numeric])
+        ), expected_shifts AS (
+         SELECT e.id AS employee_uuid,
+            e.profile_id,
+            e.employee_id AS company_employee_code,
+            e.full_name,
+            e.department_id,
+            e.""position"",
+            e.manager_id,
+            e.employment_status_id,
+            e.work_location_id,
+            d.work_date,
+            EXTRACT(isodow FROM d.work_date) = ANY (ARRAY[6::numeric, 7::numeric]) AS is_weekend
+           FROM employees e
+             JOIN employment_status es ON es.id = e.employment_status_id AND es.category = 'active'::text
+             CROSS JOIN active_company_dates d
+        ), daily_hardware AS (
+         SELECT attendance_logs.employee_id AS scanner_emp_id,
+            date((attendance_logs.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) AS work_date,
+            min((attendance_logs.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) AS hw_check_in,
+            max((attendance_logs.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) AS hw_check_out,
+            count(*) AS total_hw_scans,
+            round(EXTRACT(epoch FROM max(attendance_logs.scanned_at) - min(attendance_logs.scanned_at)) / 3600::numeric, 2) AS hw_hours,
+            min(attendance_logs.scanned_at) AS hw_check_in_ts,
+            max(attendance_logs.scanned_at) AS hw_check_out_ts
+           FROM attendance_logs
+          WHERE attendance_logs.scanned_at >= (CURRENT_DATE - '2 years'::interval)
+          GROUP BY attendance_logs.employee_id, (date((attendance_logs.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)))
+        ), daily_hw_remote_overlap AS (
+         SELECT e.id AS app_emp_uuid,
+            date((aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) AS work_date,
+            sum(
+                CASE
+                    WHEN aa.clocked_out_at IS NOT NULL THEN GREATEST(0::numeric, EXTRACT(epoch FROM LEAST(aa.clocked_out_at, h.hw_check_out_ts) - GREATEST(aa.clocked_in_at, h.hw_check_in_ts)))
+                    ELSE 0::numeric
+                END) / 3600::numeric AS overlap_hours
+           FROM attendance_activities aa
+             JOIN employees e ON e.id = aa.employee_id
+             CROSS JOIN LATERAL ( SELECT min(al.scanned_at) AS hw_check_in_ts,
+                    max(al.scanned_at) AS hw_check_out_ts
+                   FROM attendance_logs al
+                  WHERE al.employee_id = e.employee_id AND date((al.scanned_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) = date((aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text))) h
+          WHERE aa.approval_status::text <> 'Rejected'::text AND h.hw_check_in_ts IS NOT NULL
+          GROUP BY e.id, (date((aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)))
+        ), daily_app AS (
+         SELECT aa.employee_id AS app_emp_uuid,
+            date((aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) AS work_date,
+            min(
+                CASE
+                    WHEN aa.approval_status::text <> 'Rejected'::text THEN (aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)
+                    ELSE NULL::timestamp without time zone
+                END) AS app_check_in,
+            max(
+                CASE
+                    WHEN aa.approval_status::text <> 'Rejected'::text THEN (COALESCE(aa.clocked_out_at, aa.clocked_in_at) AT TIME ZONE 'Asia/Kuala_Lumpur'::text)
+                    ELSE NULL::timestamp without time zone
+                END) AS app_check_out,
+            string_agg(((at.name || ' ('::text) || aa.approval_status::text) || ')'::text, ', '::text ORDER BY aa.clocked_in_at) AS daily_activities,
+            bool_or(aa.clocked_out_at IS NULL AND aa.approval_status::text <> 'Rejected'::text) AS has_missing_app_checkout,
+            bool_and(aa.approval_status::text = 'Approved'::text) AS all_approved,
+            bool_or(aa.approval_status::text = 'Pending'::text) AS has_pending,
+            bool_or(aa.approval_status::text <> 'Rejected'::text) AS has_any_non_rejected,
+            round(sum(
+                CASE
+                    WHEN aa.approval_status::text <> 'Rejected'::text THEN EXTRACT(epoch FROM aa.clocked_out_at - aa.clocked_in_at)
+                    ELSE 0::numeric
+                END) / 3600::numeric, 2) AS app_hours,
+            round(sum(
+                CASE
+                    WHEN aa.approval_status::text = 'Approved'::text THEN EXTRACT(epoch FROM aa.clocked_out_at - aa.clocked_in_at)
+                    ELSE 0::numeric
+                END) / 3600::numeric, 2) AS approved_app_hours
+           FROM attendance_activities aa
+             LEFT JOIN attendance_types at ON aa.attendance_type_id = at.id
+          WHERE aa.clocked_in_at >= (CURRENT_DATE - '2 years'::interval)
+          GROUP BY aa.employee_id, (date((aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)))
+        ), daily_holiday AS (
+         SELECT DISTINCT ON (e.id, ph.holiday_date) e.id AS holiday_emp_uuid,
+            ph.holiday_date AS work_date,
+            ph.name AS holiday_name
+           FROM employees e
+             JOIN employment_status es ON es.id = e.employment_status_id AND es.category = 'active'::text
+             JOIN public_holidays ph ON ph.work_location_id = e.work_location_id OR ph.work_location_id IS NULL
+          ORDER BY e.id, ph.holiday_date, ph.work_location_id
+        ), final_rows AS (
+         SELECT u.employee_uuid,
+            u.company_employee_code,
+            u.full_name,
+            p.avatar_url,
+            u.""position"",
+            u.employment_status_id,
+            u.department_id,
+            d.name AS department_name,
+            u.manager_id,
+            m.full_name AS manager_name,
+            u.work_date,
+            h.hw_check_in,
+            h.hw_check_out,
+            h.total_hw_scans,
+            a.app_check_in,
+            a.app_check_out,
+            a.daily_activities,
+            GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) AS hours_worked,
+            ( SELECT min(t.v) AS min
+                   FROM ( VALUES (a.app_check_in), (h.hw_check_in)) t(v)) AS first_in,
+                CASE
+                    WHEN a.app_check_out IS NULL AND COALESCE(h.total_hw_scans, 0::bigint) = 1 THEN NULL::timestamp without time zone
+                    ELSE ( SELECT max(t.v) AS max
+                       FROM ( VALUES (a.app_check_out), (h.hw_check_out)) t(v))
+                END AS last_out,
+            (( SELECT min(t.v) AS min
+                   FROM ( VALUES (a.app_check_in), (h.hw_check_in)) t(v)))::time without time zone AS first_in_time_of_day,
+                CASE
+                    WHEN a.app_check_out IS NULL AND COALESCE(h.total_hw_scans, 0::bigint) = 1 THEN NULL::timestamp without time zone
+                    ELSE ( SELECT max(t.v) AS max
+                       FROM ( VALUES (a.app_check_out), (h.hw_check_out)) t(v))
+                END::time without time zone AS last_out_time_of_day,
+            dl.leave_type_codes IS NOT NULL AS is_on_leave,
+            dl.leave_type_codes,
+            dl.leave_day_fraction_total AS leave_day_fraction,
+                CASE
+                    WHEN u.is_weekend OR dh.holiday_name IS NOT NULL THEN 0::numeric
+                    ELSE GREATEST(0::numeric, GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric - 8::numeric)
+                END AS overtime_hours,
+            COALESCE(NOT u.is_weekend AND dh.holiday_name IS NULL AND dl.leave_emp_uuid IS NULL AND NOT (a.app_check_out IS NULL AND COALESCE(h.total_hw_scans, 0::bigint) = 1) AND GREATEST(0::numeric, GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric) < 8::numeric AND (( SELECT max(t.v) AS max
+                   FROM ( VALUES (a.app_check_out), (h.hw_check_out)) t(v)))::time without time zone < COALESCE(wl.early_leave_time, '17:00:00'::time without time zone), false) AS is_early_leave,
+            u.work_location_id,
+            wl.name AS work_location_name,
+            COALESCE(NOT u.is_weekend AND dh.holiday_name IS NULL AND dl.leave_emp_uuid IS NULL AND GREATEST(0::numeric, GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric) < 8::numeric AND (( SELECT min(t.v) AS min
+                   FROM ( VALUES (a.app_check_in), (h.hw_check_in)) t(v)))::time without time zone > '09:00:00'::time without time zone, false) AS is_late_arrival,
+            COALESCE(dl.leave_day_fraction_total >= 1::numeric AND (h.hw_check_in IS NOT NULL OR a.app_check_in IS NOT NULL), false) AS is_leave_attendance_conflict,
+            COALESCE(NOT u.is_weekend AND dh.holiday_name IS NULL AND dl.leave_day_fraction_total = 0.5 AND (GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric)) < 4::numeric, false) AS is_insufficient_half_day_hours,
+            COALESCE(dl.leave_day_fraction_total > 1::numeric, false) AS has_leave_fraction_error,
+            dl.paid_leave_day_fraction,
+            dl.unpaid_leave_day_fraction,
+            dh.holiday_name IS NOT NULL AS is_public_holiday,
+            dh.holiday_name AS public_holiday_name,
+            COALESCE(dh.holiday_name IS NOT NULL AND (h.hw_check_in IS NOT NULL OR a.app_check_in IS NOT NULL), false) AS is_worked_on_holiday,
+                CASE
+                    WHEN dh.holiday_name IS NOT NULL THEN GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric)
+                    ELSE 0::numeric
+                END AS holiday_hours_worked,
+            u.is_weekend,
+            COALESCE(u.is_weekend AND (h.hw_check_in IS NOT NULL OR a.app_check_in IS NOT NULL), false) AS is_worked_on_weekend,
+                CASE
+                    WHEN u.is_weekend THEN GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric)
+                    ELSE 0::numeric
+                END AS weekend_hours_worked,
+            8::numeric AS normal_hours_threshold,
+            GREATEST(0::numeric, GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric) AS true_hours_worked,
+                CASE
+                    WHEN NOT u.is_weekend THEN NULL::text
+                    WHEN (GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric) <= 0::numeric THEN NULL::text
+                    WHEN (GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric) <= (8.0 / 2::numeric) THEN 'half_day'::text
+                    ELSE 'full_day'::text
+                END AS rest_day_wage_tier,
+                CASE
+                    WHEN NOT u.is_weekend THEN 0::numeric
+                    ELSE GREATEST(0::numeric, GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric - 8::numeric)
+                END AS rest_day_excess_hours,
+                CASE
+                    WHEN dh.holiday_name IS NULL THEN NULL::text
+                    WHEN (GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric) <= 0::numeric THEN NULL::text
+                    ELSE 'full_day'::text
+                END AS holiday_wage_tier,
+                CASE
+                    WHEN dh.holiday_name IS NULL THEN 0::numeric
+                    ELSE GREATEST(0::numeric, GREATEST(0::numeric, COALESCE(h.hw_hours, 0::numeric) - COALESCE(ro.overlap_hours, 0::numeric)) + COALESCE(a.app_hours, 0::numeric) - 1::numeric - 8::numeric)
+                END AS holiday_excess_hours,
+                CASE
+                    WHEN u.is_weekend AND dh.holiday_name IS NOT NULL THEN 'weekend_public_holiday'::text
+                    WHEN u.is_weekend THEN 'weekend'::text
+                    WHEN dh.holiday_name IS NOT NULL THEN 'public_holiday'::text
+                    ELSE 'ordinary'::text
+                END AS day_calendar_type,
+            NOT u.is_weekend AND dh.holiday_name IS NULL AS is_expected_working_day,
+                CASE
+                    WHEN dl.leave_emp_uuid IS NULL THEN 'none'::text
+                    WHEN COALESCE(dl.leave_day_fraction_total, 0::numeric) > 1::numeric THEN 'over_full_day'::text
+                    WHEN COALESCE(dl.leave_day_fraction_total, 0::numeric) >= 1::numeric THEN 'full_day'::text
+                    WHEN COALESCE(dl.leave_day_fraction_total, 0::numeric) = 0.5 THEN 'half_day'::text
+                    ELSE 'partial'::text
+                END AS leave_state,
+                CASE
+                    WHEN h.hw_check_in IS NOT NULL AND a.app_check_in IS NOT NULL THEN 'both'::text
+                    WHEN h.hw_check_in IS NOT NULL THEN 'hardware'::text
+                    WHEN a.app_check_in IS NOT NULL THEN 'app'::text
+                    ELSE 'none'::text
+                END AS evidence_source,
+                CASE
+                    WHEN h.hw_check_in IS NULL AND a.app_check_in IS NULL THEN 'none'::text
+                    WHEN COALESCE(h.total_hw_scans, 0::bigint) = 1 AND COALESCE(a.has_missing_app_checkout, false) THEN 'single_scan_and_open_session'::text
+                    WHEN COALESCE(h.total_hw_scans, 0::bigint) = 1 THEN 'single_scan'::text
+                    WHEN COALESCE(a.has_missing_app_checkout, false) THEN 'open_session'::text
+                    ELSE 'complete'::text
+                END AS evidence_quality,
+                CASE
+                    WHEN a.app_emp_uuid IS NULL THEN 'not_applicable'::text
+                    WHEN NOT COALESCE(a.has_any_non_rejected, false) THEN 'rejected_only'::text
+                    WHEN COALESCE(a.has_pending, false) THEN 'pending'::text
+                    ELSE 'approved'::text
+                END AS approval_state
+           FROM expected_shifts u
+             LEFT JOIN daily_hardware h ON u.company_employee_code = h.scanner_emp_id AND u.work_date = h.work_date
+             LEFT JOIN daily_hw_remote_overlap ro ON u.employee_uuid = ro.app_emp_uuid AND u.work_date = ro.work_date
+             LEFT JOIN daily_app a ON u.employee_uuid = a.app_emp_uuid AND u.work_date = a.work_date
+             LEFT JOIN LATERAL ( SELECT max(le.employee_id::text)::uuid AS leave_emp_uuid,
+                    sum(le.day_fraction) AS leave_day_fraction_total,
+                        CASE
+                            WHEN count(DISTINCT le.leave_type_id) = 1 THEN max(lt.code)
+                            ELSE string_agg(DISTINCT lt.code, '+'::text ORDER BY lt.code)
+                        END AS leave_type_codes,
+                    sum(le.day_fraction) FILTER (WHERE lt.is_paid) AS paid_leave_day_fraction,
+                    sum(le.day_fraction) FILTER (WHERE NOT lt.is_paid) AS unpaid_leave_day_fraction
+                   FROM leave_ledger_entries le
+                     JOIN leave_ledger_types lt ON lt.id = le.leave_type_id
+                  WHERE le.employee_id = u.employee_uuid AND le.leave_date = u.work_date) dl ON true
+             LEFT JOIN daily_holiday dh ON u.employee_uuid = dh.holiday_emp_uuid AND u.work_date = dh.work_date
+             LEFT JOIN departments d ON u.department_id = d.id
+             LEFT JOIN employees m ON u.manager_id = m.id
+             LEFT JOIN profiles p ON u.profile_id = p.id
+             LEFT JOIN work_locations wl ON wl.id = u.work_location_id
+        ), day_rows AS (
+         SELECT fr_1.employee_uuid,
+            fr_1.company_employee_code,
+            fr_1.full_name,
+            fr_1.avatar_url,
+            fr_1.""position"",
+            fr_1.employment_status_id,
+            fr_1.department_id,
+            fr_1.department_name,
+            fr_1.manager_id,
+            fr_1.manager_name,
+            fr_1.work_date,
+            fr_1.hw_check_in,
+            fr_1.hw_check_out,
+            fr_1.total_hw_scans,
+            fr_1.app_check_in,
+            fr_1.app_check_out,
+            fr_1.daily_activities,
+            fr_1.hours_worked,
+            fr_1.first_in,
+            fr_1.last_out,
+            fr_1.first_in_time_of_day,
+            fr_1.last_out_time_of_day,
+            fr_1.is_on_leave,
+            fr_1.leave_type_codes,
+            fr_1.leave_day_fraction,
+            fr_1.overtime_hours,
+            fr_1.is_early_leave,
+            fr_1.work_location_id,
+            fr_1.work_location_name,
+            fr_1.is_late_arrival,
+            fr_1.is_leave_attendance_conflict,
+            fr_1.is_insufficient_half_day_hours,
+            fr_1.has_leave_fraction_error,
+            fr_1.paid_leave_day_fraction,
+            fr_1.unpaid_leave_day_fraction,
+            fr_1.is_public_holiday,
+            fr_1.public_holiday_name,
+            fr_1.is_worked_on_holiday,
+            fr_1.holiday_hours_worked,
+            fr_1.is_weekend,
+            fr_1.is_worked_on_weekend,
+            fr_1.weekend_hours_worked,
+            fr_1.normal_hours_threshold,
+            fr_1.true_hours_worked,
+            fr_1.rest_day_wage_tier,
+            fr_1.rest_day_excess_hours,
+            fr_1.holiday_wage_tier,
+            fr_1.holiday_excess_hours,
+            fr_1.day_calendar_type,
+            fr_1.is_expected_working_day,
+            fr_1.leave_state,
+            fr_1.evidence_source,
+            fr_1.evidence_quality,
+            fr_1.approval_state,
+                CASE fr_1.day_calendar_type
+                    WHEN 'weekend_public_holiday'::text THEN
+                    CASE
+                        WHEN fr_1.evidence_source <> 'none'::text THEN 'weekend_public_holiday_worked'::text
+                        ELSE 'weekend_public_holiday'::text
+                    END
+                    WHEN 'weekend'::text THEN
+                    CASE
+                        WHEN fr_1.evidence_source <> 'none'::text THEN 'weekend_worked'::text
+                        WHEN fr_1.leave_state <> 'none'::text THEN 'weekend_on_leave'::text
+                        ELSE 'weekend'::text
+                    END
+                    WHEN 'public_holiday'::text THEN
+                    CASE
+                        WHEN fr_1.evidence_source <> 'none'::text THEN 'public_holiday_worked'::text
+                        WHEN fr_1.leave_state <> 'none'::text THEN 'public_holiday_on_leave'::text
+                        ELSE 'public_holiday'::text
+                    END
+                    ELSE
+                    CASE
+                        WHEN fr_1.leave_state = 'over_full_day'::text THEN 'leave_data_error'::text
+                        WHEN fr_1.leave_state = 'full_day'::text AND fr_1.evidence_source <> 'none'::text THEN 'leave_conflict'::text
+                        WHEN fr_1.leave_state = 'full_day'::text THEN 'on_leave'::text
+                        WHEN fr_1.leave_state = 'half_day'::text AND fr_1.is_insufficient_half_day_hours THEN 'insufficient_half_day'::text
+                        WHEN fr_1.leave_state = ANY (ARRAY['half_day'::text, 'partial'::text]) THEN 'on_leave_partial'::text
+                        WHEN fr_1.evidence_source <> 'none'::text THEN 'worked'::text
+                        ELSE 'absent'::text
+                    END
+                END AS day_state
+           FROM final_rows fr_1
+        )
+ SELECT fr.employee_uuid,
+    fr.company_employee_code,
+    fr.full_name,
+    fr.avatar_url,
+    fr.""position"",
+    fr.employment_status_id,
+    fr.department_id,
+    fr.department_name,
+    fr.manager_id,
+    fr.manager_name,
+    fr.work_date,
+    fr.hw_check_in,
+    fr.hw_check_out,
+    fr.total_hw_scans,
+    fr.app_check_in,
+    fr.app_check_out,
+    fr.daily_activities,
+    fr.hours_worked,
+    fr.first_in,
+    fr.last_out,
+    fr.first_in_time_of_day,
+    fr.last_out_time_of_day,
+    fr.is_on_leave,
+    fr.leave_type_codes,
+    fr.leave_day_fraction,
+    fr.overtime_hours,
+    fr.is_early_leave,
+    fr.work_location_id,
+    fr.work_location_name,
+    fr.is_late_arrival,
+    fr.is_leave_attendance_conflict,
+    fr.is_insufficient_half_day_hours,
+    fr.has_leave_fraction_error,
+    fr.paid_leave_day_fraction,
+    fr.unpaid_leave_day_fraction,
+    fr.is_public_holiday,
+    fr.public_holiday_name,
+    fr.is_worked_on_holiday,
+    fr.holiday_hours_worked,
+    fr.is_weekend,
+    fr.is_worked_on_weekend,
+    fr.weekend_hours_worked,
+    fr.normal_hours_threshold,
+    fr.true_hours_worked,
+    fr.rest_day_wage_tier,
+    fr.rest_day_excess_hours,
+    fr.holiday_wage_tier,
+    fr.holiday_excess_hours,
+    fr.day_calendar_type,
+    fr.is_expected_working_day,
+    fr.leave_state,
+    fr.evidence_source,
+    fr.evidence_quality,
+    fr.approval_state,
+    fr.day_state,
+    fr.day_state = 'absent'::text AND ack_absent.id IS NULL AS is_unacknowledged_absent,
+    fr.is_insufficient_half_day_hours AND ack_half_day.id IS NULL AS is_unacknowledged_insufficient_half_day,
+    fr.day_state = 'absent'::text AND ack_absent.id IS NULL OR fr.is_leave_attendance_conflict OR fr.is_insufficient_half_day_hours AND ack_half_day.id IS NULL OR fr.has_leave_fraction_error OR GREATEST(0::numeric, COALESCE(a2.app_hours, 0::numeric) - COALESCE(a2.approved_app_hours, 0::numeric)) > 0::numeric AS needs_reconciliation,
+    GREATEST(0::numeric, COALESCE(a2.app_hours, 0::numeric) - COALESCE(a2.approved_app_hours, 0::numeric)) AS pending_approval_hours,
+    GREATEST(0::numeric, fr.hours_worked - GREATEST(0::numeric, COALESCE(a2.app_hours, 0::numeric) - COALESCE(a2.approved_app_hours, 0::numeric))) AS approved_hours_worked,
+    GREATEST(0::numeric, fr.overtime_hours - GREATEST(0::numeric, COALESCE(a2.app_hours, 0::numeric) - COALESCE(a2.approved_app_hours, 0::numeric))) AS approved_overtime_hours,
+        CASE
+            WHEN fr.is_public_holiday THEN GREATEST(0::numeric, fr.holiday_hours_worked - GREATEST(0::numeric, COALESCE(a2.app_hours, 0::numeric) - COALESCE(a2.approved_app_hours, 0::numeric)))
+            ELSE 0::numeric
+        END AS approved_holiday_hours_worked,
+        CASE
+            WHEN fr.is_weekend THEN GREATEST(0::numeric, fr.weekend_hours_worked - GREATEST(0::numeric, COALESCE(a2.app_hours, 0::numeric) - COALESCE(a2.approved_app_hours, 0::numeric)))
+            ELSE 0::numeric
+        END AS approved_weekend_hours_worked
+   FROM day_rows fr
+     LEFT JOIN attendance_reconciliation_acknowledgements ack_absent ON ack_absent.employee_id = fr.employee_uuid AND ack_absent.work_date = fr.work_date AND ack_absent.category = 'absent'::text
+     LEFT JOIN attendance_reconciliation_acknowledgements ack_half_day ON ack_half_day.employee_id = fr.employee_uuid AND ack_half_day.work_date = fr.work_date AND ack_half_day.category = 'insufficient_half_day'::text
+     LEFT JOIN LATERAL ( SELECT round(sum(
+                CASE
+                    WHEN aa.approval_status::text <> 'Rejected'::text THEN EXTRACT(epoch FROM aa.clocked_out_at - aa.clocked_in_at)
+                    ELSE 0::numeric
+                END) / 3600::numeric, 2) AS app_hours,
+            round(sum(
+                CASE
+                    WHEN aa.approval_status::text = 'Approved'::text THEN EXTRACT(epoch FROM aa.clocked_out_at - aa.clocked_in_at)
+                    ELSE 0::numeric
+                END) / 3600::numeric, 2) AS approved_app_hours
+           FROM attendance_activities aa
+          WHERE aa.employee_id = fr.employee_uuid AND date((aa.clocked_in_at AT TIME ZONE 'Asia/Kuala_Lumpur'::text)) = fr.work_date) a2 ON true;"
+public,v_sales_chainladder_backtest,view,false,false,on,postgres,-1,0 bytes,Chain-ladder scored at historical origins with a point-in-time order book reconstruction. target_known_orders is the fair comparison. Survival uses a prefix-sum of log(1-r) against a MATERIALIZED dev CTE -- the lateral form timed out. Link ratios carry a disclosed mild lookahead.,"origin_month date, horizon integer, target_month date, predicted numeric, target_known_orders numeric, target_order_sourced numeric, target_total numeric, error_vs_known numeric"," WITH bounds AS (
+         SELECT (min(date_trunc('month'::text, so.order_date::date::timestamp with time zone)) + '3 years'::interval)::date AS first_origin,
+            (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) - '1 mon'::interval)::date AS last_closed_month
+           FROM sap_sales_orders so
+          WHERE so.is_cancelled = 'N'::text AND so.total_amount_myr > 0::numeric
+        ), dev AS MATERIALIZED (
+         SELECT mv_sales_order_development_pit.as_of_month,
+            mv_sales_order_development_pit.age_months,
+            mv_sales_order_development_pit.link_rate,
+            COALESCE(sum(mv_sales_order_development_pit.survival_log) OVER (PARTITION BY mv_sales_order_development_pit.as_of_month ORDER BY mv_sales_order_development_pit.age_months ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0::numeric) AS cum_log_before
+           FROM private.mv_sales_order_development_pit
+        ), months AS (
+         SELECT gs.gs::date AS month
+           FROM bounds b_1
+             CROSS JOIN LATERAL generate_series((b_1.first_origin - '2 years'::interval)::date::timestamp with time zone, b_1.last_closed_month::timestamp with time zone, '1 mon'::interval) gs(gs)
+        ), orders AS (
+         SELECT so.doc_entry,
+            date_trunc('month'::text, so.order_date::date::timestamp with time zone)::date AS order_month,
+            so.total_amount_myr AS ordered_myr
+           FROM sap_sales_orders so
+             CROSS JOIN bounds b_1
+          WHERE so.is_cancelled = 'N'::text AND so.total_amount_myr > 0::numeric AND so.order_date::date >= (b_1.first_origin - '2 years 1 mon'::interval)::date
+        ), inv_by_month AS (
+         SELECT il.base_entry AS doc_entry,
+            date_trunc('month'::text, i.invoice_date::date::timestamp with time zone)::date AS invoice_month,
+            sum(il.line_total) AS amt
+           FROM sap_invoice_lines il
+             JOIN sap_invoices i ON i.doc_entry = il.doc_entry AND i.is_cancelled = 'N'::text
+          WHERE il.base_type = 17 AND il.base_entry IS NOT NULL
+          GROUP BY il.base_entry, (date_trunc('month'::text, i.invoice_date::date::timestamp with time zone)::date)
+        ), order_state AS (
+         SELECT o.doc_entry,
+            o.ordered_myr,
+            m.month,
+            ((EXTRACT(year FROM m.month) - EXTRACT(year FROM o.order_month)) * 12::numeric + (EXTRACT(month FROM m.month) - EXTRACT(month FROM o.order_month)))::integer AS age_months,
+            sum(COALESCE(ibm.amt, 0::numeric)) OVER (PARTITION BY o.doc_entry ORDER BY m.month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum_invoiced
+           FROM orders o
+             JOIN months m ON m.month >= o.order_month AND m.month < (o.order_month + '2 years 1 mon'::interval)::date
+             LEFT JOIN inv_by_month ibm ON ibm.doc_entry = o.doc_entry AND ibm.invoice_month = m.month
+        ), book AS (
+         SELECT os.month AS origin_month,
+            os.age_months,
+            GREATEST(os.ordered_myr - os.cum_invoiced, 0::numeric) AS remaining_myr
+           FROM order_state os
+             CROSS JOIN bounds b_1
+          WHERE os.month >= b_1.first_origin AND (os.ordered_myr - os.cum_invoiced) > 0::numeric AND os.age_months >= 0 AND os.age_months <= 24
+        ), horizons AS (
+         SELECT generate_series(1, 12) AS horizon
+        ), projected AS (
+         SELECT bk.origin_month,
+            h.horizon,
+            (bk.origin_month + ((h.horizon || ' months'::text)::interval))::date AS target_month,
+            sum(bk.remaining_myr * exp(d_target.cum_log_before - d_now.cum_log_before) * d_target.link_rate) AS predicted
+           FROM book bk
+             CROSS JOIN horizons h
+             JOIN dev d_now ON d_now.as_of_month = bk.origin_month AND d_now.age_months = bk.age_months
+             JOIN dev d_target ON d_target.as_of_month = bk.origin_month AND d_target.age_months = (bk.age_months + h.horizon - 1)
+          GROUP BY bk.origin_month, h.horizon, ((bk.origin_month + ((h.horizon || ' months'::text)::interval))::date)
+        ), actuals AS (
+         SELECT date_trunc('month'::text, i.invoice_date::date::timestamp with time zone)::date AS invoice_month,
+            date_trunc('month'::text, so.order_date::date::timestamp with time zone)::date AS order_month,
+            sum(il.line_total) AS amt
+           FROM sap_invoice_lines il
+             JOIN sap_invoices i ON i.doc_entry = il.doc_entry AND i.is_cancelled = 'N'::text
+             LEFT JOIN sap_sales_orders so ON so.doc_entry = il.base_entry AND il.base_type = 17 AND so.is_cancelled = 'N'::text
+          GROUP BY (date_trunc('month'::text, i.invoice_date::date::timestamp with time zone)::date), (date_trunc('month'::text, so.order_date::date::timestamp with time zone)::date)
+        )
+ SELECT p.origin_month,
+    p.horizon,
+    p.target_month,
+    p.predicted,
+    COALESCE(sum(a.amt) FILTER (WHERE a.order_month IS NOT NULL AND a.order_month <= p.origin_month), 0::numeric) AS target_known_orders,
+    COALESCE(sum(a.amt) FILTER (WHERE a.order_month IS NOT NULL), 0::numeric) AS target_order_sourced,
+    COALESCE(sum(a.amt), 0::numeric) AS target_total,
+    p.predicted - COALESCE(sum(a.amt) FILTER (WHERE a.order_month IS NOT NULL AND a.order_month <= p.origin_month), 0::numeric) AS error_vs_known
+   FROM projected p
+     LEFT JOIN actuals a ON a.invoice_month = p.target_month
+     CROSS JOIN bounds b
+  WHERE p.target_month <= b.last_closed_month
+  GROUP BY p.origin_month, p.horizon, p.target_month, p.predicted
+  ORDER BY p.origin_month, p.horizon;"
+public,v_sales_coverage_by_horizon,view,false,false,on,postgres,-1,0 bytes,"Measured share of a month's invoiced value already visible h months ahead, h = 1..12. Drives the Bornhuetter-Ferguson weight in §6. Lines with no sales order dilute the numerator by design -- they are revenue the order book structurally cannot foresee.","horizon integer, months_observed bigint, invoiced_myr numeric, knowable_myr numeric, coverage numeric, coverage_mean_of_months numeric, coverage_stddev numeric, coverage_min numeric, coverage_max numeric"," WITH bounds AS (
+         SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) - '3 years'::interval)::date AS window_start,
+            date_trunc('month'::text, CURRENT_DATE::timestamp with time zone)::date AS current_month
+        ), lines AS (
+         SELECT date_trunc('month'::text, i.invoice_date::date::timestamp with time zone)::date AS invoice_month,
+            date_trunc('month'::text, so.order_date::date::timestamp with time zone)::date AS order_month,
+            il.line_total
+           FROM sap_invoice_lines il
+             JOIN sap_invoices i ON i.doc_entry = il.doc_entry AND i.is_cancelled = 'N'::text
+             LEFT JOIN sap_sales_orders so ON so.doc_entry = il.base_entry AND il.base_type = 17 AND so.is_cancelled = 'N'::text
+             CROSS JOIN bounds b
+          WHERE i.invoice_date::date >= b.window_start AND i.invoice_date::date < b.current_month
+        ), horizons AS (
+         SELECT generate_series(1, 12) AS horizon
+        ), per_month AS (
+         SELECT h.horizon,
+            l.invoice_month,
+            sum(l.line_total) AS invoiced_myr,
+            sum(l.line_total) FILTER (WHERE l.order_month IS NOT NULL AND l.order_month <= (l.invoice_month - ((h.horizon || ' months'::text)::interval))::date) AS knowable_myr
+           FROM lines l
+             CROSS JOIN horizons h
+          GROUP BY h.horizon, l.invoice_month
+        )
+ SELECT horizon,
+    count(*) AS months_observed,
+    sum(invoiced_myr) AS invoiced_myr,
+    sum(knowable_myr) AS knowable_myr,
+    sum(knowable_myr) / NULLIF(sum(invoiced_myr), 0::numeric) AS coverage,
+    avg(knowable_myr / NULLIF(invoiced_myr, 0::numeric)) AS coverage_mean_of_months,
+    stddev_samp(knowable_myr / NULLIF(invoiced_myr, 0::numeric)) AS coverage_stddev,
+    min(knowable_myr / NULLIF(invoiced_myr, 0::numeric)) AS coverage_min,
+    max(knowable_myr / NULLIF(invoiced_myr, 0::numeric)) AS coverage_max
+   FROM per_month
+  GROUP BY horizon
+  ORDER BY horizon;"
+public,v_sales_model_baseline,view,false,false,on,postgres,-1,0 bytes,"FORWARD §5.4: trailing 12-month mean, h=1..12. Winner of the Step 4 bake-off (MASE 0.760). Prediction is identical at every horizon by construction -- it is a level model with no trend term. Variance is rmse^2 from the scoring harness, which includes bias.","period_month date, horizon integer, model text, predicted numeric, variance numeric"," WITH level AS (
+         SELECT avg(q.value) AS lvl12
+           FROM ( SELECT v_sales_monthly_series.value
+                   FROM v_sales_monthly_series
+                  WHERE v_sales_monthly_series.measure = 'invoiced'::text AND v_sales_monthly_series.is_complete
+                  ORDER BY v_sales_monthly_series.period_month DESC
+                 LIMIT 12) q
+        ), horizons AS (
+         SELECT generate_series(1, 12) AS horizon
+        ), err AS (
+         SELECT v_sales_projection_backtest.horizon,
+            v_sales_projection_backtest.rmse
+           FROM v_sales_projection_backtest
+          WHERE v_sales_projection_backtest.measure = 'invoiced'::text AND v_sales_projection_backtest.method = 'ma12'::text
+        )
+ SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) + ((h.horizon || ' months'::text)::interval))::date AS period_month,
+    h.horizon,
+    'baseline'::text AS model,
+    l.lvl12 AS predicted,
+    power(COALESCE(e.rmse, ( SELECT err.rmse
+           FROM err
+          WHERE err.horizon = 1)), 2::numeric) AS variance
+   FROM horizons h
+     CROSS JOIN level l
+     LEFT JOIN err e ON e.horizon = h.horizon
+  ORDER BY h.horizon;"
+public,v_sales_model_chainladder,view,false,false,on,postgres,-1,0 bytes,"Expected invoicing from orders already placed, by horizon month. Uses link ratios with a survival product: R x prod(1-r) x r. Projects only committed business -- runs below total actuals by design; §6's blend supplies what it cannot see.","period_month date, horizon integer, model text, predicted numeric, variance numeric, orders_contributing bigint, exposed_myr numeric"," WITH params AS (
+         SELECT 24 AS max_age_months
+        ), dev AS MATERIALIZED (
+         SELECT v_sales_order_development.age_months,
+            v_sales_order_development.link_rate,
+            COALESCE(sum(v_sales_order_development.survival_log) OVER (ORDER BY v_sales_order_development.age_months ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0::numeric) AS cum_log_before
+           FROM v_sales_order_development
+        ), horizons AS (
+         SELECT generate_series(1, 12) AS horizon
+        ), exposure AS (
+         SELECT h.horizon,
+            (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) + ((h.horizon || ' months'::text)::interval))::date AS period_month,
+            ob.doc_entry,
+            ob.remaining_myr,
+            ob.age_months,
+            d_target.link_rate AS rate_at_conversion,
+            exp(d_target.cum_log_before - d_now.cum_log_before) AS survival_to_target
+           FROM v_sales_orderbook_open ob
+             CROSS JOIN horizons h
+             CROSS JOIN params p
+             JOIN dev d_now ON d_now.age_months = ob.age_months
+             JOIN dev d_target ON d_target.age_months = (ob.age_months + h.horizon - 1)
+          WHERE ob.age_months >= 0 AND ob.age_months <= p.max_age_months
+        ), measured_err AS (
+         SELECT mv_sales_chainladder_backtest.horizon,
+            avg(power(mv_sales_chainladder_backtest.error_vs_known, 2::numeric)) AS mse
+           FROM private.mv_sales_chainladder_backtest
+          GROUP BY mv_sales_chainladder_backtest.horizon
+         HAVING count(*) >= 6
+        ), agg AS (
+         SELECT exposure.period_month,
+            exposure.horizon,
+            sum(exposure.remaining_myr * exposure.survival_to_target * exposure.rate_at_conversion) AS predicted,
+            sum(power(exposure.remaining_myr, 2::numeric) * (exposure.survival_to_target * exposure.rate_at_conversion) * (1::numeric - LEAST(exposure.survival_to_target * exposure.rate_at_conversion, 1::numeric))) AS bernoulli_var,
+            count(*) AS orders_contributing,
+            sum(exposure.remaining_myr) AS exposed_myr
+           FROM exposure
+          GROUP BY exposure.period_month, exposure.horizon
+        )
+ SELECT a.period_month,
+    a.horizon,
+    'chainladder'::text AS model,
+    a.predicted,
+    COALESCE(me.mse, a.bernoulli_var) AS variance,
+    a.orders_contributing,
+    a.exposed_myr
+   FROM agg a
+     LEFT JOIN measured_err me ON me.horizon = a.horizon
+  ORDER BY a.horizon;"
+public,v_sales_model_freqsev,view,false,false,on,postgres,-1,0 bytes,"FORWARD §5.2 collective risk model over a trailing 24 months. The point estimate is algebraically a 24-month mean and will not differ from one -- the contribution is Var = E[N]Var[X] + Var[N]E[X]^2, which attributes uncertainty to volatile invoice VALUES versus variable invoice COUNT and gives §7 its asymmetric interval.","period_month date, horizon integer, model text, predicted numeric, variance numeric, variance_from_severity numeric, variance_from_frequency numeric, expected_invoice_count numeric, expected_invoice_value numeric, sd_invoice_count numeric, sd_invoice_value numeric, months_observed bigint, total_invoices numeric"," WITH bounds AS (
+         SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) - '2 years'::interval)::date AS window_start,
+            date_trunc('month'::text, CURRENT_DATE::timestamp with time zone)::date AS current_month
+        ), monthly AS (
+         SELECT date_trunc('month'::text, i.invoice_date::date::timestamp with time zone)::date AS period_month,
+            count(*) AS n,
+            sum(i.total_amount_myr) AS sum_x,
+            sum(power(i.total_amount_myr, 2::numeric)) AS sum_x2
+           FROM sap_invoices i
+             CROSS JOIN bounds b
+          WHERE i.is_cancelled = 'N'::text AND i.invoice_date::date >= b.window_start AND i.invoice_date::date < b.current_month
+          GROUP BY (date_trunc('month'::text, i.invoice_date::date::timestamp with time zone)::date)
+        ), moments AS (
+         SELECT count(*) AS months_observed,
+            sum(monthly.n) AS total_invoices,
+            avg(monthly.n) AS e_n,
+            COALESCE(var_samp(monthly.n), 0::numeric) AS var_n,
+            sum(monthly.sum_x) / NULLIF(sum(monthly.n), 0::numeric) AS e_x,
+            GREATEST(sum(monthly.sum_x2) / NULLIF(sum(monthly.n), 0::numeric) - power(sum(monthly.sum_x) / NULLIF(sum(monthly.n), 0::numeric), 2::numeric), 0::numeric) AS var_x
+           FROM monthly
+        ), horizons AS (
+         SELECT generate_series(1, 12) AS horizon
+        )
+ SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) + ((h.horizon || ' months'::text)::interval))::date AS period_month,
+    h.horizon,
+    'freqsev'::text AS model,
+    m.e_n * m.e_x AS predicted,
+    m.e_n * m.var_x + m.var_n * power(m.e_x, 2::numeric) AS variance,
+    m.e_n * m.var_x AS variance_from_severity,
+    m.var_n * power(m.e_x, 2::numeric) AS variance_from_frequency,
+    m.e_n AS expected_invoice_count,
+    m.e_x AS expected_invoice_value,
+    sqrt(m.var_n) AS sd_invoice_count,
+    sqrt(m.var_x) AS sd_invoice_value,
+    m.months_observed,
+    m.total_invoices
+   FROM horizons h
+     CROSS JOIN moments m
+  ORDER BY h.horizon;"
+public,v_sales_model_ses,view,false,false,on,postgres,-1,0 bytes,"FORWARD exponential smoothing, h=1..12. Alpha is not a parameter -- it is fitted by lowest recent-window error across the scored ses_* methods and republished. Exists because every other a-priori model is a trailing mean and lags the current decline (C1: freqsev +23.4% bias recently).","period_month date, horizon integer, model text, predicted numeric, variance numeric, alpha numeric, alpha_origins numeric"," WITH params AS (
+         SELECT 24 AS recent_months,
+            36 AS max_terms
+        ), bound AS (
+         SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) - ((p.recent_months || ' months'::text)::interval))::date AS cutoff,
+            p.max_terms
+           FROM params p
+        ), alpha_scores AS (
+         SELECT b.horizon,
+            replace(b.method, 'ses_'::text, ''::text)::numeric / 100.0 AS alpha,
+            avg(abs(b.predicted - b.actual)) AS mae,
+            count(*) AS origins
+           FROM private.mv_sales_projection_baseline b
+             CROSS JOIN bound bd
+          WHERE b.measure = 'invoiced'::text AND b.method ~~ 'ses\_%'::text AND b.actual IS NOT NULL AND b.period_month >= bd.cutoff
+          GROUP BY b.horizon, b.method
+        ), chosen AS (
+         SELECT alpha_scores.alpha,
+            avg(alpha_scores.mae) AS mae_overall,
+            sum(alpha_scores.origins) AS origins_total
+           FROM alpha_scores
+          GROUP BY alpha_scores.alpha
+          ORDER BY (avg(alpha_scores.mae))
+         LIMIT 1
+        ), horizon_var AS (
+         SELECT a.horizon,
+            a.mae
+           FROM alpha_scores a
+             JOIN chosen c ON c.alpha = a.alpha
+        ), recent_series AS (
+         SELECT v_sales_monthly_series.value,
+            row_number() OVER (ORDER BY v_sales_monthly_series.period_month DESC) - 1 AS i
+           FROM v_sales_monthly_series
+          WHERE v_sales_monthly_series.measure = 'invoiced'::text AND v_sales_monthly_series.is_complete
+        ), level AS (
+         SELECT c.alpha,
+            c.origins_total,
+            sum(power(1::numeric - c.alpha, rs.i::numeric) * rs.value) / NULLIF(sum(power(1::numeric - c.alpha, rs.i::numeric)), 0::numeric) AS lvl
+           FROM chosen c
+             CROSS JOIN bound bd
+             JOIN recent_series rs ON rs.i < bd.max_terms
+          GROUP BY c.alpha, c.origins_total
+        )
+ SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) + ((hv.horizon || ' months'::text)::interval))::date AS period_month,
+    hv.horizon,
+    'ses'::text AS model,
+    l.lvl AS predicted,
+    power(hv.mae, 2::numeric) AS variance,
+    l.alpha,
+    l.origins_total AS alpha_origins
+   FROM horizon_var hv
+     CROSS JOIN level l
+  ORDER BY hv.horizon;"
+public,v_sales_monthly_series,view,false,false,on,postgres,-1,0 bytes,"Canonical monthly O2C series (orders/invoiced/collected) from 2017-11. Gap-free via generate_series spine. Filters copied verbatim from get_sales_reports_dashboard_rpc.sql. is_complete = false for the current, partial month -- analytical consumers must filter on it.","measure text, period_month date, value numeric, doc_count bigint, is_complete boolean"," WITH bounds AS (
+         SELECT '2017-11-01'::date AS series_start,
+            date_trunc('month'::text, CURRENT_DATE::timestamp with time zone)::date AS series_end
+        ), spine AS (
+         SELECT m.measure,
+            gs.gs::date AS period_month
+           FROM ( VALUES ('orders'::text), ('invoiced'::text), ('collected'::text)) m(measure)
+             CROSS JOIN bounds b
+             CROSS JOIN LATERAL generate_series(b.series_start::timestamp with time zone, b.series_end::timestamp with time zone, '1 mon'::interval) gs(gs)
+        ), observed AS (
+         SELECT 'orders'::text AS measure,
+            date_trunc('month'::text, so.order_date::date::timestamp with time zone)::date AS period_month,
+            sum(so.total_amount_myr) AS value,
+            count(*) AS doc_count
+           FROM sap_sales_orders so
+          WHERE so.is_cancelled = 'N'::text
+          GROUP BY 'orders'::text, (date_trunc('month'::text, so.order_date::date::timestamp with time zone)::date)
+        UNION ALL
+         SELECT 'invoiced'::text,
+            date_trunc('month'::text, oi.invoice_date::date::timestamp with time zone)::date AS date_trunc,
+            sum(oi.total_amount_myr) AS sum,
+            count(*) AS count
+           FROM sap_invoices oi
+          WHERE oi.is_cancelled = 'N'::text
+          GROUP BY 'invoiced'::text, (date_trunc('month'::text, oi.invoice_date::date::timestamp with time zone)::date)
+        UNION ALL
+         SELECT 'collected'::text,
+            date_trunc('month'::text, p.payment_date::date::timestamp with time zone)::date AS date_trunc,
+            sum(pa.amount_applied_myr) AS sum,
+            count(*) AS count
+           FROM sap_payment_applications pa
+             JOIN sap_payments p ON pa.payment_ref = p.doc_entry
+             LEFT JOIN sap_invoices i ON pa.doc_entry = i.doc_entry AND pa.inv_type = 13
+          WHERE p.is_cancelled = 'N'::text AND (i.doc_entry IS NULL OR i.is_cancelled = 'N'::text)
+          GROUP BY 'collected'::text, (date_trunc('month'::text, p.payment_date::date::timestamp with time zone)::date)
+        )
+ SELECT s.measure,
+    s.period_month,
+    COALESCE(o.value, 0::numeric) AS value,
+    COALESCE(o.doc_count, 0::bigint) AS doc_count,
+    s.period_month < (( SELECT bounds.series_end
+           FROM bounds)) AS is_complete
+   FROM spine s
+     LEFT JOIN observed o ON o.measure = s.measure AND o.period_month = s.period_month;"
+public,v_sales_monthly_trend,view,false,false,on,postgres,-1,0 bytes,"Centred 2x12 moving-average trend and ratio-to-trend per month. CONTAINS LOOKAHEAD by construction (uses 6 future months) -- descriptive only, never for backtesting. Null trend at both series edges is correct.","measure text, period_month date, value numeric, trend_value numeric, seasonal_ratio numeric"," WITH base AS (
+         SELECT v_sales_monthly_series.measure,
+            v_sales_monthly_series.period_month,
+            v_sales_monthly_series.value
+           FROM v_sales_monthly_series
+          WHERE v_sales_monthly_series.is_complete
+        ), ma AS (
+         SELECT base.measure,
+            base.period_month,
+            base.value,
+                CASE
+                    WHEN count(*) OVER (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 6 PRECEDING AND 5 FOLLOWING) = 12 THEN avg(base.value) OVER (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 6 PRECEDING AND 5 FOLLOWING)
+                    ELSE NULL::numeric
+                END AS ma_back,
+                CASE
+                    WHEN count(*) OVER (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 5 PRECEDING AND 6 FOLLOWING) = 12 THEN avg(base.value) OVER (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 5 PRECEDING AND 6 FOLLOWING)
+                    ELSE NULL::numeric
+                END AS ma_fwd
+           FROM base
+        )
+ SELECT measure,
+    period_month,
+    value,
+    (ma_back + ma_fwd) / 2.0 AS trend_value,
+    value / NULLIF((ma_back + ma_fwd) / 2.0, 0::numeric) AS seasonal_ratio
+   FROM ma;"
+public,v_sales_order_development,view,false,false,on,postgres,-1,0 bytes,"Chain-ladder LINK RATIOS as they stand today: share of still-outstanding order value that converts to invoice in the following month, by age. Estimated on survivors and applied to survivors, which cancels the survivorship bias that made the earlier share-of-original formulation over-predict by ~60% (verification A6). Since 2026-10-14 this is a FILTER over v_sales_order_development_pit at the current month -- the arithmetic lives there, so the forward model and the backtest cannot drift apart. The backtest reads the point-in-time rates instead.","age_months integer, cohorts_used bigint, outstanding_myr numeric, converted_next_myr numeric, link_rate numeric, survival_log numeric, implied_cumulative numeric"," SELECT age_months,
+    cohorts_used,
+    outstanding_myr,
+    converted_next_myr,
+    link_rate,
+    survival_log,
+    implied_cumulative
+   FROM private.mv_sales_order_development_pit
+  WHERE as_of_month = date_trunc('month'::text, CURRENT_DATE::timestamp with time zone)::date
+  ORDER BY age_months;"
+public,v_sales_order_development_pit,view,false,false,on,postgres,-1,0 bytes,"Chain-ladder link ratios computed for EVERY as-of month, so a backtest at origin o uses only what was knowable at o. Replaces the previous arrangement where the backtest scored past months against rates derived partly from after them. Same arithmetic as v_sales_order_development, which is now a filter over this view at the current month. The 36-month cohort window is carried forward unchanged and remains untested.","as_of_month date, age_months integer, cohorts_used bigint, outstanding_myr numeric, converted_next_myr numeric, link_rate numeric, survival_log numeric, implied_cumulative numeric"," WITH params AS (
+         SELECT 36 AS cohort_window_months,
+            24 AS max_age_months,
+            25 AS grid_ages,
+            0.95 AS max_link_rate
+        ), as_of_bounds AS (
+         SELECT (min(date_trunc('month'::text, so.order_date::date::timestamp with time zone)) + ((p.cohort_window_months || ' months'::text)::interval))::date AS first_as_of,
+            date_trunc('month'::text, CURRENT_DATE::timestamp with time zone)::date AS last_as_of
+           FROM sap_sales_orders so
+             CROSS JOIN params p
+          WHERE so.is_cancelled = 'N'::text AND so.total_amount_myr > 0::numeric
+          GROUP BY p.cohort_window_months
+        ), as_of_months AS (
+         SELECT gs.gs::date AS as_of_month
+           FROM as_of_bounds b
+             CROSS JOIN LATERAL generate_series(b.first_as_of::timestamp with time zone, b.last_as_of::timestamp with time zone, '1 mon'::interval) gs(gs)
+        ), cohorts AS (
+         SELECT so.doc_entry,
+            date_trunc('month'::text, so.order_date::date::timestamp with time zone)::date AS cohort_month,
+            so.total_amount_myr AS ordered_myr
+           FROM sap_sales_orders so
+          WHERE so.is_cancelled = 'N'::text AND so.total_amount_myr > 0::numeric
+        ), conversions AS (
+         SELECT c.cohort_month,
+            ((EXTRACT(year FROM i.invoice_date::date) - EXTRACT(year FROM c.cohort_month)) * 12::numeric + (EXTRACT(month FROM i.invoice_date::date) - EXTRACT(month FROM c.cohort_month)))::integer AS lag_months,
+            sum(il.line_total) AS converted_myr
+           FROM cohorts c
+             JOIN sap_invoice_lines il ON il.base_entry = c.doc_entry AND il.base_type = 17
+             JOIN sap_invoices i ON i.doc_entry = il.doc_entry AND i.is_cancelled = 'N'::text
+          GROUP BY c.cohort_month, (((EXTRACT(year FROM i.invoice_date::date) - EXTRACT(year FROM c.cohort_month)) * 12::numeric + (EXTRACT(month FROM i.invoice_date::date) - EXTRACT(month FROM c.cohort_month)))::integer)
+        ), cohort_totals AS (
+         SELECT cohorts.cohort_month,
+            sum(cohorts.ordered_myr) AS ordered_myr
+           FROM cohorts
+          GROUP BY cohorts.cohort_month
+        ), grid AS (
+         SELECT ct.cohort_month,
+            ct.ordered_myr,
+            l.lag_months,
+            COALESCE(cv.converted_myr, 0::numeric) AS converted_myr
+           FROM cohort_totals ct
+             CROSS JOIN params p
+             CROSS JOIN LATERAL ( SELECT generate_series(0, p.grid_ages) AS lag_months) l
+             LEFT JOIN conversions cv ON cv.cohort_month = ct.cohort_month AND cv.lag_months = l.lag_months
+        ), cum AS (
+         SELECT grid.cohort_month,
+            grid.ordered_myr,
+            grid.lag_months,
+            grid.converted_myr,
+            sum(grid.converted_myr) OVER (PARTITION BY grid.cohort_month ORDER BY grid.lag_months ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cum_converted
+           FROM grid
+        ), link AS (
+         SELECT cum.cohort_month,
+            cum.lag_months AS age_months,
+            GREATEST(cum.ordered_myr - cum.cum_converted, 0::numeric) AS outstanding_at_age,
+            lead(cum.converted_myr) OVER (PARTITION BY cum.cohort_month ORDER BY cum.lag_months) AS converted_next
+           FROM cum
+        ), mature AS (
+         SELECT a.as_of_month,
+            l.age_months,
+            l.outstanding_at_age,
+            l.converted_next
+           FROM link l
+             CROSS JOIN as_of_months a
+             CROSS JOIN params p
+          WHERE l.converted_next IS NOT NULL AND l.age_months <= p.max_age_months AND (l.cohort_month + (((l.age_months + 1) || ' months'::text)::interval))::date <= (a.as_of_month - '1 mon'::interval)::date AND l.cohort_month >= (a.as_of_month - ((p.cohort_window_months || ' months'::text)::interval))::date
+        ), rates AS (
+         SELECT m.as_of_month,
+            m.age_months,
+            count(*) AS cohorts_used,
+            sum(m.outstanding_at_age) AS outstanding_myr,
+            sum(m.converted_next) AS converted_next_myr,
+            LEAST(GREATEST(sum(m.converted_next) / NULLIF(sum(m.outstanding_at_age), 0::numeric), 0::numeric), p.max_link_rate) AS link_rate
+           FROM mature m
+             CROSS JOIN params p
+          GROUP BY m.as_of_month, m.age_months, p.max_link_rate
+        )
+ SELECT as_of_month,
+    age_months,
+    cohorts_used,
+    outstanding_myr,
+    converted_next_myr,
+    link_rate,
+    ln(GREATEST(1::numeric - link_rate, 0.0001)) AS survival_log,
+    1::numeric - exp(sum(ln(GREATEST(1::numeric - link_rate, 0.0001))) OVER (PARTITION BY as_of_month ORDER BY age_months ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) AS implied_cumulative
+   FROM rates
+  ORDER BY as_of_month, age_months;"
+public,v_sales_orderbook_open,view,false,false,on,postgres,-1,0 bytes,"Orders still carrying uninvoiced value, with age in months. Remaining value computed at LINE level (sap_invoice_lines, base_type = 17) -- NOT from sap_sales_orders_with_fulfillment.total_invoiced_myr, which over-states. Openness is defined by remaining value, not status_code.","doc_entry bigint, so_number bigint, order_date date, order_month date, customer_code text, customer_name text, sales_rep_code bigint, status_code text, ordered_myr numeric, invoiced_myr numeric, remaining_myr numeric, is_over_invoiced boolean, invoice_count bigint, last_invoice_date date, age_months integer, invoice_state text"," WITH invoiced AS (
+         SELECT il.base_entry AS doc_entry,
+            sum(il.line_total) AS invoiced_myr,
+            count(DISTINCT il.doc_entry) AS invoice_count,
+            max(i.invoice_date::date) AS last_invoice_date
+           FROM sap_invoice_lines il
+             JOIN sap_invoices i ON i.doc_entry = il.doc_entry AND i.is_cancelled = 'N'::text
+          WHERE il.base_type = 17 AND il.base_entry IS NOT NULL
+          GROUP BY il.base_entry
+        )
+ SELECT so.doc_entry,
+    so.so_number,
+    so.order_date::date AS order_date,
+    date_trunc('month'::text, so.order_date::date::timestamp with time zone)::date AS order_month,
+    so.customer_code,
+    so.customer_name,
+    so.sales_rep_code,
+    so.status_code,
+    so.total_amount_myr AS ordered_myr,
+    COALESCE(inv.invoiced_myr, 0::numeric) AS invoiced_myr,
+    GREATEST(so.total_amount_myr - COALESCE(inv.invoiced_myr, 0::numeric), 0::numeric) AS remaining_myr,
+    (so.total_amount_myr - COALESCE(inv.invoiced_myr, 0::numeric)) < 0::numeric AS is_over_invoiced,
+    COALESCE(inv.invoice_count, 0::bigint) AS invoice_count,
+    inv.last_invoice_date,
+    ((EXTRACT(year FROM CURRENT_DATE) - EXTRACT(year FROM so.order_date::date)) * 12::numeric + (EXTRACT(month FROM CURRENT_DATE) - EXTRACT(month FROM so.order_date::date)))::integer AS age_months,
+        CASE
+            WHEN COALESCE(inv.invoiced_myr, 0::numeric) <= 0::numeric THEN 'not invoiced'::text
+            WHEN (so.total_amount_myr - COALESCE(inv.invoiced_myr, 0::numeric)) > 0::numeric THEN 'part invoiced'::text
+            ELSE 'fully invoiced'::text
+        END AS invoice_state
+   FROM sap_sales_orders so
+     LEFT JOIN invoiced inv ON inv.doc_entry = so.doc_entry
+  WHERE so.is_cancelled = 'N'::text AND so.total_amount_myr > 0::numeric AND (so.total_amount_myr - COALESCE(inv.invoiced_myr, 0::numeric)) > 0::numeric;"
+public,v_sales_projection_accuracy,view,false,false,on,postgres,-1,0 bytes,"Forecast against outcome, for closed months only. `source` separates RECORDED rows (frozen snapshots, honest) from RECONSTRUCTED ones (the point-in-time backtest, filling months that closed before snapshots existed -- optimistic, because the settings were chosen knowing how those months turned out). The two are never averaged together. A real snapshot always displaces a reconstruction for the same origin and horizon.","source text, snapshot_month date, period_month date, horizon integer, projected numeric, lo_80 numeric, hi_80 numeric, implied_from_order_book numeric, implied_from_apriori numeric, actual numeric, error numeric, abs_error numeric, error_pct numeric, inside_80 boolean, lo_95 numeric, hi_95 numeric"," WITH actuals AS (
+         SELECT v_sales_monthly_series.period_month,
+            v_sales_monthly_series.value AS actual
+           FROM v_sales_monthly_series
+          WHERE v_sales_monthly_series.measure = 'invoiced'::text AND v_sales_monthly_series.is_complete
+        ), band_ratios AS (
+         SELECT mv_sales_projection_ensemble_backtest.horizon,
+            min(percentile_cont(0.100::double precision) WITHIN GROUP (ORDER BY ((mv_sales_projection_ensemble_backtest.actual / mv_sales_projection_ensemble_backtest.predicted)::double precision))::numeric) OVER (ORDER BY mv_sales_projection_ensemble_backtest.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS lo80_ratio,
+            max(percentile_cont(0.900::double precision) WITHIN GROUP (ORDER BY ((mv_sales_projection_ensemble_backtest.actual / mv_sales_projection_ensemble_backtest.predicted)::double precision))::numeric) OVER (ORDER BY mv_sales_projection_ensemble_backtest.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS hi80_ratio,
+            min(percentile_cont(0.025::double precision) WITHIN GROUP (ORDER BY ((mv_sales_projection_ensemble_backtest.actual / mv_sales_projection_ensemble_backtest.predicted)::double precision))::numeric) OVER (ORDER BY mv_sales_projection_ensemble_backtest.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS lo95_ratio,
+            max(percentile_cont(0.975::double precision) WITHIN GROUP (ORDER BY ((mv_sales_projection_ensemble_backtest.actual / mv_sales_projection_ensemble_backtest.predicted)::double precision))::numeric) OVER (ORDER BY mv_sales_projection_ensemble_backtest.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS hi95_ratio
+           FROM private.mv_sales_projection_ensemble_backtest
+          WHERE mv_sales_projection_ensemble_backtest.estimator = 'ensemble'::text AND mv_sales_projection_ensemble_backtest.window_months = 12 AND mv_sales_projection_ensemble_backtest.cl_weight_label = 'coverage(h)'::text AND mv_sales_projection_ensemble_backtest.predicted > 0::numeric
+          GROUP BY mv_sales_projection_ensemble_backtest.horizon
+         HAVING count(*) >= 20
+        ), recorded AS (
+         SELECT 'recorded'::text AS source,
+            s.snapshot_month,
+            s.period_month,
+            s.horizon,
+            s.projected,
+            s.lo_80,
+            s.hi_80,
+            s.implied_from_order_book,
+            s.implied_from_apriori,
+            s.lo_95,
+            s.hi_95
+           FROM sales_projection_snapshots s
+        ), reconstructed AS (
+         SELECT 'reconstructed'::text AS source,
+            b.origin_month AS snapshot_month,
+            b.target_month AS period_month,
+            b.horizon,
+            b.predicted AS projected,
+            b.predicted * br.lo80_ratio AS lo_80,
+            b.predicted * br.hi80_ratio AS hi_80,
+            NULL::numeric AS implied_from_order_book,
+            NULL::numeric AS implied_from_apriori,
+            b.predicted * br.lo95_ratio AS lo_95,
+            b.predicted * br.hi95_ratio AS hi_95
+           FROM private.mv_sales_projection_ensemble_backtest b
+             LEFT JOIN band_ratios br ON br.horizon = b.horizon
+          WHERE b.estimator = 'ensemble'::text AND b.window_months = 12 AND b.cl_weight_label = 'coverage(h)'::text AND b.predicted > 0::numeric AND NOT (EXISTS ( SELECT 1
+                   FROM sales_projection_snapshots s
+                  WHERE s.snapshot_month = b.origin_month AND s.horizon = b.horizon))
+        ), combined AS (
+         SELECT recorded.source,
+            recorded.snapshot_month,
+            recorded.period_month,
+            recorded.horizon,
+            recorded.projected,
+            recorded.lo_80,
+            recorded.hi_80,
+            recorded.implied_from_order_book,
+            recorded.implied_from_apriori,
+            recorded.lo_95,
+            recorded.hi_95
+           FROM recorded
+        UNION ALL
+         SELECT reconstructed.source,
+            reconstructed.snapshot_month,
+            reconstructed.period_month,
+            reconstructed.horizon,
+            reconstructed.projected,
+            reconstructed.lo_80,
+            reconstructed.hi_80,
+            reconstructed.implied_from_order_book,
+            reconstructed.implied_from_apriori,
+            reconstructed.lo_95,
+            reconstructed.hi_95
+           FROM reconstructed
+        )
+ SELECT c.source,
+    c.snapshot_month,
+    c.period_month,
+    c.horizon,
+    c.projected,
+    c.lo_80,
+    c.hi_80,
+    c.implied_from_order_book,
+    c.implied_from_apriori,
+    a.actual,
+    c.projected - a.actual AS error,
+    abs(c.projected - a.actual) AS abs_error,
+        CASE
+            WHEN a.actual > 0::numeric THEN (c.projected - a.actual) / a.actual * 100::numeric
+            ELSE NULL::numeric
+        END AS error_pct,
+        CASE
+            WHEN c.lo_80 IS NOT NULL AND c.hi_80 IS NOT NULL THEN a.actual >= c.lo_80 AND a.actual <= c.hi_80
+            ELSE NULL::boolean
+        END AS inside_80,
+    c.lo_95,
+    c.hi_95
+   FROM combined c
+     JOIN actuals a ON a.period_month = c.period_month;"
+public,v_sales_projection_backtest,view,false,false,on,postgres,-1,0 bytes,"Rolling-origin accuracy per (measure, method, horizon). MAE/MASE/RMSE plus signed bias. is_publishable requires MASE < 1 AND beating seasonal_naive_drift -- the harder comparator, since plain seasonal-naive is trivially beatable in a declining market (see architecture doc §11).","measure text, method text, horizon integer, origins bigint, first_origin date, last_origin date, mae numeric, mase numeric, rmse numeric, mean_error numeric, mean_pct_error numeric, pct_over numeric, mase_under_1 boolean, beats_naive boolean, beats_naive_drift boolean, is_publishable boolean"," WITH scored AS (
+         SELECT mv_sales_projection_baseline.measure,
+            mv_sales_projection_baseline.method,
+            mv_sales_projection_baseline.horizon,
+            mv_sales_projection_baseline.period_month,
+            mv_sales_projection_baseline.actual,
+            mv_sales_projection_baseline.predicted,
+            mv_sales_projection_baseline.predicted - mv_sales_projection_baseline.actual AS error,
+            abs(mv_sales_projection_baseline.predicted - mv_sales_projection_baseline.actual) AS abs_error
+           FROM private.mv_sales_projection_baseline
+          WHERE mv_sales_projection_baseline.actual IS NOT NULL
+        ), naive_scale AS (
+         SELECT q.measure,
+            avg(abs(q.value - q.prev_year)) AS mae_seasonal_naive
+           FROM ( SELECT v_sales_monthly_series.measure,
+                    v_sales_monthly_series.value,
+                    lag(v_sales_monthly_series.value, 12) OVER (PARTITION BY v_sales_monthly_series.measure ORDER BY v_sales_monthly_series.period_month) AS prev_year
+                   FROM v_sales_monthly_series
+                  WHERE v_sales_monthly_series.is_complete) q
+          WHERE q.prev_year IS NOT NULL
+          GROUP BY q.measure
+        ), agg AS (
+         SELECT s.measure,
+            s.method,
+            s.horizon,
+            count(*) AS origins,
+            min(s.period_month) AS first_origin,
+            max(s.period_month) AS last_origin,
+            avg(s.abs_error) AS mae,
+            avg(s.abs_error) / NULLIF(n.mae_seasonal_naive, 0::numeric) AS mase,
+            avg(s.error) AS mean_error,
+            avg(s.error) / NULLIF(avg(s.actual), 0::numeric) * 100::numeric AS mean_pct_error,
+            100.0 * count(*) FILTER (WHERE s.error > 0::numeric)::numeric / count(*)::numeric AS pct_over,
+            sqrt(avg(s.error * s.error)) AS rmse
+           FROM scored s
+             JOIN naive_scale n ON n.measure = s.measure
+          GROUP BY s.measure, s.method, s.horizon, n.mae_seasonal_naive
+        )
+ SELECT a.measure,
+    a.method,
+    a.horizon,
+    a.origins,
+    a.first_origin,
+    a.last_origin,
+    a.mae,
+    a.mase,
+    a.rmse,
+    a.mean_error,
+    a.mean_pct_error,
+    a.pct_over,
+    a.mase < 1::numeric AS mase_under_1,
+    a.mae < sn.mae AS beats_naive,
+    a.mae < snd.mae AS beats_naive_drift,
+    a.mase < 1::numeric AND a.mae < snd.mae AS is_publishable
+   FROM agg a
+     LEFT JOIN agg sn ON sn.measure = a.measure AND sn.horizon = a.horizon AND sn.method = 'seasonal_naive'::text
+     LEFT JOIN agg snd ON snd.measure = a.measure AND snd.horizon = a.horizon AND snd.method = 'seasonal_naive_drift'::text;"
+public,v_sales_projection_baseline,view,false,false,on,postgres,-1,0 bytes,"SCORING view: seven candidate methods predicting CLOSED months, with actuals attached, at every horizon 1..12. Features computed once per origin and joined by target-minus-horizon, so the out-of-sample guarantee is structural. Forward twins live in the v_sales_model_* views.","measure text, period_month date, actual numeric, horizon integer, method text, predicted numeric"," WITH base AS (
+         SELECT v_sales_monthly_series.measure,
+            v_sales_monthly_series.period_month,
+            v_sales_monthly_series.value
+           FROM v_sales_monthly_series
+          WHERE v_sales_monthly_series.is_complete
+        ), ratios AS (
+         SELECT base.measure,
+            base.period_month,
+            base.value,
+            EXTRACT(month FROM base.period_month)::integer AS cal_month,
+            base.value / NULLIF(avg(base.value) OVER (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 12 PRECEDING AND 1 PRECEDING), 0::numeric) AS trail_ratio
+           FROM base
+        ), origin_feat AS (
+         SELECT base.measure,
+            base.period_month AS origin_month,
+            base.value AS last_value,
+            avg(base.value) OVER w12 AS lvl12,
+            avg(base.value) OVER w24 AS lvl24,
+            avg(base.value) OVER w3 AS ma3,
+            sum(base.value) OVER w12 AS sum12,
+            sum(base.value) OVER (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 23 PRECEDING AND 12 PRECEDING) AS sum12_prior,
+            (base.value - lag(base.value, 12) OVER (PARTITION BY base.measure ORDER BY base.period_month)) / 12.0 AS step
+           FROM base
+          WINDOW w3 AS (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), w12 AS (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 11 PRECEDING AND CURRENT ROW), w24 AS (PARTITION BY base.measure ORDER BY base.period_month ROWS BETWEEN 23 PRECEDING AND CURRENT ROW)
+        ), target_idx AS (
+         SELECT ratios.measure,
+            ratios.period_month,
+            ratios.value,
+            avg(ratios.trail_ratio) OVER (PARTITION BY ratios.measure, ratios.cal_month ORDER BY ratios.period_month ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) / NULLIF(avg(ratios.trail_ratio) OVER (PARTITION BY ratios.measure ORDER BY ratios.period_month ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0::numeric) AS expanding_index,
+            lag(ratios.value, 12) OVER (PARTITION BY ratios.measure ORDER BY ratios.period_month) AS sn
+           FROM ratios
+        ), base_idx AS (
+         SELECT base.measure,
+            base.period_month,
+            base.value,
+            (EXTRACT(year FROM base.period_month) * 12::numeric + EXTRACT(month FROM base.period_month))::integer AS midx
+           FROM base
+        ), alphas AS (
+         SELECT unnest(ARRAY[0.1, 0.2, 0.3, 0.4, 0.5]) AS alpha
+        ), ses_weights AS (
+         SELECT a.alpha,
+            i.i,
+            power(1::numeric - a.alpha, i.i::numeric) AS w
+           FROM alphas a
+             CROSS JOIN generate_series(0, 35) i(i)
+        ), ses AS (
+         SELECT b.measure,
+            b.period_month AS origin_month,
+            w.alpha,
+            sum(w.w * p.value) / NULLIF(sum(w.w), 0::numeric) AS level
+           FROM base_idx b
+             CROSS JOIN ses_weights w
+             JOIN base_idx p ON p.measure = b.measure AND p.midx = (b.midx - w.i)
+          GROUP BY b.measure, b.period_month, w.alpha
+        ), horizons AS (
+         SELECT generate_series(1, 12) AS horizon
+        ), targets AS (
+         SELECT t.measure,
+            t.period_month,
+            t.value AS actual,
+            h.horizon,
+            (t.period_month - ((h.horizon || ' months'::text)::interval))::date AS origin_month,
+            t.sn,
+            t.expanding_index
+           FROM target_idx t
+             CROSS JOIN horizons h
+        ), joined AS (
+         SELECT tg.measure,
+            tg.period_month,
+            tg.actual,
+            tg.horizon,
+            tg.origin_month,
+            tg.sn,
+            tg.expanding_index,
+            of.lvl12,
+            of.lvl24,
+            of.ma3,
+            of.sum12,
+            of.sum12_prior,
+            of.last_value,
+            of.step
+           FROM targets tg
+             JOIN origin_feat of ON of.measure = tg.measure AND of.origin_month = tg.origin_month
+        )
+ SELECT joined.measure,
+    joined.period_month,
+    joined.actual,
+    joined.horizon,
+    'seasonal_naive'::text AS method,
+    joined.sn AS predicted
+   FROM joined
+  WHERE joined.sn IS NOT NULL
+UNION ALL
+ SELECT joined.measure,
+    joined.period_month,
+    joined.actual,
+    joined.horizon,
+    'seasonal_naive_drift'::text AS method,
+    joined.sn * (joined.sum12 / NULLIF(joined.sum12_prior, 0::numeric)) AS predicted
+   FROM joined
+  WHERE joined.sn IS NOT NULL AND joined.sum12_prior IS NOT NULL AND joined.sum12_prior <> 0::numeric
+UNION ALL
+ SELECT joined.measure,
+    joined.period_month,
+    joined.actual,
+    joined.horizon,
+    'ma3'::text AS method,
+    joined.ma3 AS predicted
+   FROM joined
+  WHERE joined.ma3 IS NOT NULL
+UNION ALL
+ SELECT joined.measure,
+    joined.period_month,
+    joined.actual,
+    joined.horizon,
+    'ma12'::text AS method,
+    joined.lvl12 AS predicted
+   FROM joined
+  WHERE joined.lvl12 IS NOT NULL
+UNION ALL
+ SELECT joined.measure,
+    joined.period_month,
+    joined.actual,
+    joined.horizon,
+    'freqsev'::text AS method,
+    joined.lvl24 AS predicted
+   FROM joined
+  WHERE joined.lvl24 IS NOT NULL
+UNION ALL
+ SELECT joined.measure,
+    joined.period_month,
+    joined.actual,
+    joined.horizon,
+    'drift'::text AS method,
+    joined.last_value + joined.horizon::numeric * joined.step AS predicted
+   FROM joined
+  WHERE joined.last_value IS NOT NULL AND joined.step IS NOT NULL
+UNION ALL
+ SELECT joined.measure,
+    joined.period_month,
+    joined.actual,
+    joined.horizon,
+    'decomposition'::text AS method,
+    joined.lvl12 * joined.expanding_index AS predicted
+   FROM joined
+  WHERE joined.lvl12 IS NOT NULL AND joined.expanding_index IS NOT NULL
+UNION ALL
+ SELECT j.measure,
+    j.period_month,
+    j.actual,
+    j.horizon,
+    'ses_'::text || lpad((s.alpha * 100::numeric)::integer::text, 3, '0'::text) AS method,
+    s.level AS predicted
+   FROM joined j
+     JOIN ses s ON s.measure = j.measure AND s.origin_month = j.origin_month
+  WHERE s.level IS NOT NULL;"
+public,v_sales_projection_calibration,view,false,false,on,postgres,-1,0 bytes,"Measured bias per model and horizon over a recent 24-month window and over full history. The ensemble divides by `factor`. Recent window is used where enough origins exist, because trailing means lag the current decline and the full-history average cancels that out. regime_gap quantifies the difference.","model text, horizon integer, origins_all bigint, origins_recent bigint, bias_all numeric, bias_recent numeric, basis text, bias_used numeric, factor numeric, regime_gap numeric"," WITH params AS (
+         SELECT 12 AS recent_months,
+            6 AS min_origins
+        ), bound AS (
+         SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) - ((p.recent_months || ' months'::text)::interval))::date AS cutoff,
+            p.min_origins
+           FROM params p
+        ), apriori AS (
+         SELECT b.method AS model,
+            b.horizon,
+            count(*) AS origins_all,
+            sum(b.predicted - b.actual) / NULLIF(sum(b.actual), 0::numeric) AS bias_all,
+            count(*) FILTER (WHERE b.period_month >= bd_1.cutoff) AS origins_recent,
+            sum(b.predicted - b.actual) FILTER (WHERE b.period_month >= bd_1.cutoff) / NULLIF(sum(b.actual) FILTER (WHERE b.period_month >= bd_1.cutoff), 0::numeric) AS bias_recent
+           FROM private.mv_sales_projection_baseline b
+             CROSS JOIN bound bd_1
+          WHERE b.measure = 'invoiced'::text AND b.actual IS NOT NULL
+          GROUP BY b.method, b.horizon
+        ), chainladder AS (
+         SELECT 'chainladder'::text AS model,
+            c_1.horizon,
+            count(*) AS origins_all,
+            sum(c_1.error_vs_known) / NULLIF(sum(c_1.target_known_orders), 0::numeric) AS bias_all,
+            count(*) FILTER (WHERE c_1.origin_month >= bd_1.cutoff) AS origins_recent,
+            sum(c_1.error_vs_known) FILTER (WHERE c_1.origin_month >= bd_1.cutoff) / NULLIF(sum(c_1.target_known_orders) FILTER (WHERE c_1.origin_month >= bd_1.cutoff), 0::numeric) AS bias_recent
+           FROM private.mv_sales_chainladder_backtest c_1
+             CROSS JOIN bound bd_1
+          GROUP BY c_1.horizon
+        ), combined AS (
+         SELECT apriori.model,
+            apriori.horizon,
+            apriori.origins_all,
+            apriori.origins_recent,
+            apriori.bias_all,
+            apriori.bias_recent
+           FROM apriori
+        UNION ALL
+         SELECT chainladder.model,
+            chainladder.horizon,
+            chainladder.origins_all,
+            chainladder.origins_recent,
+            chainladder.bias_all,
+            chainladder.bias_recent
+           FROM chainladder
+        )
+ SELECT c.model,
+    c.horizon,
+    c.origins_all,
+    c.origins_recent,
+    c.bias_all,
+    c.bias_recent,
+        CASE
+            WHEN c.origins_recent >= bd.min_origins THEN 'recent'::text
+            ELSE 'uncalibrated'::text
+        END AS basis,
+        CASE
+            WHEN c.origins_recent >= bd.min_origins THEN c.bias_recent
+            ELSE 0::numeric
+        END AS bias_used,
+    GREATEST(1::numeric +
+        CASE
+            WHEN c.origins_recent >= bd.min_origins THEN c.bias_recent
+            ELSE 0::numeric
+        END, 0.25) AS factor,
+        CASE
+            WHEN c.origins_recent >= bd.min_origins THEN c.bias_recent - c.bias_all
+            ELSE NULL::numeric
+        END AS regime_gap
+   FROM combined c
+     CROSS JOIN bound bd
+  ORDER BY c.model, c.horizon;"
+public,v_sales_projection_ensemble,view,false,false,on,postgres,-1,0 bytes,"Generalised Bornhuetter-Ferguson blend of the order-book and a-priori models. The order-book weight is w(h) = least(0.8, 0.2 + 0.12*(h-1)), measured by the Phase C gate rather than taken as coverage(h) -- the backtest found the chain-ladder WORST at h=1 and BEST at h=6, the inverse of the actuarial prior. Calibration applied per model and horizon; lognormal intervals sized from the ensemble's own measured error, not from the variance composition. within_var/between_var are still published and drive the Confidence tile. VALIDATED TO h=6 ONLY -- see C21.","period_month date, horizon integer, projected numeric, coverage numeric, order_book_weight numeric, implied_from_order_book numeric, implied_from_apriori numeric, within_var numeric, between_var numeric, total_var numeric, sd numeric, lo_80 numeric, hi_80 numeric, lo_95 numeric, hi_95 numeric, composed_var numeric, band_origins bigint, model_detail jsonb"," WITH params AS (
+         SELECT 24 AS recent_months,
+            0.05 AS min_weight,
+            0.60 AS max_weight,
+            1.2816 AS z80,
+            1.9600 AS z95
+        ), bound AS (
+         SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) - ((p_1.recent_months || ' months'::text)::interval))::date AS cutoff
+           FROM params p_1
+        ), apriori_mae AS (
+         SELECT
+                CASE b.method
+                    WHEN 'ma12'::text THEN 'baseline'::text
+                    ELSE 'freqsev'::text
+                END AS model,
+            b.horizon,
+            avg(abs(b.predicted - b.actual)) AS mae
+           FROM private.mv_sales_projection_baseline b
+             CROSS JOIN bound bd
+          WHERE b.measure = 'invoiced'::text AND (b.method = ANY (ARRAY['ma12'::text, 'freqsev'::text])) AND b.actual IS NOT NULL AND b.period_month >= bd.cutoff
+          GROUP BY (
+                CASE b.method
+                    WHEN 'ma12'::text THEN 'baseline'::text
+                    ELSE 'freqsev'::text
+                END), b.horizon
+        UNION ALL
+         SELECT 'ses'::text,
+            s.horizon,
+            sqrt(s.variance) AS sqrt
+           FROM v_sales_model_ses s
+        ), raw_weights AS (
+         SELECT apriori_mae.model,
+            apriori_mae.horizon,
+            1.0 / NULLIF(apriori_mae.mae, 0::numeric) AS inv_mae
+           FROM apriori_mae
+          WHERE apriori_mae.mae IS NOT NULL AND apriori_mae.mae > 0::numeric
+        ), normalised AS (
+         SELECT raw_weights.model,
+            raw_weights.horizon,
+            raw_weights.inv_mae / NULLIF(sum(raw_weights.inv_mae) OVER (PARTITION BY raw_weights.horizon), 0::numeric) AS w_raw
+           FROM raw_weights
+        ), clamped AS (
+         SELECT n.model,
+            n.horizon,
+            LEAST(GREATEST(n.w_raw, p_1.min_weight), p_1.max_weight) AS w_clamped
+           FROM normalised n
+             CROSS JOIN params p_1
+        ), weights AS (
+         SELECT clamped.model,
+            clamped.horizon,
+            clamped.w_clamped / NULLIF(sum(clamped.w_clamped) OVER (PARTITION BY clamped.horizon), 0::numeric) AS weight
+           FROM clamped
+        ), apriori_models AS (
+         SELECT v_sales_model_baseline.model,
+            v_sales_model_baseline.horizon,
+            v_sales_model_baseline.period_month,
+            v_sales_model_baseline.predicted,
+            v_sales_model_baseline.variance,
+            'ma12'::text AS cal_model
+           FROM v_sales_model_baseline
+        UNION ALL
+         SELECT v_sales_model_freqsev.model,
+            v_sales_model_freqsev.horizon,
+            v_sales_model_freqsev.period_month,
+            v_sales_model_freqsev.predicted,
+            v_sales_model_freqsev.variance,
+            'freqsev'::text
+           FROM v_sales_model_freqsev
+        UNION ALL
+         SELECT v_sales_model_ses.model,
+            v_sales_model_ses.horizon,
+            v_sales_model_ses.period_month,
+            v_sales_model_ses.predicted,
+            v_sales_model_ses.variance,
+            'ses_'::text || lpad((v_sales_model_ses.alpha * 100::numeric)::integer::text, 3, '0'::text)
+           FROM v_sales_model_ses
+        ), apriori_cal AS (
+         SELECT am.model,
+            am.horizon,
+            am.period_month,
+            am.predicted / COALESCE(cal.factor, 1::numeric) AS implied,
+            am.variance / power(COALESCE(cal.factor, 1::numeric), 2::numeric) AS implied_var,
+            w.weight
+           FROM apriori_models am
+             LEFT JOIN v_sales_projection_calibration cal ON cal.model = am.cal_model AND cal.horizon = am.horizon
+             JOIN weights w ON w.model = am.model AND w.horizon = am.horizon
+        ), apriori_blend AS (
+         SELECT apriori_cal.horizon,
+            apriori_cal.period_month,
+            sum(apriori_cal.implied * apriori_cal.weight) AS apriori_value,
+            sum(apriori_cal.implied_var * apriori_cal.weight) AS apriori_within
+           FROM apriori_cal
+          GROUP BY apriori_cal.horizon, apriori_cal.period_month
+        ), cl AS (
+         SELECT c.horizon,
+            c.period_month,
+            c.predicted / COALESCE(cal.factor, 1::numeric) AS cl_calibrated,
+            c.variance / power(COALESCE(cal.factor, 1::numeric), 2::numeric) AS cl_var,
+            cov.coverage,
+            cov.coverage AS cl_weight
+           FROM v_sales_model_chainladder c
+             LEFT JOIN v_sales_projection_calibration cal ON cal.model = 'chainladder'::text AND cal.horizon = c.horizon
+             JOIN v_sales_coverage_by_horizon cov ON cov.horizon = c.horizon
+        ), blended AS (
+         SELECT cl.horizon,
+            cl.period_month,
+            cl.coverage,
+            cl.cl_weight,
+            cl.cl_calibrated,
+            cl.cl_var,
+            cl.cl_calibrated / NULLIF(cl.coverage, 0::numeric) AS cl_implied,
+            cl.cl_var / NULLIF(power(cl.coverage, 2::numeric), 0::numeric) AS cl_implied_var,
+            ab.apriori_value,
+            ab.apriori_within,
+            cl.cl_weight * (cl.cl_calibrated / NULLIF(cl.coverage, 0::numeric)) + (1::numeric - cl.cl_weight) * ab.apriori_value AS blend
+           FROM cl
+             JOIN apriori_blend ab ON ab.horizon = cl.horizon AND ab.period_month = cl.period_month
+        ), between_term AS (
+         SELECT b.horizon,
+            b.cl_weight * power(b.cl_implied - b.blend, 2::numeric) + sum((1::numeric - b.cl_weight) * ac.weight * power(ac.implied - b.blend, 2::numeric)) AS between_var
+           FROM blended b
+             JOIN apriori_cal ac ON ac.horizon = b.horizon AND ac.period_month = b.period_month
+          GROUP BY b.horizon, b.cl_weight, b.cl_implied, b.blend
+        ), measured_err AS (
+         SELECT mv_sales_projection_ensemble_backtest.horizon,
+            count(*) AS origins,
+            avg(power(mv_sales_projection_ensemble_backtest.error, 2::numeric)) AS mse
+           FROM private.mv_sales_projection_ensemble_backtest
+          WHERE mv_sales_projection_ensemble_backtest.estimator = 'ensemble'::text AND mv_sales_projection_ensemble_backtest.window_months = 12 AND mv_sales_projection_ensemble_backtest.cl_weight_label = 'coverage(h)'::text
+          GROUP BY mv_sales_projection_ensemble_backtest.horizon
+         HAVING count(*) >= 6
+        ), interval_var AS (
+         SELECT measured_err.horizon,
+            measured_err.origins,
+            max(measured_err.mse) OVER (ORDER BY measured_err.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS var_used
+           FROM measured_err
+        ), model_detail AS (
+         SELECT ac.horizon,
+            ac.period_month,
+            jsonb_agg(jsonb_build_object('model', ac.model, 'implied', round(ac.implied), 'weight', round(ac.weight, 4)) ORDER BY ac.implied DESC) AS apriori_models
+           FROM apriori_cal ac
+          GROUP BY ac.horizon, ac.period_month
+        ), measured_quantiles AS (
+         SELECT mv_sales_projection_ensemble_backtest.horizon,
+            count(*) AS q_origins,
+            percentile_cont(0.100::double precision) WITHIN GROUP (ORDER BY ((mv_sales_projection_ensemble_backtest.actual / mv_sales_projection_ensemble_backtest.predicted)::double precision))::numeric AS q10,
+            percentile_cont(0.900::double precision) WITHIN GROUP (ORDER BY ((mv_sales_projection_ensemble_backtest.actual / mv_sales_projection_ensemble_backtest.predicted)::double precision))::numeric AS q90,
+            percentile_cont(0.025::double precision) WITHIN GROUP (ORDER BY ((mv_sales_projection_ensemble_backtest.actual / mv_sales_projection_ensemble_backtest.predicted)::double precision))::numeric AS q025,
+            percentile_cont(0.975::double precision) WITHIN GROUP (ORDER BY ((mv_sales_projection_ensemble_backtest.actual / mv_sales_projection_ensemble_backtest.predicted)::double precision))::numeric AS q975
+           FROM private.mv_sales_projection_ensemble_backtest
+          WHERE mv_sales_projection_ensemble_backtest.estimator = 'ensemble'::text AND mv_sales_projection_ensemble_backtest.window_months = 12 AND mv_sales_projection_ensemble_backtest.cl_weight_label = 'coverage(h)'::text AND mv_sales_projection_ensemble_backtest.predicted > 0::numeric
+          GROUP BY mv_sales_projection_ensemble_backtest.horizon
+         HAVING count(*) >= 20
+        ), band_ratios AS (
+         SELECT measured_quantiles.horizon,
+            measured_quantiles.q_origins,
+            min(measured_quantiles.q10) OVER (ORDER BY measured_quantiles.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS lo80_ratio,
+            max(measured_quantiles.q90) OVER (ORDER BY measured_quantiles.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS hi80_ratio,
+            min(measured_quantiles.q025) OVER (ORDER BY measured_quantiles.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS lo95_ratio,
+            max(measured_quantiles.q975) OVER (ORDER BY measured_quantiles.horizon ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS hi95_ratio
+           FROM measured_quantiles
+        ), final AS (
+         SELECT b.horizon,
+            b.period_month,
+            b.blend,
+            b.coverage,
+            b.cl_weight,
+            b.cl_implied,
+            b.apriori_value,
+            b.cl_weight * b.cl_implied_var + (1::numeric - b.cl_weight) * b.apriori_within AS within_var,
+            bt.between_var,
+            COALESCE(iv.var_used, b.cl_weight * b.cl_implied_var + (1::numeric - b.cl_weight) * b.apriori_within + bt.between_var) AS band_var,
+            iv.origins AS band_origins,
+            md.apriori_models,
+            br.lo80_ratio,
+            br.hi80_ratio,
+            br.lo95_ratio,
+            br.hi95_ratio
+           FROM blended b
+             JOIN between_term bt ON bt.horizon = b.horizon
+             LEFT JOIN interval_var iv ON iv.horizon = b.horizon
+             LEFT JOIN model_detail md ON md.horizon = b.horizon AND md.period_month = b.period_month
+             LEFT JOIN band_ratios br ON br.horizon = b.horizon
+        )
+ SELECT f.period_month,
+    f.horizon,
+    f.blend AS projected,
+    f.coverage,
+    f.cl_weight AS order_book_weight,
+    f.cl_implied AS implied_from_order_book,
+    f.apriori_value AS implied_from_apriori,
+    f.within_var,
+    f.between_var,
+    f.band_var AS total_var,
+    sqrt(f.band_var) AS sd,
+    COALESCE(f.blend * f.lo80_ratio, exp(ln(f.blend) - ln(1::numeric + f.band_var / power(f.blend, 2::numeric)) / 2::numeric - sqrt(ln(1::numeric + f.band_var / power(f.blend, 2::numeric))) * p.z80)) AS lo_80,
+    COALESCE(f.blend * f.hi80_ratio, exp(ln(f.blend) - ln(1::numeric + f.band_var / power(f.blend, 2::numeric)) / 2::numeric + sqrt(ln(1::numeric + f.band_var / power(f.blend, 2::numeric))) * p.z80)) AS hi_80,
+    COALESCE(f.blend * f.lo95_ratio, exp(ln(f.blend) - ln(1::numeric + f.band_var / power(f.blend, 2::numeric)) / 2::numeric - sqrt(ln(1::numeric + f.band_var / power(f.blend, 2::numeric))) * p.z95)) AS lo_95,
+    COALESCE(f.blend * f.hi95_ratio, exp(ln(f.blend) - ln(1::numeric + f.band_var / power(f.blend, 2::numeric)) / 2::numeric + sqrt(ln(1::numeric + f.band_var / power(f.blend, 2::numeric))) * p.z95)) AS hi_95,
+    f.within_var + f.between_var AS composed_var,
+    f.band_origins,
+    jsonb_build_object('blend', round(f.blend), 'orderBook', jsonb_build_object('model', 'chainladder', 'implied', round(f.cl_implied), 'weight', round(f.cl_weight, 4), 'coverage', round(f.coverage, 4)), 'apriori', COALESCE(f.apriori_models, '[]'::jsonb)) AS model_detail
+   FROM final f
+     CROSS JOIN params p
+  WHERE f.blend > 0::numeric
+  ORDER BY f.horizon;"
+public,v_sales_projection_ensemble_backtest,view,false,false,on,postgres,-1,0 bytes,"PHASE C GATE, at origin level. Rebuilds the blend at every historical origin with point-in-time calibration and weights, sweeping BOTH the calibration window (6/12/18/24 months) and the order-book weight (0.0-1.0, plus coverage(h) as the Bornhuetter-Ferguson default), alongside every individual member and seasonal-naive. The weight is swept because the first run measured the chain-ladder as the WORST estimator at h=1 while BF handed it 63% of the blend, and the BEST at h=6 on 13%. Members carry cl_weight_label = n/a. Aggregate it in diagnostics/sales_projection_phaseC_verification.sql, blocks C17-C19.","window_months integer, cl_weight_label text, cl_weight numeric, horizon integer, origin_month date, target_month date, estimator text, predicted numeric, actual numeric, error numeric, is_holdout boolean"," WITH params AS (
+         SELECT 6 AS min_origins,
+            0.05 AS min_weight,
+            0.60 AS max_weight
+        ), windows AS (
+         SELECT unnest(ARRAY[12, 18, 24]) AS window_months
+        ), cl_weights AS (
+         SELECT unnest(ARRAY[0.0, 0.2, 0.4, 0.6, 0.8, 1.0]) AS cl_weight_fixed,
+            false AS is_smooth
+        UNION ALL
+         SELECT NULL::numeric AS ""numeric"",
+            false
+        UNION ALL
+         SELECT NULL::numeric AS ""numeric"",
+            true
+        ), ap AS MATERIALIZED (
+         SELECT b.method AS model,
+            b.horizon,
+            b.period_month AS target_month,
+            (b.period_month - ((b.horizon || ' months'::text)::interval))::date AS origin_month,
+            b.predicted,
+            b.actual
+           FROM private.mv_sales_projection_baseline b
+          WHERE b.measure = 'invoiced'::text AND b.actual IS NOT NULL AND (b.method = ANY (ARRAY['ma12'::text, 'freqsev'::text, 'ses_020'::text]))
+        ), holdout_bound AS (
+         SELECT (date_trunc('month'::text, CURRENT_DATE::timestamp with time zone) - '1 year 1 mon'::interval)::date AS cutoff
+        ), cl AS MATERIALIZED (
+         SELECT c.horizon,
+            c.origin_month,
+            c.target_month,
+            c.predicted,
+            c.target_known_orders,
+            c.target_total
+           FROM private.mv_sales_chainladder_backtest c
+          WHERE c.target_total > 0::numeric
+        ), naive AS MATERIALIZED (
+         SELECT b.horizon,
+            b.period_month AS target_month,
+            (b.period_month - ((b.horizon || ' months'::text)::interval))::date AS origin_month,
+            b.predicted,
+            b.actual
+           FROM private.mv_sales_projection_baseline b
+          WHERE b.measure = 'invoiced'::text AND b.method = 'seasonal_naive'::text AND b.actual IS NOT NULL
+        ), ap_pit AS (
+         SELECT w.window_months,
+            a.model,
+            a.horizon,
+            a.origin_month,
+            a.target_month,
+            a.predicted,
+            h.n_prior,
+            h.bias_prior,
+            h.mae_prior
+           FROM ap a
+             CROSS JOIN windows w
+             CROSS JOIN params p
+             CROSS JOIN LATERAL ( SELECT count(*) AS n_prior,
+                    sum(a2.predicted - a2.actual) / NULLIF(sum(a2.actual), 0::numeric) AS bias_prior,
+                    avg(abs(a2.predicted - a2.actual)) AS mae_prior
+                   FROM ap a2
+                  WHERE a2.model = a.model AND a2.horizon = a.horizon AND a2.target_month < a.origin_month AND a2.target_month >= (a.origin_month - ((w.window_months || ' months'::text)::interval))::date) h
+          WHERE h.n_prior >= p.min_origins AND h.mae_prior > 0::numeric AND h.bias_prior IS NOT NULL
+        ), ap_cal AS (
+         SELECT ap_pit.window_months,
+            ap_pit.model,
+            ap_pit.horizon,
+            ap_pit.origin_month,
+            ap_pit.target_month,
+            ap_pit.predicted,
+            ap_pit.n_prior,
+            ap_pit.bias_prior,
+            ap_pit.mae_prior,
+            GREATEST(1::numeric + ap_pit.bias_prior, 0.25) AS factor,
+            1.0 / ap_pit.mae_prior AS inv_mae
+           FROM ap_pit
+        ), ap_norm AS (
+         SELECT c.window_months,
+            c.model,
+            c.horizon,
+            c.origin_month,
+            c.target_month,
+            c.predicted,
+            c.n_prior,
+            c.bias_prior,
+            c.mae_prior,
+            c.factor,
+            c.inv_mae,
+            c.inv_mae / NULLIF(sum(c.inv_mae) OVER (PARTITION BY c.window_months, c.horizon, c.origin_month), 0::numeric) AS w_raw
+           FROM ap_cal c
+        ), ap_clamped AS (
+         SELECT n.window_months,
+            n.model,
+            n.horizon,
+            n.origin_month,
+            n.target_month,
+            n.predicted,
+            n.n_prior,
+            n.bias_prior,
+            n.mae_prior,
+            n.factor,
+            n.inv_mae,
+            n.w_raw,
+            LEAST(GREATEST(n.w_raw, p.min_weight), p.max_weight) AS w_clamped
+           FROM ap_norm n
+             CROSS JOIN params p
+        ), ap_weighted AS (
+         SELECT c.window_months,
+            c.model,
+            c.horizon,
+            c.origin_month,
+            c.target_month,
+            c.predicted,
+            c.n_prior,
+            c.bias_prior,
+            c.mae_prior,
+            c.factor,
+            c.inv_mae,
+            c.w_raw,
+            c.w_clamped,
+            c.w_clamped / NULLIF(sum(c.w_clamped) OVER (PARTITION BY c.window_months, c.horizon, c.origin_month), 0::numeric) AS weight
+           FROM ap_clamped c
+        ), ap_blend AS (
+         SELECT ap_weighted.window_months,
+            ap_weighted.horizon,
+            ap_weighted.origin_month,
+            ap_weighted.target_month,
+            sum(ap_weighted.weight * ap_weighted.predicted / ap_weighted.factor) AS apriori_value
+           FROM ap_weighted
+          GROUP BY ap_weighted.window_months, ap_weighted.horizon, ap_weighted.origin_month, ap_weighted.target_month
+         HAVING count(*) = 3
+        ), cl_pit AS (
+         SELECT w.window_months,
+            c.horizon,
+            c.origin_month,
+            c.target_month,
+            c.predicted,
+            c.target_total,
+            GREATEST(1::numeric + h.bias_prior, 0.25) AS factor
+           FROM cl c
+             CROSS JOIN windows w
+             CROSS JOIN params p
+             CROSS JOIN LATERAL ( SELECT count(*) AS n_prior,
+                    sum(c2.predicted - c2.target_known_orders) / NULLIF(sum(c2.target_known_orders), 0::numeric) AS bias_prior
+                   FROM cl c2
+                  WHERE c2.horizon = c.horizon AND c2.target_month < c.origin_month AND c2.target_month >= (c.origin_month - ((w.window_months || ' months'::text)::interval))::date) h
+          WHERE h.n_prior >= p.min_origins AND h.bias_prior IS NOT NULL
+        ), blend_base AS (
+         SELECT cp.window_months,
+            cp.horizon,
+            cp.origin_month,
+            cp.target_month,
+            cp.target_total AS actual,
+            cov.coverage,
+            cp.predicted / cp.factor AS cl_calibrated,
+            cp.predicted / cp.factor / NULLIF(cov.coverage, 0::numeric) AS cl_implied,
+            ab.apriori_value
+           FROM cl_pit cp
+             JOIN ap_blend ab ON ab.window_months = cp.window_months AND ab.horizon = cp.horizon AND ab.origin_month = cp.origin_month
+             JOIN v_sales_coverage_by_horizon cov ON cov.horizon = cp.horizon
+        ), eligible AS (
+         SELECT blend_base.horizon,
+            blend_base.origin_month
+           FROM blend_base
+          GROUP BY blend_base.horizon, blend_base.origin_month
+         HAVING count(DISTINCT blend_base.window_months) = (( SELECT count(*) AS count
+                   FROM windows))
+        ), smoothed AS (
+         SELECT b.window_months,
+            b.horizon,
+            b.origin_month,
+            b.target_month,
+            b.actual,
+            b.coverage,
+            b.cl_calibrated,
+            b.cl_implied,
+            b.apriori_value,
+            cw.is_smooth,
+                CASE
+                    WHEN cw.is_smooth THEN LEAST(0.8, 0.2 + 0.12 * (b.horizon - 1)::numeric)
+                    ELSE COALESCE(cw.cl_weight_fixed, b.coverage)
+                END AS cl_weight,
+                CASE
+                    WHEN cw.is_smooth THEN 'smooth w(h)'::text
+                    WHEN cw.cl_weight_fixed IS NULL THEN 'coverage(h)'::text
+                    ELSE to_char(cw.cl_weight_fixed, 'FM0.0'::text)
+                END AS cl_weight_label
+           FROM blend_base b
+             CROSS JOIN cl_weights cw
+        ), blended AS (
+         SELECT s.window_months,
+            s.horizon,
+            s.origin_month,
+            s.target_month,
+            s.actual,
+            s.coverage,
+            s.cl_calibrated,
+            s.cl_implied,
+            s.apriori_value,
+            s.is_smooth,
+            s.cl_weight,
+            s.cl_weight_label,
+            s.cl_weight * s.cl_implied + (1::numeric - s.cl_weight) * s.apriori_value AS blend
+           FROM smoothed s
+        ), estimators AS (
+         SELECT b.window_months,
+            b.cl_weight_label,
+            b.cl_weight,
+            b.horizon,
+            b.origin_month,
+            b.target_month,
+            b.actual,
+            'ensemble'::text AS estimator,
+            b.blend AS predicted
+           FROM blended b
+             JOIN eligible e_1 ON e_1.horizon = b.horizon AND e_1.origin_month = b.origin_month
+        UNION ALL
+         SELECT b.window_months,
+            'n/a'::text,
+            NULL::numeric AS ""numeric"",
+            b.horizon,
+            b.origin_month,
+            b.target_month,
+            b.actual,
+            'chainladder'::text,
+            b.cl_implied
+           FROM blend_base b
+             JOIN eligible e_1 ON e_1.horizon = b.horizon AND e_1.origin_month = b.origin_month
+        UNION ALL
+         SELECT w.window_months,
+            'n/a'::text,
+            NULL::numeric AS ""numeric"",
+            w.horizon,
+            w.origin_month,
+            w.target_month,
+            b.actual,
+            w.model,
+            w.predicted / w.factor
+           FROM ap_weighted w
+             JOIN blend_base b ON b.window_months = w.window_months AND b.horizon = w.horizon AND b.origin_month = w.origin_month
+             JOIN eligible e_1 ON e_1.horizon = w.horizon AND e_1.origin_month = w.origin_month
+        UNION ALL
+         SELECT w.window_months,
+            'n/a'::text,
+            NULL::numeric AS ""numeric"",
+            n.horizon,
+            n.origin_month,
+            n.target_month,
+            n.actual,
+            'seasonal_naive'::text,
+            n.predicted
+           FROM naive n
+             CROSS JOIN windows w
+             JOIN eligible e_1 ON e_1.horizon = n.horizon AND e_1.origin_month = n.origin_month
+        )
+ SELECT e.window_months,
+    e.cl_weight_label,
+    e.cl_weight,
+    e.horizon,
+    e.origin_month,
+    e.target_month,
+    e.estimator,
+    e.predicted,
+    e.actual,
+    e.predicted - e.actual AS error,
+    e.origin_month > hb.cutoff AS is_holdout
+   FROM estimators e
+     CROSS JOIN holdout_bound hb
+  ORDER BY e.horizon, e.window_months, e.cl_weight_label, e.estimator, e.origin_month;"
+public,v_sales_seasonal_index,view,false,false,on,postgres,-1,0 bytes,"Seasonal index per calendar month, normalised to mean 1.0 per measure. ratio_stddev shows year-to-year stability of each index.","measure text, calendar_month integer, month_name text, years_observed bigint, raw_index numeric, seasonal_index numeric, ratio_stddev numeric"," WITH ratios AS (
+         SELECT v_sales_monthly_trend.measure,
+            EXTRACT(month FROM v_sales_monthly_trend.period_month)::integer AS calendar_month,
+            v_sales_monthly_trend.seasonal_ratio
+           FROM v_sales_monthly_trend
+          WHERE v_sales_monthly_trend.seasonal_ratio IS NOT NULL
+        ), raw_index AS (
+         SELECT ratios.measure,
+            ratios.calendar_month,
+            avg(ratios.seasonal_ratio) AS raw_index,
+            count(*) AS years_observed,
+            stddev_samp(ratios.seasonal_ratio) AS ratio_stddev
+           FROM ratios
+          GROUP BY ratios.measure, ratios.calendar_month
+        )
+ SELECT measure,
+    calendar_month,
+    to_char(to_date(calendar_month::text, 'MM'::text)::timestamp with time zone, 'Mon'::text) AS month_name,
+    years_observed,
+    raw_index,
+    raw_index / avg(raw_index) OVER (PARTITION BY measure) AS seasonal_index,
+    ratio_stddev
+   FROM raw_index;"
