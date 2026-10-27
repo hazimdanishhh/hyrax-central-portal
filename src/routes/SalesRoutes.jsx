@@ -1,6 +1,5 @@
 import { Navigate, Route } from "react-router-dom";
 import Quotations from "../pages/user/sales/quotations/Quotations";
-import Reports from "../pages/user/sales/reports/Reports";
 import SalesReportsLayout, {
   SalesReportsIndexRedirect,
 } from "../pages/user/sales/reports/SalesReportsLayout";
@@ -51,19 +50,6 @@ export default (
       <Route path="team" element={<TeamTab />} />
       <Route path="forecast" element={<ForecastTab />} />
     </Route>
-
-    {/* REPORTS (LEGACY) -- the single-page report, kept ONLY until the new
-        tabs are reconciled against it (plan §6 step 2,
-        supabase/diagnostics/sales_reports_tabs_reconciliation.sql). Not in
-        the sidenav. Delete with get_sales_reports_dashboard in step 5. */}
-    <Route
-      path="reports-legacy"
-      element={
-        <AccessRoute departments={["SAL", "MGM"]} roles={["manager"]}>
-          <Reports />
-        </AccessRoute>
-      }
-    />
 
     {/* CLIENTS */}
     <Route

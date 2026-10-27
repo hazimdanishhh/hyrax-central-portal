@@ -16,7 +16,7 @@ export function getFilterConfig({
   return [
     {
       key: "owner",
-      label: "Owner",
+      label: "Salesperson",
       options: owners.map((c) => ({ label: c.full_name, value: c.id })),
     },
     // {
@@ -65,57 +65,10 @@ export function getFilterConfig({
         { label: "MIXED", value: "MIXED" },
       ],
     },
-    {
-      key: "stage",
-      label: "Stage",
-      options: [
-        { label: "Discovery", value: "DISCOVERY" },
-        { label: "Sample Test", value: "SAMPLE_TEST" },
-        { label: "Proposal", value: "PROPOSAL" },
-        { label: "Negotiation", value: "NEGOTIATION" },
-        { label: "Won", value: "WON" },
-        { label: "Lost", value: "LOST" },
-      ],
-    },
-    {
-      key: "onHold",
-      label: "On Hold",
-      options: [
-        { label: "True", value: "true" },
-        { label: "False", value: "false" },
-      ],
-    },
-    {
-      key: "cancelled",
-      label: "Cancelled",
-      options: [
-        { label: "True", value: "true" },
-        { label: "False", value: "false" },
-      ],
-    },
-    {
-      key: "pendingSapOrder",
-      label: "Pending SAP Order",
-      options: [
-        { label: "True", value: "true" },
-        { label: "False", value: "false" },
-      ],
-    },
-    {
-      key: "activePipelineOnly",
-      label: "Active Pipeline",
-      options: [{ label: "Active Only (Not Won/Lost/Cancelled)", value: "true" }],
-    },
-    {
-      key: "lostOrCancelled",
-      label: "Lost or Cancelled",
-      options: [{ label: "Lost or Cancelled", value: "true" }],
-    },
-    {
-      key: "closedOnly",
-      label: "Closed (Won or Lost)",
-      options: [{ label: "Won or Lost Only", value: "true" }],
-    },
+    // Stage, on hold, cancelled, pending SAP and outcome are the status
+    // tabs' keys (tabConfig.js LEAD_TAB_KEYS), not panel filters -- the panel
+    // offered them too, and the two fought over the same URL keys
+    // (DASHBOARD-CONVENTIONS §9b, 2026-10-27).
     {
       key: "hasQuotation",
       label: "Quotation",

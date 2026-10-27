@@ -212,13 +212,10 @@ where b.is_cancelled = 'N'
 --
 -- pending_sap_order (2026-10-23): a won lead whose PO number no SAP sales
 -- order carries yet (sap_sales_orders.customer_ref = po_number) -- the
--- sales admin still has to enter it. The SAME test as
--- sales_leads_with_closed_date.pending_sap_order (Leads list / Leads
--- Overview), restated rather than read from that view: hyrax-data-platform
--- drops and recreates that view, which a dependent view would block. One
--- difference, on purpose: only WON-and-not-cancelled leads count, matching
--- this layer's Won; the report links to the list with cancelled=false so
--- the list shows the same leads.
+-- sales admin still has to enter it. Only WON-and-not-cancelled leads
+-- count, matching this layer's Won. This is the ONLY definition: the Leads
+-- list reads it through sales_leads_list (2026-10-27), which replaced
+-- sales_leads_with_closed_date's own, different copy.
 create or replace view public.sales_lead_facts
 with (security_invoker = on) as
 with closing as (

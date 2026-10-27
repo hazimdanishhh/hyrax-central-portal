@@ -4,6 +4,8 @@
 // disappearing.
 .reportContent {
   position: relative;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: inherit;
@@ -17,7 +19,7 @@
 
 .reportUpdatingPill {
   position: sticky;
-  top: 0.5rem;
+  top: 0.8rem;
   z-index: 5;
   align-self: center;
   height: 0;
@@ -29,7 +31,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.3rem 0.8rem;
+    padding: 0.5rem 1.1rem;
     border-radius: 999px;
     background-color: $neutral800;
     color: $neutral100;

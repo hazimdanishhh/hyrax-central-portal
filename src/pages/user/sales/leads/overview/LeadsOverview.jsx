@@ -326,7 +326,7 @@ export default function LeadsOverview() {
                 subtitle="Today · expected revenue, and weighted by close probability"
                 style="cardGapSmall"
                 viewAllTo={LIST}
-                viewAllFilter={{ ...ownerFilter, activePipelineOnly: "true" }}
+                viewAllFilter={{ ...ownerFilter, outcome: "open" }}
               >
                 {openByStage.length ? (
                   <HorizontalMultiBarRenderer
@@ -354,7 +354,7 @@ export default function LeadsOverview() {
                 subtitle="Today · expected revenue in each probability band"
                 style="cardGapSmall"
                 viewAllTo={LIST}
-                viewAllFilter={{ ...ownerFilter, activePipelineOnly: "true" }}
+                viewAllFilter={{ ...ownerFilter, outcome: "open" }}
               >
                 {openByProbability.length ? (
                   <HorizontalBarChartRenderer
@@ -381,7 +381,7 @@ export default function LeadsOverview() {
                 viewAllTo={LIST}
                 viewAllFilter={{
                   ...ownerFilter,
-                  lostOrCancelled: "true",
+                  outcome: "lost",
                   ...closedFilter,
                 }}
               >

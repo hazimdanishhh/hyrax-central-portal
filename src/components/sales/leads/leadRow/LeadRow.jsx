@@ -90,10 +90,8 @@ export default function LeadRow({ lead, to, active, disabled }) {
       flags={[
         lead.is_on_hold && { label: "On Hold", tone: "yellow" },
         lead.is_cancelled && { label: "Cancelled", tone: "red" },
-        // The list view's pending_sap_order also marks cancelled won leads;
-        // a cancelled lead is lost (decision D5), so it is not pending here.
-        lead.pending_sap_order &&
-          !lead.is_cancelled && {
+        // sales_lead_facts' rule: won, not cancelled, PO not in SAP yet.
+        lead.pending_sap_order && {
             label: "Pending SAP",
             tone: "red",
             title:

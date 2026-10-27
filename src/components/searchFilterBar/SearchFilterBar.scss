@@ -1,29 +1,99 @@
+// The control row (§9b, restyled 2026-10-27): a pill search box and round
+// 40px icon buttons in the period picker's outline style.
+$bar-height: 40px;
+$bar-outline: rgba($neutral500, 0.5);
+
 .searchFilterBar {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.5rem;
   width: 100%;
-  // flex-direction: column;
+  min-width: 0;
   position: relative;
-
-  @media screen and (max-width: 768px) {
-    width: 100%;
-    // align-items: start;
-    // flex-wrap: wrap;
-  }
-
-  @media screen and (max-width: 350px) {
-    flex-wrap: wrap;
-  }
 }
 
-// The page's main action, pushed to the right end of the row (§9b).
-.searchFilterBarActions {
+.searchFilterBarButtons {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin-left: auto;
+  margin-left: auto; // right-aligned, also on pages with no search box
   flex-shrink: 0;
+}
+
+// Round outline icon button: Filter, Export.
+.barIconButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $bar-height;
+  height: $bar-height;
+  border: 1px solid $bar-outline;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+
+  &:hover,
+  &.on {
+    color: $primary;
+    border-color: $primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary;
+    outline-offset: 2px;
+  }
+}
+
+// How many filters are on.
+.barIconBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background-color: $primary;
+  color: $light;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+// The page's main action: a filled round + (Echoes Hub's add button).
+.barAddButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $bar-height;
+  height: $bar-height;
+  border: none;
+  border-radius: 50%;
+  background-color: $primary;
+  color: $light;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: filter 0.15s ease;
+
+  &:hover {
+    filter: brightness(1.1);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $primary;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barIconButton,
+  .barAddButton {
+    transition: none;
+  }
 }
 
 .dateRangeWrapper {
@@ -74,31 +144,56 @@
 .searchInputWrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid $neutral300;
-  border-radius: 6px;
-  width: 100%;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  height: $bar-height;
+  padding: 0 0.4rem 0 0.9rem;
+  border: 1px solid $bar-outline;
+  border-radius: 999px;
+  transition: border-color 0.15s ease;
 
-  @media screen and (max-width: 768px) {
-    width: 100%;
+  &:focus-within {
+    border-color: $primary;
+  }
 
-    &:focus-within {
-      z-index: 10;
-      position: absolute;
-      left: 0;
-      width: 100%;
-      background-color: $neutral100;
-    }
+  .searchInputIcon {
+    flex-shrink: 0;
+    opacity: 0.6;
   }
 
   input {
+    flex: 1;
+    min-width: 0;
     border: none;
     border-radius: 0;
     outline: none;
-    font-size: 16px;
+    font-size: 16px; // 16px stops iOS zooming in on focus
     background: transparent;
+    color: inherit;
     padding: 0;
+
+    &::-webkit-search-cancel-button {
+      display: none; // our own clear button instead
+    }
+  }
+
+  .searchClearButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background-color: rgba($neutral500, 0.15);
+    }
   }
 }
 
@@ -173,7 +268,9 @@
 
 .exportSection {
   position: absolute;
+  top: calc(100% + 0.4rem);
   right: 0;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   border: 1px solid $neutral400;

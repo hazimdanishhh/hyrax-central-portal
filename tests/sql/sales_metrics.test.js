@@ -32,8 +32,9 @@ const SQL_FILES = [
   "get_sales_collections_rpc.sql",
   "get_sales_team_rpc.sql",
   "get_sales_leads_dashboard_rpc.sql",
-  "sales_leads_with_closed_date.sql",
+  "sales_leads_list_view.sql",
   "get_leads_overview_rpc.sql",
+  "retire_sales_legacy_objects.sql",
   "sales_report_briefs.sql",
 ];
 
@@ -1044,6 +1045,26 @@ describe("7. Leads LIST cards (get_leads_overview): what clicking each card show
     } finally {
       await db.exec("rollback");
     }
+  });
+
+  it("the list's source carries the facts' rules, not its own (sales_leads_list)", async () => {
+    // Every lead, the same outcome / dates / Pending SAP / won revenue as
+    // sales_lead_facts -- the list can't disagree with a report figure.
+    const diff = await q(`
+      select l.id from sales_leads_list l
+      join sales_lead_facts f on f.lead_id = l.id
+      where l.outcome is distinct from f.outcome
+         or l.created_on is distinct from f.created_on
+         or l.closed_on is distinct from f.closed_on
+         or l.pending_sap_order is distinct from f.pending_sap_order
+         or l.won_myr is distinct from f.won_myr`);
+    expect(diff).toEqual([]);
+    const [{ total }] = await q("select count(*)::int as total from sales_leads");
+    const [{ listed }] = await q("select count(*)::int as listed from sales_leads_list");
+    expect(listed).toBe(total);
+    // L3, the cancelled WON lead: lost, and not pending (the old view said pending).
+    const [l3] = await q("select outcome, pending_sap_order from sales_leads_list where id = 'a0000000-0000-0000-0000-000000000003'");
+    expect(l3).toEqual({ outcome: "lost", pending_sap_order: false });
   });
 
   it("the status tab is not a card filter any more", async () => {

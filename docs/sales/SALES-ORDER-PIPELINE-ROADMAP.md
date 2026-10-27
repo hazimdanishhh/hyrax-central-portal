@@ -41,7 +41,7 @@ This asymmetry matters: `po_number` is unique on the lead side, but `customer_re
 
 Once a lead is WON with a PO number, nothing happens automatically in SAP — a sales admin (a `manager`-role user in the `SAL` department; there is no separate formal "Sales Admin" system role today, this is a convention, not an enforced permission tier) has to manually go into SAP B1 and create the actual Sales Order using that PO's details. To make sure that backlog doesn't get lost:
 
-- **Leads List filter**: "Pending SAP Order" (True/False) — backed by a computed `pending_sap_order` column on the `sales_leads_with_closed_date` view: `stage = 'WON' AND po_number IS NOT NULL AND NOT EXISTS (a matching sap_sales_orders row)`.
+- **Leads List filter**: "Pending SAP Order" (True/False) — backed by a computed `pending_sap_order` column on the `sales_leads_list` view (from `sales_lead_facts`; was `sales_leads_with_closed_date` until 2026-10-27): `stage = 'WON' AND po_number IS NOT NULL AND NOT EXISTS (a matching sap_sales_orders row)`.
 - **Card badge**: a red "Pending SAP Order" badge on the lead's card in the List view whenever that flag is true.
 - **Leads Overview KPI tile**: "Pending SAP Order Entry" — a live backlog count (deliberately *not* scoped to the dashboard's date-range filter, since this is "how many need action right now," not "how many happened in this period"), colored yellow/red once the count crosses a threshold, clicking through to the pre-filtered List.
 

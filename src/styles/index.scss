@@ -292,6 +292,12 @@ li {
   border-radius: 10px;
   padding: 0;
 
+  // Same fix as .sectionContent: let this row's children shrink, so a
+  // one-line title truncates instead of widening the list (2026-10-27).
+  > * {
+    min-width: 0;
+  }
+
   // Minimalist scrollbar for WebKit (Chrome, Edge, Safari)
   &::-webkit-scrollbar {
     width: 10px;

@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react";
 import "./SearchFilterBar.scss";
 import {
-  CaretDownIcon,
   CaretLeftIcon,
   CaretRightIcon,
-  CaretUpIcon,
   DownloadSimpleIcon,
   FunnelIcon,
   MagnifyingGlassIcon,
+  PlusIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import Button from "../buttons/button/Button";
@@ -53,6 +52,9 @@ export default function SearchFilterBar({
   // Page standard (DASHBOARD-CONVENTIONS §9b, 2026-10-27): the page's main
   // action (e.g. "+ Add Lead"), shown at the right end of the row.
   actions,
+  // The page's + Add button: onAdd() and its label ("Add lead").
+  onAdd,
+  addLabel = "Add",
 }) {
   const { darkMode } = useTheme();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -102,14 +104,25 @@ export default function SearchFilterBar({
 
   return (
     <>
+      {/* THE CONTROL ROW (DASHBOARD-CONVENTIONS §9b, restyled 2026-10-27):
+          a pill search box, then round icon buttons -- Filter (with a count
+          badge), Export, and the page's + Add -- in the period picker's
+          outline style. Every icon button has a tooltip and an aria-label. */}
       <div className="searchFilterBar">
         {/* SEARCH */}
         {disableSearch ? null : (
           <div className="searchInputWrapper">
+            <MagnifyingGlassIcon
+              size={18}
+              className="searchInputIcon"
+              aria-hidden="true"
+            />
             <input
-              type="text"
+              type="search"
               value={searchInput}
               placeholder={placeholder}
+              aria-label={placeholder}
+              enterKeyHint="search"
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -118,95 +131,117 @@ export default function SearchFilterBar({
               }}
             />
             {searchInput.length !== 0 && (
-              <Button
+              <button
+                type="button"
+                className="searchClearButton"
+                aria-label="Clear search"
+                title="Clear search"
                 onClick={() => {
                   setSearchInput("");
                   onSearchChange("");
                 }}
-                icon={XIcon}
-                size={18}
-                style="iconButton2"
-              />
-            )}
-            <Button
-              onClick={() => onSearchChange(searchInput)}
-              icon={MagnifyingGlassIcon}
-              size={18}
-              style="iconButton2"
-            />
-          </div>
-        )}
-
-        {/* FILTERS */}
-        {hasFilters && (
-          <div className="filterSection">
-            <Button
-              onClick={() => setFilterOpen(!filterOpen)}
-              name={filtersOn > 0 ? `Filter · ${filtersOn}` : "Filter"}
-              icon2={FunnelIcon}
-              style="textXXXS textBold button buttonType5"
-              size={20}
-            />
-          </div>
-        )}
-
-        {/* EXPORT BUTTON */}
-        {enableExport && (
-          <div className="exportSectionContainer">
-            <Button
-              name="Export"
-              icon={exportIsOpen === true ? CaretUpIcon : CaretDownIcon}
-              icon2={DownloadSimpleIcon}
-              style="textXXXS textBold button buttonType5 blue"
-              size={20}
-              onClick={() => setExportIsOpen(!exportIsOpen)}
-            />
-            {exportIsOpen && (
-              <div
-                className={
-                  darkMode
-                    ? "sectionDark exportSection"
-                    : "sectionLight exportSection"
-                }
               >
-                {exportFetchFn && exportColumns && (
-                  <CsvExportButton
-                    fetchFn={exportFetchFn}
-                    columns={exportColumns}
-                    fileNamePrefix={exportFileNamePrefix}
-                    search={search}
-                    filters={filters}
-                    sortBy={sortBy}
-                    sortOrder={sortOrder}
-                  />
-                )}
-                {dashboardRef && (
-                  <ExportFullReport
-                    targetRef={dashboardRef}
-                    search={search}
-                    filters={filters}
-                    fileName="Sales_Leads_Report"
-                    reportTitle="Sales Leads Report"
-                    logoUrl="/logos/logo.png"
-                    subtitle={`Filters Applied: ${
-                      filters.startDate && filters.endDate
-                        ? `${filters.startDate} to ${filters.endDate}`
-                        : "All Time"
-                    }`}
-                  />
-                )}
-                {exportPdf && (
-                  <ExportActions
-                    {...exportPdf}
-                    className="button buttonType4 blue textXXS"
-                  />
-                )}
-              </div>
+                <XIcon size={16} />
+              </button>
             )}
           </div>
         )}
 
-        {actions && <div className="searchFilterBarActions">{actions}</div>}
+        <div className="searchFilterBarButtons">
+          {/* FILTERS */}
+          {hasFilters && (
+            <button
+              type="button"
+              className={`barIconButton ${filterOpen || filtersOn > 0 ? "on" : ""}`}
+              aria-label={
+                filtersOn > 0 ? `Filters, ${filtersOn} on` : "Filters"
+              }
+              aria-expanded={filterOpen}
+              title="Filters"
+              onClick={() => setFilterOpen(!filterOpen)}
+            >
+              <FunnelIcon size={18} />
+              {filtersOn > 0 && (
+                <span className="barIconBadge" aria-hidden="true">
+                  {filtersOn}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* EXPORT */}
+          {enableExport && (
+            <div className="exportSectionContainer">
+              <button
+                type="button"
+                className={`barIconButton ${exportIsOpen ? "on" : ""}`}
+                aria-label="Export"
+                aria-expanded={exportIsOpen}
+                title="Export"
+                onClick={() => setExportIsOpen(!exportIsOpen)}
+              >
+                <DownloadSimpleIcon size={18} />
+              </button>
+              {exportIsOpen && (
+                <div
+                  className={
+                    darkMode
+                      ? "sectionDark exportSection"
+                      : "sectionLight exportSection"
+                  }
+                >
+                  {exportFetchFn && exportColumns && (
+                    <CsvExportButton
+                      fetchFn={exportFetchFn}
+                      columns={exportColumns}
+                      fileNamePrefix={exportFileNamePrefix}
+                      search={search}
+                      filters={filters}
+                      sortBy={sortBy}
+                      sortOrder={sortOrder}
+                    />
+                  )}
+                  {dashboardRef && (
+                    <ExportFullReport
+                      targetRef={dashboardRef}
+                      search={search}
+                      filters={filters}
+                      fileName="Sales_Leads_Report"
+                      reportTitle="Sales Leads Report"
+                      logoUrl="/logos/logo.png"
+                      subtitle={`Filters Applied: ${
+                        filters.startDate && filters.endDate
+                          ? `${filters.startDate} to ${filters.endDate}`
+                          : "All Time"
+                      }`}
+                    />
+                  )}
+                  {exportPdf && (
+                    <ExportActions
+                      {...exportPdf}
+                      className="button buttonType4 blue textXXS"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ADD -- the page's main action, a filled round + */}
+          {onAdd && (
+            <button
+              type="button"
+              className="barAddButton"
+              aria-label={addLabel}
+              title={addLabel}
+              onClick={onAdd}
+            >
+              <PlusIcon size={20} weight="bold" />
+            </button>
+          )}
+
+          {actions}
+        </div>
       </div>
 
       {/* DATE SELECTOR - This month, This quarter, etc. */}

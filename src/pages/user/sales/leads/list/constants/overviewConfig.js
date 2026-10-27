@@ -42,16 +42,12 @@ export function getLeadsListOverviewConfig(kpis, { searchParams, period }) {
   const windowLabel =
     period?.mode === "all" ? "All time" : `Created ${period?.title ?? ""}`;
 
-  const active = link({ activePipelineOnly: "true" });
-  const pending = link({
-    stage: "WON",
-    pendingSapOrder: "true",
-    cancelled: "false",
-  });
-  const onHold = link({ activePipelineOnly: "true", onHold: "true" });
+  const active = link({ outcome: "open" });
+  const pending = link({ pendingSapOrder: "true" });
+  const onHold = link({ outcome: "open", onHold: "true" });
   // The count's own cutoff (the database's date), so the list it opens has the same leads.
   const aging = link({
-    activePipelineOnly: "true",
+    outcome: "open",
     onHold: "false",
     createdBefore: kpis.agingCutoff ?? agingCutoff(),
   });

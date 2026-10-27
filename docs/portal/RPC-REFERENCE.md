@@ -259,7 +259,9 @@ Kept for when the brief is made reusable across reports and fed every tab's figu
 - Won deals exclude cancelled leads and are dated in Malaysia time (decisions D5/D7).
 - Invoiced Revenue includes tax; product figures and the Gross Margin base are before tax and named that way (decision D4 still open for the headline).
 
-## `get_sales_reports_dashboard`
+## `get_sales_reports_dashboard` — RETIRED 2026-10-27
+
+> **Removed.** The legacy single-page Sales Report (`/sales/reports-legacy`) and this function were retired by `supabase/sql_editor/retire_sales_legacy_objects.sql` (DASHBOARD-CONVENTIONS §10c): it kept its own closed-date and Won rules, and Won counted cancelled deals. The Sales Reports tabs (`get_sales_summary` … `get_sales_team`) replace it. Kept below for history only.
 
 Backs Sales Reports (`Reports.jsx`). Surfaces two forecasts side by side, deliberately never blended: Forecast 1 "Pipeline Target" (CRM self-reported, `sales_targets`/`sales_leads`) and Forecast 2 "Invoice Budget" (a manually-set revenue budget, `sales_budgets` — not an SAP extract itself — compared against SAP-invoiced actuals, `sap_invoices`) — plus, as of 2026-07, the company's actual sales-side review: **PO (sales order) vs Invoice vs Budget variance, per rep.** See `DASHBOARD-CONVENTIONS.md`'s "Source-labeling convention" for the full tag vocabulary (Target/Budget/Sales Order/Invoice) this RPC's consumers use.
 
@@ -549,7 +551,7 @@ Backs the **Sales Leads LIST** page's KPI cards (`src/pages/user/sales/leads/lis
 
 **Signature:** `get_leads_overview(p_owner_id uuid, p_client_id uuid, p_sap_customer_code text, p_lead_source_type_id bigint, p_lose_reason_id bigint, p_product_type text, p_has_quotation boolean, p_start_date date, p_end_date date, p_closed_date_from date, p_closed_date_to date, p_search text) returns json`, all default null, SQL, security invoker (`sales_leads` RLS keeps staff to their own leads). The old 19-parameter version (with the status-tab filters) is dropped by name. **No tab parameters:** each card is one of the tabs.
 
-**Rows:** `sales_leads_with_closed_date` (the view `fetchLeads` reads, so filters apply exactly as on the list) joined to `sales_lead_facts` (the shared measures). The period is the created date in Malaysia time (`created_on`), matching `fetchLeads`' `+08:00` bounds.
+**Rows:** `sales_leads_list` only (2026-10-27) — the view `fetchLeads` reads, so filters apply exactly as on the list; its rule columns (`outcome`, `created_on`, `closed_on`, `pending_sap_order`, `won_myr`) are `sales_lead_facts`' own, so the measures are the shared ones. The period is the created date and the closed window the closed date, both whole Malaysia days, exactly as `fetchLeads` filters them.
 
 | Key | Definition (same as `sales_pipeline_totals`) |
 | --- | --- |

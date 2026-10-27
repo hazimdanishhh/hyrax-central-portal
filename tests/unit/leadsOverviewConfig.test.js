@@ -40,7 +40,7 @@ describe("Leads Overview tiles", () => {
 
   it("links open the list on the same leads: won excludes cancelled, by close date", () => {
     expect(byLabel["Pipeline Won"].filter).toEqual({
-      owner: "E1", stage: "WON", cancelled: "false", closedDateFrom: "2025-05-01", closedDateTo: "2025-05-31",
+      owner: "E1", outcome: "won", closedDateFrom: "2025-05-01", closedDateTo: "2025-05-31",
     });
     expect(byLabel["Pipeline Generated"].filter).toEqual({ owner: "E1", startDate: "2025-05-01", endDate: "2025-05-31" });
   });
@@ -52,7 +52,7 @@ describe("Leads Overview tiles", () => {
       ["On Hold", "Today", "greenCard", "On track"], // never blue: blue is not a verdict
       ["Aging 30+ Days", "Today", "yellowCard", "Watch"],
     ]);
-    expect(work[1].filter).toEqual({ activePipelineOnly: "true", onHold: "true" });
+    expect(work[1].filter).toEqual({ outcome: "open", onHold: "true" });
     expect(work[2].filter.onHold).toBe("false");
   });
 });

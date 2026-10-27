@@ -1,77 +1,86 @@
 // src/pages/user/sales/leads/list/constants/tabConfig.js
 //
 // The Leads list's status tabs (rebuilt 2026-10-27, DASHBOARD-CONVENTIONS
-// §2a), rendered by components/crud/statusTabs/StatusTabs.
+// §2a / §10), rendered by components/crud/statusTabs/StatusTabs.
 //
-//   * Switching tab KEEPS the period, filters, search and sort (tabLink);
-//     until now every tab link replaced the whole query string.
-//   * Exactly ONE tab is active (activeLeadTab), the most specific match --
-//     before, several could light up at once, or none.
-//   * The KPI cards link here with the same keys, so a card and its tab
-//     open the same leads.
-//   * Stage colours as before.
+//   * Every tab is a plain test on sales_leads_list's columns -- outcome
+//     (open / won / lost, cancelled = lost, decision D5), stage, is_on_hold,
+//     is_cancelled, pending_sap_order -- which are sales_lead_facts' rules,
+//     so a tab holds exactly the leads the Overview and Reports count.
+//   * Switching tab KEEPS the period, filters, search and sort (tabLink).
+//   * Exactly ONE tab is active (activeLeadTab), the most specific match.
+//   * The KPI cards and the Overview / Reports links use the same keys, so a
+//     card, a link and its tab open the same leads.
+//   * "Won or lost" (outcome=closed, from the Win Rate links) is not a tab of
+//     its own; it shows only while it is the active filter.
 import { tabLink } from "../../../../../../functions/statusTabs";
 
-// Every URL key a tab or a KPI card sets. Switching tab clears them all,
-// then sets the new tab's own. lostOrCancelled / closedOnly arrive from
-// Leads Overview links; createdBefore from the Aging card.
+// Every URL key a tab, a card or an incoming link sets. Switching tab
+// clears them all, then sets the new tab's own.
 export const LEAD_TAB_KEYS = [
+  "outcome",
   "stage",
   "onHold",
   "cancelled",
-  "activePipelineOnly",
   "pendingSapOrder",
-  "lostOrCancelled",
-  "closedOnly",
   "createdBefore",
 ];
 
-const open = (stage) => ({ stage, onHold: "false", cancelled: "false" });
+// An open lead at one pipeline stage, not on hold.
+const atStage = (stage) => ({ outcome: "open", stage, onHold: "false" });
 
 export const LEAD_TABS = [
   { key: "all", label: "All", themeType: "", set: {} },
-  { key: "active", label: "Active", themeType: "blue", set: { activePipelineOnly: "true" } },
-  { key: "DISCOVERY", label: "Discovery", themeType: "blue", set: open("DISCOVERY") },
-  { key: "SAMPLE_TEST", label: "Sample Test", themeType: "blue", set: open("SAMPLE_TEST") },
-  { key: "PROPOSAL", label: "Proposal", themeType: "blue", set: open("PROPOSAL") },
-  { key: "NEGOTIATION", label: "Negotiation", themeType: "blue", set: open("NEGOTIATION") },
-  // Won and Pending SAP leave cancelled leads out: a cancelled won lead is
-  // lost (decision D5), the same rule as Leads Overview and Reports.
-  { key: "WON", label: "Won", themeType: "approval", set: { stage: "WON", cancelled: "false" } },
+  { key: "active", label: "Active", themeType: "blue", set: { outcome: "open" } },
+  { key: "DISCOVERY", label: "Discovery", themeType: "blue", set: atStage("DISCOVERY") },
+  { key: "SAMPLE_TEST", label: "Sample Test", themeType: "blue", set: atStage("SAMPLE_TEST") },
+  { key: "PROPOSAL", label: "Proposal", themeType: "blue", set: atStage("PROPOSAL") },
+  { key: "NEGOTIATION", label: "Negotiation", themeType: "blue", set: atStage("NEGOTIATION") },
+  // Open leads on hold -- the On Hold card's own rule.
+  { key: "onHold", label: "On Hold", themeType: "yellow", set: { outcome: "open", onHold: "true" } },
+  { key: "won", label: "Won", themeType: "approval", set: { outcome: "won" } },
   {
     key: "pendingSap",
     label: "Pending SAP",
     themeType: "rejection",
-    set: { stage: "WON", pendingSapOrder: "true", cancelled: "false" },
+    set: { pendingSapOrder: "true" },
   },
-  { key: "LOST", label: "Lost", themeType: "rejection", set: { stage: "LOST" } },
-  // Open leads on hold -- the On Hold card's own rule, so the two agree.
-  {
-    key: "onHold",
-    label: "On Hold",
-    themeType: "yellow",
-    set: { activePipelineOnly: "true", onHold: "true" },
-  },
+  // Lost includes cancelled leads (D5) -- the Overview's and Reports' Lost.
+  { key: "lost", label: "Lost", themeType: "rejection", set: { outcome: "lost" } },
   { key: "cancelled", label: "Cancelled", themeType: "rejection", set: { cancelled: "true" } },
 ];
+
+// Shown only while active (an incoming link set it).
+const CLOSED_TAB = {
+  key: "closed",
+  label: "Won or lost",
+  themeType: "",
+  set: { outcome: "closed" },
+};
 
 /** The one active tab, the most specific match first. */
 export function activeLeadTab(searchParams) {
   const get = (k) => searchParams.get(k);
   if (get("cancelled") === "true") return "cancelled";
-  if (get("onHold") === "true") return "onHold";
   if (get("pendingSapOrder") === "true") return "pendingSap";
-  const stage = get("stage");
-  if (stage) return LEAD_TABS.some((t) => t.key === stage) ? stage : "all";
-  if (get("lostOrCancelled") === "true") return "LOST";
-  if (get("activePipelineOnly") === "true") return "active";
+  const outcome = get("outcome");
+  if (outcome === "open") {
+    if (get("onHold") === "true") return "onHold";
+    const stage = get("stage");
+    if (stage) return LEAD_TABS.some((t) => t.key === stage) ? stage : "active";
+    return "active";
+  }
+  if (outcome === "won") return "won";
+  if (outcome === "lost") return "lost";
+  if (outcome === "closed") return "closed";
   return "all";
 }
 
 /** Tabs for StatusTabs: each link keeps everything but the tab keys. */
 export function leadStatusTabs(searchParams) {
   const active = activeLeadTab(searchParams);
-  return LEAD_TABS.map((t) => ({
+  const tabs = active === "closed" ? [...LEAD_TABS, CLOSED_TAB] : LEAD_TABS;
+  return tabs.map((t) => ({
     key: t.key,
     label: t.label,
     themeType: t.themeType,

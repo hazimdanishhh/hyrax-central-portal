@@ -123,7 +123,7 @@ export default function PipelineTab() {
         ? { icon: targetStatus.statusIcon, label: targetStatus.statusLabel }
         : undefined,
       to: LEADS_LIST,
-      filter: { ...ownerFilter, stage: "WON", ...closedFilter },
+      filter: { ...ownerFilter, outcome: "won", ...closedFilter },
       metrics: [
         {
           label: "Pipeline Target",
@@ -151,7 +151,7 @@ export default function PipelineTab() {
       subvalue: pointsDeltaText(kpis.winRatePct, kpis.prevWinRatePct, against),
       variant: "blueCard",
       to: LEADS_LIST,
-      filter: { ...ownerFilter, closedOnly: "true", ...closedFilter },
+      filter: { ...ownerFilter, outcome: "closed", ...closedFilter },
       metrics: [
         { label: "Won Leads", value: kpis.wonCount ?? 0 },
         { label: "Total Lost Deals", value: kpis.lostCount ?? 0 },
@@ -159,7 +159,7 @@ export default function PipelineTab() {
           label: "Lost Revenue",
           value: preciseCurrency(kpis.lost),
           to: LEADS_LIST,
-          filter: { ...ownerFilter, lostOrCancelled: "true", ...closedFilter },
+          filter: { ...ownerFilter, outcome: "lost", ...closedFilter },
           title: "Expected revenue of leads lost or cancelled in the period. Reasons are in Pipeline Breakdown.",
         },
         {
@@ -179,7 +179,7 @@ export default function PipelineTab() {
       value: preciseCurrency(kpis.openValue),
       variant: "blueCard",
       to: LEADS_LIST,
-      filter: { ...ownerFilter, activePipelineOnly: "true" },
+      filter: { ...ownerFilter, outcome: "open" },
       metrics: [
         { label: "Weighted", value: preciseCurrency(kpis.weightedValue) },
         { label: "Active Leads", value: kpis.openCount ?? 0 },
@@ -208,7 +208,7 @@ export default function PipelineTab() {
       value: preciseCurrency(kpis.pendingSapValue),
       ...actionTileStatus(kpis.pendingSapCount),
       to: LEADS_LIST,
-      filter: { ...ownerFilter, pendingSapOrder: "true", cancelled: "false" },
+      filter: { ...ownerFilter, pendingSapOrder: "true" },
       metrics: [{ label: "Won Leads", value: kpis.pendingSapCount ?? 0 }],
       title:
         "Won leads whose PO number no SAP sales order carries yet -- the hand-off to " +
@@ -280,7 +280,7 @@ export default function PipelineTab() {
             subtitle="Today · expected revenue, and weighted by close probability"
             style="cardGapSmall"
             viewAllTo={LEADS_LIST}
-            viewAllFilter={{ ...ownerFilter, activePipelineOnly: "true" }}
+            viewAllFilter={{ ...ownerFilter, outcome: "open" }}
           >
             {openByStage.length ? (
               <HorizontalMultiBarRenderer
@@ -336,7 +336,7 @@ export default function PipelineTab() {
             subtitle={`Leads lost or cancelled, ${period.title}`}
             style="cardGapSmall"
             viewAllTo={LEADS_LIST}
-            viewAllFilter={{ ...ownerFilter, lostOrCancelled: "true", ...closedFilter }}
+            viewAllFilter={{ ...ownerFilter, outcome: "lost", ...closedFilter }}
           >
             {lostByReason.length ? (
               <HorizontalBarChartRenderer data={lostByReason} colorMap={MEASURE_COLORS.lost} />

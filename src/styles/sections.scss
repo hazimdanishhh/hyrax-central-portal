@@ -104,6 +104,11 @@
   align-items: center;
   text-align: center;
   width: 100%;
+  // A flex item of .sectionWrapper's row: without this it can't shrink
+  // below its content's min-content width, so any one-line (ellipsis) text
+  // -- a list row title, a .truncate -- pushed the page wider than the
+  // screen and .sectionWrapper clipped it (2026-10-27).
+  min-width: 0;
   // gap: 1rem;
   // padding-top: 1rem;
   // The page's scroll area: the screen minus the navigation chrome (see

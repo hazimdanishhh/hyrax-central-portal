@@ -448,9 +448,11 @@ The **period picker** is the same `PeriodSelector` on every page (Reports, Overv
 | --- | --- | --- |
 | **Period** (`PeriodSelector`) | the page has a date to filter by | Replaces `enableDateRange`'s presets and two date boxes everywhere. A `caption` names the date it filters ("Leads created", "Invoice date"). Custom range is built in. |
 | **Search** | the page has a search | The placeholder names what it searches ("Search invoice no. or customer…"). Applies on Enter. |
-| **Filter** | the page has at least one panel filter | Shows the count when filters are on ("Filter · 2"). **Hidden when the page has none** (until now 9 pages showed a Filter button opening an empty panel). The panel opens directly under the row. |
-| **Export** | the page has an export | The menu item says what it exports ("CSV · 134 leads"). |
-| **+ Add …** (`actions`) | the page can create records | The page's main action, at the right end of the row. |
+| **Filter** | the page has at least one panel filter | Round funnel button with a count badge when filters are on. **Hidden when the page has none** (until now 9 pages showed a Filter button opening an empty panel). The panel opens directly under the row. |
+| **Export** | the page has an export | Round download button; the menu item says what it exports ("CSV · 134 leads"). |
+| **+ Add** (`onAdd`, `addLabel`) | the page can create records | A filled round **+** in the primary colour (Echoes Hub's add button), at the right end. |
+
+**Look:** the search box is a pill (999px radius, 40px tall, magnifier inside, its own clear ×) and the buttons are 40px circles with the period picker's thin outline — so the row takes one line even on a phone. Icon-only is acceptable here because search, funnel, download and + are among the most widely recognised icons; every one still has a tooltip and an `aria-label`.
 
 **The Filter panel never repeats a status tab's keys** (stage, on hold, cancelled, pending…): the tabs own those, and offering both let them fight over the same URL key. The chips likewise show panel filters only.
 
@@ -523,6 +525,75 @@ R = rows, T = table, — = not a list. Period default per 9b. ✅ = done.
 | Pipeline Status (run log) | List | This month | ✓ | R | ✓ | |
 | Operations Reports | Report | This month | | — | ✓ | |
 | Organization Chart | Chart | — | | — | | |
+
+---
+
+## 10. Page and data specs — decide before you build (added 2026-10-27)
+
+**No Report, Overview or List page is built or changed until its spec is written here:** the exact tables, views and functions it reads, which definitions it uses, and its filters, sorting, period, tabs and cards. Written because Sales Leads alone had grown three closed-date rules, two Pending SAP rules, and list filters that re-derived "won", "lost" and "active" in JavaScript — each built for one page, each a little different.
+
+### 10a. The data layer — one shape for every entity
+
+| Layer | What it holds | Sales Leads |
+| --- | --- | --- |
+| **Table** | the record; the app writes here | `sales_leads` |
+| History, lookups | supporting tables | `sales_leads_stage_history` (trigger-written), `lead_source_types`, `sales_leads_lose_reasons`, `clients`, `sap_customers` |
+| **Facts view** | **every rule, defined once**: outcome, dates in Malaysia time, flags, money | `sales_lead_facts` |
+| **List view** | the table's columns + the facts view's rule columns — what the List, its cards, the CSV and the record sidebar read | `sales_leads_list` |
+| Shared functions | measures over the facts view (totals, series, per person) | `sales_totals`, `sales_monthly_series`, `sales_owner_totals`, `sales_pipeline_totals`, `sales_pipeline_coverage` |
+| **Page functions** | one per page or tab, thin: the List's cards read the list view; Overviews and Reports read the shared functions | `get_leads_overview`, `get_sales_leads_dashboard`, `get_sales_pipeline` / `_summary` / `_team` |
+
+**Binding:**
+
+1. **A rule exists in exactly one place** — the facts view. No second copy in another view, an RPC's own CTE, or a front-end filter that combines columns (the old `activePipelineOnly` = "stage not WON/LOST and not cancelled").
+2. **Every filter key is one list-view column** (`outcome=lost`, `pendingSapOrder=true`, `closedDateFrom` → `closed_on`), so a list filter and a figure can't disagree.
+3. **Every view is `security_invoker`**, so the table's RLS applies everywhere the rows appear.
+4. **Dates are compared as Malaysia dates** (`created_on`, `closed_on`), never as UTC timestamps.
+5. A new object needs a row in its entity's spec, below, before it is created; an object no spec names is a candidate for removal.
+
+### 10b. The page spec — fill in for every page
+
+| Field | Says |
+| --- | --- |
+| Reads | the page function(s) or view, nothing else |
+| Definitions | which facts-view columns or shared functions its figures use |
+| Period | which date it filters, and its default (§9b) |
+| Filters | the panel filters (R13's four tests for Reports and Overviews) |
+| Tabs | each tab as list-view column tests |
+| Sort | options and the default |
+| Cards | each card, its definition, and the tab it opens (§2a) |
+
+### 10c. Sales Leads — data spec (done 2026-10-27)
+
+**Objects:**
+
+| Object | Verdict | Why |
+| --- | --- | --- |
+| `sales_leads`, `sales_leads_stage_history` (+ `log_sales_leads_stage_change` trigger) | keep | the record and its stage history |
+| `sales_lead_facts` | keep — **the one definition** | outcome (cancelled = lost, D5), `created_on` / `closed_on` (Malaysia), `pending_sap_order` (won, not cancelled), `expected_myr`, `won_myr` |
+| `sales_won_lead_facts` | keep | only `sales_lead_facts where outcome = 'won'` — a filter, not a second rule |
+| `sales_leads_list` | **new** | replaces `sales_leads_with_closed_date`; its rule columns come from `sales_lead_facts` |
+| `sales_leads_with_closed_date` | **removed** (`retire_sales_legacy_objects.sql`, run after the frontend is live) | defined the closed date (UTC) and Pending SAP (cancelled included) a second time; had no `security_invoker` |
+| `get_leads_overview` | changed | reads `sales_leads_list` only; closed window on `closed_on` |
+| `get_sales_leads_dashboard`, `get_sales_pipeline` / `_summary` / `_team`, the shared functions | keep | already on the facts view |
+| `get_sales_reports_dashboard` + `/sales/reports-legacy` (`Reports.jsx`, its config and fetch) + `sales_reports_tabs_reconciliation.sql` | **removed** 2026-10-27 (page and files deleted; function dropped by `retire_sales_legacy_objects.sql`) | its own copies of the closed date and Won — Won counted cancelled deals, against D5 |
+| `get_sales_targets_prorated` | **removed** (`retire_sales_legacy_objects.sql`) | existed only in the live database; nothing called it |
+| `sales_quotations`, `sales_quotation_items` | **keep for now** (decision 2026-10-27) | nothing reads them yet; for the future Quotations page |
+
+**Leads list page:**
+
+| Field | Spec |
+| --- | --- |
+| Reads | `sales_leads_list` (rows, CSV, sidebar), `get_leads_overview` (cards) |
+| Period | created date (`created_on`), All time by default |
+| Filters | Salesperson, Client (Prospect), SAP Customer, Lead Source, Product Type, Lose Reason, Has quotation |
+| Tabs | All · Active (`outcome=open`) · Discovery / Sample Test / Proposal / Negotiation (open, that stage, not on hold) · On Hold (open + on hold) · Won (`outcome=won`) · Pending SAP (`pending_sap_order`) · Lost (`outcome=lost`, **cancelled included**, as on the Overview and Reports) · Cancelled. "Won or lost" (`outcome=closed`, from the Win Rate links) appears only while active |
+| Sort | Updated (default, newest first), Created, Expected revenue, Close probability, Stage. "Owner" removed — it sorted by the owner's id |
+| Cards | Active Pipeline → Active · Pending SAP → Pending SAP · On Hold → On Hold · Aging 30+ Days → Active + `createdBefore` |
+
+**Links into the list** (Leads Overview, Sales Reports Pipeline tab, legacy page) use the same keys: `outcome`, `pendingSapOrder`, `onHold`, `closedDateFrom` / `closedDateTo`, `createdBefore`. The old `activePipelineOnly`, `lostOrCancelled`, `closedOnly` and `stage=WON&cancelled=false` keys are gone.
+
+**Leads Overview:** reads `get_sales_leads_dashboard`; Salesperson filter only (R13); period = close date for won / lost figures, created date for generated; open position is Today.
 
 ---
 

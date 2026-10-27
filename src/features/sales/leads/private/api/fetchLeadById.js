@@ -8,7 +8,7 @@ export async function fetchLeadById(id) {
   if (!id) return null;
 
   const { data, error } = await supabase
-    .from("sales_leads")
+    .from("sales_leads_list") // the rule columns too (outcome, pending_sap_order, ...), §10
     .select(
       `
       *,
@@ -39,7 +39,7 @@ export async function fetchLeadByPoNumber(poNumber) {
   if (!poNumber) return null;
 
   const { data, error } = await supabase
-    .from("sales_leads")
+    .from("sales_leads_list") // the rule columns too (outcome, pending_sap_order, ...), §10
     .select(
       `
       *,

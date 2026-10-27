@@ -20,10 +20,12 @@
 --                cancelled leads on hold too
 --       aging    open, not on hold, created_on <= current_date - 30 (the
 --                Malaysia-time created date)
---   * The FILTERS are the list's own (sales_leads_with_closed_date, the view
---     fetchLeads reads), so a filter here is applied exactly as there.
---     The created period uses created_on (Malaysia days), the same days
---     fetchLeads now uses (+08:00 bounds).
+--   * ONE SOURCE (2026-10-27): the rows AND the measures come from
+--     sales_leads_list, the view fetchLeads reads -- its rule columns
+--     (outcome, created_on, closed_on, pending_sap_order) are
+--     sales_lead_facts' own. So a filter here is applied exactly as in the
+--     list, and the closed window compares closed_on (Malaysia dates), the
+--     same days Leads Overview and Reports count by.
 --   * agingCutoff is returned so the Aging card's link uses the SAME
 --     cutoff the count used (the browser's "today" can differ from the
 --     database's for hours).
@@ -70,9 +72,10 @@ stable
 security invoker
 as $$
     with rows as (
-        select f.*
-        from public.sales_leads_with_closed_date l
-        join public.sales_lead_facts f on f.lead_id = l.id
+        select l.outcome, l.is_on_hold, l.created_on, l.pending_sap_order,
+               l.expected_revenue as expected_myr, l.close_probability,
+               l.won_myr
+        from public.sales_leads_list l
         where (p_owner_id is null            or l.lead_owner_id       = p_owner_id)
           and (p_client_id is null           or l.client_id           = p_client_id)
           and (p_sap_customer_code is null   or l.sap_customer_code   = p_sap_customer_code)
@@ -81,12 +84,12 @@ as $$
           and (p_product_type is null        or l.product_type::text  = p_product_type)
           and (p_has_quotation is not true   or l.quotation_url is not null)
           -- the period: the lead's created date, Malaysia time
-          and (p_start_date is null or f.created_on >= p_start_date)
-          and (p_end_date is null   or f.created_on <= p_end_date)
-          -- closed window (Leads Overview / Reports drill-through links),
-          -- the same bounds as fetchLeads
-          and (p_closed_date_from is null or l.closed_date >= p_closed_date_from)
-          and (p_closed_date_to is null   or l.closed_date <= p_closed_date_to + interval '1 day')
+          and (p_start_date is null or l.created_on >= p_start_date)
+          and (p_end_date is null   or l.created_on <= p_end_date)
+          -- closed window (Leads Overview / Reports drill-through links):
+          -- whole Malaysia days, as fetchLeads and the reports
+          and (p_closed_date_from is null or l.closed_on >= p_closed_date_from)
+          and (p_closed_date_to is null   or l.closed_on <= p_closed_date_to)
           -- search: title only, as fetchLeads
           and (p_search is null or l.title ilike '%' || p_search || '%')
     )

@@ -37,24 +37,32 @@ describe("period picker: All time", () => {
 });
 
 describe("status tabs", () => {
-  const current = params("startDate=2026-10-01&endDate=2026-10-31&owner=E1&search=oil&sortBy=title&page=3&stage=LOST");
+  const current = params("startDate=2026-10-01&endDate=2026-10-31&owner=E1&search=oil&sortBy=title&page=3&outcome=lost");
 
   it("tabLink keeps the period, filters, search and sort; clears tab keys and the page", () => {
-    const to = params(tabLink(current, { stage: "WON", cancelled: "false" }, LEAD_TAB_KEYS).slice(1));
+    const to = params(tabLink(current, { outcome: "won" }, LEAD_TAB_KEYS).slice(1));
     expect(Object.fromEntries(to)).toEqual({
       startDate: "2026-10-01", endDate: "2026-10-31", owner: "E1", search: "oil", sortBy: "title",
-      stage: "WON", cancelled: "false",
+      outcome: "won",
     });
   });
 
   it("exactly one tab is active, the most specific match", () => {
     expect(activeLeadTab(params(""))).toBe("all");
-    expect(activeLeadTab(params("stage=WON&pendingSapOrder=true&cancelled=false"))).toBe("pendingSap");
-    expect(activeLeadTab(params("stage=WON&cancelled=false"))).toBe("WON");
-    expect(activeLeadTab(params("activePipelineOnly=true&onHold=true"))).toBe("onHold");
-    expect(activeLeadTab(params("activePipelineOnly=true&onHold=false&createdBefore=2026-09-27"))).toBe("active");
-    const tabs = leadStatusTabs(params("stage=WON&pendingSapOrder=true"));
+    expect(activeLeadTab(params("pendingSapOrder=true"))).toBe("pendingSap");
+    expect(activeLeadTab(params("outcome=won"))).toBe("won");
+    expect(activeLeadTab(params("outcome=lost"))).toBe("lost");
+    expect(activeLeadTab(params("outcome=open&onHold=true"))).toBe("onHold");
+    expect(activeLeadTab(params("outcome=open&stage=PROPOSAL&onHold=false"))).toBe("PROPOSAL");
+    expect(activeLeadTab(params("outcome=open&onHold=false&createdBefore=2026-09-27"))).toBe("active");
+    const tabs = leadStatusTabs(params("pendingSapOrder=true"));
     expect(tabs.filter((t) => t.isActive).map((t) => t.key)).toEqual(["pendingSap"]);
+  });
+
+  it("'Won or lost' (the Win Rate links) shows as a tab only while it is active", () => {
+    expect(leadStatusTabs(params("")).some((t) => t.key === "closed")).toBe(false);
+    const tabs = leadStatusTabs(params("outcome=closed"));
+    expect(tabs.filter((t) => t.isActive).map((t) => t.label)).toEqual(["Won or lost"]);
   });
 });
 
@@ -64,7 +72,7 @@ describe("Leads list KPI cards", () => {
     pendingSapOrderValue: 1000, pendingSapOrderCount: 1,
     onHoldValue: 0, onHoldCount: 0, agingValue: 14000, agingCount: 2, agingCutoff: "2026-09-27",
   };
-  const searchParams = params("startDate=2026-10-01&endDate=2026-10-31&owner=E1&stage=LOST");
+  const searchParams = params("startDate=2026-10-01&endDate=2026-10-31&owner=E1&outcome=lost");
   const period = describePeriod({ startDate: "2026-10-01", endDate: "2026-10-31" }, "all");
   const cards = Object.fromEntries(
     getLeadsListOverviewConfig(kpis, { searchParams, period }).map((c) => [c.label, c]),
@@ -80,10 +88,10 @@ describe("Leads list KPI cards", () => {
     const link = (label) => Object.fromEntries(params(cards[label].to.slice(1)));
     expect(link("Pending SAP")).toEqual({
       startDate: "2026-10-01", endDate: "2026-10-31", owner: "E1",
-      stage: "WON", pendingSapOrder: "true", cancelled: "false",
+      pendingSapOrder: "true",
     });
     // Aging uses the database's own cutoff, on its own key (not the period's endDate)
-    expect(link("Aging 30+ Days")).toMatchObject({ createdBefore: "2026-09-27", endDate: "2026-10-31", onHold: "false" });
+    expect(link("Aging 30+ Days")).toMatchObject({ createdBefore: "2026-09-27", endDate: "2026-10-31", outcome: "open", onHold: "false" });
   });
 
   it("colour: Active is a plain figure; the rest are green at 0, amber above", () => {

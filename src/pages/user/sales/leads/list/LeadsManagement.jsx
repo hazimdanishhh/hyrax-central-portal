@@ -1,5 +1,5 @@
 // pages/user/sales/leads/list/LeadsManagement.jsx
-import { PencilSimpleLineIcon, PlusCircleIcon } from "@phosphor-icons/react";
+import { PencilSimpleLineIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
@@ -7,7 +7,6 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import Button from "../../../../../components/buttons/button/Button";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
@@ -228,12 +227,6 @@ export default function LeadsManagement() {
     leadSourceTypes,
     loseReasons,
   });
-  // The Filter panel holds the panel filters only: stage, on hold, cancelled,
-  // pending SAP and the like are the status tabs' (§9b) -- offering them in
-  // both places let the panel and the tabs fight over the same keys.
-  const panelFilterConfig = filterConfig.filter(
-    (f) => !LEAD_TAB_KEYS.includes(f.key),
-  );
 
   // ==============
   // SIDEBAR OPEN & CLOSE
@@ -468,7 +461,7 @@ export default function LeadsManagement() {
         onSearchChange={setSearch}
         filters={filters}
         onFilterChange={setFilters}
-        filterConfig={panelFilterConfig}
+        filterConfig={filterConfig}
         placeholder="Search lead title…"
         enableExport
         exportFetchFn={fetchLeads}
@@ -476,15 +469,8 @@ export default function LeadsManagement() {
         exportFileNamePrefix="Sales_Leads_Export"
         sortBy={sortBy}
         sortOrder={sortOrder}
-        actions={
-          <Button
-            icon2={PlusCircleIcon}
-            name="Add Lead"
-            size={20}
-            style="button buttonType5 greenFill textXXS"
-            onClick={() => navigate(`new?${searchParams.toString()}`)}
-          />
-        }
+        onAdd={() => navigate(`new?${searchParams.toString()}`)}
+        addLabel="Add lead"
       />
 
       {/* ACTIVE FILTERS */}

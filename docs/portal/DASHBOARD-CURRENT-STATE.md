@@ -7,7 +7,7 @@ What actually exists today, page by page: every KPI, every chart, exactly how ea
 | Dashboard            | Route                  | Tier | Audience / cadence                       | RPC                           | Page component          |
 | -------------------- | ---------------------- | ---- | ---------------------------------------- | ----------------------------- | ----------------------- |
 | Sales Leads Overview | `sales/leads/overview` | 2    | Sales reps + manager, daily              | `get_sales_leads_dashboard`   | `LeadsOverview.jsx`     |
-| Sales Reports        | `sales/reports/<tab>`  | 3    | Sales Manager + execs, monthly/quarterly | one RPC per tab: `get_sales_summary` / `_pipeline` / `_orders` / `_invoicing` / `_collections` / `_team` **+ `get_sales_projections`** (Forecast, Summary's projection tiles) (2026-10-23, §5a) | `SalesReportsLayout.jsx` + `tabs/*` (legacy `Reports.jsx` kept at `sales/reports-legacy`) |
+| Sales Reports        | `sales/reports/<tab>`  | 3    | Sales Manager + execs, monthly/quarterly | one RPC per tab: `get_sales_summary` / `_pipeline` / `_orders` / `_invoicing` / `_collections` / `_team` **+ `get_sales_projections`** (Forecast, Summary's projection tiles) (2026-10-23, §5a) | `SalesReportsLayout.jsx` + `tabs/*` (legacy `Reports.jsx` + `get_sales_reports_dashboard` removed 2026-10-27) |
 | Finance Reports      | `finance/reports`      | 3    | Finance + execs                          | `get_finance_dashboard`       | `FinancialReports.jsx`  |
 | Operations Reports   | `operations/reports`   | 3    | Ops Manager + execs                      | `get_operations_dashboard`    | `OperationsReports.jsx` |
 

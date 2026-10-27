@@ -2,13 +2,6 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 import { formatDate, formatDateTime, formatTime } from "@/functions/formatDate";
 
-// "2026-10-31" -> "2026-11-01" (pure date arithmetic, no timezone involved).
-function nextDay(dateString) {
-  const d = new Date(`${dateString}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * Service to fetch Sales Leads for Sales department
  * Server-side filtering and pagination
@@ -26,13 +19,14 @@ export async function fetchLeads({
   const to = from + pageSize - 1;
   const FILTER_NULL = "__null__";
 
-  // Reads through a view (not the sales_leads table directly) so closed_date
-  // -- previously only computable inside get_sales_leads_dashboard_rpc.sql's
-  // own query -- exists as a real, filterable column here too. Mutations
-  // (leadsMutationsService.js) still write to sales_leads directly; this
-  // view is additive and read-only.
+  // Reads sales_leads_list (2026-10-27): sales_leads' own columns plus the
+  // rule columns from sales_lead_facts -- outcome, created_on, closed_on,
+  // pending_sap_order, won_myr -- the same definitions Leads Overview and
+  // Sales Reports count with. Every filter below is a plain column test on
+  // those; none re-derives a rule here (DASHBOARD-CONVENTIONS §10).
+  // Mutations (leadsMutationsService.js) still write to sales_leads.
   let query = supabase
-    .from("sales_leads_with_closed_date")
+    .from("sales_leads_list")
     .select(
       `
       *,
@@ -55,65 +49,28 @@ export async function fetchLeads({
   Object.entries(filters).forEach(([key, value]) => {
     if (value === undefined || value === "") return;
 
-    // CREATED-DATE PERIOD (the page's period picker) -- whole days in
-    // Malaysia time (2026-10-27), the same days as sales_lead_facts.created_on,
-    // which the KPI cards (get_leads_overview) count by. Until now these
-    // compared against naive timestamps (UTC days, and 23:59:59 dropped the
-    // last second), so a lead created before 08:00 MYT fell in the wrong day.
-    if (key === "startDate") {
-      query = query.gte("created_at", `${value}T00:00:00+08:00`);
-    }
+    // CREATED-DATE PERIOD (the period picker) and AGING (createdBefore, the
+    // Aging card / tab's own key): whole Malaysia days on created_on.
+    if (key === "startDate") query = query.gte("created_on", value);
+    if (key === "endDate") query = query.lte("created_on", value);
+    if (key === "createdBefore") query = query.lte("created_on", value);
 
-    if (key === "endDate") {
-      query = query.lt("created_at", `${nextDay(value)}T00:00:00+08:00`);
-    }
+    // CLOSED WINDOW (Leads Overview / Reports drill-through links): whole
+    // Malaysia days on closed_on, the same days those pages count by.
+    if (key === "closedDateFrom") query = query.gte("closed_on", value);
+    if (key === "closedDateTo") query = query.lte("closed_on", value);
 
-    // AGING (the Aging 30+ Days card / tab): created on or before this date,
-    // Malaysia time. Its own key, so it never fights the period's endDate.
-    if (key === "createdBefore") {
-      query = query.lt("created_at", `${nextDay(value)}T00:00:00+08:00`);
-    }
-
-    // CLOSED-DATE RANGE (view-only column) -- mirrors the dashboard RPC's
-    // own `closed_date <= p_end_date + interval '1 day'` upper bound exactly,
-    // so a link built from a KPI's closed_date window returns the same rows.
-    if (key === "closedDateFrom") {
-      query = query.gte("closed_date", `${value}T00:00:00`);
-    }
-
-    if (key === "closedDateTo") {
-      const nextDay = new Date(`${value}T00:00:00Z`);
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      query = query.lte("closed_date", nextDay.toISOString());
-    }
-
-    // "activePipelineOnly" -- open, non-cancelled pipeline (stage not in
-    // WON/LOST), mirrors activeLeads/activePipelineValue/
-    // weightedPipelineValue's shared predicate exactly. Composable with the
-    // existing onHold filter below to also back onHoldPipeline exactly
-    // (stage not in WON/LOST + is_on_hold + not cancelled).
-    if (key === "activePipelineOnly" && value === "true") {
-      query = query.not("stage", "in", "(WON,LOST)").eq("is_cancelled", false);
-    }
-
-    // "lostOrCancelled" -- mirrors lostRevenue/lostLeads' own
-    // (stage = 'LOST' OR is_cancelled) union exactly. stage and is_cancelled
-    // are orthogonal columns (a lead can be cancelled from any stage), so no
-    // single-column filter could express this before.
-    if (key === "lostOrCancelled" && value === "true") {
-      query = query.or("stage.eq.LOST,is_cancelled.eq.true");
-    }
-
-    // "closedOnly" -- WON+LOST, the Sales Reports Win Rate tile's own
-    // denominator population (WON / (WON+LOST)).
-    if (key === "closedOnly" && value === "true") {
-      query = query.in("stage", ["WON", "LOST"]);
+    // OUTCOME: open | won | lost (cancelled is lost, D5) | closed (won or
+    // lost -- the Win Rate links). Replaces the activePipelineOnly /
+    // lostOrCancelled / closedOnly filters, which re-derived it from
+    // stage + is_cancelled here.
+    if (key === "outcome") {
+      if (value === "closed") query = query.in("outcome", ["won", "lost"]);
+      else query = query.eq("outcome", value);
     }
 
     // "hasQuotation" -- backs quoteToWinConversionPct's denominator (leads
-    // that had a quotation sent, regardless of outcome). Quotations has no
-    // standalone entity/list of its own -- quotation_url is just a column on
-    // sales_leads.
+    // that had a quotation sent, regardless of outcome).
     if (key === "hasQuotation" && value === "true") {
       query = query.not("quotation_url", "is", null);
     }
@@ -164,9 +121,9 @@ export async function fetchLeads({
  * DASHBOARD-CONVENTIONS §2a). Source: get_leads_overview().
  *
  * The cards follow the list's period, panel filters and search -- the same
- * keys fetchLeads applies -- but NOT the status-tab keys (stage, onHold,
- * cancelled, activePipelineOnly, pendingSapOrder, lostOrCancelled,
- * closedOnly, createdBefore): each card IS one of those tabs, and its count
+ * keys fetchLeads applies -- but NOT the status-tab keys (outcome, stage,
+ * onHold, cancelled, pendingSapOrder, createdBefore -- LEAD_TAB_KEYS): each
+ * card IS one of those tabs, and its count
  * is what clicking it shows. If you add a panel filter to fetchLeads, add it
  * here and to the RPC too, or the cards and the list diverge.
  *

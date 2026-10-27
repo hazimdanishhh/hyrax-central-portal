@@ -43,10 +43,10 @@ function leadLinks(meta, owner) {
   return {
     ownerFilter,
     created: { ...ownerFilter, ...p }, // the list's startDate/endDate filter created_at
-    won: { ...ownerFilter, stage: "WON", cancelled: "false", ...closed },
-    closed: { ...ownerFilter, closedOnly: "true", ...closed },
-    lost: { ...ownerFilter, lostOrCancelled: "true", ...closed },
-    active: { ...ownerFilter, activePipelineOnly: "true" },
+    won: { ...ownerFilter, outcome: "won", ...closed },
+    closed: { ...ownerFilter, outcome: "closed", ...closed },
+    lost: { ...ownerFilter, outcome: "lost", ...closed },
+    active: { ...ownerFilter, outcome: "open" },
   };
 }
 
@@ -179,10 +179,10 @@ export function getPipelineKpis({ kpis, meta, period, against, owner }) {
 export function getActivePipelineKpis({ kpis, owner }) {
   const ownerFilter = owner ? { owner } : {};
   const agingCutoff = toLocalDateString(new Date(Date.now() - AGING_DAYS * 24 * 60 * 60 * 1000));
-  const pendingFilter = { ...ownerFilter, stage: "WON", pendingSapOrder: "true", cancelled: "false" };
-  const onHoldFilter = { ...ownerFilter, activePipelineOnly: "true", onHold: "true" };
+  const pendingFilter = { ...ownerFilter, pendingSapOrder: "true" };
+  const onHoldFilter = { ...ownerFilter, outcome: "open", onHold: "true" };
   // createdBefore (2026-10-27), not endDate: on the list endDate is the period.
-  const agingFilter = { ...ownerFilter, activePipelineOnly: "true", onHold: "false", createdBefore: agingCutoff };
+  const agingFilter = { ...ownerFilter, outcome: "open", onHold: "false", createdBefore: agingCutoff };
 
   return [
     todayTile({

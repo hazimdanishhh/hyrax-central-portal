@@ -8,7 +8,7 @@ export async function fetchLeadsByClientId(clientId) {
   if (!clientId || clientId === "new") return [];
 
   const { data, error } = await supabase
-    .from("sales_leads")
+    .from("sales_leads_list") // the rule columns too (outcome, pending_sap_order, ...), §10
     .select(
       `
       *,
