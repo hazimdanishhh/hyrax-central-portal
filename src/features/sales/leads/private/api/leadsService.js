@@ -2,6 +2,13 @@
 import { supabase } from "../../../../../lib/supabaseClient";
 import { formatDate, formatDateTime, formatTime } from "@/functions/formatDate";
 
+// "2026-10-31" -> "2026-11-01" (pure date arithmetic, no timezone involved).
+function nextDay(dateString) {
+  const d = new Date(`${dateString}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * Service to fetch Sales Leads for Sales department
  * Server-side filtering and pagination
@@ -48,13 +55,23 @@ export async function fetchLeads({
   Object.entries(filters).forEach(([key, value]) => {
     if (value === undefined || value === "") return;
 
-    // DATE RANGE FILTERS (created_at)
+    // CREATED-DATE PERIOD (the page's period picker) -- whole days in
+    // Malaysia time (2026-10-27), the same days as sales_lead_facts.created_on,
+    // which the KPI cards (get_leads_overview) count by. Until now these
+    // compared against naive timestamps (UTC days, and 23:59:59 dropped the
+    // last second), so a lead created before 08:00 MYT fell in the wrong day.
     if (key === "startDate") {
-      query = query.gte("created_at", `${value}T00:00:00`);
+      query = query.gte("created_at", `${value}T00:00:00+08:00`);
     }
 
     if (key === "endDate") {
-      query = query.lte("created_at", `${value}T23:59:59`);
+      query = query.lt("created_at", `${nextDay(value)}T00:00:00+08:00`);
+    }
+
+    // AGING (the Aging 30+ Days card / tab): created on or before this date,
+    // Malaysia time. Its own key, so it never fights the period's endDate.
+    if (key === "createdBefore") {
+      query = query.lt("created_at", `${nextDay(value)}T00:00:00+08:00`);
     }
 
     // CLOSED-DATE RANGE (view-only column) -- mirrors the dashboard RPC's
@@ -143,119 +160,41 @@ export async function fetchLeads({
 }
 
 /**
- * KPI counts/values for the Leads LIST page's OverviewCards.
- * Source: get_leads_overview() (supabase/sql_editor/get_leads_overview_rpc.sql).
+ * KPI cards for the Leads LIST page (rebuilt 2026-10-27,
+ * DASHBOARD-CONVENTIONS §2a). Source: get_leads_overview().
  *
- * Takes the SAME { filters, search } object fetchLeads() above takes, so the
- * strip always summarizes exactly the rows the list is showing. Every key in
- * the switch below has a matching branch in fetchLeads -- if you add a filter
- * there, add it here and to the RPC, or the two silently diverge.
+ * The cards follow the list's period, panel filters and search -- the same
+ * keys fetchLeads applies -- but NOT the status-tab keys (stage, onHold,
+ * cancelled, activePipelineOnly, pendingSapOrder, lostOrCancelled,
+ * closedOnly, createdBefore): each card IS one of those tabs, and its count
+ * is what clicking it shows. If you add a panel filter to fetchLeads, add it
+ * here and to the RPC too, or the cards and the list diverge.
  *
- * Booleans: filters arrive from the URL as the strings "true"/"false"
- * (usePaginatedQuery), so they're converted explicitly rather than relying on
- * PostgREST's text->boolean coercion.
+ * "__null__" (fetchLeads' "column IS NULL") has no RPC shape and degrades to
+ * "unfiltered" here -- a known, rare gap.
  */
 export async function fetchLeadsListOverview({ filters, search } = {}) {
   const FILTER_NULL = "__null__";
-
-  const rpcParams = {
-    p_owner_id: null,
-    p_client_id: null,
-    p_sap_customer_code: null,
-    p_lead_source_type_id: null,
-    p_lose_reason_id: null,
-    p_product_type: null,
-    p_stage: null,
-    p_is_on_hold: null,
-    p_is_cancelled: null,
-    p_pending_sap_order: null,
-    p_active_pipeline_only: null,
-    p_lost_or_cancelled: null,
-    p_closed_only: null,
-    p_has_quotation: null,
-    p_start_date: null,
-    p_end_date: null,
-    p_closed_date_from: null,
-    p_closed_date_to: null,
-    p_search: search || null,
+  const f = filters || {};
+  const pick = (key) => {
+    const v = f[key];
+    return v === undefined || v === "" || v === FILTER_NULL ? null : v;
   };
 
-  Object.entries(filters || {}).forEach(([key, value]) => {
-    if (value === undefined || value === "") return;
-
-    // fetchLeads treats __null__ as "column IS NULL"; there's no RPC param
-    // shape for that yet, so it degrades to "unfiltered" -- same compromise
-    // fetchInvoicesOverview/fetchSalesOrdersOverview already make.
-    const v = value === FILTER_NULL ? null : value;
-    if (v === null) return;
-
-    switch (key) {
-      case "owner":
-        rpcParams.p_owner_id = v;
-        break;
-      case "client":
-        rpcParams.p_client_id = v;
-        break;
-      case "sapCustomer":
-        rpcParams.p_sap_customer_code = v;
-        break;
-      case "leadSourceType":
-        rpcParams.p_lead_source_type_id = v;
-        break;
-      case "loseReason":
-        rpcParams.p_lose_reason_id = v;
-        break;
-      case "productType":
-        rpcParams.p_product_type = v;
-        break;
-      case "stage":
-        rpcParams.p_stage = v;
-        break;
-
-      case "onHold":
-        rpcParams.p_is_on_hold = v === "true";
-        break;
-      case "cancelled":
-        rpcParams.p_is_cancelled = v === "true";
-        break;
-      case "pendingSapOrder":
-        rpcParams.p_pending_sap_order = v === "true";
-        break;
-
-      // Toggle-only filters -- fetchLeads applies these on "true" and
-      // ignores every other value, so mirror that rather than sending false.
-      case "activePipelineOnly":
-        if (v === "true") rpcParams.p_active_pipeline_only = true;
-        break;
-      case "lostOrCancelled":
-        if (v === "true") rpcParams.p_lost_or_cancelled = true;
-        break;
-      case "closedOnly":
-        if (v === "true") rpcParams.p_closed_only = true;
-        break;
-      case "hasQuotation":
-        if (v === "true") rpcParams.p_has_quotation = true;
-        break;
-
-      case "startDate":
-        rpcParams.p_start_date = v;
-        break;
-      case "endDate":
-        rpcParams.p_end_date = v;
-        break;
-      case "closedDateFrom":
-        rpcParams.p_closed_date_from = v;
-        break;
-      case "closedDateTo":
-        rpcParams.p_closed_date_to = v;
-        break;
-
-      default:
-        break;
-    }
+  const { data, error } = await supabase.rpc("get_leads_overview", {
+    p_owner_id: pick("owner"),
+    p_client_id: pick("client"),
+    p_sap_customer_code: pick("sapCustomer"),
+    p_lead_source_type_id: pick("leadSourceType"),
+    p_lose_reason_id: pick("loseReason"),
+    p_product_type: pick("productType"),
+    p_has_quotation: pick("hasQuotation") === "true" ? true : null,
+    p_start_date: pick("startDate"),
+    p_end_date: pick("endDate"),
+    p_closed_date_from: pick("closedDateFrom"),
+    p_closed_date_to: pick("closedDateTo"),
+    p_search: search || null,
   });
-
-  const { data, error } = await supabase.rpc("get_leads_overview", rpcParams);
 
   if (error) throw error;
 

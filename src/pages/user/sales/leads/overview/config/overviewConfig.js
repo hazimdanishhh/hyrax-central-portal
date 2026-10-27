@@ -181,7 +181,8 @@ export function getActivePipelineKpis({ kpis, owner }) {
   const agingCutoff = toLocalDateString(new Date(Date.now() - AGING_DAYS * 24 * 60 * 60 * 1000));
   const pendingFilter = { ...ownerFilter, stage: "WON", pendingSapOrder: "true", cancelled: "false" };
   const onHoldFilter = { ...ownerFilter, activePipelineOnly: "true", onHold: "true" };
-  const agingFilter = { ...ownerFilter, activePipelineOnly: "true", onHold: "false", endDate: agingCutoff };
+  // createdBefore (2026-10-27), not endDate: on the list endDate is the period.
+  const agingFilter = { ...ownerFilter, activePipelineOnly: "true", onHold: "false", createdBefore: agingCutoff };
 
   return [
     todayTile({

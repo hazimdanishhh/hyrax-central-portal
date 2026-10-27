@@ -107,6 +107,19 @@ export const PERIOD_MODES = [
 
 const MODE_BY_KEY = Object.fromEntries(PERIOD_MODES.map((m) => [m.mode, m]));
 
+// "All time" (2026-10-27): no date bounds at all. Not a PERIOD_MODES entry
+// -- it has no length and can't be stepped -- but a state a LIST page opens
+// on (DASHBOARD-CONVENTIONS §2a): a work list shows everything until a
+// period is picked. Written as empty dates; only pages that pass
+// defaultMode="all" have it. Reports and Overviews keep "month".
+export const ALL_TIME = "all";
+export const ALL_TIME_MODE = {
+  mode: ALL_TIME,
+  label: "All time",
+  shortLabel: "All",
+  noun: "period",
+};
+
 export function getPeriodMode(mode) {
   return MODE_BY_KEY[mode] || null;
 }
@@ -153,6 +166,9 @@ export function readPeriod(filters, defaultMode = "month") {
   const endDate = filters?.endDate || "";
 
   if (!startDate && !endDate) {
+    if (defaultMode === ALL_TIME) {
+      return { mode: ALL_TIME, startDate: "", endDate: "", isDefault: true };
+    }
     return {
       mode: defaultMode,
       ...periodContaining(defaultMode, todayDateString()),
@@ -177,7 +193,10 @@ export function readPeriod(filters, defaultMode = "month") {
  * Returning to this month therefore puts the page back exactly as it loads.
  */
 export function periodToFilters(range, defaultMode = "month") {
-  if (defaultMode) {
+  // All time is empty dates; on an all-time page every real period is
+  // written out explicitly (empty already means "all time" there).
+  if (range.mode === ALL_TIME) return { startDate: "", endDate: "" };
+  if (defaultMode && defaultMode !== ALL_TIME) {
     const current = periodContaining(defaultMode, todayDateString());
     if (
       range.startDate === current.startDate &&
@@ -364,6 +383,7 @@ export function describePeriod(filters, defaultMode = "month") {
  * "Q3 FY 2026-2027", "FY 2026-2027", "2026"), `range` its exact dates.
  */
 export function formatPeriod(period) {
+  if (period.mode === ALL_TIME) return { title: "All time", range: "Every date" };
   const range = formatDateRange(period.startDate, period.endDate);
   if (period.mode === "custom") return { title: range || "Custom range", range: "Custom range" };
 

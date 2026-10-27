@@ -543,6 +543,26 @@ Backs **Sales Leads Overview** (`src/pages/user/sales/leads/overview/LeadsOvervi
 
 ---
 
+## `get_leads_overview`
+
+Backs the **Sales Leads LIST** page's KPI cards (`src/pages/user/sales/leads/list/constants/overviewConfig.js`). **Rebuilt 2026-10-27** to `DASHBOARD-CONVENTIONS.md` §2a: each card's number is exactly what clicking it shows.
+
+**Signature:** `get_leads_overview(p_owner_id uuid, p_client_id uuid, p_sap_customer_code text, p_lead_source_type_id bigint, p_lose_reason_id bigint, p_product_type text, p_has_quotation boolean, p_start_date date, p_end_date date, p_closed_date_from date, p_closed_date_to date, p_search text) returns json`, all default null, SQL, security invoker (`sales_leads` RLS keeps staff to their own leads). The old 19-parameter version (with the status-tab filters) is dropped by name. **No tab parameters:** each card is one of the tabs.
+
+**Rows:** `sales_leads_with_closed_date` (the view `fetchLeads` reads, so filters apply exactly as on the list) joined to `sales_lead_facts` (the shared measures). The period is the created date in Malaysia time (`created_on`), matching `fetchLeads`' `+08:00` bounds.
+
+| Key | Definition (same as `sales_pipeline_totals`) |
+| --- | --- |
+| `activeCount` / `activeValue` / `weightedValue` | `outcome = 'open'` (on hold included), expected value, × close probability |
+| `pendingSapOrderCount` / `pendingSapOrderValue` | `pending_sap_order` — won, not cancelled, PO with no SAP order; won value |
+| `onHoldCount` / `onHoldValue` | open and on hold |
+| `agingCount` / `agingValue` | open, not on hold, `created_on <= current_date - 30` |
+| `agingCutoff` | `current_date - 30` — the Aging card links to the list with `createdBefore` = this date, so its list has the same leads |
+
+With no filters these equal Leads Overview's Today figures (tested).
+
+---
+
 ## `get_operations_dashboard`
 
 Backs Operations Reports (`OperationsReports.jsx`) — fulfilment/backlog, no filters besides date range.

@@ -32,6 +32,8 @@ const SQL_FILES = [
   "get_sales_collections_rpc.sql",
   "get_sales_team_rpc.sql",
   "get_sales_leads_dashboard_rpc.sql",
+  "sales_leads_with_closed_date.sql",
+  "get_leads_overview_rpc.sql",
   "sales_report_briefs.sql",
 ];
 
@@ -104,7 +106,8 @@ beforeAll(async () => {
       lead_owner_id uuid, client_id uuid, sap_customer_code text, product_type text,
       lead_source_type_id bigint, actual_revenue numeric,
       is_on_hold boolean default false, close_probability numeric, expected_revenue numeric,
-      created_at timestamptz default '2025-01-01', lose_reason_id bigint, po_number text);
+      created_at timestamptz default '2025-01-01', lose_reason_id bigint, po_number text,
+      title text, quotation_url text);
     create table lead_source_types (id bigint primary key, name text);
     create table sales_leads_lose_reasons (id bigint primary key, name text);
     create table sap_sales_orders_with_fulfillment (
@@ -993,6 +996,58 @@ describe("6. Leads Overview (get_sales_leads_dashboard) is the Pipeline tab's nu
 
   it("outside Sales / Management is denied", async () => {
     await expect(rpc("get_sales_leads_dashboard", E4, ...MAY)).rejects.toThrow(/Access denied/);
+  });
+});
+
+describe("7. Leads LIST cards (get_leads_overview): what clicking each card shows", () => {
+  const cards = async (args = "") => {
+    const [row] = await as(E1, () => q(`select get_leads_overview(${args}) as r`));
+    return row.r;
+  };
+
+  it("with no filters they equal the shared Today figures (and Leads Overview's)", async () => {
+    const c = await cards();
+    const [t] = await q("select * from sales_pipeline_totals(null, $1, $2)", MAY);
+    expect([n(c.activeValue), n(c.activeCount), n(c.weightedValue)])
+      .toEqual([n(t.open_value), n(t.open_count), n(t.weighted_value)]);
+    expect([n(c.pendingSapOrderValue), n(c.pendingSapOrderCount)]).toEqual([n(t.pending_sap_value), n(t.pending_sap_count)]);
+    expect([n(c.onHoldValue), n(c.agingValue), n(c.agingCount)]).toEqual([n(t.on_hold_value), n(t.aging_value), n(t.aging_count)]);
+    // L3 is a cancelled WON lead with an unmatched PO: lost, so not pending (D5).
+    expect(n(c.pendingSapOrderCount)).toBe(1);
+    const [{ cutoff }] = await q("select (current_date - 30)::text as cutoff");
+    expect(c.agingCutoff).toBe(cutoff);
+  });
+
+  it("a won lead on hold is not On Hold; an open one is", async () => {
+    await db.exec("begin");
+    try {
+      await db.exec(`update sales_leads set is_on_hold = true
+        where id in ('a0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000007')`);
+      const c = await cards();
+      expect([n(c.onHoldValue), n(c.onHoldCount)]).toEqual([4000, 1]); // L7 only
+    } finally {
+      await db.exec("rollback");
+    }
+  });
+
+  it("the period (created date), salesperson and search narrow every card", async () => {
+    // Created in May 2025: only L6 (open, 10000, not on hold, 30+ days old).
+    const may = await cards(`p_start_date => '2025-05-01', p_end_date => '2025-05-31'`);
+    expect([n(may.activeValue), n(may.activeCount), n(may.agingValue), n(may.pendingSapOrderCount)]).toEqual([10000, 1, 10000, 0]);
+    const bob = await cards(`p_owner_id => '${E2}'`);
+    expect([n(bob.activeValue), n(bob.pendingSapOrderValue)]).toEqual([4000, 1000]); // L7; L5
+    await db.exec("begin");
+    try {
+      await db.exec("update sales_leads set title = 'Transformer oil retrofit' where id = 'a0000000-0000-0000-0000-000000000006'");
+      const found = await cards(`p_search => 'transformer'`);
+      expect(n(found.activeValue)).toBe(10000);
+    } finally {
+      await db.exec("rollback");
+    }
+  });
+
+  it("the status tab is not a card filter any more", async () => {
+    await expect(cards(`p_stage => 'WON'`)).rejects.toThrow(/does not exist/);
   });
 });
 

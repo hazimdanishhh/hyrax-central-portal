@@ -13,6 +13,26 @@
 // the way Leads' own full-replace tabs do. Leads' tabs never needed to
 // preserve anything else, so that shortcut was fine there; it would lose
 // real state here.
+/**
+ * A tab or KPI-card link that SWITCHES the list's view without losing the
+ * rest of it (2026-10-27): keeps every current param (period, filters,
+ * search, sort), clears the tab-owned keys and `page`, then applies `set`.
+ *
+ *   tabLink(searchParams, { stage: "WON", pendingSapOrder: "true" }, LEAD_TAB_KEYS)
+ *     -> "?startDate=2026-10-01&endDate=2026-10-31&owner=…&stage=WON&pendingSapOrder=true"
+ *
+ * Empty/null values in `set` are skipped (an "All" tab sets nothing).
+ */
+export function tabLink(searchParams, set = {}, ownedKeys = []) {
+  const params = new URLSearchParams(searchParams);
+  params.delete("page");
+  ownedKeys.forEach((k) => params.delete(k));
+  Object.entries(set).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") params.set(k, String(v));
+  });
+  return `?${params.toString()}`;
+}
+
 const STATUSBOX_TO_PILL_THEME = {
   grey: "",
   blue: "blue",

@@ -4,19 +4,22 @@ import { fetchLeadsListOverview } from "../api/leadsService";
 const EMPTY_KPIS = {
   activeCount: 0,
   activeValue: 0,
+  weightedValue: 0,
   pendingSapOrderCount: 0,
   pendingSapOrderValue: 0,
   onHoldCount: 0,
   onHoldValue: 0,
   agingCount: 0,
   agingValue: 0,
+  agingCutoff: null,
 };
 
 /**
- * Backs the Leads LIST page's OverviewCards -- mirrors the paginated list's
- * active filters/search so the KPI strip always summarizes exactly the
- * filtered slice the list below is showing. filters/search are the same
- * values the page already gets from usePaginatedQuery -- no separate state.
+ * Backs the Leads LIST page's KPI cards (2026-10-27). They follow the
+ * list's period, panel filters and search -- the status-tab keys are
+ * ignored by fetchLeadsListOverview, since each card IS a tab (each card's
+ * count is what clicking it shows). The previous figures stay on screen
+ * while new ones load.
  *
  * Distinct from useLeadsOverview.js, the Overview tab's hook (2026-10-23;
  * it replaced a legacy, unused client-side aggregator of the same name).
@@ -31,6 +34,7 @@ export function useLeadsListOverview(filters, search) {
     queryKey: ["sales_leads", "list-overview", filters, search],
     queryFn: () => fetchLeadsListOverview({ filters, search }),
     staleTime: 1000 * 60,
+    placeholderData: (previous) => previous,
   });
 
   return { ...query, kpis: query.data || EMPTY_KPIS };

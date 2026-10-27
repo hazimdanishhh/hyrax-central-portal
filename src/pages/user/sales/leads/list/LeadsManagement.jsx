@@ -17,7 +17,8 @@ import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
 import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
-import StatusTab from "../../../../../components/crud/statusTab/StatusTab";
+import StatusTabs from "../../../../../components/crud/statusTabs/StatusTabs";
+import PeriodSelector from "../../../../../components/periodSelector/PeriodSelector";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import { useEmployee } from "../../../../../context/EmployeeContext";
 import { useTheme } from "../../../../../context/ThemeContext";
@@ -32,7 +33,8 @@ import { getFilterConfig } from "./constants/filterConfig";
 import { getLayoutConfig } from "./constants/layoutConfig";
 import { getSortConfig } from "./constants/sortConfig";
 import { getLeadsListOverviewConfig } from "./constants/overviewConfig";
-import { stageTabsConfig } from "./constants/tabConfig";
+import { LEAD_TAB_KEYS, leadStatusTabs } from "./constants/tabConfig";
+import { describePeriod } from "../../../../../functions/periodRange";
 import { leadsTableConfig } from "./constants/tableConfig";
 import { leadsExportColumns } from "./constants/exportConfig";
 import "./LeadsManagement.scss";
@@ -54,11 +56,6 @@ export default function LeadsManagement() {
   const [layout, setLayout] = useState(0); // 0: List, 1: Table
   const [pendingAction, setPendingAction] = useState(null);
   const [searchParams] = useSearchParams();
-  const activePipelineOnly = searchParams.get("activePipelineOnly") === "true";
-  const currentStage = searchParams.get("stage");
-  const isCancelled = searchParams.get("cancelled") === "true";
-  const isOnHold = searchParams.get("onHold") === "true";
-  const isPendingSAP = searchParams.get("pendingSapOrder") === "true";
   const isCreating = leadId === "new";
 
   const [isEditing, setIsEditing] = useState(isCreating);
@@ -98,7 +95,6 @@ export default function LeadsManagement() {
     sortBy,
     sortOrder,
     activeFilters,
-    hasActiveFilters,
     setPage,
     setSearch,
     setFilters,
@@ -147,8 +143,24 @@ export default function LeadsManagement() {
     error: metadataError,
   } = useLeadsMetadata();
 
+  // The period filters the leads' CREATED date; the list opens on All time
+  // (DASHBOARD-CONVENTIONS §2a). The KPI cards follow the period, filters
+  // and search like the list, but not the status tab -- each card's count
+  // is exactly what clicking it shows.
+  const period = describePeriod(filters, "all");
   const { kpis } = useLeadsListOverview(filters, search);
-  const overviewItems = getLeadsListOverviewConfig(kpis);
+  const overviewItems = getLeadsListOverviewConfig(kpis, {
+    searchParams,
+    period,
+  });
+
+  // Chips for the panel filters only: the period picker shows the dates and
+  // the status tabs show the tab keys.
+  const chipFilters = activeFilters.filter(
+    ([key]) =>
+      key !== "startDate" && key !== "endDate" && !LEAD_TAB_KEYS.includes(key),
+  );
+  const showChips = chipFilters.length > 0 || search.length > 0;
 
   const {
     createLead,
@@ -414,9 +426,15 @@ export default function LeadsManagement() {
 
   return (
     <>
-      <PageTitle
+      {/* <PageTitle
         title="Leads"
         subtitle="Manage your sales leads and opportunities"
+      /> */}
+
+      <PeriodSelector
+        filters={filters}
+        onFilterChange={setFilters}
+        defaultMode="all"
       />
 
       <OverviewCards items={overviewItems} style="overviewCard2" />
@@ -429,7 +447,6 @@ export default function LeadsManagement() {
         onFilterChange={setFilters}
         filterConfig={filterConfig}
         placeholder="Search leads..."
-        enableDateRange
         enableExport
         exportFetchFn={fetchLeads}
         exportColumns={leadsExportColumns}
@@ -439,11 +456,11 @@ export default function LeadsManagement() {
       />
 
       {/* ACTIVE FILTERS */}
-      {hasActiveFilters && (
+      {showChips && (
         <ActiveFiltersBar
           search={search}
           setSearch={setSearch}
-          filters={activeFilters}
+          filters={chipFilters}
           setFilters={setFilters}
           filterConfig={filterConfig}
           resetParams={resetParams}
@@ -488,23 +505,7 @@ export default function LeadsManagement() {
         error={error}
       />
 
-      <div className="statusTabsRow scrollbar">
-        {stageTabsConfig(
-          activePipelineOnly,
-          currentStage,
-          isCancelled,
-          isOnHold,
-          isPendingSAP,
-        ).map((tab) => (
-          <StatusTab
-            key={tab.label}
-            to={tab.to}
-            label={tab.label}
-            themeType={tab.themeType}
-            isActive={tab.isActive}
-          />
-        ))}
-      </div>
+      <StatusTabs tabs={leadStatusTabs(searchParams)} ariaLabel="Lead status" />
 
       {/* TABLE DISPLAY UI */}
       <CardLayout style="cardWrapperScroll">

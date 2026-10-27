@@ -1,0 +1,61 @@
+// Status tabs: the period picker's pill buttons (PeriodSelector.scss
+// .periodToggleButton), each in its status colour. TabScroller supplies the
+// outer pill, arrows, fade and snapping.
+.statusTabs {
+  .statusTabPill {
+    --tab-colour: #{$primary};
+
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    color: var(--tab-colour);
+    background: transparent;
+    white-space: nowrap;
+    text-decoration: none;
+    scroll-snap-align: start;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &.blue {
+      --tab-colour: #{$info600};
+    }
+    &.approval {
+      --tab-colour: #{$success600};
+    }
+    &.rejection {
+      --tab-colour: #{$error600};
+    }
+    &.yellow {
+      --tab-colour: #{$warning600};
+    }
+    // "All" and any tab with no status colour read like the page text.
+    &.neutral {
+      color: inherit;
+    }
+
+    &:hover:not(.active) {
+      background-color: rgba($neutral500, 0.15);
+    }
+
+    &.active {
+      background-color: var(--tab-colour);
+      color: $light;
+      font-weight: 700;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--tab-colour);
+      outline-offset: 2px;
+    }
+
+    @media screen and (max-width: 520px) {
+      padding: 0.4rem 0.7rem;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusTabs .statusTabPill {
+    transition: none;
+  }
+}
