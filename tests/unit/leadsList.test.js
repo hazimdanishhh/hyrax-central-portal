@@ -78,7 +78,7 @@ describe("Leads list KPI cards", () => {
 
   it("open their own tab and keep the period and salesperson", () => {
     const link = (label) => Object.fromEntries(params(cards[label].to.slice(1)));
-    expect(link("Pending SAP Order Entry")).toEqual({
+    expect(link("Pending SAP")).toEqual({
       startDate: "2026-10-01", endDate: "2026-10-31", owner: "E1",
       stage: "WON", pendingSapOrder: "true", cancelled: "false",
     });
@@ -89,6 +89,6 @@ describe("Leads list KPI cards", () => {
   it("colour: Active is a plain figure; the rest are green at 0, amber above", () => {
     expect(cards["Active Pipeline"].variant).toBe("blueCard");
     expect(cards["On Hold"].variant).toBe("greenCard");
-    expect(cards["Pending SAP Order Entry"].variant).toBe("yellowCard");
+    expect(cards["Pending SAP"].variant).toBe("yellowCard");
   });
 });

@@ -1,0 +1,198 @@
+// Two-line list rows (ListRow.jsx). Sized like Echoes Hub's item rows:
+// ~52px per record, one tap target, a hairline between rows.
+.listRows {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba($neutral500, 0.2);
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  transition: background-color 0.15s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background-color: rgba($neutral500, 0.1);
+  }
+
+  // The record open in the sidebar.
+  &.active {
+    background-color: rgba($primary, 0.08);
+    border-left-color: $primary;
+  }
+}
+
+.listRowBody {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.6rem;
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 2px solid $primary;
+    outline-offset: -2px;
+  }
+}
+
+// Faces: one 32px avatar, or an overlapping stack of up to 3 (+N).
+.listRowFaces {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  &.stack .listRowFace + .listRowFace,
+  &.stack .listRowFaceMore {
+    margin-left: -10px;
+  }
+}
+
+.listRowFace,
+.listRowFaceMore {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid $neutral600;
+  background-color: $dark;
+  flex-shrink: 0;
+}
+
+.listRowFace {
+  object-fit: cover;
+  display: block;
+}
+
+.listRowFaceMore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: $neutral100;
+}
+
+.listRowText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+// Line 1: name left, figure right.
+.listRowMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.listRowTitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.listRowFigure {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+// Line 2: chips and short texts, "·" between the texts.
+.listRowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  opacity: 0.85;
+
+  // Figure tones (e.g. close probability).
+  .green {
+    color: $success600;
+  }
+  .yellow {
+    color: $warning600;
+  }
+  .red {
+    color: $error600;
+  }
+}
+
+.listRowMetaItem + .listRowMetaItem::before {
+  content: "·";
+  margin-right: 0.5rem;
+}
+
+.listRowChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &.blue {
+    color: $info600;
+  }
+  &.green {
+    color: $success600;
+  }
+  &.yellow {
+    color: $warning600;
+  }
+  &.red {
+    color: $error600;
+  }
+  &.grey {
+    color: $neutral500;
+  }
+}
+
+// The mini step tracker inside a status chip.
+.listRowProgress {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.listRowProgressStep {
+  width: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: currentColor;
+  opacity: 0.25;
+
+  &.done {
+    opacity: 1;
+  }
+}
+
+// Buttons on the right, outside the link.
+.listRowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-right: 0.6rem;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listRow {
+    transition: none;
+  }
+}

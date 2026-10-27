@@ -339,6 +339,8 @@ The two shapes differ only in what the page's handler returns:
 
 ## 7. List-card conventions (added 2026-09)
 
+> **Superseded on list pages by §9's two-line rows (2026-10-27).** The cards below stay as the summary block inside a record's sidebar (e.g. `LeadSidebar` reuses `LeadsList`) and on pages not yet migrated; 7a's Link + URL-driven sidebar and 7b's `nestedLink` rule still apply to rows.
+
 ### 7a. Card-is-a-Link + URL-driven sidebar
 
 Every list page's card is now a `react-router` `Link` (or plain element when there's nowhere to go), not a `<button onClick>` — so a card is ctrl/cmd/middle-click-openable in a new tab, same as any other link. The shape, established across `InvoiceCard`/`SalesOrderCard`/`FulfillmentOrderCard`/`PaymentCard`/`BillCard`/`VendorPaymentCard` and brought to `LeadsList`/`AttendanceCard`/`LeaveCard` in 2026-09:
@@ -417,6 +419,110 @@ The standard every Tier-3 Reports page is built and reviewed against. Written af
 7. Does the SQL test prove the tab's figures equal the same figures elsewhere?
 8. Does every filter pass R13's four tests, and is the filter set written down?
 9. Does a period or filter change visibly show "Updating figures…"?
+
+---
+
+## 9. Page standard — reports, overviews and lists (added 2026-10-27)
+
+How every Report, Overview and List page is laid out and behaves. Piloted on the Sales Leads list (`LeadsManagement.jsx`), then rolled out page by page using the table at the end. Reports' content rules are §8; a List's KPI cards are §2a.
+
+### 9a. Page anatomy, top to bottom
+
+| Report / Overview | List |
+| --- | --- |
+| 1. Tabs (Reports only) | 1. **Period picker** — the same one as Reports, centred (9b) |
+| 2. **Period picker** (+ R13's filters) | 2. **Control row** (9b): Search · Filter · Export · **+ Add …** (right end) |
+| 3. Export | 3. Filter chips (panel filters only) |
+| 4. KPI tiles → Trend → Open Position → Breakdown (§8 R2) | 4. **KPI cards** (§2a) — they follow everything above them |
+| | 5. **Status tabs** (`StatusTabs`) — they narrow the list only, not the cards |
+| | 6. **Result bar**, sticky: "Showing 1–50 of 134" · Sort · page arrows. No second pager at the bottom (the bar stays in view) |
+| | 7. **Rows** (9c) or a **table** (9d); the record opens in the right-hand sidebar |
+
+No separate title row where the layout already names the page (`PageLayout`'s Overview | List bar does). The order is the rule "**controls above what they change**": the period, search and filters change the cards and the list, so they come first; the tabs change only the list, so they sit between the cards and the list.
+
+### 9b. The period picker and the control row
+
+The **period picker** is the same `PeriodSelector` on every page (Reports, Overviews, Lists) — two lines tall and centred, so it sits on its own above the control row rather than squeezed into it (a second, compact picker would break "same picker everywhere"). The **control row** (`SearchFilterBar`) holds the rest, always in this order, each piece shown **only when the page has it**:
+
+| Piece | Shown when | Behaviour |
+| --- | --- | --- |
+| **Period** (`PeriodSelector`) | the page has a date to filter by | Replaces `enableDateRange`'s presets and two date boxes everywhere. A `caption` names the date it filters ("Leads created", "Invoice date"). Custom range is built in. |
+| **Search** | the page has a search | The placeholder names what it searches ("Search invoice no. or customer…"). Applies on Enter. |
+| **Filter** | the page has at least one panel filter | Shows the count when filters are on ("Filter · 2"). **Hidden when the page has none** (until now 9 pages showed a Filter button opening an empty panel). The panel opens directly under the row. |
+| **Export** | the page has an export | The menu item says what it exports ("CSV · 134 leads"). |
+| **+ Add …** (`actions`) | the page can create records | The page's main action, at the right end of the row. |
+
+**The Filter panel never repeats a status tab's keys** (stage, on hold, cancelled, pending…): the tabs own those, and offering both let them fight over the same URL key. The chips likewise show panel filters only.
+
+On a phone the row wraps; the result bar under the list's tabs carries the count, **Sort** and the page arrows (`PageResult`'s `pageSize` + children).
+
+**Default period, by page type:**
+
+| Page type | Opens on |
+| --- | --- |
+| Reports, Overviews | This month (`defaultMode="month"`, §8) |
+| Work lists (records you look up: leads, orders, invoices, payments, bills) | **All time** (`defaultMode="all"`) |
+| Lists that grow every day (journal entries, notifications, run logs, my attendance) | This month |
+| Attendance (team / HR) | **Today** — needs a Day mode in `PeriodSelector` (‹ › step one day); to build when attendance is migrated |
+| Master data (clients, employees, assets, projects, users) | No period |
+
+### 9c. Two-line rows (`components/crud/listRow/ListRow`)
+
+The default for any list where people **look for one record and open it**. ~52 px per record, ~3× more per screen than the old cards; 50 per page.
+
+```text
+(face)  Line 1   what the record is                       the one figure the page counts   [buttons]
+        Line 2   [Status ▮▮▮▯▯] · who · what · when                              [warning chips]
+```
+
+- **Face(s)** (`people`): the owner's photo (32 px), or up to 3 overlapping members and "+N" (projects, tasks). A column of faces is how people glance "who's who"; the name is also on line 2.
+- **Line 1:** the record's name / number (truncates) and **one** figure, right-aligned, tabular — the figure the page's cards count (Leads: expected revenue, or won revenue once won; Invoices: outstanding). Its tooltip names it.
+- **Line 2, always in this order:** the status chip first (with a mini step tracker when the record moves through stages — a lead's 4 stages + outcome, an order's Ordered → Delivered → Invoiced → Paid), then who, what, when, separated by "·"; warning chips last. **Empty values are left out**, not shown as "—".
+- **Buttons** (`actions`, optional): small icon + count buttons on the right (a project's Members / Documents). They sit **outside** the row's link, so pressing one never opens the record.
+- The whole row is one `Link` (§7a); the open record's row is highlighted. The full detail (stage tracker, figures grid, documents) lives in the sidebar — normal practice: CRMs show the stage path on the record page and the stage as a label in list views.
+- Each list writes one small row component (`LeadRow`) that decides what goes on each line; `ListRow` only lays it out. The old card stays available behind one flag (`USE_OLD_CARDS` in `LeadsManagement.jsx`).
+
+### 9d. When a table instead
+
+Use `DataTable` when people **compare numbers across columns or edit cells inline**: Chart of Accounts, Account Ledger, Journal Entries, Payroll Export, Sales Targets, Sales Budgets, Sales Rep Mapping, Leave Types, Attendance Settings. A table gets sortable headers (`sortable` columns) instead of `SortBar`.
+
+### 9e. Loading is always visible
+
+- **First load:** spinner.
+- **Any later change** (period, filter, search, sort, tab, page): the previous figures and rows **stay on screen**, dimmed, under a floating pill — "Updating figures…" over the KPI cards, "Updating leads…" over the rows (`TabState`'s `isUpdating` / `updatingLabel`). A quiet background refresh (after a save) shows nothing.
+- `usePaginatedQuery` keeps the previous page with `placeholderData: keepPreviousData` and returns `isPlaceholderData`; a page's "updating" flag is `isFetching && isPlaceholderData`. (Its old `keepPreviousData: true` was TanStack v4's option and was ignored, so every change blanked the list.) List KPI hooks use `placeholderData: (previous) => previous` the same way.
+
+### 9f. Every page, and what it gets
+
+R = rows, T = table, — = not a list. Period default per 9b. ✅ = done.
+
+| Page | Type | Period (date filtered) | Search | Rows / table | Cards | Tabs |
+| --- | --- | --- | --- | --- | --- | --- |
+| Sales Leads ✅ | List | All time (created) | ✓ | R | ✓ | ✓ |
+| Sales Orders | List | All time (order date) | ✓ | R (+ fulfilment tracker) | ✓ | ✓ |
+| Clients, SAP Clients | List | — | ✓ | R | | |
+| Sales Targets, Sales Budgets, Rep Mapping | List | — | | T | | |
+| Sales Leads Overview ✅, Sales Reports ✅ | Overview / Report | This month | | — | ✓ | |
+| Invoices, Payments, Bills, Vendor Payments | List | All time (document date) | ✓ | R | ✓ | |
+| Business Partners | List | — | ✓ | R | | |
+| Chart of Accounts | List | — | ✓ | T (tree) | | |
+| Account Ledger, Journal Entries | List | This month (posting date) | | T | | |
+| Finance Reports, Income Statement, Cash Flow, Chart of Accounts Overview, Category Detail | Report / Overview | This month | | — | | |
+| Employee Management, Employees directory | List | — | ✓ | R (face) | | ✓ |
+| Leave Management | List | All time (leave date) | ✓ | R (face) | | |
+| Lifecycle cases | List | — | ✓ | R (face) | ✓ | ✓ |
+| Attendance Management, Team Attendance | List | **Today** (Day mode) | ✓ | R (face) | ✓ | ✓ |
+| My Attendance | List | This month | ✓ | R | ✓ | ✓ |
+| Payroll Export | List | Month (payroll month) | | T | ✓ | |
+| Leave Types, Attendance Settings | Settings | — | ✓ | T | | |
+| HR Reports, Attendance / Team / My Attendance Overview, Employee Overview | Report / Overview | This month | | — | ✓ | |
+| IT Assets | List | — | ✓ | R | | |
+| Projects, Tasks, Documents (+ the project's Tasks / Documents tabs) | List | — | ✓ | R (faces + Members / Documents buttons) | ✓ | ✓ |
+| Users | List | — | ✓ | R (face) | ✓ | |
+| Notifications | List | This month | ✓ | R | | |
+| Pipeline Status (run log) | List | This month | ✓ | R | ✓ | |
+| Operations Reports | Report | This month | | — | ✓ | |
+| Organization Chart | Chart | — | | — | | |
 
 ---
 

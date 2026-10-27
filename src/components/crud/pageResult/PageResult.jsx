@@ -5,6 +5,14 @@ import { useState, useEffect } from "react";
 import "./PageResult.scss";
 import { useTheme } from "../../../context/ThemeContext";
 
+// "Showing 1–50 of 134" (with a page size), else "Showing 20 of 134".
+function resultText(shown, total, page, pageSize) {
+  if (!total) return "No results";
+  if (!pageSize) return `Showing ${shown} of ${total}`;
+  const from = (page - 1) * pageSize + 1;
+  return `Showing ${from}–${from + shown - 1} of ${total}`;
+}
+
 export default function PageResult({
   data,
   totalCount,
@@ -12,6 +20,10 @@ export default function PageResult({
   setPage,
   totalPages,
   error,
+  // Optional (2026-10-27, §9a): the page size, for "Showing 1–50 of 134",
+  // and children (e.g. the SortBar) shown next to the count.
+  pageSize,
+  children,
 }) {
   const [inputValue, setInputValue] = useState(page);
   const { darkMode } = useTheme();
@@ -26,10 +38,12 @@ export default function PageResult({
       {error ? (
         <p className="textRegular textXXS">Error loading results</p>
       ) : (
-        <p className="textRegular textXXS">
-          <strong>Total Result: </strong>
-          {data.length} / {totalCount}
-        </p>
+        <div className="pageResultSummary">
+          <p className="textRegular textXXS">
+            {resultText(data.length, totalCount, page, pageSize)}
+          </p>
+          {children}
+        </div>
       )}
 
       <CardLayout style="pageNumberContainer">

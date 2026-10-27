@@ -50,6 +50,9 @@ export default function SearchFilterBar({
   // `dashboardRef` above stays the Sales Leads-specific full report (it
   // fetches leads and appends a leads table), so it can't serve other pages.
   exportPdf,
+  // Page standard (DASHBOARD-CONVENTIONS §9b, 2026-10-27): the page's main
+  // action (e.g. "+ Add Lead"), shown at the right end of the row.
+  actions,
 }) {
   const { darkMode } = useTheme();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -80,6 +83,13 @@ export default function SearchFilterBar({
   }, [filters, filterConfig]);
 
   const canShiftRange = Boolean(filters.startDate && filters.endDate);
+
+  // §9b: no Filter button when the page has nothing to filter by, and the
+  // button says how many of its filters are on.
+  const hasFilters = filterConfig.length > 0;
+  const filtersOn = filterConfig.filter(
+    (f) => filters[f.key] !== undefined && filters[f.key] !== "",
+  ).length;
 
   function handleShiftRange(direction) {
     if (!canShiftRange) return;
@@ -128,15 +138,17 @@ export default function SearchFilterBar({
         )}
 
         {/* FILTERS */}
-        <div className="filterSection">
-          <Button
-            onClick={() => setFilterOpen(!filterOpen)}
-            name="Filter"
-            icon2={FunnelIcon}
-            style="textXXXS textBold button buttonType5"
-            size={20}
-          />
-        </div>
+        {hasFilters && (
+          <div className="filterSection">
+            <Button
+              onClick={() => setFilterOpen(!filterOpen)}
+              name={filtersOn > 0 ? `Filter · ${filtersOn}` : "Filter"}
+              icon2={FunnelIcon}
+              style="textXXXS textBold button buttonType5"
+              size={20}
+            />
+          </div>
+        )}
 
         {/* EXPORT BUTTON */}
         {enableExport && (
@@ -193,6 +205,8 @@ export default function SearchFilterBar({
             )}
           </div>
         )}
+
+        {actions && <div className="searchFilterBarActions">{actions}</div>}
       </div>
 
       {/* DATE SELECTOR - This month, This quarter, etc. */}

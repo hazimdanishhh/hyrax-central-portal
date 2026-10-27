@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo, useCallback, useEffect } from "react";
 import { parseSortParam, serializeSorting } from "./sortParam";
 
@@ -149,7 +149,7 @@ export default function usePaginatedQuery({
   // =========================
   // QUERY
   // =========================
-  const { data, isLoading, isFetching, error } = useQuery({
+  const { data, isLoading, isFetching, isPlaceholderData, error } = useQuery({
     queryKey: [
       queryKey,
       {
@@ -177,7 +177,10 @@ export default function usePaginatedQuery({
     enabled,
     retry: 2,
     staleTime: 1000 * 30,
-    keepPreviousData: true,
+    // The previous page stays on screen while the next one loads (TanStack
+    // v5's option; the old `keepPreviousData: true` is v4 and was ignored,
+    // so every page, sort or filter change blanked the list).
+    placeholderData: keepPreviousData,
   });
 
   const resultData = data?.data || [];
@@ -318,6 +321,9 @@ export default function usePaginatedQuery({
     // state
     isLoading,
     isFetching,
+    // true while the rows shown are the previous query's (a page, sort,
+    // filter or search change is loading) -- show an "Updating" state
+    isPlaceholderData,
     error,
 
     // actions

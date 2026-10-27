@@ -7,8 +7,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import CardLayout from "../../../../../components/cardLayout/CardLayout";
 import ActiveFiltersBar from "../../../../../components/crud/activeFiltersBar/ActiveFiltersBar";
 import NoResult from "../../../../../components/crud/noResult/NoResult";
-import PageActions from "../../../../../components/crud/pageActions/PageActions";
-import PageHeader from "../../../../../components/crud/pageHeader/PageHeader";
+import Button from "../../../../../components/buttons/button/Button";
 import PageResult from "../../../../../components/crud/pageResult/PageResult";
 import SortBar from "../../../../../components/crud/sortBar/SortBar";
 import DataSidebar from "../../../../../components/dataSidebar/DataSidebar";
@@ -17,7 +16,10 @@ import LoadingIcon from "../../../../../components/loadingIcon/LoadingIcon";
 import ActionModal from "../../../../../components/modals/actionModal/ActionModal";
 import LeadSidebar from "../../../../../components/sales/leads/leadSidebar/LeadSidebar";
 import LeadsList from "../../../../../components/sales/leads/leadsList/LeadsList";
+import LeadRow from "../../../../../components/sales/leads/leadRow/LeadRow";
+import { ListRows } from "../../../../../components/crud/listRow/ListRow";
 import StatusTabs from "../../../../../components/crud/statusTabs/StatusTabs";
+import TabState from "../../../../../components/report/TabState";
 import PeriodSelector from "../../../../../components/periodSelector/PeriodSelector";
 import SearchFilterBar from "../../../../../components/searchFilterBar/SearchFilterBar";
 import { useEmployee } from "../../../../../context/EmployeeContext";
@@ -41,6 +43,11 @@ import "./LeadsManagement.scss";
 import PageTitle from "../../../../../components/pageTitle/PageTitle";
 import OverviewCards from "../../../../../components/crud/overviewCards/OverviewCards";
 import { useLeadsListOverview } from "../../../../../features/sales/leads/private/hooks/useLeadsListOverview";
+
+// 2026-10-27: leads show as two-line rows (LeadRow), ~3x more per screen.
+// Set to true to go back to the old 2-column LeadsList cards.
+const USE_OLD_CARDS = false;
+const PAGE_SIZE = 50;
 
 /**
  * SALES Leads Management Page
@@ -103,11 +110,12 @@ export default function LeadsManagement() {
     resetParams,
     isLoading: leadsLoading,
     isFetching: leadsFetching,
+    isPlaceholderData: leadsStale,
     error: leadsError,
   } = usePaginatedQuery({
     queryKey: "sales_leads",
     queryFn: fetchLeads,
-    pageSize: 20,
+    pageSize: PAGE_SIZE,
     defaultSortBy: "updated_at",
     defaultSortOrder: "descending",
   });
@@ -139,7 +147,6 @@ export default function LeadsManagement() {
     leadSourceTypes,
     loseReasons,
     isLoading: metadataLoading,
-    isFetching: metadataFetching,
     error: metadataError,
   } = useLeadsMetadata();
 
@@ -148,7 +155,15 @@ export default function LeadsManagement() {
   // and search like the list, but not the status tab -- each card's count
   // is exactly what clicking it shows.
   const period = describePeriod(filters, "all");
-  const { kpis } = useLeadsListOverview(filters, search);
+  const {
+    kpis,
+    isLoading: kpisLoading,
+    isFetching: kpisFetching,
+    isPlaceholderData: kpisStale,
+  } = useLeadsListOverview(filters, search);
+  // Cards: dimmed under "Updating figures…" on first load and whenever the
+  // period, filters or search change (not on a quiet background refresh).
+  const kpisUpdating = kpisLoading || (kpisFetching && kpisStale);
   const overviewItems = getLeadsListOverviewConfig(kpis, {
     searchParams,
     period,
@@ -187,7 +202,9 @@ export default function LeadsManagement() {
   // ==============
   const isLoading = leadsLoading || metadataLoading;
   const error = leadsError || metadataError;
-  const isFetching = leadsFetching || metadataFetching;
+  // Rows: the previous rows stay, dimmed under "Updating leads…", while a
+  // page, tab, sort, filter or search change loads.
+  const listUpdating = leadsFetching && leadsStale;
   const isSaving = creating || updating || bulkUpdating;
   const hasData = leads.length > 0;
 
@@ -211,6 +228,12 @@ export default function LeadsManagement() {
     leadSourceTypes,
     loseReasons,
   });
+  // The Filter panel holds the panel filters only: stage, on hold, cancelled,
+  // pending SAP and the like are the status tabs' (§9b) -- offering them in
+  // both places let the panel and the tabs fight over the same keys.
+  const panelFilterConfig = filterConfig.filter(
+    (f) => !LEAD_TAB_KEYS.includes(f.key),
+  );
 
   // ==============
   // SIDEBAR OPEN & CLOSE
@@ -431,28 +454,37 @@ export default function LeadsManagement() {
         subtitle="Manage your sales leads and opportunities"
       /> */}
 
+      {/* PAGE STANDARD (DASHBOARD-CONVENTIONS §9a): controls above what
+          they change -- period, then search / filter / export / Add Lead;
+          the cards follow those; the tabs narrow the list only. */}
       <PeriodSelector
         filters={filters}
         onFilterChange={setFilters}
         defaultMode="all"
       />
 
-      <OverviewCards items={overviewItems} style="overviewCard2" />
-
-      {/* SEARCH AND FILTER BAR */}
       <SearchFilterBar
         search={search}
         onSearchChange={setSearch}
         filters={filters}
         onFilterChange={setFilters}
-        filterConfig={filterConfig}
-        placeholder="Search leads..."
+        filterConfig={panelFilterConfig}
+        placeholder="Search lead title…"
         enableExport
         exportFetchFn={fetchLeads}
         exportColumns={leadsExportColumns}
         exportFileNamePrefix="Sales_Leads_Export"
         sortBy={sortBy}
         sortOrder={sortOrder}
+        actions={
+          <Button
+            icon2={PlusCircleIcon}
+            name="Add Lead"
+            size={20}
+            style="button buttonType5 greenFill textXXS"
+            onClick={() => navigate(`new?${searchParams.toString()}`)}
+          />
+        }
       />
 
       {/* ACTIVE FILTERS */}
@@ -467,25 +499,22 @@ export default function LeadsManagement() {
         />
       )}
 
-      <PageHeader>
-        {/* LAYOUT UI + ACTION BUTTONS */}
-        <PageActions
-          // layout={layout}
-          // setLayout={setLayout}
-          // options={layoutOptions}
-          actionButtons={[
-            {
-              icon: PlusCircleIcon,
-              name: "Add Lead",
-              onClick: () => {
-                navigate(`new?${searchParams.toString()}`);
-              },
-              style: "button buttonType5 greenFill buttonFull textXXS",
-            },
-          ]}
-        />
+      <TabState isUpdating={kpisUpdating}>
+        <OverviewCards items={overviewItems} style="overviewCard2" />
+      </TabState>
 
-        {/* SORTING ACTIONS */}
+      <StatusTabs tabs={leadStatusTabs(searchParams)} ariaLabel="Lead status" />
+
+      {/* RESULT BAR (sticky): count, sort, page arrows */}
+      <PageResult
+        data={leads}
+        totalCount={totalCount}
+        page={page}
+        pageSize={PAGE_SIZE}
+        setPage={setPage}
+        totalPages={totalPages}
+        error={error}
+      >
         <SortBar
           sortBy={sortBy}
           setSortBy={setSortBy}
@@ -493,53 +522,56 @@ export default function LeadsManagement() {
           sortOrder={sortOrder}
           setSortOrder={setSortOrder}
         />
-      </PageHeader>
-
-      {/* RESULT NUMBER + NEXT AND PREVIOUS BUTTONS */}
-      <PageResult
-        data={leads}
-        totalCount={totalCount}
-        page={page}
-        setPage={setPage}
-        totalPages={totalPages}
-        error={error}
-      />
-
-      <StatusTabs tabs={leadStatusTabs(searchParams)} ariaLabel="Lead status" />
+      </PageResult>
 
       {/* TABLE DISPLAY UI */}
-      <CardLayout style="cardWrapperScroll">
-        {isLoading || isFetching ? (
-          <CardLayout style="cardLayoutFlexFull">
-            <LoadingIcon />
-          </CardLayout>
-        ) : !hasData ? (
-          <NoResult />
-        ) : error ? (
-          <NoResult title="Error loading results" />
-        ) : layout === 1 ? (
-          // TABLE LAYOUT
-          <DataTable
-            data={leads}
-            columns={columns}
-            rowKey="id"
-            onRowClick={handleOpenSidebar}
-          />
-        ) : (
-          // LIST LAYOUT
-          <CardLayout style="cardLayout2 cardPaddingSmall cardGapSmall">
-            {leads.map((lead) => (
-              <LeadsList
-                key={lead.id}
-                lead={lead}
-                to={`${lead.id}?${searchParams.toString()}`}
-                saving={isSaving}
-                deleting={deleting}
-                setIsEditing={() => setIsEditing(true)}
-              />
-            ))}
-          </CardLayout>
-        )}
+      <CardLayout style="">
+        <TabState isUpdating={listUpdating} updatingLabel="Updating leads…">
+          {isLoading ? (
+            <CardLayout style="cardLayoutFlexFull">
+              <LoadingIcon />
+            </CardLayout>
+          ) : !hasData ? (
+            <NoResult />
+          ) : error ? (
+            <NoResult title="Error loading results" />
+          ) : layout === 1 ? (
+            // TABLE LAYOUT
+            <DataTable
+              data={leads}
+              columns={columns}
+              rowKey="id"
+              onRowClick={handleOpenSidebar}
+            />
+          ) : !USE_OLD_CARDS ? (
+            // LIST LAYOUT -- two-line rows; details open in the sidebar
+            <ListRows ariaLabel="Leads">
+              {leads.map((lead) => (
+                <LeadRow
+                  key={lead.id}
+                  lead={lead}
+                  to={`${lead.id}?${searchParams.toString()}`}
+                  active={lead.id === leadId}
+                  disabled={isSaving || deleting}
+                />
+              ))}
+            </ListRows>
+          ) : (
+            // OLD LIST LAYOUT -- 2-column cards (off; see USE_OLD_CARDS)
+            <CardLayout style="cardLayout2 cardPaddingSmall cardGapSmall">
+              {leads.map((lead) => (
+                <LeadsList
+                  key={lead.id}
+                  lead={lead}
+                  to={`${lead.id}?${searchParams.toString()}`}
+                  saving={isSaving}
+                  deleting={deleting}
+                  setIsEditing={() => setIsEditing(true)}
+                />
+              ))}
+            </CardLayout>
+          )}
+        </TabState>
       </CardLayout>
 
       {/* DATA SIDEBAR */}

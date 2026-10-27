@@ -19,8 +19,18 @@ import "./TabState.scss";
  *               blank page and no layout jump. The pill is left out of PDF
  *               exports.
  *   error       the access-denied case gets its own wording
+ *
+ * Lists use the updating state too (2026-10-27): the KPI cards ("Updating
+ * figures…") and the rows ("Updating leads…") while a period, filter,
+ * search, sort or page change loads.
  */
-export default function TabState({ isLoading, isUpdating = false, error, children }) {
+export default function TabState({
+  isLoading,
+  isUpdating = false,
+  updatingLabel = "Updating figures…",
+  error,
+  children,
+}) {
   if (isLoading) {
     return (
       <CardLayout style="cardLayoutFlexFull">
@@ -63,7 +73,7 @@ export default function TabState({ isLoading, isUpdating = false, error, childre
         {isUpdating && (
           <span className="textXXS">
             <CircleNotchIcon size={14} className="reportUpdatingSpinner" />
-            Updating figures…
+            {updatingLabel}
           </span>
         )}
       </div>

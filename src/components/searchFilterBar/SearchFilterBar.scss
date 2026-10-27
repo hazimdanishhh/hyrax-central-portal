@@ -17,6 +17,15 @@
   }
 }
 
+// The page's main action, pushed to the right end of the row (§9b).
+.searchFilterBarActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .dateRangeWrapper {
   display: flex;
   flex-wrap: wrap;
