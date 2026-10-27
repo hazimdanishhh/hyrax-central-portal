@@ -599,14 +599,14 @@ R = rows, T = table, — = not a list. Period default per 9b. ✅ = done.
 
 From the first full catalog export (`supabase/catalog/*.csv`, via `supabase/diagnostics/export_full_catalog.sql`) and the generated **`DATA-INVENTORY.md`** (every live object: what it reads, what reads it, where the app uses it, where it is defined — refresh with `npm run catalog` after each export). Live: 90 tables, 41 views, 7 materialized views, 146 functions, 44 triggers, 254 policies, 11 cron jobs (all succeeding; the email sender failed to start twice in 8,631 runs).
 
-**P0 — security (now):** `security_hardening_2026_10_27.sql`
+**P0 — security: done 2026-10-27** (`security_hardening_2026_10_27.sql`, run and checked)
 
 - `sap_gl_journal_lines_with_entry_info` had no `security_invoker`: every signed-in user — and anyone with the public anon key — could read every GL line. Now follows the Finance / MGM / Superadmin RLS.
 - The logged-out role (`anon`) loses everything in `public`. It could read `employees_public` (staff directory incl. phones, today's attendance and leave) and call 51 SECURITY DEFINER functions (payroll-reconciliation emails, notification fan-out, onboarding / offboarding cases, the projection refresh). The login page needs none of it.
 - The 19 cron-only functions are no longer callable by signed-in users either; views are read-only.
 - Still to decide: the `attendance` storage bucket is **public** (clock-in photos open to anyone with the link — moving to signed URLs needs an app change); `ai_dashboard_summaries` is readable by every signed-in user (parked AI feature — lock down or drop with its redesign); `employees_public` shows today's attendance and leave to all staff (HR to confirm that's intended).
 
-**P1 — bug risk:** `retire_old_function_versions.sql` — `get_finance_dashboard`, `get_hr_employees_dashboard`, `get_hr_reports_dashboard`, `get_payroll_period_summary` each have an old version beside the new one (the PGRST203 trap). The app only uses the new ones.
+**P1 — bug risk: done 2026-10-27** (`retire_old_function_versions.sql`, run and checked) — `get_finance_dashboard`, `get_hr_employees_dashboard`, `get_hr_reports_dashboard`, `get_payroll_period_summary` each have an old version beside the new one (the PGRST203 trap). The app only uses the new ones.
 
 **P2 — one rule, one place (the entity audits, in this order):**
 
