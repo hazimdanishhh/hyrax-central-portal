@@ -32,7 +32,7 @@ No frontend changes needed — `fetchJournalEntriesOverview`/`useJournalEntriesO
 
 ## Files touched
 
-- `supabase/sql_editor/get_journal_entries_overview_rpc.sql`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/get_journal_entries_overview_rpc.sql`
 
 ## Verification
 

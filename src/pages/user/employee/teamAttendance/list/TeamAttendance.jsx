@@ -251,7 +251,7 @@ export default function TeamAttendance() {
   // ==============
   // APPROVE / REJECT -- same RPCs HR's page calls, now hardened server-side
   // to also authorize the target employee's direct manager (see
-  // supabase/functions/approve_attendance.sql / reject_attendance.sql)
+  // hyrax-supabase/archive/portal/supabase/functions/approve_attendance.sql / reject_attendance.sql)
   // ==============
   const handleApprove = async (id) => {
     try {

@@ -7,7 +7,7 @@
 //
 // Everything that decides whether the submission is allowed, what times each
 // day gets, and whether it lands Pending or Approved is server-side in
-// supabase/sql_editor/create_attendance_submission_rpc.sql. Nothing here
+// hyrax-supabase/archive/portal/supabase/sql_editor/create_attendance_submission_rpc.sql. Nothing here
 // interprets; it only shapes the call.
 import { supabase } from "@/lib/supabaseClient";
 

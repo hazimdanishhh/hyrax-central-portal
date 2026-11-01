@@ -15,7 +15,7 @@ happen.
 
 ## Run order
 
-**One statement. `supabase/sql_editor/hr_unified_daily_attendance_view.sql`,
+**One statement. `hyrax-supabase/archive/portal/supabase/sql_editor/hr_unified_daily_attendance_view.sql`,
 pasted whole.**
 
 It stays a `CREATE OR REPLACE VIEW` — only expressions changed, no column was

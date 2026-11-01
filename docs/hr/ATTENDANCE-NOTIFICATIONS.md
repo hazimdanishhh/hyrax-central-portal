@@ -5,7 +5,7 @@ clocking in on a Tuesday to HR exporting the payroll package a month later.
 
 The live rules are exported to
 [`docs/portal/NOTIFICATION-RULES.csv`](../portal/NOTIFICATION-RULES.csv) by
-`supabase/diagnostics/export_notification_rules.sql`. That file is the source
+`hyrax-supabase/archive/portal/supabase/diagnostics/export_notification_rules.sql`. That file is the source
 of truth for **who receives** each notification; this document explains **why
 each exists** and where it sits in the lifecycle.
 
@@ -224,6 +224,6 @@ day than everything above combined.
   and reconciliation categories mean
 - [`../portal/NOTIFICATION-RULES.csv`](../portal/NOTIFICATION-RULES.csv) — the
   live rules export
-- `supabase/diagnostics/export_notification_rules.sql` — regenerates that CSV,
+- `hyrax-supabase/archive/portal/supabase/diagnostics/export_notification_rules.sql` — regenerates that CSV,
   plus checks for duplicate rules, rules matching nobody, and events firing
   with no rule

@@ -68,7 +68,7 @@ export default function FinancialReports() {
   // finance/invoices, finance/payments, finance/bills, and
   // finance/vendor-payments all share the same FIN;MGM gate (company-wide,
   // no role restriction -- MGM re-added 2026-09, reversing the R3 exclusion
-  // recorded in supabase/access-control/README.md, the same way Sales'
+  // recorded in docs/access-control/README.md, the same way Sales'
   // analogous 2026-09 reversal worked), so one check covers every "View
   // All" link below -- an MGM viewer never sees a dead link to a page they
   // can't open.

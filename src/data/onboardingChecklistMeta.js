@@ -4,7 +4,7 @@
 // truth for label/owner/sortOrder/milestone content -- the database
 // (employee_lifecycle_case_items) only stores per-case state, keyed by
 // `key` below. Kept manually in sync with
-// supabase/functions/get_or_create_onboarding_case.sql's own seed list.
+// hyrax-supabase/archive/portal/supabase/functions/get_or_create_onboarding_case.sql's own seed list.
 //
 // `owner` is display-only here ("HR"/"IT"/"SUPERADMIN") -- the actual
 // write-gating value lives in the database's owning_department_sub column

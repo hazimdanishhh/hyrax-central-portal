@@ -29,11 +29,11 @@ a verification query.
 
 | # | File | Why this order |
 |---|---|---|
-| 1 | `supabase/policies/leave_ledger_crud.sql` | Grants HR INSERT/UPDATE on `leave_ledger_types`. Must land **before** the tab is usable. Re-runnable — every policy is now `drop policy if exists` first. |
-| 2 | `supabase/sql_editor/sync_leave_ledger_rpc.sql` | `create or replace function`. Safe to run any time; takes effect on the next import. |
-| 3 | `supabase/sql_editor/attendance_reconciliation_acknowledgements_migration.sql` | Retires the four absent-only reasons. Must land **before** #4, so no reason is left active for a category the RPC is about to reject. |
-| 4 | `supabase/sql_editor/acknowledge_attendance_day_rpc.sql` | `create or replace function`. The authoritative gate. |
-| 5 | `supabase/sql_editor/payroll_reconciliation_glossary_migration.sql` | Rewords the `absent` employee-action text, which still told people to acknowledge. |
+| 1 | `hyrax-supabase/archive/portal/supabase/policies/leave_ledger_crud.sql` | Grants HR INSERT/UPDATE on `leave_ledger_types`. Must land **before** the tab is usable. Re-runnable — every policy is now `drop policy if exists` first. |
+| 2 | `hyrax-supabase/archive/portal/supabase/sql_editor/sync_leave_ledger_rpc.sql` | `create or replace function`. Safe to run any time; takes effect on the next import. |
+| 3 | `hyrax-supabase/archive/portal/supabase/sql_editor/attendance_reconciliation_acknowledgements_migration.sql` | Retires the four absent-only reasons. Must land **before** #4, so no reason is left active for a category the RPC is about to reject. |
+| 4 | `hyrax-supabase/archive/portal/supabase/sql_editor/acknowledge_attendance_day_rpc.sql` | `create or replace function`. The authoritative gate. |
+| 5 | `hyrax-supabase/archive/portal/supabase/sql_editor/payroll_reconciliation_glossary_migration.sql` | Rewords the `absent` employee-action text, which still told people to acknowledge. |
 
 Every one of these is idempotent. #1 drops and recreates its policies; #2 and
 #4 are `create or replace function`; #3 and #5 are `create table if not

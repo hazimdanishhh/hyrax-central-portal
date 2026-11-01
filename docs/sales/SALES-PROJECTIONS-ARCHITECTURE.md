@@ -355,7 +355,7 @@ through them.
 ### 8.7 Diagnostics — evidence behind every decision
 
 Not deployed objects; run by hand, results in
-`supabase/diagnostics/results/projection/`.
+`hyrax-supabase/archive/portal/supabase/diagnostics/results/projection/`.
 
 | File | Produced |
 |---|---|
@@ -715,7 +715,7 @@ Each phase ends somewhere coherent; none is wasted if the next is deferred.
 
 ## 11d. Order-book evidence (Step 5, 2026-10-02)
 
-Measured by `supabase/diagnostics/sales_projection_orderbook_signal.sql`; results in `supabase/diagnostics/results/projection/orderbook/`.
+Measured by `hyrax-supabase/archive/portal/supabase/diagnostics/sales_projection_orderbook_signal.sql`; results in `hyrax-supabase/archive/portal/supabase/diagnostics/results/projection/orderbook/`.
 
 **Coverage — the decision number (Q3):**
 
@@ -748,7 +748,7 @@ This is also a finding in its own right, independent of forecasting: either stal
 ## 11e. Phase A findings — the chain-ladder, measured (2026-10-02)
 
 Built, rebuilt once, and backtested. Results in
-`supabase/diagnostics/results/projection/phase-A-verification/`.
+`hyrax-supabase/archive/portal/supabase/diagnostics/results/projection/phase-A-verification/`.
 
 ### Verdict: passes as an ensemble member. Proceed to Phase B.
 
@@ -1220,8 +1220,8 @@ past months is the proof the fix landed.
 ## 11. Phase 0 findings
 
 > **Run 2026-10-02 against reconciled data.** Source:
-> `supabase/diagnostics/sales_projection_phase0_evidence.sql`, results in
-> `supabase/diagnostics/results/projection/`. Step 0 (`reconcile.py`) confirmed
+> `hyrax-supabase/archive/portal/supabase/diagnostics/sales_projection_phase0_evidence.sql`, results in
+> `hyrax-supabase/archive/portal/supabase/diagnostics/results/projection/`. Step 0 (`reconcile.py`) confirmed
 > every relevant table at `+0` against SAP before these were measured. This
 > replaces the 2026-10-01 pass, which ran on incomplete data and was discarded.
 
@@ -1358,7 +1358,7 @@ ratio-to-moving-average in Step 3 is the real measurement.
 
 > **Run 2026-10-02.** Six methods scored against 106 rolling origins across
 > 2017-11 → 2026-09. Results in
-> `supabase/diagnostics/results/projection/step-3-verification/`.
+> `hyrax-supabase/archive/portal/supabase/diagnostics/results/projection/step-3-verification/`.
 
 ### In one sentence
 
@@ -1488,7 +1488,7 @@ rather than elegance. Its advantages over anything in §11b:
 **This is not yet proven.** Whether it works depends on one measurable fact:
 how much of a month's invoicing was already sitting in the order book when the
 month began. That is the Step 5 question, and
-`supabase/diagnostics/sales_projection_orderbook_signal.sql` measures it before
+`hyrax-supabase/archive/portal/supabase/diagnostics/sales_projection_orderbook_signal.sql` measures it before
 anything is built.
 
 The required links are already extracted:

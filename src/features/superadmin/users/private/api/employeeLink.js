@@ -31,7 +31,7 @@ export async function fetchLinkedEmployee(profileId) {
   return data || null;
 }
 
-// Atomic link/re-link via the SECURITY DEFINER RPC (supabase/functions/
+// Atomic link/re-link via the SECURITY DEFINER RPC (hyrax-supabase/archive/portal/supabase/functions/
 // link_profile_to_employee.sql) -- clears any previous link, then sets the
 // new one, in one transaction. p_employee_id === null means "unlink only".
 export async function linkProfileToEmployee({ profileId, employeeId }) {

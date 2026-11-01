@@ -4,7 +4,7 @@ import { useProfile } from "../../../../../context/ProfileContext";
 
 /**
  * Client-side UX gating ONLY -- NOT a security boundary. RLS (see
- * supabase/policies/{projects,tasks,project_members,task_assignees}_crud.sql)
+ * hyrax-supabase/archive/portal/supabase/policies/{projects,tasks,project_members,task_assignees}_crud.sql)
  * is what actually enforces the permission tiers; this hook exists purely
  * so the UI can hide/disable actions the backend would reject anyway,
  * instead of letting someone click "Save" and hit a confusing RLS error.

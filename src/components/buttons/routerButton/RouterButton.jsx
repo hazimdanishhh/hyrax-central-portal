@@ -8,7 +8,7 @@ function RouterButton({ to, name, icon, onClick, style, size, target, rel }) {
   // several link builders here return null for an unresolvable target (an
   // unknown category, a missing employee id). Rendering nothing is the right
   // degradation: it matches the "non-clickable when the target isn't available"
-  // convention supabase/access-control/README.md already mandates for
+  // convention docs/access-control/README.md already mandates for
   // permission-denied drill-throughs.
   if (!to) return null;
 

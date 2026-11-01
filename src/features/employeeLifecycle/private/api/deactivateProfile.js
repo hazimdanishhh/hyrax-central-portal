@@ -1,7 +1,7 @@
 import { supabase } from "../../../../lib/supabaseClient";
 
 /**
- * Calls the deactivate_profile() RPC -- see supabase/functions/deactivate_profile.sql.
+ * Calls the deactivate_profile() RPC -- see hyrax-supabase/archive/portal/supabase/functions/deactivate_profile.sql.
  * This was previously dead code: the RPC and its sync trigger
  * (sync_lifecycle_item_on_profile_deactivated.sql, which flips the
  * offboarding checklist's `portal_account_deactivated` item to DONE) both

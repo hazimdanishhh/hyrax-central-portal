@@ -21,7 +21,7 @@ import { getHolidaysFilterConfig } from "./filterConfig";
 
 /**
  * Attendance > Settings tab -- HR-managed public holiday / company off-day
- * calendar (source: HR2000, supabase/csv/*.csv, one-time seeded via
+ * calendar (source: HR2000, hyrax-supabase/supabase/seed-data/*.csv, one-time seeded via
  * public_holidays_migration.sql). Feeds hr_unified_daily_attendance_view.sql's
  * is_public_holiday/hr_flag directly -- see
  * docs/ATTENDANCE-SELF-SERVICE-ARCHITECTURE.md.

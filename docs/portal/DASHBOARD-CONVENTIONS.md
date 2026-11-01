@@ -97,7 +97,7 @@ A List page doesn't need an Overview to still deserve a small `OverviewCards` st
 **Backend:**
 
 - A single Postgres RPC function that takes filter params (date range, rep, customer, status…), computes the previous period for deltas, builds CTEs over the near-raw `sap_*`/app tables, and returns **one** `json_build_object` containing a `kpis` object plus named chart-dataset arrays.
-- Reference implementation to clone: [`supabase/sql_editor/get_finance_dashboard_rpc.sql`](../supabase/sql_editor/get_finance_dashboard_rpc.sql) — `base_invoices`/`base_orders`/`base_payments` CTEs, `kpi_totals`, then the `json_build_object`.
+- Reference implementation to clone: [`hyrax-supabase/archive/portal/supabase/sql_editor/get_finance_dashboard_rpc.sql`](hyrax-supabase/archive/portal/supabase/sql_editor/get_finance_dashboard_rpc.sql) — `base_invoices`/`base_orders`/`base_payments` CTEs, `kpi_totals`, then the `json_build_object`.
 
 **Frontend:**
 
@@ -117,7 +117,7 @@ A List page doesn't need an Overview to still deserve a small `OverviewCards` st
 
 **Deploy mechanism:**
 
-- RPCs are plain `.sql` files under `supabase/sql_editor/`, hand-pasted into the Supabase Studio SQL editor — no CLI/migrations wired up.
+- RPCs are plain `.sql` files under `hyrax-supabase/archive/portal/supabase/sql_editor/`, hand-pasted into the Supabase Studio SQL editor — no CLI/migrations wired up.
 - Any RPC edit is a manual deploy step.
 
 ### Source-labeling convention (added 2026-07)
@@ -323,7 +323,7 @@ The two shapes differ only in what the page's handler returns:
 
 **If department A needs something that conceptually belongs to department B:**
 - If A already has read access (RLS) to the underlying table/view, A builds its **own** tailored view over it — mirroring §3's existing pattern (Sales/Finance/HR/Operations Reports are each a separately-coded RPC over shared tables, never one Reports page shared across two departments).
-- If A does **not** yet have read access, that's a real gap to close with a small RLS policy addition — this codebase already has a repeated, low-risk precedent for exactly this (the `*_access_parity_fix.sql`/`*_access_fix.sql` migrations under `supabase/policies/`) — never a reason to link out to B's page instead.
+- If A does **not** yet have read access, that's a real gap to close with a small RLS policy addition — this codebase already has a repeated, low-risk precedent for exactly this (the `*_access_parity_fix.sql`/`*_access_fix.sql` migrations under `hyrax-supabase/archive/portal/supabase/policies/`) — never a reason to link out to B's page instead.
 
 **Corollary:** no page should gate on two different *operating* departments together (e.g. `departments={["FIN","OPS"]}`). The only legitimate second entry in any department gate is `MGM` (company-wide observer, not a second stakeholder). Two operating departments needing the same underlying data get two separate, tailored views, not one shared page.
 
@@ -403,9 +403,9 @@ The standard every Tier-3 Reports page is built and reviewed against. Written af
 
 **Also binding on every Reports page:**
 
-- **One definition per measure** in SQL — facts views (Layer 1) → shared functions (Layer 2) → thin tab RPCs (Layer 3), with a PGlite test that the same figure is identical on every tab (`tests/sql/sales_metrics.test.js` is the template).
+- **One definition per measure** in SQL — facts views (Layer 1) → shared functions (Layer 2) → thin tab RPCs (Layer 3), with a PGlite test that the same figure is identical on every tab (`hyrax-supabase/tests/sql/sales_metrics.test.js` is the template).
 - **Status thresholds live once** (`reportFormat.js`'s `*_THRESHOLDS`) and drive tile colours, scorecard colours and check-in flags alike: a person is flagged exactly when the same figure on a tile would read Critical.
-- **A gated measure ships only after its data check** (Sales' Gross Margin: `GROSS_MARGIN_RELEASED` + `supabase/diagnostics/sales_gross_profit_coverage.sql`).
+- **A gated measure ships only after its data check** (Sales' Gross Margin: `GROSS_MARGIN_RELEASED` + `hyrax-supabase/archive/portal/supabase/diagnostics/sales_gross_profit_coverage.sql`).
 - **AI text is labelled, dated, kept with the figures it was written from, and exactly as private as the report** (design: Sales' Meeting Brief — `sales_report_briefs`, RLS on `can_view_sales_reports()`, caller's token, no service role; built but parked, to become a reusable `report_briefs`, see `DASHBOARD-ROADMAP.md` §2.1).
 
 **Review checklist** (walk it per tab before calling a report done):
@@ -597,7 +597,7 @@ R = rows, T = table, — = not a list. Period default per 9b. ✅ = done.
 
 ### 10d. Full audit — the to-do list (2026-10-27)
 
-From the first full catalog export (`supabase/catalog/*.csv`, via `supabase/diagnostics/export_full_catalog.sql`) and the generated **`DATA-INVENTORY.md`** (every live object: what it reads, what reads it, where the app uses it, where it is defined — refresh with `npm run catalog` after each export). Live: 90 tables, 41 views, 7 materialized views, 146 functions, 44 triggers, 254 policies, 11 cron jobs (all succeeding; the email sender failed to start twice in 8,631 runs).
+From the first full catalog export (`hyrax-supabase/catalog/export/*.csv`, via `hyrax-supabase/catalog/export_full_catalog.sql`) and the generated **`hyrax-supabase/docs/DATA-INVENTORY.md`** (every live object: what it reads, what reads it, where the app uses it, where it is defined — refresh with `npm run catalog` after each export). Live: 90 tables, 41 views, 7 materialized views, 146 functions, 44 triggers, 254 policies, 11 cron jobs (all succeeding; the email sender failed to start twice in 8,631 runs).
 
 **P0 — security: done 2026-10-27** (`security_hardening_2026_10_27.sql`, run and checked)
 
@@ -622,7 +622,7 @@ From the first full catalog export (`supabase/catalog/*.csv`, via `supabase/diag
 
 **P3 — remove (after each entity's audit confirms):** unused tables `leave_balances`, `leave_requests`, `leave_types` (superseded by the leave ledger), `products`, `product_brands`, `sales_attainment_snapshots`; `sales_quotations` / `_items` kept (decision); unused views above; live-only functions `log_sales_lead_stage_change` (an old copy — the trigger uses `log_sales_leads_stage_change`) and `current_employee_manager_id`; `check_employee_confirmation_status_mismatches` is a manual diagnostic (keep, documented).
 
-**P4 — repo hygiene:** live-only objects get their SQL into the repo; stale definitions in `hyrax-data-platform/infrastructure/supabase_schema.sql` (`leave_holidays`, `client_contacts`, never live) marked historical; `DEPARTMENT-PAGES-TABLES.md`, `supabase/access-control/table_access_matrix.csv` and `TABLE-POLICIES.csv` replaced by `DATA-INVENTORY.md` and `supabase/catalog/policies.csv` (keep the business-flow diagram); then connect the Supabase CLI so exports and changes stop going through copy-paste.
+**P4 — repo hygiene:** live-only objects get their SQL into the repo; stale definitions in `hyrax-data-platform/infrastructure/supabase_schema.sql` (`leave_holidays`, `client_contacts`, never live) marked historical; `DEPARTMENT-PAGES-TABLES.md`, `docs/access-control/table_access_matrix.csv` and `TABLE-POLICIES.csv` replaced by `hyrax-supabase/docs/DATA-INVENTORY.md` and `hyrax-supabase/catalog/export/policies.csv` (keep the business-flow diagram); then connect the Supabase CLI so exports and changes stop going through copy-paste.
 
 ---
 

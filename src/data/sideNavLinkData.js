@@ -107,7 +107,7 @@ export const sideNavLinkData = [
   // =================================================
   // Projects & Tasks module built out 2026-08 -- general access, no
   // departments/roles restriction, matching
-  // supabase/access-control/README.md's own existing R2 classification for
+  // docs/access-control/README.md's own existing R2 classification for
   // Workspace ("no single department owns the data... unrestricted").
   // Documents is a real, fully-built module (project-scoped Google Drive
   // library), not a stub -- see docs/PROJECTS-TASKS-ARCHITECTURE.md.

@@ -30,10 +30,11 @@ If you're offered/offering a multiple-choice decision and one branch depends on 
 - `npm run preview` — preview a production build locally
 - `npm run lint` — ESLint (flat config, `eslint.config.js`)
 
-- `npm test` — Vitest (added 2026-10-22), two suites under `tests/`:
-  - `tests/sql/sales_metrics.test.js` runs the Sales Reports metric layer (`supabase/sql_editor/sales_metric_*.sql` + the `get_sales_*` tab RPCs) against an in-process Postgres (PGlite) with stub source tables, and checks definitions, cross-tab consistency and scoping. Run it after touching any of those SQL files.
-  - `tests/unit/` covers pure helpers (`periodRange.js`, `navPaths.js`, the shared `functions/reportFormat.js`, Sales Reports' `projectionConfig.js`, Leads Overview's tile config).
-  Nothing else in the repo is tested yet; don't assume coverage outside these.
+- `npm test` — Vitest (added 2026-10-22): `tests/unit/` covers pure helpers (`periodRange.js`, `navPaths.js`, the shared `functions/reportFormat.js`, Sales Reports' `projectionConfig.js`, Leads Overview's tile config). Nothing else in the repo is tested yet; don't assume coverage outside these. The SQL tests moved to `hyrax-supabase` with the database (below).
+
+## Database: the sibling `hyrax-supabase` repo
+
+Since 2026-11-01 the database — schema, functions, views, policies, cron, storage buckets, Edge Functions — lives in **`../hyrax-supabase`** (github.com/hazimdanishhh/hyrax-portal-supabase), shared with `hyrax-data-platform`. Every change there is a numbered migration in `supabase/migrations/`, tested on a local Supabase stack and applied with `supabase db push`; nothing is pasted into the SQL editor any more. That repo also holds the SQL tests, the catalog export and the generated `docs/DATA-INVENTORY.md`. This repo's old `supabase/` SQL files are archived there under `archive/portal/supabase/` (same folder names, so an old path `supabase/X` is `hyrax-supabase/archive/portal/supabase/X`); they are history, not what's live — the migrations are. `docs/access-control/` (route / table access matrices) stayed here.
 
 Required env vars (see `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, plus `VITE_GOOGLE_PICKER_API_KEY` / `VITE_GOOGLE_CLIENT_ID` / `VITE_GOOGLE_APP_ID` for Google Drive picker features, and `GEMINI_API_KEY` for the AI Summary feature.
 

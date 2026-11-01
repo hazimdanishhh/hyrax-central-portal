@@ -1,6 +1,6 @@
 // Thin RPC wrapper -- all real parsing/validation/diff-sync logic lives
 // server-side in sync_leave_ledger_from_snapshot
-// (hyrax-central-portal/supabase/sql_editor/sync_leave_ledger_rpc.sql).
+// (hyrax-supabase/archive/portal/supabase/sql_editor/sync_leave_ledger_rpc.sql).
 import { supabase } from "@/lib/supabaseClient";
 
 export async function syncLeaveLedger({ rows, dryRun, allowShrink }) {

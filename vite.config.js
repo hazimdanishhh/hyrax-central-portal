@@ -10,8 +10,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"), // alias for "@/styles/variables"
     },
   },
-  // Vitest (2026-10-22): SQL tests that run supabase/sql_editor files against
-  // an in-process Postgres (PGlite), same setup as echoes-hub. `npm test`.
+  // Vitest (2026-10-22): unit tests for pure helpers. `npm test`. (The SQL
+  // tests moved to hyrax-supabase on 2026-11-01.)
   test: {
     environment: "node",
     include: ["tests/**/*.test.js"],

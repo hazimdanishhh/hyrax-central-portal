@@ -1,4 +1,0 @@
--- table: sales_leads
--- function: set_updated_at
--- events: BEFORE UPDATE
--- already done but i cant find the function and trigger code in supabase.

@@ -16,19 +16,19 @@ section for why these three needed a different shape (loop-and-emit-per-recipien
 
 Order doesn't matter between these — run all three:
 
-- [ ] Run **`supabase/functions/notify_document_attached.sql`**
-- [ ] Run **`supabase/functions/notify_project_status_changed.sql`**
-- [ ] Run **`supabase/functions/notify_task_status_changed.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_document_attached.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_project_status_changed.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_task_status_changed.sql`**
 
 ## 2. The 3 new triggers
 
-- [ ] Run **`supabase/triggers/trg_notify_document_attached.sql`** (`AFTER INSERT ON public.task_documents`)
-- [ ] Run **`supabase/triggers/trg_notify_project_status_changed.sql`** (`AFTER UPDATE ON public.projects`)
-- [ ] Run **`supabase/triggers/trg_notify_task_status_changed.sql`** (`AFTER UPDATE ON public.tasks`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_document_attached.sql`** (`AFTER INSERT ON public.task_documents`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_project_status_changed.sql`** (`AFTER UPDATE ON public.projects`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_task_status_changed.sql`** (`AFTER UPDATE ON public.tasks`)
 
 ## 3. Seed the notification rules
 
-- [ ] Run **`supabase/sql_editor/seed_workspace_status_notification_rules.sql`** — inserts all three rules (`document.attached`, `project.status_changed`, `task.status_changed`) in one file, all `in_app+email`, all with `condition = '{}'::jsonb` and `target_payload_keys = array['recipient_profile_id']`.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_workspace_status_notification_rules.sql`** — inserts all three rules (`document.attached`, `project.status_changed`, `task.status_changed`) in one file, all `in_app+email`, all with `condition = '{}'::jsonb` and `target_payload_keys = array['recipient_profile_id']`.
 
 As always, these are data rows, not code — but note the caveat from the seed file's own
 comment: unlike `task.assigned`/`project.member_added`, the _recipient set_ here (a task's

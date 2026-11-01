@@ -2,7 +2,7 @@
 
 **Status: largely built** (updated 2026-09-22 — this document previously said "designed, not yet built", which had been stale for some time).
 
-- `work_locations` and `addresses` both exist — see `supabase/sql_editor/work_locations_addresses_migration.sql`. `employees.work_location_id` is live and populated: `unified_daily_attendance` joins `work_locations` for `is_early_leave`, and `get_payroll_period_summary`/the attendance dashboards all accept a `p_work_location_id` filter.
+- `work_locations` and `addresses` both exist — see `hyrax-supabase/archive/portal/supabase/sql_editor/work_locations_addresses_migration.sql`. `employees.work_location_id` is live and populated: `unified_daily_attendance` joins `work_locations` for `is_early_leave`, and `get_payroll_period_summary`/the attendance dashboards all accept a `p_work_location_id` filter.
 - **Not** done: `employees.address_work` was never actually dropped. It is still a live column and `employees_public_view.sql` still selects it, so the "fully replaced by `work_location_id`" decision below is only half-executed.
 
 Treat the schema sections below as describing shipped tables, and the migration/rollout sections as historical.
@@ -42,7 +42,7 @@ create table public.work_locations (
 );
 ```
 
-No `is_active` column — no lookup table in this schema has one (`departments`, `nationalities`, `employment_status`, `employment_type`, `identification_type` all lack it); don't introduce a new convention here without a reason to. Seed via a CSV in `supabase/csv/` (matching `departments_rows.csv`'s own convention), not a CRUD admin page — `departments` itself has no CRUD page either (`Departments.jsx` is a stub today), so a 2-row lookup doesn't need one.
+No `is_active` column — no lookup table in this schema has one (`departments`, `nationalities`, `employment_status`, `employment_type`, `identification_type` all lack it); don't introduce a new convention here without a reason to. Seed via a CSV in `hyrax-supabase/supabase/seed-data/` (matching `departments_rows.csv`'s own convention), not a CRUD admin page — `departments` itself has no CRUD page either (`Departments.jsx` is a stub today), so a 2-row lookup doesn't need one.
 
 No overtime column on this table, and still none needed — overtime is company-wide (a flat 8 paid hours per day), not per-location. The reasoning changed in 2026-09-22 (see the superseded decision above); the schema consequence did not.
 
@@ -83,8 +83,8 @@ This is a genuine "select from a small set of existing options" field — the ap
 - Wherever `useEmployeesMetadata()` currently sources `departments` — add a parallel `workLocations` fetch, identical shape.
 - **`src/data/profileData.js`** (line ~122, "Address (Work)" field) — becomes a display of the joined `work_location.name`.
 - **`src/pages/user/employees/employeeProfile/EmployeeProfile.jsx`** (lines ~181-185) — same swap for its direct render.
-- **`supabase/sql_editor/employees_public_view.sql`** — replace `e.address_work` (line 14) with a join to `work_locations` (`wl.name as work_location_name`, `wl.sub as work_location_code`); drop `m.address_work as manager_address_work` (line 28) entirely rather than migrating it — confirmed dead.
-- **`supabase/sql_editor/hr_unified_daily_attendance_view.sql`** — add `left join work_locations wl on wl.id = u.work_location_id` (via the existing `expected_shifts`/`employees` join), expose `work_location_id`/`work_location_name`, and change `is_early_leave`'s threshold from the flat `TIME '17:00:00'` literal to `coalesce(wl.early_leave_time, TIME '17:00:00')`. This column was deliberately written as a `COALESCE` expression from day one specifically so this is the only line that needs to change — see that file's own comment on `is_early_leave`.
+- **`hyrax-supabase/archive/portal/supabase/sql_editor/employees_public_view.sql`** — replace `e.address_work` (line 14) with a join to `work_locations` (`wl.name as work_location_name`, `wl.sub as work_location_code`); drop `m.address_work as manager_address_work` (line 28) entirely rather than migrating it — confirmed dead.
+- **`hyrax-supabase/archive/portal/supabase/sql_editor/hr_unified_daily_attendance_view.sql`** — add `left join work_locations wl on wl.id = u.work_location_id` (via the existing `expected_shifts`/`employees` join), expose `work_location_id`/`work_location_name`, and change `is_early_leave`'s threshold from the flat `TIME '17:00:00'` literal to `coalesce(wl.early_leave_time, TIME '17:00:00')`. This column was deliberately written as a `COALESCE` expression from day one specifically so this is the only line that needs to change — see that file's own comment on `is_early_leave`.
 - **`get_attendance_dashboard_rpc.sql`** and **`get_hr_reports_dashboard_rpc.sql`** — add a `p_work_location_id` parameter, mirroring `p_department_id`'s exact null-passthrough pattern in every CTE. **Both files carry their own OVERLOAD WARNING comment already** — adding a parameter creates a second overloaded function instead of replacing the existing one; run `DROP FUNCTION ... (old signature)` in Supabase Studio before redeploying either.
 - List/Overview/Reports `filterConfig.js` files (Attendance List — HR's plus the duplicated My/Team Attendance List copies, Attendance Overview, HR Reports) — add a "Work Location" dropdown, mirroring the existing department dropdown exactly.
 - `attendanceOverviewService.js`'s `applyAttendanceFilter` — add `case "workLocation": return query.eq("work_location_id", value);`.

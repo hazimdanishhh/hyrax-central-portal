@@ -22,34 +22,34 @@ for the five events that shipped before this pass. Follow in order.
 
 Order doesn't matter between these two:
 
-- [ ] Run **`supabase/sql_editor/projects_add_deadline_reminder_columns.sql`** (`deadline_reminder_sent_at`, `overdue_last_notified_at` on `projects`)
-- [ ] Run **`supabase/sql_editor/task_assignees_add_reminder_columns.sql`** (`due_soon_reminder_sent_at`, `overdue_last_notified_at` on `task_assignees`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/projects_add_deadline_reminder_columns.sql`** (`deadline_reminder_sent_at`, `overdue_last_notified_at` on `projects`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/task_assignees_add_reminder_columns.sql`** (`due_soon_reminder_sent_at`, `overdue_last_notified_at` on `task_assignees`)
 
 ## 2. Silent cooldown-reset trigger
 
 Deploy before any scan below goes live, so a deadline never scans stale:
 
-- [ ] Run **`supabase/functions/reset_project_deadline_reminder_cooldowns.sql`**
-- [ ] Run **`supabase/triggers/trg_reset_project_deadline_reminder_cooldowns.sql`** (`BEFORE UPDATE OF target_end_date ON public.projects`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/reset_project_deadline_reminder_cooldowns.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/triggers/trg_reset_project_deadline_reminder_cooldowns.sql`** (`BEFORE UPDATE OF target_end_date ON public.projects`)
 
 ## 3. Shared link helper
 
 Deploy before any function below that calls it (steps 4, 6, 7, 8 all reference it):
 
-- [ ] Run **`supabase/functions/task_notification_link.sql`** — resolves, per recipient, whether a task-notification's `link_to` should point at My Tasks (`/app/workspace/tasks/:id`, if that recipient is currently a `task_assignees` row) or the Project Tasks tab (`/app/workspace/projects/:projectId/tasks/:id`, otherwise). Requires no schema of its own.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/task_notification_link.sql`** — resolves, per recipient, whether a task-notification's `link_to` should point at My Tasks (`/app/workspace/tasks/:id`, if that recipient is currently a `task_assignees` row) or the Project Tasks tab (`/app/workspace/projects/:projectId/tasks/:id`, otherwise). Requires no schema of its own.
 
 ## 4. Simple change-triggered events (no new columns)
 
 Order doesn't matter between these:
 
-- [ ] Run **`supabase/functions/notify_document_removed.sql`** + **`supabase/triggers/trg_notify_document_removed.sql`** (`BEFORE DELETE ON public.documents`)
-- [ ] Run **`supabase/functions/notify_project_member_removed.sql`** + **`supabase/triggers/trg_notify_project_member_removed.sql`** (`AFTER DELETE ON public.project_members`)
-- [ ] Run **`supabase/functions/notify_task_unassigned.sql`** + **`supabase/triggers/trg_notify_task_unassigned.sql`** (`AFTER DELETE ON public.task_assignees`) — uses the step-3 helper
-- [ ] Re-run **`supabase/functions/transfer_project_ownership.sql`** (`create or replace` — now also emits `project.ownership_transferred` directly from its own body after the final owner-count check)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_document_removed.sql`** + **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_document_removed.sql`** (`BEFORE DELETE ON public.documents`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_project_member_removed.sql`** + **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_project_member_removed.sql`** (`AFTER DELETE ON public.project_members`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_task_unassigned.sql`** + **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_task_unassigned.sql`** (`AFTER DELETE ON public.task_assignees`) — uses the step-3 helper
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/transfer_project_ownership.sql`** (`create or replace` — now also emits `project.ownership_transferred` directly from its own body after the final owner-count check)
 
 ## 5. Role-change event
 
-- [ ] Run **`supabase/functions/notify_project_member_role_changed.sql`** + **`supabase/triggers/trg_notify_project_member_role_changed.sql`** (`AFTER UPDATE OF role ON public.project_members`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_project_member_role_changed.sql`** + **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_project_member_role_changed.sql`** (`AFTER UPDATE OF role ON public.project_members`)
 
 **Verify before moving on**: this trigger must never double-fire alongside step 4's ownership-transfer emit. Transfer ownership on a test project and confirm the demoted former owner and the newly-promoted owner do **not** get a `project.member_role_changed` notification — only the single `project.ownership_transferred` one.
 
@@ -57,7 +57,7 @@ Order doesn't matter between these:
 
 Depends on step 1's `task_assignees` columns and step 3's helper:
 
-- [ ] Run **`supabase/functions/notify_task_due_date_changed.sql`** + **`supabase/triggers/trg_notify_task_due_date_changed.sql`** (`AFTER UPDATE OF due_date ON public.tasks`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_task_due_date_changed.sql`** + **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_task_due_date_changed.sql`** (`AFTER UPDATE OF due_date ON public.tasks`)
 
 ## 7. RLS-gap fix + link fix on the five original Workspace functions
 
@@ -66,36 +66,36 @@ All five gain the `security definer set search_path=''` RLS-gap fix; three of th
 (`notify_task_assigned`, `notify_task_status_changed`, `notify_document_attached`) also switch
 their `link_to` to the step-3 helper, so run this **after** step 3:
 
-- [ ] Re-run **`supabase/functions/notify_task_assigned.sql`**
-- [ ] Re-run **`supabase/functions/notify_project_member_added.sql`**
-- [ ] Re-run **`supabase/functions/notify_task_status_changed.sql`**
-- [ ] Re-run **`supabase/functions/notify_project_status_changed.sql`**
-- [ ] Re-run **`supabase/functions/notify_document_attached.sql`**
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/notify_task_assigned.sql`**
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/notify_project_member_added.sql`**
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/notify_task_status_changed.sql`**
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/notify_project_status_changed.sql`**
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/notify_document_attached.sql`**
 
 ## 8. Scheduled-scan functions
 
 Depend on steps 1, 2, 3, and 6:
 
-- [ ] Run **`supabase/functions/check_project_deadlines_approaching.sql`**
-- [ ] Run **`supabase/functions/check_projects_overdue.sql`**
-- [ ] Run **`supabase/functions/check_tasks_due_soon.sql`** — uses the step-3 helper
-- [ ] Run **`supabase/functions/check_tasks_overdue.sql`** — uses the step-3 helper
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_project_deadlines_approaching.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_projects_overdue.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_tasks_due_soon.sql`** — uses the step-3 helper
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_tasks_overdue.sql`** — uses the step-3 helper
 
 ## 9. Task-deleted event
 
 Independent, any time after step 1:
 
-- [ ] Run **`supabase/functions/notify_task_deleted.sql`** + **`supabase/triggers/trg_notify_task_deleted.sql`** (`BEFORE DELETE ON public.tasks`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_task_deleted.sql`** + **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_task_deleted.sql`** (`BEFORE DELETE ON public.tasks`)
 
 ## 10. Seed the notification rules
 
-- [ ] Run **`supabase/sql_editor/seed_project_lifecycle_notification_rules.sql`** (`project.member_removed`, `project.member_role_changed`, `project.ownership_transferred`, `project.deadline_approaching`, `project.overdue`)
-- [ ] Run **`supabase/sql_editor/seed_task_lifecycle_notification_rules.sql`** (`task.unassigned`, `task.due_date_changed`, `task.due_soon`, `task.overdue`, `task.deleted`)
-- [ ] Run **`supabase/sql_editor/seed_document_removed_notification_rule.sql`** (`document.removed`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_project_lifecycle_notification_rules.sql`** (`project.member_removed`, `project.member_role_changed`, `project.ownership_transferred`, `project.deadline_approaching`, `project.overdue`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_task_lifecycle_notification_rules.sql`** (`task.unassigned`, `task.due_date_changed`, `task.due_soon`, `task.overdue`, `task.deleted`)
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_document_removed_notification_rule.sql`** (`document.removed`)
 
 ## 11. Schedule the cron job
 
-- [ ] Run **`supabase/sql_editor/schedule_check_workspace_lifecycle_cron.sql`** — new job `check-workspace-lifecycle-daily`, bundling all four `check_*` functions from step 8, separate from `check-employee-lifecycle-daily`.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/schedule_check_workspace_lifecycle_cron.sql`** — new job `check-workspace-lifecycle-daily`, bundling all four `check_*` functions from step 8, separate from `check-employee-lifecycle-daily`.
 
 ## 12. Frontend
 
@@ -111,10 +111,10 @@ No SQL — ships via the normal build/deploy pipeline, no ordering dependency on
 
 Re-run these 4 (`create or replace function`, safe/idempotent — the already-scheduled `check-workspace-lifecycle-daily` cron job picks up each new body automatically, no re-scheduling needed). Depends on step 12's Projects `dueStatus` filter already being deployed, since these now emit `link_to` values pointing at it:
 
-- [ ] Re-run **`supabase/functions/check_tasks_due_soon.sql`** — now emits ONE digest notification per assignee per scan run (e.g. "You have 3 tasks due soon"), not one per task, linking to `/app/workspace/tasks?dueStatus=due_soon`.
-- [ ] Re-run **`supabase/functions/check_tasks_overdue.sql`** — same digest restructuring, links to `/app/workspace/tasks?dueStatus=overdue`.
-- [ ] Re-run **`supabase/functions/check_project_deadlines_approaching.sql`** — now emits ONE digest notification per member per scan run, linking to `/app/workspace/projects?dueStatus=due_soon`.
-- [ ] Re-run **`supabase/functions/check_projects_overdue.sql`** — same digest restructuring, links to `/app/workspace/projects?dueStatus=overdue`.
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/check_tasks_due_soon.sql`** — now emits ONE digest notification per assignee per scan run (e.g. "You have 3 tasks due soon"), not one per task, linking to `/app/workspace/tasks?dueStatus=due_soon`.
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/check_tasks_overdue.sql`** — same digest restructuring, links to `/app/workspace/tasks?dueStatus=overdue`.
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/check_project_deadlines_approaching.sql`** — now emits ONE digest notification per member per scan run, linking to `/app/workspace/projects?dueStatus=due_soon`.
+- [ ] Re-run **`hyrax-supabase/archive/portal/supabase/functions/check_projects_overdue.sql`** — same digest restructuring, links to `/app/workspace/projects?dueStatus=overdue`.
 
 No `notification_rules` reseed needed — all four keep the exact same `target_payload_keys` (`assignee_profile_id` / `recipient_profile_id`) the existing seeded rows already target.
 

@@ -1,3 +1,0 @@
-id,name,public,file_size_limit,allowed_mime_types,created_at
-attendance,attendance,true,10485760,"[""image/*""]",2026-05-05 05:47:19.422994+00
-avatars,avatars,true,1048576,"[""image/*""]",2026-02-04 14:42:41.913426+00

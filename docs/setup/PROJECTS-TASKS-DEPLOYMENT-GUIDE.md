@@ -28,17 +28,17 @@ where n.nspname = 'public' and c.relname = 'employees'
 
 ## 1. Schema — tables, types, indexes
 
-- [ ] Run **`supabase/sql_editor/projects_tasks_schema_migration.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/projects_tasks_schema_migration.sql`**
 
 Creates `project_status`/`task_status` enums, `project_categories`/`projects`/`project_members`/`tasks`/`task_assignees` tables (with the partial unique index enforcing exactly one `owner` per project), all indexes, and enables RLS on all five tables (policies come later in step 9 — until then these tables are RLS-enabled with zero policies, meaning **no one** can read/write them, including you testing in the app — that's expected and safe).
 
-- [ ] Run **`supabase/sql_editor/seed_project_categories.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_project_categories.sql`**
 
 Seeds "Internal Project" / "External / Client Project" / "Plant Upgrade" / "Company Event" so the category picker isn't empty on day one.
 
 ## 2. Replace `set_updated_at`
 
-- [ ] Run **`supabase/functions/set_updated_at.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/set_updated_at.sql`**
 
 This repo's existing copy of this file only ever captured the trigger _body_, not a full function definition (a documented, pre-existing gap) — this replaces it with the complete, idempotent version. Safe even if a function with this exact body is already live under this name.
 
@@ -46,52 +46,52 @@ This repo's existing copy of this file only ever captured the trigger _body_, no
 
 Order doesn't matter within this group — Postgres doesn't validate a plpgsql function body against other objects until the function is actually _called_. All must exist before step 9's policies.
 
-- [ ] `supabase/functions/current_employee_id.sql`
-- [ ] `supabase/functions/is_project_member.sql`
-- [ ] `supabase/functions/is_working_project_member.sql`
-- [ ] `supabase/functions/is_elevated_project_member.sql`
-- [ ] `supabase/functions/is_project_owner.sql`
-- [ ] `supabase/functions/project_member_role.sql`
-- [ ] `supabase/functions/is_task_assignee.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/current_employee_id.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/is_project_member.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/is_working_project_member.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/is_elevated_project_member.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/is_project_owner.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/project_member_role.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/is_task_assignee.sql`
 
 ## 4. Integrity & guard trigger functions
 
-- [ ] `supabase/functions/enforce_task_assignee_is_project_member.sql` — req #5: rejects assigning a non-member, or a `cc`, to a task.
-- [ ] `supabase/functions/auto_add_project_creator_as_member.sql` — guarantees the creator always lands as `owner`.
-- [ ] `supabase/functions/guard_project_deletion.sql` — blocks deleting a project that still has tasks, unless it's already `CANCELLED`.
-- [ ] `supabase/functions/block_owner_removal_from_project_members.sql` — req #5: owner can't be removed without transferring ownership first. Correctly no-ops during a whole-project delete cascade — see its header comment if you ever need to touch this.
-- [ ] `supabase/functions/block_project_member_removal_with_active_tasks.sql` — req #3: a member can't be removed while they still hold `TO_DO`/`IN_PROGRESS` tasks in that project.
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/enforce_task_assignee_is_project_member.sql` — req #5: rejects assigning a non-member, or a `cc`, to a task.
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/auto_add_project_creator_as_member.sql` — guarantees the creator always lands as `owner`.
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/guard_project_deletion.sql` — blocks deleting a project that still has tasks, unless it's already `CANCELLED`.
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/block_owner_removal_from_project_members.sql` — req #5: owner can't be removed without transferring ownership first. Correctly no-ops during a whole-project delete cascade — see its header comment if you ever need to touch this.
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/block_project_member_removal_with_active_tasks.sql` — req #3: a member can't be removed while they still hold `TO_DO`/`IN_PROGRESS` tasks in that project.
 
 ## 5. RPC functions
 
-- [ ] `supabase/functions/create_project.sql` — atomic project + initial owner/leads/members/ccs in one call. The frontend's "Add Project" form calls this, not a plain insert.
-- [ ] `supabase/functions/transfer_project_ownership.sql` — the only path that can ever move the `owner` tag.
-- [ ] `supabase/functions/get_or_create_project_category.sql` — backs the "create new category on the fly" picker.
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/create_project.sql` — atomic project + initial owner/leads/members/ccs in one call. The frontend's "Add Project" form calls this, not a plain insert.
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/transfer_project_ownership.sql` — the only path that can ever move the `owner` tag.
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/get_or_create_project_category.sql` — backs the "create new category on the fly" picker.
 
 ## 6. Notification trigger functions
 
 Plugs into the existing notification system ([`docs/NOTIFICATIONS-ARCHITECTURE.md`](../NOTIFICATIONS-ARCHITECTURE.md)) — requires that system already deployed ([`NOTIFICATIONS-DEPLOYMENT-GUIDE.md`](./NOTIFICATIONS-DEPLOYMENT-GUIDE.md)). If you haven't deployed that yet, do it first — `emit_notification_event()` must already exist.
 
-- [ ] `supabase/functions/notify_task_assigned.sql`
-- [ ] `supabase/functions/notify_project_member_added.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/notify_task_assigned.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/notify_project_member_added.sql`
 
 ## 7. Wire up every trigger
 
 Run each of these 9 files — all `create trigger`/`create or replace trigger`, safe to run even if the trigger already exists:
 
-- [ ] `supabase/triggers/trg_set_projects_updated_at.sql`
-- [ ] `supabase/triggers/trg_set_tasks_updated_at.sql`
-- [ ] `supabase/triggers/trg_enforce_task_assignee_is_project_member.sql`
-- [ ] `supabase/triggers/trg_auto_add_project_creator_as_member.sql`
-- [ ] `supabase/triggers/trg_guard_project_deletion.sql`
-- [ ] `supabase/triggers/trg_block_owner_removal_from_project_members.sql` — **run this one before the next** (its name sorts first alphabetically, which is also the intended firing order: if a row is both the owner and holds active tasks, the "transfer ownership first" message should win over the "still has active tasks" one).
-- [ ] `supabase/triggers/trg_block_project_member_removal_with_active_tasks.sql`
-- [ ] `supabase/triggers/trg_notify_task_assigned.sql`
-- [ ] `supabase/triggers/trg_notify_project_member_added.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_set_projects_updated_at.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_set_tasks_updated_at.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_enforce_task_assignee_is_project_member.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_auto_add_project_creator_as_member.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_guard_project_deletion.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_block_owner_removal_from_project_members.sql` — **run this one before the next** (its name sorts first alphabetically, which is also the intended firing order: if a row is both the owner and holds active tasks, the "transfer ownership first" message should win over the "still has active tasks" one).
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_block_project_member_removal_with_active_tasks.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_notify_task_assigned.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_notify_project_member_added.sql`
 
 ## 8. Views
 
-- [ ] Run **`supabase/sql_editor/projects_tasks_views.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/projects_tasks_views.sql`**
 
 Creates `project_progress`, `projects_with_progress`, `project_departments` — all three explicitly `WITH (security_invoker = true)`. **Do not remove that clause if you ever edit these views** — without it, every project's data would be readable by every authenticated user regardless of membership (see the architecture doc's pitfall #1).
 
@@ -99,15 +99,15 @@ Creates `project_progress`, `projects_with_progress`, `project_departments` — 
 
 **Checkpoint before this step**: the tables have been RLS-enabled with zero policies since step 1 — nothing works in the app yet. After this step, the module is live.
 
-- [ ] `supabase/policies/project_categories_crud.sql`
-- [ ] `supabase/policies/projects_crud.sql`
-- [ ] `supabase/policies/tasks_crud.sql`
-- [ ] `supabase/policies/project_members_crud.sql`
-- [ ] `supabase/policies/task_assignees_crud.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/policies/project_categories_crud.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/policies/projects_crud.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/policies/tasks_crud.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/policies/project_members_crud.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/policies/task_assignees_crud.sql`
 
 ## 10. Seed the notification rules
 
-- [ ] Run **`supabase/sql_editor/seed_projects_tasks_notification_rules.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_projects_tasks_notification_rules.sql`**
 
 Seeds `task.assigned` and `project.member_added`, both `in_app` + `email` channels (per the confirmed decision). No `task.status_changed` rule is seeded — see the architecture doc's Notifications section for why (a real, currently-unresolved limitation in the shared notification-targeting engine, not an oversight here).
 
@@ -117,8 +117,8 @@ Seeds `task.assigned` and `project.member_added`, both `in_app` + `email` channe
 
 **If you've already run steps 0–10 above, this is the only new SQL to run** — a real integrity gap found after launch: `enforce_task_assignee_is_project_member.sql` (step 4) already blocks _assigning_ a `cc` to a task, but nothing stopped _demoting_ an existing working member to `cc` while they still held active tasks in that project, which would leave those `task_assignees` rows pointing at an employee no longer eligible to hold them.
 
-- [ ] `supabase/functions/block_role_change_to_cc_with_active_tasks.sql`
-- [ ] `supabase/triggers/trg_block_role_change_to_cc_with_active_tasks.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/block_role_change_to_cc_with_active_tasks.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_block_role_change_to_cc_with_active_tasks.sql`
 
 No RLS policy changes — this is an integrity trigger, the same layer as the two existing member-removal guards, not a permission check.
 
@@ -128,13 +128,13 @@ No RLS policy changes — this is an integrity trigger, the same layer as the tw
 
 **If you've already run steps 0–11 above, this is the only new SQL to run.** Adds a project-scoped Google Drive document library (`documents`) plus a many-to-many link table (`task_documents`) so a document can be attached at the project level, linked to any number of that project's tasks, or both. Run strictly in this order — later steps depend on earlier ones (the tables must exist before the trigger/policies/view that reference them):
 
-- [ ] `supabase/functions/get_or_create_document.sql` — race-safe get-or-create backing the "attach a Drive file" flow (deliberately not a plain insert or `.upsert()` — see the file's own header comment).
-- [ ] `supabase/functions/enforce_task_document_same_project.sql` — the trigger function enforcing that a `task_documents` row can never link a document to a task in a different project.
-- [ ] Run **`supabase/sql_editor/documents_schema_migration.sql`** — creates `documents` and `task_documents`, all indexes, enables RLS on both (zero policies until step below — expected and safe).
-- [ ] `supabase/triggers/trg_enforce_task_document_same_project.sql` — fires on `INSERT OR UPDATE OF task_id, document_id` (not insert-only — `task_documents`' blanket "Superadmin CRUD" policy has no `for` clause and therefore also grants UPDATE).
-- [ ] `supabase/policies/documents_crud.sql`
-- [ ] `supabase/policies/task_documents_crud.sql`
-- [ ] Run **`supabase/sql_editor/documents_views.sql`** — creates `documents_with_context`, explicitly `WITH (security_invoker = true)` (same non-optional clause as every other view in this module — see the architecture doc's pitfall #1 if you ever edit it).
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/get_or_create_document.sql` — race-safe get-or-create backing the "attach a Drive file" flow (deliberately not a plain insert or `.upsert()` — see the file's own header comment).
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/enforce_task_document_same_project.sql` — the trigger function enforcing that a `task_documents` row can never link a document to a task in a different project.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/documents_schema_migration.sql`** — creates `documents` and `task_documents`, all indexes, enables RLS on both (zero policies until step below — expected and safe).
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_enforce_task_document_same_project.sql` — fires on `INSERT OR UPDATE OF task_id, document_id` (not insert-only — `task_documents`' blanket "Superadmin CRUD" policy has no `for` clause and therefore also grants UPDATE).
+- [ ] `hyrax-supabase/archive/portal/supabase/policies/documents_crud.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/policies/task_documents_crud.sql`
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/documents_views.sql`** — creates `documents_with_context`, explicitly `WITH (security_invoker = true)` (same non-optional clause as every other view in this module — see the architecture doc's pitfall #1 if you ever edit it).
 
 No new notification trigger is seeded in this step — `document.attached`/`document.removed` are `Proposed`, not yet implemented (see `docs/NOTIFICATION-RULES-TRACKER.csv`).
 
@@ -153,8 +153,8 @@ No new notification trigger is seeded in this step — `document.attached`/`docu
 
 **If you've already run steps 0–12 above, this is the only new SQL to run.** `projects.status` was manual-only in every direction — correct for the completion side (a project can be fully task-complete and still waiting on sign-off), but a project sitting in `PLANNING` while a task has clearly started had no automation to reflect that. This closes just that one gap: a project in `PLANNING` flips to `ACTIVE` the moment any one of its tasks reaches `IN_PROGRESS`, whether that happens via an update (the Start button) or directly on task creation (the Add Task form's own `status` field). Every other project status (`ON_HOLD`/`COMPLETED`/`CANCELLED`) is left alone, and there's no reverse rule.
 
-- [ ] `supabase/functions/auto_activate_project_on_task_started.sql`
-- [ ] `supabase/triggers/trg_auto_activate_project_on_task_started.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/functions/auto_activate_project_on_task_started.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/triggers/trg_auto_activate_project_on_task_started.sql`
 
 No RLS/policy changes — this is an integrity/automation trigger, the same layer as the CC-demotion guard in step 11, not a permission check. Also fires the existing `project.status_changed` notification for free (step 10's seeded rule) — nothing extra to wire up.
 
@@ -166,8 +166,8 @@ No RLS/policy changes — this is an integrity/automation trigger, the same laye
 
 **If you've already run steps 0–13 above, this is the only new SQL to run.** Adds glanceable KPI cards (`OverviewCards`) to the top of the Projects list and My Tasks pages — Total/Active/Planning/On Hold for Projects, Total/Overdue/Due Soon/Completed for Tasks. Both counts come from a dedicated RPC each, matching the same `count(*) filter (where ...)` pattern every report dashboard RPC already uses (`get_sales_leads_dashboard`, etc.), rather than several client-orchestrated count queries — one round trip per page instead of several.
 
-- [ ] `supabase/sql_editor/get_projects_overview_rpc.sql`
-- [ ] `supabase/sql_editor/get_my_tasks_overview_rpc.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/sql_editor/get_projects_overview_rpc.sql`
+- [ ] `hyrax-supabase/archive/portal/supabase/sql_editor/get_my_tasks_overview_rpc.sql`
 
 Neither is `security definer` — both run with the caller's own row-security context, so `projects`/`tasks`' existing RLS keeps every count scoped to what the caller can actually see, with no extra scoping logic in the function body. No policy changes, no `grant` statement needed (same as every other function in this file set).
 

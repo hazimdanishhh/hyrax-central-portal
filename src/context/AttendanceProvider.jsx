@@ -133,7 +133,7 @@ export function AttendanceProvider({ children }) {
   }, [employeeId]);
 
   // A biometric door scan auto-closes any open app session server-side
-  // (supabase/triggers/trigger_auto_clock_out.sql), without this context
+  // (hyrax-supabase/archive/portal/supabase/triggers/trigger_auto_clock_out.sql), without this context
   // knowing until something refetches -- self-heal on window focus and on a
   // slow interval, rather than only on employeeId change/remount, so the
   // Clock In/Out button (and anything else reading currentActivity) doesn't

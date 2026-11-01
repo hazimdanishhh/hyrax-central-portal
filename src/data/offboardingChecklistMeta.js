@@ -1,6 +1,6 @@
 // Fixed, built-in offboarding checklist -- see onboardingChecklistMeta.js's
 // own header for the general shape/rationale; kept manually in sync with
-// supabase/functions/get_or_create_offboarding_case.sql's own seed list.
+// hyrax-supabase/archive/portal/supabase/functions/get_or_create_offboarding_case.sql's own seed list.
 //
 // `employeeVisible` matches docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md's
 // worked recommendation table exactly -- it's ALSO enforced server-side via

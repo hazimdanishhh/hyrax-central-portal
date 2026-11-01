@@ -18,7 +18,7 @@
 
 ## Part 1 — New table: `employee_it_asset_requests` (do this first)
 
-New file, `hyrax-central-portal/supabase/sql_editor/employee_it_asset_requests_migration.sql`, mirroring the existing lookup/relationship conventions in this schema (`it_assets`' own shape, `departments`' `{id, name, sub}` simplicity):
+New file, `hyrax-supabase/archive/portal/supabase/sql_editor/employee_it_asset_requests_migration.sql`, mirroring the existing lookup/relationship conventions in this schema (`it_assets`' own shape, `departments`' `{id, name, sub}` simplicity):
 
 ```sql
 create table public.employee_it_asset_requests (

@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
  *
  * `description` is fetched and displayed as helper text under the picker --
  * that is the whole reason this is a table rather than a CHECK constraint (see
- * supabase/sql_editor/attendance_adjustment_reasons_migration.sql), mirroring
+ * hyrax-supabase/archive/portal/supabase/sql_editor/attendance_adjustment_reasons_migration.sql), mirroring
  * how PayrollReconciliationSidebar renders payroll_reconciliation_glossary.
  * Keeping the wording server-side means the form, and anything else that ever
  * explains these codes, can't drift apart.

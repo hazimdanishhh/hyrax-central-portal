@@ -39,12 +39,12 @@ Two independent audits found both.
 
 | #   | File                                                                    | Notes                                                                                                            |
 | --- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1   | `supabase/policies/attendance_photos_storage_fix.sql`                   | Already written, idempotent. Highest risk, zero dependencies — run it first.                                     |
-| 2   | `supabase/policies/attendance_activities_crud.sql`                      | **New.** There was no policy file for this table at all, though two design docs cite one as the pattern to copy. |
-| 3   | `supabase/functions/approve_attendance.sql`                             |                                                                                                                  |
-| 4   | `supabase/functions/reject_attendance.sql`                              |                                                                                                                  |
-| 5   | `supabase/sql_editor/attendance_activities_open_session_constraint.sql` | **Run its pre-flight query first** — see below.                                                                  |
-| 6   | `supabase/functions/auto_clock_out.sql`                                 |                                                                                                                  |
+| 1   | `hyrax-supabase/archive/portal/supabase/policies/attendance_photos_storage_fix.sql`                   | Already written, idempotent. Highest risk, zero dependencies — run it first.                                     |
+| 2   | `hyrax-supabase/archive/portal/supabase/policies/attendance_activities_crud.sql`                      | **New.** There was no policy file for this table at all, though two design docs cite one as the pattern to copy. |
+| 3   | `hyrax-supabase/archive/portal/supabase/functions/approve_attendance.sql`                             |                                                                                                                  |
+| 4   | `hyrax-supabase/archive/portal/supabase/functions/reject_attendance.sql`                              |                                                                                                                  |
+| 5   | `hyrax-supabase/archive/portal/supabase/sql_editor/attendance_activities_open_session_constraint.sql` | **Run its pre-flight query first** — see below.                                                                  |
+| 6   | `hyrax-supabase/archive/portal/supabase/functions/auto_clock_out.sql`                                 |                                                                                                                  |
 | 7   | Frontend deploy                                                         |                                                                                                                  |
 
 **Step 5 will fail if duplicates already exist.** Run this first and resolve

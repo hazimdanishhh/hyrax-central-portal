@@ -37,11 +37,11 @@ export default (
         MGM added company-wide (no role restriction) alongside FIN --
         reverses 2026-07's "Judgment call #4" the same way Sales' analogous
         2026-07 restriction was reversed in 2026-09 (see
-        supabase/access-control/README.md): Finance/Sales Reports' own
+        docs/access-control/README.md): Finance/Sales Reports' own
         drill-through KPI tiles/charts, and Sales Order sidebars' matched-
         invoice/matched-payment cards, need MGM to actually open these
         pages, not just see a disabled link. Requires
-        supabase/policies/mgm_finance_access_parity_fix.sql deployed too --
+        hyrax-supabase/archive/portal/supabase/policies/mgm_finance_access_parity_fix.sql deployed too --
         the route guard alone doesn't widen the underlying RLS. */}
     <Route
       path="invoices"

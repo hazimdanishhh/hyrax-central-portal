@@ -14,7 +14,7 @@ import { getStatusVariant } from "./statusVariant";
 
 // ─── Gross Margin release gate ──────────────────────────────────────────────
 // Gross Margin (Invoicing) and Gross Profit by Rep (Team) show only once
-// supabase/diagnostics/sales_gross_profit_coverage.sql finds SAP's gross
+// hyrax-supabase/archive/portal/supabase/diagnostics/sales_gross_profit_coverage.sql finds SAP's gross
 // profit known for 95%+ of Invoiced Revenue over the last 12 months (plan,
 // final build §4). Flip to true when it passes; if it fails, delete the
 // gated tile/chart and record why in docs/sales/SALES-REPORTS-TABS-PLAN.md.

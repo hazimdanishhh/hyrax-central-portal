@@ -1,7 +1,0 @@
-bucket,open_orders,value_myr,pct_of_book
-overdue 90-180d,11,9446625,30.3
-overdue > 180d,24,8301492,26.6
-overdue < 30d,21,6176194,19.8
-overdue 30-90d,13,4349472,13.9
-due within 30d,11,2738507,8.8
-due 30-90d,3,212250,0.7

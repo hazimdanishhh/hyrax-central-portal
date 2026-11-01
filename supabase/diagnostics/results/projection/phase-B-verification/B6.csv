@@ -1,8 +1,0 @@
-method,origins,mae_myr,mase,bias_pct,vs_naive
-freqsev,95,2509969,0.748,7.9,beats seasonal-naive
-ma12,95,2722020,0.811,6.8,beats seasonal-naive
-ma3,95,3144974,0.937,5.2,beats seasonal-naive
-decomposition,94,3263671,0.972,5.7,beats seasonal-naive
-seasonal_naive,95,3357727,1.000,4.8,no better than naive
-drift,83,6104877,1.818,5.3,no better than naive
-seasonal_naive_drift,83,6598422,1.965,51.7,no better than naive

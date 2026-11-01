@@ -8,31 +8,31 @@ Exact, ordered steps to deploy what's described in [`docs/ONBOARDING-WORKFLOW-AR
 
 ## 1. The trigger function + trigger
 
-- [ ] Run **`supabase/functions/notify_profile_created.sql`**.
-- [ ] Run **`supabase/triggers/trg_notify_profile_created.sql`** (`create or replace trigger`, safe to re-run).
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_profile_created.sql`**.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_profile_created.sql`** (`create or replace trigger`, safe to re-run).
 
 ## 2. Seed the three notification rules
 
-- [ ] Run **`supabase/sql_editor/seed_profile_created_needs_department_assignment_rule.sql`** — targets `superadmin`.
-- [ ] Run **`supabase/sql_editor/seed_profile_created_needs_employee_link_rule.sql`** — targets `HR`.
-- [ ] Run **`supabase/sql_editor/seed_profile_created_welcome_rule.sql`** — targets the new profile itself.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_profile_created_needs_department_assignment_rule.sql`** — targets `superadmin`.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_profile_created_needs_employee_link_rule.sql`** — targets `HR`.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_profile_created_welcome_rule.sql`** — targets the new profile itself.
 
 **Checkpoint: the three profile-created notifications are now live.** A brand-new login will notify superadmin (if still in the default `General` department), HR, and welcome the new person, all immediately.
 
 ## 3. The manual employee-linking RPC
 
-- [ ] Run **`supabase/functions/link_profile_to_employee.sql`**.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/link_profile_to_employee.sql`**.
 
 No seed/rule needed for this one — it's a plain RPC the frontend calls directly (`src/features/superadmin/users/private/api/employeeLink.js`), not a notification event.
 
 ## 4. Close the loop: notify the user once an admin actually acts
 
-- [ ] Run **`supabase/functions/notify_profile_updated.sql`**.
-- [ ] Run **`supabase/triggers/trg_notify_profile_updated.sql`**.
-- [ ] Run **`supabase/functions/notify_employee_profile_linked.sql`**.
-- [ ] Run **`supabase/triggers/trg_notify_employee_profile_linked.sql`**.
-- [ ] Run **`supabase/sql_editor/seed_profile_department_role_assigned_rule.sql`** — targets the profile itself.
-- [ ] Run **`supabase/sql_editor/seed_employee_profile_linked_rule.sql`** — targets the newly-linked profile itself.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_profile_updated.sql`**.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_profile_updated.sql`**.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/notify_employee_profile_linked.sql`**.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/triggers/trg_notify_employee_profile_linked.sql`**.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_profile_department_role_assigned_rule.sql`** — targets the profile itself.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_employee_profile_linked_rule.sql`** — targets the newly-linked profile itself.
 
 **Checkpoint: the loop is now fully closed.** Once a superadmin actually changes someone's department/role, or an employee record gets linked to a profile, that person (and only that person — not superadmin or HR) gets notified.
 

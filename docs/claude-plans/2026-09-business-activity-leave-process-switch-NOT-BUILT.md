@@ -24,7 +24,7 @@ The obvious fix was to teach `unified_daily_attendance` that
 
 **The destination already exists.** `Overseas Trip` and `Local Trip` shipped as
 `attendance_types` on 2026-09-21
-(`supabase/sql_editor/seed_attendance_types_backfill_rows.sql`), both
+(`hyrax-supabase/archive/portal/supabase/sql_editor/seed_attendance_types_backfill_rows.sql`), both
 `is_full_day = true` and `is_self_selectable = true`. `Site Visit`,
 `Business Meeting`, `Work From Home` and `Training` already existed.
 

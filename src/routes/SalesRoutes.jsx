@@ -138,7 +138,7 @@ export default (
 
     {/* SALES ORDERS -- department-only (R3), not manager-gated: reversed
         2026-08 from the 2026-07 R4 classification (see
-        supabase/access-control/route_access_matrix.csv) now that a lead's
+        docs/access-control/route_access_matrix.csv) now that a lead's
         owner can be notified of, and needs to click through to, their own
         matched SAP sales order (sales_order.po_matched notification).
         Backed by sap_sales_orders_with_fulfillment (Lead -> Order ->

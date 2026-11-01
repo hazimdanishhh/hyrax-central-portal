@@ -21,7 +21,7 @@ Confirm `employees.id`/`it_assets.asset_user_id` come back `uuid`, and `employme
 
 ## 1. Schema
 
-Run `supabase/sql_editor/employee_lifecycle_schema_migration.sql`, then `supabase/sql_editor/profiles_add_deactivated_at.sql`.
+Run `hyrax-supabase/archive/portal/supabase/sql_editor/employee_lifecycle_schema_migration.sql`, then `hyrax-supabase/archive/portal/supabase/sql_editor/profiles_add_deactivated_at.sql`.
 
 **Checkpoint: the two new tables exist, RLS-enabled with zero policies yet — no one can read/write them at all, including you testing in the app. That's expected and safe**, matching the Projects & Tasks module's own precedent — locked down until step 9.
 
@@ -31,68 +31,68 @@ Nothing new — `set_updated_at()` already exists live, reused as-is in step 7.
 
 ## 3. Helper function
 
-Run `supabase/functions/is_department.sql`. Order doesn't matter relative to step 4 below, but must exist before step 9 (RLS).
+Run `hyrax-supabase/archive/portal/supabase/functions/is_department.sql`. Order doesn't matter relative to step 4 below, but must exist before step 9 (RLS).
 
 ## 4. Case lifecycle & sync integrity functions
 
 Run, in any order:
 
-- `supabase/functions/get_or_create_onboarding_case.sql`
-- `supabase/functions/get_or_create_offboarding_case.sql`
-- `supabase/functions/sync_lifecycle_item_on_profile_linked.sql`
-- `supabase/functions/sync_lifecycle_item_on_role_department_assigned.sql`
-- `supabase/functions/sync_lifecycle_item_on_it_asset_assignment.sql`
-- `supabase/functions/sync_lifecycle_item_on_profile_deactivated.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/get_or_create_onboarding_case.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/get_or_create_offboarding_case.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/sync_lifecycle_item_on_profile_linked.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/sync_lifecycle_item_on_role_department_assigned.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/sync_lifecycle_item_on_it_asset_assignment.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/sync_lifecycle_item_on_profile_deactivated.sql`
 
 ## 5. RPC
 
-Run `supabase/functions/deactivate_profile.sql`.
+Run `hyrax-supabase/archive/portal/supabase/functions/deactivate_profile.sql`.
 
 ## 6. Notification-emitting trigger + scan functions
 
 Run, in any order:
 
-- `supabase/functions/handle_employee_onboarding_case_open.sql`
-- `supabase/functions/handle_employee_offboarding_case_open.sql`
-- `supabase/functions/check_lifecycle_case_completion.sql`
-- `supabase/functions/check_employee_offboarding_last_day_approaching.sql`
-- `supabase/functions/check_employee_offboarding_overdue.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/handle_employee_onboarding_case_open.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/handle_employee_offboarding_case_open.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/check_lifecycle_case_completion.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/check_employee_offboarding_last_day_approaching.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/check_employee_offboarding_overdue.sql`
 
 ## 7. Wire up every trigger
 
-Run every file in `supabase/triggers/` named `trg_employee_onboarding_case_open.sql`, `trg_employee_offboarding_case_open.sql`, `trg_lifecycle_case_completion.sql`, `trg_sync_lifecycle_item_on_profile_linked.sql`, `trg_sync_lifecycle_item_on_role_department_assigned.sql`, `trg_sync_lifecycle_item_on_it_asset_assignment.sql`, `trg_sync_lifecycle_item_on_profile_deactivated.sql`, `trg_set_employee_lifecycle_cases_updated_at.sql`, `trg_set_employee_lifecycle_case_items_updated_at.sql`. All `create or replace trigger`, safe to re-run. These are new sibling triggers only — `trg_notify_profile_created`, `trg_notify_profile_updated`, `trg_notify_employee_profile_linked`, and every other Section A/B trigger stay exactly as they were; Postgres fires multiple triggers per event without conflict.
+Run every file in `hyrax-supabase/archive/portal/supabase/triggers/` named `trg_employee_onboarding_case_open.sql`, `trg_employee_offboarding_case_open.sql`, `trg_lifecycle_case_completion.sql`, `trg_sync_lifecycle_item_on_profile_linked.sql`, `trg_sync_lifecycle_item_on_role_department_assigned.sql`, `trg_sync_lifecycle_item_on_it_asset_assignment.sql`, `trg_sync_lifecycle_item_on_profile_deactivated.sql`, `trg_set_employee_lifecycle_cases_updated_at.sql`, `trg_set_employee_lifecycle_case_items_updated_at.sql`. All `create or replace trigger`, safe to re-run. These are new sibling triggers only — `trg_notify_profile_created`, `trg_notify_profile_updated`, `trg_notify_employee_profile_linked`, and every other Section A/B trigger stay exactly as they were; Postgres fires multiple triggers per event without conflict.
 
 ## 8. View
 
-Run `supabase/sql_editor/employee_lifecycle_cases_views.sql`.
+Run `hyrax-supabase/archive/portal/supabase/sql_editor/employee_lifecycle_cases_views.sql`.
 
 **Verify**: as a non-HR/non-IT test user, `select * from employee_lifecycle_cases_with_progress;` returns zero rows (still locked — RLS on the base tables has zero policies until step 9).
 
 ## 9. RLS policies
 
-Run `supabase/policies/employee_lifecycle_cases_crud.sql`, then `supabase/policies/employee_lifecycle_case_items_crud.sql`.
+Run `hyrax-supabase/archive/portal/supabase/policies/employee_lifecycle_cases_crud.sql`, then `hyrax-supabase/archive/portal/supabase/policies/employee_lifecycle_case_items_crud.sql`.
 
 **Checkpoint: nothing works in the app until this step. After this step, the module is live** for HR/IT/superadmin viewing and acting on cases — employee self-service still shows nothing until step 11's backfill (or a real new hire) creates a case with `employee_can_view` set.
 
 ## 10. Seed notification rules
 
-Run `supabase/sql_editor/seed_employee_lifecycle_notification_rules.sql`.
+Run `hyrax-supabase/archive/portal/supabase/sql_editor/seed_employee_lifecycle_notification_rules.sql`.
 
 ### 10a. Pause the two Shape-B rules
 
 **Run this before step 11** — real employees may already be mid-notice-period, and the very first cron tick after the backfill would otherwise flood HR/IT on day one:
 
-Run `supabase/sql_editor/pause_employee_offboarding_scan_rules.sql`.
+Run `hyrax-supabase/archive/portal/supabase/sql_editor/pause_employee_offboarding_scan_rules.sql`.
 
 ## 11. One-time backfill
 
-Run `supabase/sql_editor/backfill_employee_lifecycle_cases.sql`. This creates cases for employees already in the table at deploy time — anyone already mid-Probation gets an onboarding case; anyone with a `resignation_date` set or already in "Terminated Notice" gets an offboarding case. Deliberately does **not** backfill anyone already fully terminated (no way to tell "just happened" from "years ago" — see the file's own header comment).
+Run `hyrax-supabase/archive/portal/supabase/sql_editor/backfill_employee_lifecycle_cases.sql`. This creates cases for employees already in the table at deploy time — anyone already mid-Probation gets an onboarding case; anyone with a `resignation_date` set or already in "Terminated Notice" gets an offboarding case. Deliberately does **not** backfill anyone already fully terminated (no way to tell "just happened" from "years ago" — see the file's own header comment).
 
 **Verify**: the query at the bottom of that file shows backfilled counts matching a manual `count(*)` against the same two guard conditions, run just before this step.
 
 ## 12. Cron
 
-Run `supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` (updated in this pass — adds two more calls to the existing `check-employee-lifecycle-daily` job body; **read the file's own "UPGRADING FROM AN EARLIER VERSION" note first** — if this job already exists, `cron.unschedule('check-employee-lifecycle-daily')` before re-running the `cron.schedule()` block, since re-scheduling the same job name does not update it).
+Run `hyrax-supabase/archive/portal/supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` (updated in this pass — adds two more calls to the existing `check-employee-lifecycle-daily` job body; **read the file's own "UPGRADING FROM AN EARLIER VERSION" note first** — if this job already exists, `cron.unschedule('check-employee-lifecycle-daily')` before re-running the `cron.schedule()` block, since re-scheduling the same job name does not update it).
 
 Once HR/IT have manually reviewed the cases the step 11 backfill created, re-enable the two paused rules:
 
@@ -107,12 +107,12 @@ where event_type in ('employee.offboarding_last_day_approaching', 'employee.offb
 
 If you've already run steps 0–12 above, this is the only new SQL to run — see `docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`'s "Hardening pass" section for why.
 
-- Run `supabase/functions/get_or_create_offboarding_case.sql` again (coalesce order fix — `create or replace function`, safe to re-run).
-- Run `supabase/sql_editor/employees_add_contract_offboarding_case_opened_at.sql`, then `supabase/functions/check_employee_contract_offboarding_due.sql`.
-- Re-run `supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` — its body now has 6 calls instead of 5. **Unschedule first**: `select cron.unschedule('check-employee-lifecycle-daily');` (schedule() with the same name doesn't update an existing job), then re-run the file.
-- Run `supabase/functions/check_employee_confirmations_due_soon.sql` and `check_employee_confirmations_overdue.sql` again (both gained a `not exists (open OFFBOARDING case)` condition — `create or replace function`, safe to re-run).
-- Re-run `supabase/sql_editor/get_hr_employees_dashboard_rpc.sql` in full (the `contractActionsDueCount` KPI's matching logic changed — this is the existing HR dashboard RPC, not new to this module, but touched here).
-- Run `supabase/sql_editor/seed_access_card_asset_subcategory.sql` — confirm it actually inserted a row (`select * from it_asset_subcategory where name = 'Access Card';`), since it silently no-ops if "Security" isn't found under that exact name.
+- Run `hyrax-supabase/archive/portal/supabase/functions/get_or_create_offboarding_case.sql` again (coalesce order fix — `create or replace function`, safe to re-run).
+- Run `hyrax-supabase/archive/portal/supabase/sql_editor/employees_add_contract_offboarding_case_opened_at.sql`, then `hyrax-supabase/archive/portal/supabase/functions/check_employee_contract_offboarding_due.sql`.
+- Re-run `hyrax-supabase/archive/portal/supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` — its body now has 6 calls instead of 5. **Unschedule first**: `select cron.unschedule('check-employee-lifecycle-daily');` (schedule() with the same name doesn't update an existing job), then re-run the file.
+- Run `hyrax-supabase/archive/portal/supabase/functions/check_employee_confirmations_due_soon.sql` and `check_employee_confirmations_overdue.sql` again (both gained a `not exists (open OFFBOARDING case)` condition — `create or replace function`, safe to re-run).
+- Re-run `hyrax-supabase/archive/portal/supabase/sql_editor/get_hr_employees_dashboard_rpc.sql` in full (the `contractActionsDueCount` KPI's matching logic changed — this is the existing HR dashboard RPC, not new to this module, but touched here).
+- Run `hyrax-supabase/archive/portal/supabase/sql_editor/seed_access_card_asset_subcategory.sql` — confirm it actually inserted a row (`select * from it_asset_subcategory where name = 'Access Card';`), since it silently no-ops if "Security" isn't found under that exact name.
 
 **Checkpoint: contract/non-full-time employees now get a real offboarding case with lead time, HR/superadmin can drive offboarding through guided buttons instead of raw field edits, and the confirmation-reminder/offboarding notification collision is gone.**
 
@@ -120,13 +120,13 @@ If you've already run steps 0–12 above, this is the only new SQL to run — se
 
 If you've already run steps 0–13 above, this is the only new SQL to run — see `docs/EMPLOYEE-LIFECYCLE-CHECKLIST-ARCHITECTURE.md`'s "UAT readiness pass" section for why. Run in this order:
 
-1. **Before re-enabling the paused rules**, preview roughly how many notifications the first tick will produce (see the comment at the top of the file below for the exact query), then run `supabase/sql_editor/resume_employee_offboarding_scan_rules.sql` — re-enables `employee.offboarding_last_day_approaching`/`employee.offboarding_overdue`, superseding the manual `UPDATE` shown in step 12 above (run this file instead of retyping that snippet).
-2. Run `supabase/sql_editor/update_offboarding_case_completed_notify_it.sql` — adds IT as a co-recipient of `employee.offboarding_case_completed`.
-3. Run `supabase/sql_editor/employee_lifecycle_cases_add_hr_items_reminder_column.sql`, then `supabase/functions/check_employee_offboarding_hr_items_approaching.sql`, then `supabase/sql_editor/seed_offboarding_hr_items_approaching_notification_rule.sql` — the new HR-side proactive reminder, seeded active immediately (no pause needed).
-4. Re-run `supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` — its body now has 7 calls instead of 6. **Unschedule first**: `select cron.unschedule('check-employee-lifecycle-daily');`, then re-run the file.
-5. Run `supabase/functions/handle_employee_onboarding_case_open.sql` again (`create or replace function`, safe to re-run — it previously emitted no notifications at all; now emits two), then `supabase/sql_editor/seed_onboarding_case_opened_notification_rules.sql`. No cron change needed — this is Shape A (change-triggered), already wired via the existing `trg_employee_onboarding_case_open.sql`.
+1. **Before re-enabling the paused rules**, preview roughly how many notifications the first tick will produce (see the comment at the top of the file below for the exact query), then run `hyrax-supabase/archive/portal/supabase/sql_editor/resume_employee_offboarding_scan_rules.sql` — re-enables `employee.offboarding_last_day_approaching`/`employee.offboarding_overdue`, superseding the manual `UPDATE` shown in step 12 above (run this file instead of retyping that snippet).
+2. Run `hyrax-supabase/archive/portal/supabase/sql_editor/update_offboarding_case_completed_notify_it.sql` — adds IT as a co-recipient of `employee.offboarding_case_completed`.
+3. Run `hyrax-supabase/archive/portal/supabase/sql_editor/employee_lifecycle_cases_add_hr_items_reminder_column.sql`, then `hyrax-supabase/archive/portal/supabase/functions/check_employee_offboarding_hr_items_approaching.sql`, then `hyrax-supabase/archive/portal/supabase/sql_editor/seed_offboarding_hr_items_approaching_notification_rule.sql` — the new HR-side proactive reminder, seeded active immediately (no pause needed).
+4. Re-run `hyrax-supabase/archive/portal/supabase/sql_editor/schedule_check_employee_confirmations_cron.sql` — its body now has 7 calls instead of 6. **Unschedule first**: `select cron.unschedule('check-employee-lifecycle-daily');`, then re-run the file.
+5. Run `hyrax-supabase/archive/portal/supabase/functions/handle_employee_onboarding_case_open.sql` again (`create or replace function`, safe to re-run — it previously emitted no notifications at all; now emits two), then `hyrax-supabase/archive/portal/supabase/sql_editor/seed_onboarding_case_opened_notification_rules.sql`. No cron change needed — this is Shape A (change-triggered), already wired via the existing `trg_employee_onboarding_case_open.sql`.
 6. Frontend: the "Immediate Termination" button is now "Immediate Departure (No Notice)" and asks for Final Status instead of assuming Terminated — ships with your normal build/deploy, nothing to run in SQL for this part. **Before real UAT use**, check the live `termination_reason` table's content — if every row reads as termination-specific with nothing resignation/retirement-appropriate, add a few neutral rows first (no seed file provided here since the gap is unconfirmed; follow `seed_access_card_asset_subcategory.sql`'s pattern if needed).
-7. Run `supabase/functions/notify_employee_profile_linked.sql` again (`create or replace function`, safe to re-run — adds a second, conditional notification it previously never sent), then `supabase/sql_editor/seed_onboarding_case_ready_notification_rule.sql`.
+7. Run `hyrax-supabase/archive/portal/supabase/functions/notify_employee_profile_linked.sql` again (`create or replace function`, safe to re-run — adds a second, conditional notification it previously never sent), then `hyrax-supabase/archive/portal/supabase/sql_editor/seed_onboarding_case_ready_notification_rule.sql`.
 8. Frontend: `employment_status_id`/`end_date` are editable again for non-superadmin HR (were mistakenly gated to superadmin-only in step 13, which also silently blocked creating any new employee at all — see the architecture doc's UAT readiness pass), and "Onboarding"/"Offboarding" are back in the Employee sidenav/mobile nav. Both ship with your normal build/deploy, nothing to run in SQL. **If you already have a test employee stuck with a `NULL`/wrong `employment_status_id` from before this fix** (its onboarding case can never open retroactively — the case-open trigger is insert-only), unblock it manually:
    ```sql
    update employees set employment_status_id = 3 where id = '<test-employee-id>';

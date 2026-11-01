@@ -83,7 +83,7 @@ A related but distinct concept: business trips (overseas or local) generate a **
 - **Local** trip, weekend day worked: **no** extra allowance — instead, **1 day of Replacement Leave (RPL)** is granted.
 - "Travelling" itself (e.g. counting KL↔Meru inter-office travel time as work) is explicitly low priority — noted here only as a future idea, not scoped or built. The closest existing precedent is `docs/WORK-LOCATIONS-ARCHITECTURE.md`'s own already-named (also unbuilt) idea of an "employee scanned somewhere other than their assigned location today" anomaly check, once `work_locations` and `attendance_logs.scanner_location` are used together that way.
 
-**New `attendance_types` rows**: "Overseas Trip", "Local Trip" — **SHIPPED 2026-09-21**, along with "Company Event" and "Driving Duty", via `supabase/sql_editor/seed_attendance_types_backfill_rows.sql`. They exist now and can be clocked into or backfilled; nothing else in this doc is built. The two trip rows are the anchor the allowance/claims layer below will reconcile against — an approved trip claim can now ask "did attendance actually record an Overseas Trip on this date?"
+**New `attendance_types` rows**: "Overseas Trip", "Local Trip" — **SHIPPED 2026-09-21**, along with "Company Event" and "Driving Duty", via `hyrax-supabase/archive/portal/supabase/sql_editor/seed_attendance_types_backfill_rows.sql`. They exist now and can be clocked into or backfilled; nothing else in this doc is built. The two trip rows are the anchor the allowance/claims layer below will reconcile against — an approved trip claim can now ask "did attendance actually record an Overseas Trip on this date?"
 
 One schema change came with them that this doc did not anticipate: `attendance_types.is_self_selectable`, added because "Office" and "Blending Plant" were re-added as **backfill-only** rows (so HR can reconcile a failed-scanner day to the correct physical site) and must stay out of the live clock-in dropdown. See `docs/hr/ATTENDANCE-SELF-SERVICE-ARCHITECTURE.md`.
 
@@ -136,16 +136,16 @@ create table public.trip_allowance_claim_days (
 
 ## Files this will create, when built
 
-- `supabase/sql_editor/overtime_claims_schema_migration.sql` — the two `overtime_claims`/`overtime_claim_attachments` tables above
-- `supabase/policies/overtime_claims_crud.sql`, `supabase/policies/overtime_claim_attachments_crud.sql` — RLS (self-submit/view own, manager/HR approve, mirroring `attendance_activities_crud.sql`'s existing tiers)
-- `supabase/functions/approve_overtime_claim.sql`, `supabase/functions/reject_overtime_claim.sql` — mirroring `approve_attendance`/`reject_attendance`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/overtime_claims_schema_migration.sql` — the two `overtime_claims`/`overtime_claim_attachments` tables above
+- `hyrax-supabase/archive/portal/supabase/policies/overtime_claims_crud.sql`, `hyrax-supabase/archive/portal/supabase/policies/overtime_claim_attachments_crud.sql` — RLS (self-submit/view own, manager/HR approve, mirroring `attendance_activities_crud.sql`'s existing tiers)
+- `hyrax-supabase/archive/portal/supabase/functions/approve_overtime_claim.sql`, `hyrax-supabase/archive/portal/supabase/functions/reject_overtime_claim.sql` — mirroring `approve_attendance`/`reject_attendance`
 - `src/features/hr/overtimeClaims/` (or similar) — the usual `private/api` + `private/hooks` feature-module shape this codebase already follows
 - A new page (location TBD — see "Submission UI" above) + `src/components/dataTable/editors/OvertimeClaimAttachmentsEditor.jsx` (or similarly named, mirroring `TaskDocumentsEditor.jsx`)
 - A new `getOvertimeClaimMismatchFlags`-style function alongside `payrollExport/filterConfig.js`'s existing `getRowReconciliationFlags`, plus whatever RPC change is needed to surface claimed-vs-calculated hours per employee per period
-- ~~Two new `attendance_types` rows ("Overseas Trip", "Local Trip")~~ — **DONE**, see `supabase/sql_editor/seed_attendance_types_backfill_rows.sql`. (A seed file was written after all, rather than a bare INSERT: `attendance_types` has no unique constraint on `name`, so `on conflict` is unsafe and each row needs a guarded `insert ... where not exists`.)
-- `supabase/sql_editor/trip_allowance_claims_schema_migration.sql` — the `trip_allowance_claims`/`trip_allowance_claim_days` tables above
-- `supabase/sql_editor/leave_ledger_entries_add_source_column.sql` (or similar) — the recommended `source` column resolving the RPL/HR2000-sync conflict, **only if that recommendation is confirmed**
-- `supabase/policies/trip_allowance_claims_crud.sql` and matching approve/reject RPCs, mirroring the `overtime_claims` pattern above
+- ~~Two new `attendance_types` rows ("Overseas Trip", "Local Trip")~~ — **DONE**, see `hyrax-supabase/archive/portal/supabase/sql_editor/seed_attendance_types_backfill_rows.sql`. (A seed file was written after all, rather than a bare INSERT: `attendance_types` has no unique constraint on `name`, so `on conflict` is unsafe and each row needs a guarded `insert ... where not exists`.)
+- `hyrax-supabase/archive/portal/supabase/sql_editor/trip_allowance_claims_schema_migration.sql` — the `trip_allowance_claims`/`trip_allowance_claim_days` tables above
+- `hyrax-supabase/archive/portal/supabase/sql_editor/leave_ledger_entries_add_source_column.sql` (or similar) — the recommended `source` column resolving the RPL/HR2000-sync conflict, **only if that recommendation is confirmed**
+- `hyrax-supabase/archive/portal/supabase/policies/trip_allowance_claims_crud.sql` and matching approve/reject RPCs, mirroring the `overtime_claims` pattern above
 - This doc, `docs/PAYROLL-DATA-REQUIREMENTS.md`, `docs/EXPENSE-CLAIMS-DESIGN.md` (once the allowance/subsistence overlap above is resolved), and `CLAUDE.md` (if a new feature-module convention is introduced), updated once shipped
 
 ## Verification, once built

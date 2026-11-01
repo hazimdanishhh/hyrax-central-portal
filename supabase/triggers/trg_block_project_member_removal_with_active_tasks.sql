@@ -1,3 +1,0 @@
-create trigger trg_block_project_member_removal_with_active_tasks
-before delete on public.project_members
-for each row execute function public.block_project_member_removal_with_active_tasks();

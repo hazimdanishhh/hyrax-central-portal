@@ -53,7 +53,7 @@ end if;
 ```
 Plus a top-level `'ownerSapMappingMissing'` JSON field (`v_owner_id is not null and v_sales_rep_code = -1`) so the frontend shows a clear explanatory note instead of a page that just looks empty.
 
-File: `supabase/sql_editor/get_sales_reports_dashboard_rpc.sql`.
+File: `hyrax-supabase/archive/portal/supabase/sql_editor/get_sales_reports_dashboard_rpc.sql`.
 
 ---
 
@@ -119,12 +119,12 @@ Not a second RPC — a second RPC would let the individual and department pages 
 
 ## Part 7 — Files touched
 
-- `supabase/sql_editor/get_sales_reports_dashboard_rpc.sql` — Phase 0 fix; Phase 1's `won_lead_count`/`payment_count`/`resolvedSalesRepCode`/`ownerSapMappingMissing` additions.
+- `hyrax-supabase/archive/portal/supabase/sql_editor/get_sales_reports_dashboard_rpc.sql` — Phase 0 fix; Phase 1's `won_lead_count`/`payment_count`/`resolvedSalesRepCode`/`ownerSapMappingMissing` additions.
 - `src/pages/user/sales/reports/Reports.jsx` — Phase 1 section reorder, new funnel chart + stat strip, extended scorecard mapping, Needs Attention panel.
 - `src/pages/user/sales/reports/config/overviewConfig.js` — Phase 1 tile reorder.
 - `src/components/sales/leads/leadsScoreCard/LeadsScoreCard.jsx` — Phase 1 Collected-leg segment.
 - `docs/RPC-REFERENCE.md`, `DASHBOARD-CONVENTIONS.md`, `DASHBOARD-ROADMAP.md` — reflect Phase 0/1.
-- *(Phase 2, when built)*: `src/pages/user/sales/mySales/MySales.jsx` + `config/overviewConfig.js` (new), `src/features/sales/reports/private/api/fetchMySalesDashboard.js` (new), `src/routes/SalesRoutes.jsx`, `src/data/sideNavLinkData.js`, `departmentLinkCardData.js`, `supabase/access-control/route_access_matrix.csv`.
+- *(Phase 2, when built)*: `src/pages/user/sales/mySales/MySales.jsx` + `config/overviewConfig.js` (new), `src/features/sales/reports/private/api/fetchMySalesDashboard.js` (new), `src/routes/SalesRoutes.jsx`, `src/data/sideNavLinkData.js`, `departmentLinkCardData.js`, `docs/access-control/route_access_matrix.csv`.
 
 ## Verification
 

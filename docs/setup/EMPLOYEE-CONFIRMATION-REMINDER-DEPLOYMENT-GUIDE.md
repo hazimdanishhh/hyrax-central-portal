@@ -10,27 +10,27 @@ Everything under **SQL Editor** runs in the Supabase Studio SQL editor.
 
 ## 1. Schema additions
 
-- [ ] Run **`supabase/sql_editor/employees_add_confirmation_reminder_sent_at.sql`**. Adds `employees.confirmation_reminder_sent_at` — the dedup guard so the daily scan doesn't re-notify the same employee every day of the 30-day window.
-- [ ] Run **`supabase/sql_editor/notification_rules_add_target_payload_keys.sql`**. Adds `notification_rules.target_payload_keys text[]`, default `'{}'` — existing rules (the lead-stage one) are unaffected.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/employees_add_confirmation_reminder_sent_at.sql`**. Adds `employees.confirmation_reminder_sent_at` — the dedup guard so the daily scan doesn't re-notify the same employee every day of the 30-day window.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/notification_rules_add_target_payload_keys.sql`**. Adds `notification_rules.target_payload_keys text[]`, default `'{}'` — existing rules (the lead-stage one) are unaffected.
 
 ## 2. Update `fan_out_notification_event`
 
-- [ ] Re-run the full, updated **`supabase/functions/fan_out_notification_event.sql`** (`create or replace function`, safe to re-run). This is the same function from the original deployment, now with one added recipient path: any `target_payload_keys` entry whose payload value is a valid uuid is also treated as a recipient, alongside role/department/explicit-list. Must be done before step 5's rule is exercised, since that rule is the first to use `target_payload_keys`.
+- [ ] Re-run the full, updated **`hyrax-supabase/archive/portal/supabase/functions/fan_out_notification_event.sql`** (`create or replace function`, safe to re-run). This is the same function from the original deployment, now with one added recipient path: any `target_payload_keys` entry whose payload value is a valid uuid is also treated as a recipient, alongside role/department/explicit-list. Must be done before step 5's rule is exercised, since that rule is the first to use `target_payload_keys`.
 
 ## 3. The new scan function
 
-- [ ] Run **`supabase/functions/check_employee_confirmations_due_soon.sql`** as-is.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_employee_confirmations_due_soon.sql`** as-is.
 
 This is a complete `create or replace function` — no wrapping needed (unlike `log_sales_leads_stage_change.sql`, this isn't a trigger function, so there's no separate "just the body" convention here).
 
 ## 4. Seed the notification rule
 
-- [ ] Open **`supabase/sql_editor/seed_employee_confirmation_notification_rule.sql`** first. Recipients are the employee's own manager (`target_payload_keys = ['manager_profile_id']`) **and** HR broadly (`target_roles = ['manager'], target_departments = ['HR']`) — edit now if you want different recipients, otherwise run as-is and `update` the row later, no code changes needed either way.
+- [ ] Open **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_employee_confirmation_notification_rule.sql`** first. Recipients are the employee's own manager (`target_payload_keys = ['manager_profile_id']`) **and** HR broadly (`target_roles = ['manager'], target_departments = ['HR']`) — edit now if you want different recipients, otherwise run as-is and `update` the row later, no code changes needed either way.
 - [ ] Run the file.
 
 ## 5. Schedule the scan
 
-- [ ] Run **`supabase/sql_editor/schedule_check_employee_confirmations_cron.sql`** as-is. Unlike the email dispatcher's cron, this one calls the Postgres function directly — no `pg_net`, no secret, no Edge Function, since the whole job never leaves Postgres.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/schedule_check_employee_confirmations_cron.sql`** as-is. Unlike the email dispatcher's cron, this one calls the Postgres function directly — no `pg_net`, no secret, no Edge Function, since the whole job never leaves Postgres.
 
 **Checkpoint: the reminder is now fully live.** It'll run once a day and pick up any employee whose confirmation becomes due within 30 days, skipping anyone it already notified.
 

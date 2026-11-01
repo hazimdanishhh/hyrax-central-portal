@@ -178,7 +178,7 @@ function applyEnrichedFilters(query, filters) {
 
 /**
  * Read-only Sales Orders list, backed by sap_sales_orders_with_fulfillment
- * (see supabase/sql_editor/sap_sales_orders_with_fulfillment_view.sql) --
+ * (see hyrax-supabase/archive/portal/supabase/sql_editor/sap_sales_orders_with_fulfillment_view.sql) --
  * this view's per-order delivered/invoiced/paid rollups are what let this
  * page trace a Sales Order all the way through Delivered -> Invoiced ->
  * Fully Paid, rather than being a dead-end list of just the order itself.
@@ -271,7 +271,7 @@ export async function fetchFulfillmentOrderByDocEntry(docEntry) {
 
 /**
  * KPI figures for the Sales Orders page's OverviewCards -- see
- * supabase/sql_editor/get_fulfillment_overview_rpc.sql. Takes the SAME
+ * hyrax-supabase/archive/portal/supabase/sql_editor/get_fulfillment_overview_rpc.sql. Takes the SAME
  * filters/search the paginated list already has, so the strip always
  * summarizes exactly the filtered slice below it. Mirrors
  * fetchInvoicesOverview.

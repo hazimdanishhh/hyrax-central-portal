@@ -114,7 +114,7 @@ export default (
     {/* HR REPORTS -- Tier-3 cross-submodule dashboard (Employees +
         Attendance + Leave + Lifecycle). Gated stricter than every other HR
         route: HR/MGM manager or superadmin only, matching the target gate
-        already recorded in supabase/access-control/route_access_matrix.csv
+        already recorded in docs/access-control/route_access_matrix.csv
         and get_hr_reports_dashboard_rpc.sql's own in-body guard. */}
     <Route
       path="reports"

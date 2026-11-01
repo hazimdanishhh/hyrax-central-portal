@@ -1,6 +1,6 @@
 // Thin RPC wrappers -- which categories may be acknowledged, who may do it,
 // the "is this day actually flagged" check, and the reason/notes validation all
-// live server-side in supabase/sql_editor/acknowledge_attendance_day_rpc.sql.
+// live server-side in hyrax-supabase/archive/portal/supabase/sql_editor/acknowledge_attendance_day_rpc.sql.
 import { supabase } from "@/lib/supabaseClient";
 
 /**

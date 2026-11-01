@@ -1,7 +1,7 @@
 // Thin RPC wrappers -- every rule that decides whether an attendance row may
 // be created (authorization, overlap/double-count guards, leave conflicts,
 // timestamp composition in MYT) lives server-side in
-// supabase/sql_editor/create_attendance_backfill_rpc.sql. Nothing here
+// hyrax-supabase/archive/portal/supabase/sql_editor/create_attendance_backfill_rpc.sql. Nothing here
 // validates anything, deliberately: the same wizard is reachable by HR, by a
 // manager and by an employee, and a client-side check would be three different
 // opportunities to disagree with the server.

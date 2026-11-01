@@ -190,10 +190,10 @@ The repeated per-flag block is intentionally explicit rather than a generic loop
 
 ## Files this will create, when built
 
-- `supabase/functions/check_attendance_daily_flags.sql` — the scan function + `_attendance_alert_already_sent` helper
-- `supabase/sql_editor/notification_events_add_event_entity_index.sql` — the supporting index
-- `supabase/sql_editor/seed_attendance_daily_flags_notification_rules.sql` — the 17 rule rows
-- `supabase/sql_editor/schedule_check_attendance_daily_flags_cron.sql` — the new dedicated cron job
+- `hyrax-supabase/archive/portal/supabase/functions/check_attendance_daily_flags.sql` — the scan function + `_attendance_alert_already_sent` helper
+- `hyrax-supabase/archive/portal/supabase/sql_editor/notification_events_add_event_entity_index.sql` — the supporting index
+- `hyrax-supabase/archive/portal/supabase/sql_editor/seed_attendance_daily_flags_notification_rules.sql` — the 17 rule rows
+- `hyrax-supabase/archive/portal/supabase/sql_editor/schedule_check_attendance_daily_flags_cron.sql` — the new dedicated cron job
 - `docs/setup/ATTENDANCE-DAILY-ALERTS-DEPLOYMENT-GUIDE.md` — a deployment guide, mirroring `docs/setup/HR-ATTENDANCE-LIFECYCLE-NOTIFICATIONS-DEPLOYMENT-GUIDE.md`
 - This doc, and `NOTIFICATIONS-ARCHITECTURE.md`/`docs/NOTIFICATION-RULES-TRACKER.csv`, updated once shipped
 

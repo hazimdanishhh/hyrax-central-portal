@@ -1,5 +1,0 @@
-window_months,months_in_span,origins,avg_actual_total,mae_total,mae_pct_of_actual,bias_pct
-6,1,22,4988656,2003279,40.2,-0.3
-12,1,22,4988656,1936144,38.8,-1.5
-18,1,22,4988656,1842569,36.9,-3.0
-24,1,22,4988656,1782035,35.7,-2.8

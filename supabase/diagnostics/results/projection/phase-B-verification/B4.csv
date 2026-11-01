@@ -1,5 +1,0 @@
-direction,model,predicted
-forward,baseline,4549674
-backward (latest origin),freqsev,5302012
-forward,freqsev,5126560
-backward (latest origin),ma12,4832911

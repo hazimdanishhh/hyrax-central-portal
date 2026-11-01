@@ -118,9 +118,9 @@ Mirror `approve_attendance`/`reject_attendance`'s exact authorization pattern (`
 
 ## Files this will create, when built
 
-- `supabase/sql_editor/expense_claims_schema_migration.sql` — the four tables above
-- `supabase/policies/expense_claims_crud.sql`, `expense_claim_lines_crud.sql`, `expense_claim_attachments_crud.sql` — RLS (self-submit/view own, Finance approve, mirroring `attendance_activities_crud.sql`'s tiers)
-- `supabase/functions/approve_expense_claim.sql`, `supabase/functions/reject_expense_claim.sql` — mirroring `approve_attendance`/`reject_attendance`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/expense_claims_schema_migration.sql` — the four tables above
+- `hyrax-supabase/archive/portal/supabase/policies/expense_claims_crud.sql`, `expense_claim_lines_crud.sql`, `expense_claim_attachments_crud.sql` — RLS (self-submit/view own, Finance approve, mirroring `attendance_activities_crud.sql`'s tiers)
+- `hyrax-supabase/archive/portal/supabase/functions/approve_expense_claim.sql`, `hyrax-supabase/archive/portal/supabase/functions/reject_expense_claim.sql` — mirroring `approve_attendance`/`reject_attendance`
 - `src/features/finance/expenseClaims/` (or similar) — the usual `private/api` + `private/hooks` feature-module shape this codebase already follows
 - Real pages replacing both `Claims.jsx` and `ClaimsManagement.jsx` stubs, plus enabling the already-commented-out nav entries (`sideNavLinkData.js`, `departmentLinkCardData.js`)
 - This doc, `docs/OVERTIME-WEEKEND-HOLIDAY-CLAIMS-DESIGN.md` (once the Subsistence Allowance overlap is resolved), and `CLAUDE.md` (new feature-module convention), updated once shipped

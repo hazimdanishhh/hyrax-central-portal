@@ -128,7 +128,7 @@ end;
 $$;
 ```
 
-`link_to` is built via `public.task_notification_link(task_id, project_id, employee_id)` (see `supabase/functions/task_notification_link.sql`, shipped in the sibling notification-implementation pass), not a hardcoded path — an assignee-recipient resolves to My Tasks (`/app/workspace/tasks/:taskId`), a task-CC'd or non-assigned owner/lead recipient resolves to the Project Tasks tab (`/app/workspace/projects/:projectId/tasks/:taskId`), computed once per recipient from the same UNION query above.
+`link_to` is built via `public.task_notification_link(task_id, project_id, employee_id)` (see `hyrax-supabase/archive/portal/supabase/functions/task_notification_link.sql`, shipped in the sibling notification-implementation pass), not a hardcoded path — an assignee-recipient resolves to My Tasks (`/app/workspace/tasks/:taskId`), a task-CC'd or non-assigned owner/lead recipient resolves to the Project Tasks tab (`/app/workspace/projects/:projectId/tasks/:taskId`), computed once per recipient from the same UNION query above.
 
 Until Task CC ships, the `task_ccs` subquery is a harmless empty-set union — no error, just no CC recipients yet.
 

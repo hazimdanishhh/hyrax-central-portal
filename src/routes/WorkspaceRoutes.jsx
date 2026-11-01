@@ -16,7 +16,7 @@ import MyTasks from "../pages/user/workspace/tasks/list/MyTasks";
 // docs/PROJECTS-TASKS-ARCHITECTURE.md). `index` still redirects to
 // `tasks`, unchanged -- Overview is additive, not the new default. No
 // <AccessRoute> anywhere in this file -- general access (req #10),
-// matching supabase/access-control/README.md's own existing R2
+// matching docs/access-control/README.md's own existing R2
 // classification for Workspace ("no single department owns the data...
 // unrestricted").
 export default (

@@ -7,7 +7,7 @@
 // Mirrors fiscalYearPresets.js's structure otherwise (plain Date math, no
 // date library, a getRange() closure per preset).
 //
-// send_payroll_reconciliation_notifications.sql (supabase/functions/)
+// send_payroll_reconciliation_notifications.sql (hyrax-supabase/archive/portal/supabase/functions/)
 // computes its own period the same way (1st-last day of the previous
 // calendar month) -- keep the two in sync.
 

@@ -1,6 +1,6 @@
 # Dashboard RPC Reference
 
-Field-by-field, formula-level reference for every dashboard-backing Postgres RPC in `supabase/sql_editor/`. This documents the **deployed `.sql` files in this repo** — the as-built calculations — not the target data model. For that target (SAP schema, star-schema plan, department KPI frameworks), see `hyrax-data-platform/docs/sap-data-architecture-plans/`; that repo is still just a plan, not what's implemented. For the narrative/module view of each dashboard (what page renders it, known gaps), see [`DASHBOARD-CURRENT-STATE.md`](./DASHBOARD-CURRENT-STATE.md) — this file complements that one with exact formulas, it doesn't replace it.
+Field-by-field, formula-level reference for every dashboard-backing Postgres RPC in `hyrax-supabase/archive/portal/supabase/sql_editor/`. This documents the **deployed `.sql` files in this repo** — the as-built calculations — not the target data model. For that target (SAP schema, star-schema plan, department KPI frameworks), see `hyrax-data-platform/docs/sap-data-architecture-plans/`; that repo is still just a plan, not what's implemented. For the narrative/module view of each dashboard (what page renders it, known gaps), see [`DASHBOARD-CURRENT-STATE.md`](./DASHBOARD-CURRENT-STATE.md) — this file complements that one with exact formulas, it doesn't replace it.
 
 **Deploy mechanism, same for all four:** hand-pasted into Supabase Studio's SQL editor. No CLI/migrations/CI wired up for RPCs — editing the `.sql` file in this repo does **not** change production until someone manually re-runs it in Studio. If a dashboard's numbers don't match what's in this doc, check the live function definition first (`select pg_get_functiondef('<function_name>'::regproc);`) before assuming the calculation is wrong.
 
@@ -200,7 +200,7 @@ No new parameter was needed for Phase 2 — P&L is scoped by the existing `p_sta
 
 ## Sales Reports tabs: `get_sales_summary` / `get_sales_pipeline` / `get_sales_orders` / `get_sales_invoicing` / `get_sales_collections` / `get_sales_team` (added 2026-10-22)
 
-These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and replace `get_sales_reports_dashboard` below once reconciled (`supabase/diagnostics/sales_reports_tabs_reconciliation.sql`). Plan: `docs/sales/SALES-REPORTS-TABS-PLAN.md`.
+These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and replace `get_sales_reports_dashboard` below once reconciled (`hyrax-supabase/archive/portal/supabase/diagnostics/sales_reports_tabs_reconciliation.sql`). Plan: `docs/sales/SALES-REPORTS-TABS-PLAN.md`.
 
 **Signature (all six):** `(p_start_date date default null, p_end_date date default null, p_owner_id uuid default null) returns json`, `security invoker`. Each starts with `sales_report_scope(p_owner_id)`, the access guard + salesperson resolution (SAL/MGM/superadmin only; staff forced to themselves; unmapped owner → rep −1 + `mappingMissing`).
 
@@ -209,7 +209,7 @@ These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and re
   - **fact views:** `sales_metric_facts_views.sql`: `sales_invoice_facts`, `sales_invoice_line_facts`, `sales_order_facts`, `sales_order_book_facts`, `sales_collection_facts`, `sales_receivable_facts`, `sales_lead_facts` (`sales_won_lead_facts` is its won rows);
   - **shared functions:** `sales_metric_functions.sql`: `report_period`, `report_last_year`, `sales_totals`, `sales_monthly_series`, `sales_rep_totals`, `sales_owner_totals`, `sales_pipeline_totals`, `sales_pipeline_coverage`, `sales_run_rate`, `sales_order_book_totals`, `ar_dso`, `sales_receivable_totals`, `sales_gross_margin`, `sales_fy_progress`, `prorate_months`, `months_spanned`, `can_view_sales_reports`, `sales_report_meta`.
 - Previous-period figures are the same `sales_totals` call with the comparison window's dates.
-- `tests/sql/sales_metrics.test.js` checks that the same measure is equal across all six RPCs and adds up across months and reps.
+- `hyrax-supabase/tests/sql/sales_metrics.test.js` checks that the same measure is equal across all six RPCs and adds up across months and reps.
 
 **Every response carries `meta`:**
 - `period` `{startDate, endDate, hasPeriod}`
@@ -232,7 +232,7 @@ These back the tabbed Sales Reports (`SalesReportsLayout.jsx` + `tabs/*`) and re
 - **Outstanding / Overdue follow Finance's rule** (`sales_receivable_facts`: `status_code = 'O'` and balance > 0.01; overdue `days_past_due > 0`; critical `> 90`) — equal to Finance → Invoices for the same rep.
 - **Removed:** `collectionRatePct` (Collections, Team), `topOutstanding`, `revenueVsBudget` (Summary; the monthly chart lives on Invoicing), `topCustomers.collected` (Invoicing).
 - **DSO** = `ar_dso(ending_ar, invoiced, collected, days)`, Finance's average-receivables formula from `get_finance_dashboard_rpc.sql`, over the trailing 90 days ending today.
-- **Gross Margin** = known GP ÷ invoiced revenue before tax (`invoiced_before_tax_myr`); shown only once `supabase/diagnostics/sales_gross_profit_coverage.sql` passes.
+- **Gross Margin** = known GP ÷ invoiced revenue before tax (`invoiced_before_tax_myr`); shown only once `hyrax-supabase/archive/portal/supabase/diagnostics/sales_gross_profit_coverage.sql` passes.
 
 ### AI Meeting Brief: `sales_report_briefs` + edge function `generate-sales-meeting-brief` (built 2026-10-23 — PARKED: not run, not deployed, not rendered)
 
@@ -261,7 +261,7 @@ Kept for when the brief is made reusable across reports and fed every tab's figu
 
 ## `get_sales_reports_dashboard` — RETIRED 2026-10-27
 
-> **Removed.** The legacy single-page Sales Report (`/sales/reports-legacy`) and this function were retired by `supabase/sql_editor/retire_sales_legacy_objects.sql` (DASHBOARD-CONVENTIONS §10c): it kept its own closed-date and Won rules, and Won counted cancelled deals. The Sales Reports tabs (`get_sales_summary` … `get_sales_team`) replace it. Kept below for history only.
+> **Removed.** The legacy single-page Sales Report (`/sales/reports-legacy`) and this function were retired by `hyrax-supabase/archive/portal/supabase/sql_editor/retire_sales_legacy_objects.sql` (DASHBOARD-CONVENTIONS §10c): it kept its own closed-date and Won rules, and Won counted cancelled deals. The Sales Reports tabs (`get_sales_summary` … `get_sales_team`) replace it. Kept below for history only.
 
 Backs Sales Reports (`Reports.jsx`). Surfaces two forecasts side by side, deliberately never blended: Forecast 1 "Pipeline Target" (CRM self-reported, `sales_targets`/`sales_leads`) and Forecast 2 "Invoice Budget" (a manually-set revenue budget, `sales_budgets` — not an SAP extract itself — compared against SAP-invoiced actuals, `sap_invoices`) — plus, as of 2026-07, the company's actual sales-side review: **PO (sales order) vs Invoice vs Budget variance, per rep.** See `DASHBOARD-CONVENTIONS.md`'s "Source-labeling convention" for the full tag vocabulary (Target/Budget/Sales Order/Invoice) this RPC's consumers use.
 
@@ -286,7 +286,7 @@ get_sales_reports_dashboard(
 
 **Consistency fixes (2026-10-22):** `invoicedVsBudgetTrendData`'s budget now follows the salesperson and its collected series uses the Payments Collected definition. "Cash applied to a real sales invoice" is now `invoice_doc_entry is not null` everywhere dept-wide (it was `invoice_sales_rep_code is not null`, which also dropped cash on invoices with no rep while the collection-rate denominator kept them); per-rep `rep_collected_actuals` keeps the rep predicate. `paymentCount` counts distinct receipts, not application lines. `topInvoicedCustomersData`/`outstandingByCustomerData` group by customer code only, and `grossProfitByRepData` by rep code. `pipelineAttainmentPct`/`budgetAttainmentPct`/`collectionRatePct` are `null` (not 0) with no denominator. Sales Order Health matches `get_fulfillment_overview`: overdue/due-soon count only `status_code = 'O'` orders, and `notYetInvoicedCount` now means delivered, not invoiced. `ownerSapMappingMissing` lives inside `kpis`.
 
-**Access guard + salesperson scoping (added 2026-08).** This RPC has no RLS backstop on any table it reads (`sap_*`, `sales_leads`, `sales_budgets` — see `supabase/access-control/table_access_matrix.csv`), so it now opens with a hand-rolled guard mirroring `get_finance_dashboard_rpc.sql`'s own: resolves the caller's role/department/`employees.id` from `profiles`/`roles`/`departments`/`employees` via `auth.uid()`, `raise exception`s unless the caller is `superadmin` or in `SAL`/`MGM`, and — for a `staff`-role caller — force-overrides `p_owner_id` to their own `employees.id`, ignoring whatever value was actually passed. This is currently unreachable from the frontend (`sales/reports` stays `departments={["SAL","MGM"]} roles={["manager"]}`-gated) but closes the direct-call bypass hole for every caller today, and is the foundation a future self-service surface plugs into without any further RPC change (see `DASHBOARD-ROADMAP.md`'s Sales Reports section).
+**Access guard + salesperson scoping (added 2026-08).** This RPC has no RLS backstop on any table it reads (`sap_*`, `sales_leads`, `sales_budgets` — see `docs/access-control/table_access_matrix.csv`), so it now opens with a hand-rolled guard mirroring `get_finance_dashboard_rpc.sql`'s own: resolves the caller's role/department/`employees.id` from `profiles`/`roles`/`departments`/`employees` via `auth.uid()`, `raise exception`s unless the caller is `superadmin` or in `SAL`/`MGM`, and — for a `staff`-role caller — force-overrides `p_owner_id` to their own `employees.id`, ignoring whatever value was actually passed. This is currently unreachable from the frontend (`sales/reports` stays `departments={["SAL","MGM"]} roles={["manager"]}`-gated) but closes the direct-call bypass hole for every caller today, and is the foundation a future self-service surface plugs into without any further RPC change (see `DASHBOARD-ROADMAP.md`'s Sales Reports section).
 
 The (possibly-overridden) owner id is then resolved **once** to a SAP `sales_rep_code` via `employee_sales_rep_mapping`, and that resolved code scopes every SAP-sourced base CTE — **`p_owner_id` now scopes both forecasts**, not just Forecast 1/CRM as before. (Previously: "No `p_sales_rep_code` parameter exists — the per-rep datasets below always return every rep, unfiltered by SAP identity." That asymmetry is fixed.)
 

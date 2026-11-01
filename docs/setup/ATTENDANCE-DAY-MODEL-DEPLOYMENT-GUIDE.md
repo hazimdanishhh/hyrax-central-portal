@@ -69,7 +69,7 @@ it: the SQL editor runs as the table owner and bypasses RLS entirely, so
 `G1a` only proves the `security_invoker` reloption is *set*, not that it
 *works*.
 
-Run `supabase/diagnostics/attendance_rls_scoping_check.sql`. It impersonates a
+Run `hyrax-supabase/archive/portal/supabase/diagnostics/attendance_rls_scoping_check.sql`. It impersonates a
 plain employee via `SET LOCAL ROLE authenticated` inside a transaction that
 ends in `ROLLBACK`, and asserts that the view returns exactly **one** distinct
 employee. No second login needed.
@@ -124,9 +124,9 @@ Three separate causes, each fixed in its own canonical file:
 
 | # | Cause | Fix | File |
 |---|---|---|---|
-| 1 | `is_superadmin()` and `current_employee_id()` had **no volatility marker**, so Postgres defaulted them to `VOLATILE` — which cannot be hoisted, so they ran **once per row**. Used in 22 and 11 policies respectively, each running its own query. | Declared `stable` | `supabase/functions/is_superadmin.sql`, `current_employee_id.sql` |
-| 2 | Two of `attendance_logs`' five policies were **correlated** — they referenced `attendance_logs.employee_id` inside the `EXISTS`, so no volatility marker could help; they were re-evaluated per row. | Restated as uncorrelated scalar/set so Postgres computes them **once** as an InitPlan, then applies a plain equality or hash lookup per row | `supabase/policies/attendance_logs_crud.sql`, `mgm_hr_reports_access_fix.sql` |
-| 3 | `daily_hardware` was referenced **twice**, so Postgres materialized it in full before any date predicate could reach it — **every** query, even a single-day one, aggregated all 51,963 `attendance_logs` rows. | `daily_hw_remote_overlap` now takes the scan bounds from a `LATERAL` against `attendance_logs` (driven by `attendance_activities`, tens of rows) instead of joining the CTE, leaving `daily_hardware` referenced once and therefore inlinable | `supabase/sql_editor/hr_unified_daily_attendance_view.sql` |
+| 1 | `is_superadmin()` and `current_employee_id()` had **no volatility marker**, so Postgres defaulted them to `VOLATILE` — which cannot be hoisted, so they ran **once per row**. Used in 22 and 11 policies respectively, each running its own query. | Declared `stable` | `hyrax-supabase/archive/portal/supabase/functions/is_superadmin.sql`, `current_employee_id.sql` |
+| 2 | Two of `attendance_logs`' five policies were **correlated** — they referenced `attendance_logs.employee_id` inside the `EXISTS`, so no volatility marker could help; they were re-evaluated per row. | Restated as uncorrelated scalar/set so Postgres computes them **once** as an InitPlan, then applies a plain equality or hash lookup per row | `hyrax-supabase/archive/portal/supabase/policies/attendance_logs_crud.sql`, `mgm_hr_reports_access_fix.sql` |
+| 3 | `daily_hardware` was referenced **twice**, so Postgres materialized it in full before any date predicate could reach it — **every** query, even a single-day one, aggregated all 51,963 `attendance_logs` rows. | `daily_hw_remote_overlap` now takes the scan bounds from a `LATERAL` against `attendance_logs` (driven by `attendance_activities`, tens of rows) instead of joining the CTE, leaving `daily_hardware` referenced once and therefore inlinable | `hyrax-supabase/archive/portal/supabase/sql_editor/hr_unified_daily_attendance_view.sql` |
 
 Measured before any of it: `CTE daily_hardware -> HashAggregate (actual
 time=82.8..90.7 rows=10534) -> Seq Scan on attendance_logs (rows=51963)`.
@@ -312,8 +312,8 @@ to 18.
 
 **SQL (must be deployed with the frontend, the JSON key changes):**
 
-- `supabase/sql_editor/get_attendance_dashboard_rpc.sql`
-- `supabase/sql_editor/get_hr_reports_dashboard_rpc.sql`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/get_attendance_dashboard_rpc.sql`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/get_hr_reports_dashboard_rpc.sql`
 
 `hrFlagBreakdownData` becomes `dayStateBreakdownData`, and the dashboard RPC
 gains `evidenceQualityBreakdownData` as a **separate** chart. Under `hr_flag`
@@ -471,9 +471,9 @@ them are safe to re-run.
 
 | # | File | Why |
 |---|---|---|
-| 1 | `supabase/sql_editor/hr_unified_daily_attendance_view.sql` | leave guard on `is_late_arrival` / `is_early_leave` |
-| 2 | `supabase/sql_editor/get_attendance_dashboard_rpc.sql` | `day_state` KPIs, new chart keys, `trendBucket` |
-| 3 | `supabase/sql_editor/get_hr_reports_dashboard_rpc.sql` | same |
+| 1 | `hyrax-supabase/archive/portal/supabase/sql_editor/hr_unified_daily_attendance_view.sql` | leave guard on `is_late_arrival` / `is_early_leave` |
+| 2 | `hyrax-supabase/archive/portal/supabase/sql_editor/get_attendance_dashboard_rpc.sql` | `day_state` KPIs, new chart keys, `trendBucket` |
+| 3 | `hyrax-supabase/archive/portal/supabase/sql_editor/get_hr_reports_dashboard_rpc.sql` | same |
 
 `hr_attendance_activity_audit_view.sql` is **not** in this list — it is no
 longer collateral damage from step 1, so it only needs running when it
@@ -507,11 +507,11 @@ it.** Every other SQL consumer is migrated.
 
 | File | Change |
 |---|---|
-| `supabase/functions/get_payroll_reconciliation_rows.sql` | `hr_flag` → `day_state` in the `RETURNS TABLE` signature and all four category branches |
-| `supabase/sql_editor/get_payroll_period_summary_rpc.sql` | absent counts, working-day and actual-days-worked predicates |
-| `supabase/sql_editor/get_payroll_reconciliation_detail_rpc.sql` | JSON key `hrFlag` → `dayState` |
-| `supabase/sql_editor/acknowledge_attendance_day_rpc.sql` | the acknowledgement write guard |
-| `supabase/sql_editor/get_attendance_backfill_prefill_rpc.sql` | output column, plus a `drop function` it was missing |
+| `hyrax-supabase/archive/portal/supabase/functions/get_payroll_reconciliation_rows.sql` | `hr_flag` → `day_state` in the `RETURNS TABLE` signature and all four category branches |
+| `hyrax-supabase/archive/portal/supabase/sql_editor/get_payroll_period_summary_rpc.sql` | absent counts, working-day and actual-days-worked predicates |
+| `hyrax-supabase/archive/portal/supabase/sql_editor/get_payroll_reconciliation_detail_rpc.sql` | JSON key `hrFlag` → `dayState` |
+| `hyrax-supabase/archive/portal/supabase/sql_editor/acknowledge_attendance_day_rpc.sql` | the acknowledgement write guard |
+| `hyrax-supabase/archive/portal/supabase/sql_editor/get_attendance_backfill_prefill_rpc.sql` | output column, plus a `drop function` it was missing |
 | both notification functions | their own copies of the absent predicate |
 | `hr_unified_daily_attendance_view.sql` | calendar guard on `is_insufficient_half_day_hours` |
 
@@ -592,10 +592,10 @@ missing rule raises nothing, it is silent.
 
 | # | File |
 |---|---|
-| 1 | `supabase/policies/mgm_hr_reports_access_fix.sql` |
-| 2 | `supabase/functions/check_attendance_approvals_pending.sql` |
-| 3 | `supabase/sql_editor/seed_attendance_approval_pending_notification_rule.sql` |
-| 4 | `supabase/sql_editor/seed_payroll_reconciliation_notification_rules.sql` |
+| 1 | `hyrax-supabase/archive/portal/supabase/policies/mgm_hr_reports_access_fix.sql` |
+| 2 | `hyrax-supabase/archive/portal/supabase/functions/check_attendance_approvals_pending.sql` |
+| 3 | `hyrax-supabase/archive/portal/supabase/sql_editor/seed_attendance_approval_pending_notification_rule.sql` |
+| 4 | `hyrax-supabase/archive/portal/supabase/sql_editor/seed_payroll_reconciliation_notification_rules.sql` |
 
 ### The HR spam, and why it was worse than one-per-employee
 
@@ -709,7 +709,7 @@ between audiences is expressed here. No accumulated duplicates existed.
 
 ### Keeping the rules reviewable
 
-`supabase/diagnostics/export_notification_rules.sql` produces a CSV for
+`hyrax-supabase/archive/portal/supabase/diagnostics/export_notification_rules.sql` produces a CSV for
 `docs/portal/NOTIFICATION-RULES.csv`, maintained the same way
 `TABLE-POLICIES.csv` is. Re-run it after any rule change.
 
@@ -736,8 +736,8 @@ whose event type has not fired in 90 days.
 ## Rollback (Ship 1)
 
 ```
-git show 5109aa0~1:supabase/sql_editor/hr_unified_daily_attendance_view.sql
-git show 5109aa0~1:supabase/sql_editor/hr_attendance_activity_audit_view.sql
+git show 5109aa0~1:hyrax-supabase/archive/portal/supabase/sql_editor/hr_unified_daily_attendance_view.sql
+git show 5109aa0~1:hyrax-supabase/archive/portal/supabase/sql_editor/hr_attendance_activity_audit_view.sql
 ```
 
 `DROP VIEW public.unified_daily_attendance CASCADE` first, then run both, then

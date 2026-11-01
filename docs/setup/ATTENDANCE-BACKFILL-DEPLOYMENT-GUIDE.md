@@ -82,7 +82,7 @@ from public.attendance_acknowledgement_reasons order by sort_order;
 `acknowledge_attendance_day` + `revoke_attendance_day_acknowledgement`. Needs
 step 5.
 
-## 7. `supabase/functions/notify_attendance_clocked_in.sql`, then `supabase/triggers/trg_notify_attendance_clocked_in.sql`
+## 7. `hyrax-supabase/archive/portal/supabase/functions/notify_attendance_clocked_in.sql`, then `hyrax-supabase/archive/portal/supabase/triggers/trg_notify_attendance_clocked_in.sql`
 
 > **Must run BEFORE step 10.** That trigger currently fires on _every_ insert
 > into `attendance_activities`. Deploy the backfill RPC first and the first bulk
@@ -157,8 +157,8 @@ a resolved flag clears in some places and not others.
 
 | #   | File                                                           | Why it needs its own change                                                                                                               |
 | --- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 13  | `supabase/functions/get_payroll_reconciliation_rows.sql`       | Clears **three** surfaces at once — the HR drilldown sidebar, the emailed list, and the weekly employee reminder all call this one helper |
-| 14  | `supabase/functions/send_payroll_reconciliation_hr_digest.sql` | Computes its own `has_absent` / `has_insufficient_half_day` directly from the view, so it needs a separate copy of the filter             |
+| 13  | `hyrax-supabase/archive/portal/supabase/functions/get_payroll_reconciliation_rows.sql`       | Clears **three** surfaces at once — the HR drilldown sidebar, the emailed list, and the weekly employee reminder all call this one helper |
+| 14  | `hyrax-supabase/archive/portal/supabase/functions/send_payroll_reconciliation_hr_digest.sql` | Computes its own `has_absent` / `has_insufficient_half_day` directly from the view, so it needs a separate copy of the filter             |
 | 15  | `get_payroll_period_summary_rpc.sql`                           | Adds `unacknowledgedAbsenceCount` / `unacknowledgedInsufficientHalfDayCount`                                                              |
 | 16  | `queue_payroll_reconciliation_email_rpc.sql`                   | Per-date deep links in the emailed date list                                                                                              |
 
@@ -268,14 +268,14 @@ delete from public.notification_rules where event_type = 'attendance.backfilled'
 
 Then re-run the **previous** versions of these from git history:
 
-- `supabase/triggers/trg_notify_attendance_clocked_in.sql` and
-  `supabase/functions/notify_attendance_clocked_in.sql`
-- `supabase/functions/get_payroll_reconciliation_rows.sql`
-- `supabase/functions/send_payroll_reconciliation_hr_digest.sql`
-- `supabase/sql_editor/get_payroll_period_summary_rpc.sql`
-- `supabase/sql_editor/queue_payroll_reconciliation_email_rpc.sql`
-- `supabase/sql_editor/hr_unified_daily_attendance_view.sql`
-- `supabase/sql_editor/hr_attendance_activity_audit_view.sql`
+- `hyrax-supabase/archive/portal/supabase/triggers/trg_notify_attendance_clocked_in.sql` and
+  `hyrax-supabase/archive/portal/supabase/functions/notify_attendance_clocked_in.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/get_payroll_reconciliation_rows.sql`
+- `hyrax-supabase/archive/portal/supabase/functions/send_payroll_reconciliation_hr_digest.sql`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/get_payroll_period_summary_rpc.sql`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/queue_payroll_reconciliation_email_rpc.sql`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/hr_unified_daily_attendance_view.sql`
+- `hyrax-supabase/archive/portal/supabase/sql_editor/hr_attendance_activity_audit_view.sql`
 
 **Do not drop `entry_method`** once any backfilled rows exist — it is the only
 thing distinguishing an asserted record from an observed one, and

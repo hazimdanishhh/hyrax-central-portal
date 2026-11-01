@@ -8,10 +8,10 @@ Exact, ordered steps to deploy the four notifications described in [`docs/NOTIFI
 
 ## 1. Schema — 4 new columns
 
-- [ ] Run **`supabase/sql_editor/employees_add_confirmation_overdue_last_notified_at.sql`**
-- [ ] Run **`supabase/sql_editor/employees_add_confirmation_mismatch_notified_at.sql`**
-- [ ] Run **`supabase/sql_editor/employees_add_contract_action_reminder_sent_at.sql`**
-- [ ] Run **`supabase/sql_editor/attendance_activities_add_last_reminder_sent_at.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/employees_add_confirmation_overdue_last_notified_at.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/employees_add_confirmation_mismatch_notified_at.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/employees_add_contract_action_reminder_sent_at.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/attendance_activities_add_last_reminder_sent_at.sql`**
 
 All four are plain `alter table ... add column if not exists`, safe to re-run.
 
@@ -19,23 +19,23 @@ All four are plain `alter table ... add column if not exists`, safe to re-run.
 
 Order doesn't matter between these — run all four:
 
-- [ ] Run **`supabase/functions/check_employee_confirmations_overdue.sql`**
-- [ ] Run **`supabase/functions/check_employee_confirmation_status_mismatches.sql`**
-- [ ] Run **`supabase/functions/check_employee_contract_actions_due.sql`**
-- [ ] Run **`supabase/functions/check_attendance_approvals_pending.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_employee_confirmations_overdue.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_employee_confirmation_status_mismatches.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_employee_contract_actions_due.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/functions/check_attendance_approvals_pending.sql`**
 
 ## 3. Seed the 4 notification rules
 
-- [ ] Run **`supabase/sql_editor/seed_employee_confirmation_overdue_notification_rule.sql`**
-- [ ] Run **`supabase/sql_editor/seed_employee_confirmation_mismatch_notification_rule.sql`**
-- [ ] Run **`supabase/sql_editor/seed_employee_contract_action_due_notification_rule.sql`**
-- [ ] Run **`supabase/sql_editor/seed_attendance_approval_pending_notification_rule.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_employee_confirmation_overdue_notification_rule.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_employee_confirmation_mismatch_notification_rule.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_employee_contract_action_due_notification_rule.sql`**
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/seed_attendance_approval_pending_notification_rule.sql`**
 
 As always, these are data rows, not code — edit `target_roles`/`target_departments`/`target_payload_keys` directly later if the real recipients should differ, no function changes needed.
 
 ## 3a. Pause `employee.confirmation_status_mismatch`
 
-- [ ] Run **`supabase/sql_editor/pause_confirmation_status_mismatch_rule.sql`** immediately after seeding it in step 3.
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/pause_confirmation_status_mismatch_rule.sql`** immediately after seeding it in step 3.
 
 Most migrated active employees have no `confirmation_date` at all — enabling this one-shot check today would flood HR with false positives and permanently burn each employee's single notification opportunity on migration noise, not a real process gap. This sets `is_active = false` on the rule; combined with step 4 not calling the function from cron, this fully pauses it without deleting anything. Re-enable later (once the historical data gap is fixed) by flipping `is_active` back to `true` and re-adding the function call to the cron job.
 
@@ -44,8 +44,8 @@ Most migrated active employees have no `confirmation_date` at all — enabling t
 **Important — this step changes an existing job, it doesn't just add a new one.** The original `schedule_check_employee_confirmations_cron.sql` only ever scheduled `check_employee_confirmations_due_soon()` under the job name `check-employee-confirmations-due-soon-daily`. Re-running `cron.schedule()` under a different name does **not** touch that old job — if it's live, unschedule it first:
 
 - [ ] Run: `select cron.unschedule('check-employee-confirmations-due-soon-daily');` (safe to run even if it doesn't exist/was already renamed — check with the query in step 5 first if unsure).
-- [ ] Run the updated **`supabase/sql_editor/schedule_check_employee_confirmations_cron.sql`** — creates a new job, `check-employee-lifecycle-daily`, that calls the three active `employees`-table functions (due-soon, overdue, contract-action-due) in one daily tick. `check_employee_confirmation_status_mismatches()` is deliberately not called (see step 3a).
-- [ ] Run **`supabase/sql_editor/schedule_check_attendance_approvals_cron.sql`** — a separate new job, `check-attendance-approvals-pending-daily`, for the `attendance_activities`-table function.
+- [ ] Run the updated **`hyrax-supabase/archive/portal/supabase/sql_editor/schedule_check_employee_confirmations_cron.sql`** — creates a new job, `check-employee-lifecycle-daily`, that calls the three active `employees`-table functions (due-soon, overdue, contract-action-due) in one daily tick. `check_employee_confirmation_status_mismatches()` is deliberately not called (see step 3a).
+- [ ] Run **`hyrax-supabase/archive/portal/supabase/sql_editor/schedule_check_attendance_approvals_cron.sql`** — a separate new job, `check-attendance-approvals-pending-daily`, for the `attendance_activities`-table function.
 
 **Checkpoint: all four notifications are now live end to end**, running daily. Steps below are for manual verification without waiting for real data to age into each condition.
 

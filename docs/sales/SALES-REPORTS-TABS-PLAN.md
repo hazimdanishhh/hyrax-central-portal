@@ -238,10 +238,10 @@ the starting point.
 
 1. **SQL layer.**
    - `sales_metric_facts_views.sql` (Layer 1) and `sales_metric_functions.sql`
-     (Layer 2) in `supabase/sql_editor/`.
+     (Layer 2) in `hyrax-supabase/archive/portal/supabase/sql_editor/`.
    - Add the test suite.
    - Run both files in Supabase. Nothing reads them yet.
-2. **Reconcile.** `supabase/diagnostics/sales_reports_tabs_reconciliation.sql`
+2. **Reconcile.** `hyrax-supabase/archive/portal/supabase/diagnostics/sales_reports_tabs_reconciliation.sql`
    compares `sales_totals` with the old RPC's KPIs over the last 12 months. Every
    difference must be one of the known, intended fixes (audit D2/D5/D6/D8/D12),
    listed in the file.
@@ -282,17 +282,17 @@ the starting point.
 
 | What | Where |
 |---|---|
-| Fact views (8: invoices, invoice lines, orders, order book, collections, receivables, leads, and won deals as the leads view's won rows). The planned budget/target views were dropped: they only renamed columns, so the functions read `sales_budgets` / `sales_targets` directly | `supabase/sql_editor/sales_metric_facts_views.sql` |
-| Shared logic: `fiscal_year_start`, `report_period`, `prorate_months`, `sales_report_scope`, `sales_totals`, `sales_monthly_series`, `sales_rep_totals`, `sales_pipeline_totals`, `sales_order_book_totals`, `sales_report_meta` | `supabase/sql_editor/sales_metric_functions.sql` |
+| Fact views (8: invoices, invoice lines, orders, order book, collections, receivables, leads, and won deals as the leads view's won rows). The planned budget/target views were dropped: they only renamed columns, so the functions read `sales_budgets` / `sales_targets` directly | `hyrax-supabase/archive/portal/supabase/sql_editor/sales_metric_facts_views.sql` |
+| Shared logic: `fiscal_year_start`, `report_period`, `prorate_months`, `sales_report_scope`, `sales_totals`, `sales_monthly_series`, `sales_rep_totals`, `sales_pipeline_totals`, `sales_order_book_totals`, `sales_report_meta` | `hyrax-supabase/archive/portal/supabase/sql_editor/sales_metric_functions.sql` |
 | Tab RPCs | `get_sales_summary_rpc.sql`, `get_sales_pipeline_rpc.sql`, `get_sales_orders_rpc.sql`, `get_sales_invoicing_rpc.sql`, `get_sales_collections_rpc.sql`, `get_sales_team_rpc.sql` |
-| Reconciliation against the old RPC (read-only) | `supabase/diagnostics/sales_reports_tabs_reconciliation.sql` |
-| Tests (Vitest + PGlite): definitions, cross-tab consistency, scoping, period rules | `tests/sql/sales_metrics.test.js`, `tests/unit/periodRange.test.js` |
+| Reconciliation against the old RPC (read-only) | `hyrax-supabase/archive/portal/supabase/diagnostics/sales_reports_tabs_reconciliation.sql` |
+| Tests (Vitest + PGlite): definitions, cross-tab consistency, scoping, period rules | `hyrax-supabase/tests/sql/sales_metrics.test.js`, `tests/unit/periodRange.test.js` |
 | Layout + 7 tabs (Summary · Pipeline · Orders · Invoicing · Collections · Team · Forecast). Reports are for meetings (the story of a period); Leads Overview and the Orders page are for daily work and are unchanged | `src/pages/user/sales/reports/SalesReportsLayout.jsx`, `tabs/*` |
 | Routes: `/sales/reports/{summary,revenue,collections,team,forecast}`; the old page at `/sales/reports-legacy` | `src/routes/SalesRoutes.jsx` |
 
 **Left for step 5**, after the reconciliation shows only the expected differences:
 
-- Delete `/sales/reports-legacy`, `Reports.jsx`, `config/overviewConfig.js` and `supabase/sql_editor/get_sales_reports_dashboard_rpc.sql` (drop the function in Supabase).
+- Delete `/sales/reports-legacy`, `Reports.jsx`, `config/overviewConfig.js` and `hyrax-supabase/archive/portal/supabase/sql_editor/get_sales_reports_dashboard_rpc.sql` (drop the function in Supabase).
 - ~~Leads Overview: add a target line to its revenue trend; adopt D5.~~
   **Done 2026-10-23** — Leads Overview was rebuilt onto the shared metric
   layer (`get_sales_leads_dashboard`): Pipeline Won vs Target line, D5
@@ -319,7 +319,7 @@ departments' reports. Decisions taken for this build:
 - **Collection Rate retired** (D3 closed): aging, Overdue and DSO
   (Finance's formula, shared as `ar_dso`, trailing 90 days) replace it, and
   Top Customers on Invoicing no longer shows same-period payments.
-- **Gross Margin is gated** on `supabase/diagnostics/sales_gross_profit_coverage.sql`
+- **Gross Margin is gated** on `hyrax-supabase/archive/portal/supabase/diagnostics/sales_gross_profit_coverage.sql`
   (95%+ of Invoiced Revenue with a known GP over 12 months). Until it passes,
   `GROSS_MARGIN_RELEASED` in `reportFormat.js` stays `false` and Gross Margin
   and Gross Profit by Rep stay hidden. Basis: GP ÷ revenue before tax

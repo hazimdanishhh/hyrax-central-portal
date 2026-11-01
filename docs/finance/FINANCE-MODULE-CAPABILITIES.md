@@ -1,6 +1,6 @@
 # Finance Module Capabilities
 
-A living tracker of what each Finance module lets users do today vs. what's still missing. This is not a one-time snapshot — update it as work ships (a feature lands, a gap closes, a new gap is found) rather than treating it as a point-in-time audit. For the underlying route/access structure these modules sit behind, see `supabase/access-control/route_access_matrix.csv` and `README.md`; for KPI/RPC-level detail, see `docs/DASHBOARD-CURRENT-STATE.md` and `docs/RPC-REFERENCE.md`.
+A living tracker of what each Finance module lets users do today vs. what's still missing. This is not a one-time snapshot — update it as work ships (a feature lands, a gap closes, a new gap is found) rather than treating it as a point-in-time audit. For the underlying route/access structure these modules sit behind, see `docs/access-control/route_access_matrix.csv` and `README.md`; for KPI/RPC-level detail, see `docs/DASHBOARD-CURRENT-STATE.md` and `docs/RPC-REFERENCE.md`.
 
 ## Invoices & A/R (tabs: Invoices, Payments)
 
