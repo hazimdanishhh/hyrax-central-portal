@@ -25,7 +25,8 @@ If you're offered/offering a multiple-choice decision and one branch depends on 
 
 ## Commands
 
-- `npm run dev` — start Vite dev server
+- `npm run dev` — start Vite dev server against the **local** Supabase stack (`.env.development`; start it with `supabase start` in `../hyrax-supabase`, sign in with Google, then `scripts/local/become.sh <role> <DEPT>` there to pick who you are — see that repo's README). Seeded data is made up; settings are copied from production.
+- `npm run dev:prod` — the dev server against **production** (`.env`). Real data: anything you change is live.
 - `npm run build` — production build
 - `npm run preview` — preview a production build locally
 - `npm run lint` — ESLint (flat config, `eslint.config.js`)
